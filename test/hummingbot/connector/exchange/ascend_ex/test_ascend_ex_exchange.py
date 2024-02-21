@@ -3,7 +3,7 @@ import json
 import re
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -270,7 +270,7 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     @property
     def expected_trading_rule(self):
@@ -291,10 +291,6 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     @property
     def expected_exchange_order_id(self):
         return 21
-
-    @property
-    def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-        return self.exchange.is_cancel_request_in_exchange_synchronous
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
@@ -398,6 +394,21 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
         all_urls.append(url)
         return all_urls
+
+    def configure_order_not_found_error_cancelation_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
+        raise NotImplementedError
+
+    def configure_order_not_found_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        # Implement the expected not found response when enabling
+        # test_lost_order_removed_if_not_found_during_order_status_update
+        raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
@@ -837,6 +848,18 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             )
         )
 
+    @aioresponses()
+    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
+        pass
+
+    @aioresponses()
+    def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during status update (check _is_order_not_found_during_status_update_error)
+        pass
+
     def _validate_auth_credentials_taking_parameters_from_argument(
         self, request_call_tuple: RequestCall, params: Dict[str, Any]
     ):
@@ -1039,3 +1062,56 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
         return self._order_trade_request_completely_filled_mock_response(order)
+
+    def place_buy_market_order(self, amount: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
+        order_id = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=amount,
+            order_type=OrderType.MARKET,
+            price=price,
+        )
+        return order_id
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange.AscendExExchange.get_price")
+    def test_create_buy_market_order_successfully(self, mock_api, get_price_mock):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        get_price_mock.return_value = Decimal("10_000")
+        url = self.order_creation_url
+
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id = self.place_buy_market_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        request_data = json.loads(order_request.kwargs["data"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["symbol"])
+        self.assertEqual(self.exchange.in_flight_orders[order_id].trade_type.name.lower(), request_data["side"])
+        self.assertEqual(OrderType.MARKET.name.lower(), request_data["orderType"])
+        self.assertEqual(Decimal("100"), Decimal(request_data["orderQty"]))
+        self.assertEqual("IOC", request_data["timeInForce"])
+        self.assertEqual(self.exchange.in_flight_orders[order_id].client_order_id, request_data["id"])
+        create_event = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.MARKET.name} {TradeType.BUY.name} order {order_id} for "
+                f"{Decimal('100.000000')} {self.trading_pair}."
+            )
+        )

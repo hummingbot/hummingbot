@@ -1,26 +1,10 @@
 from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, Dict, List, Optional
 
 import numpy
 import pandas as pd
-from sqlalchemy import (
-    BigInteger,
-    Column,
-    ForeignKey,
-    Index,
-    Integer,
-    JSON,
-    Text,
-)
-from sqlalchemy.orm import (
-    relationship,
-    Session
-)
+from sqlalchemy import JSON, BigInteger, Column, ForeignKey, Index, Integer, Text
+from sqlalchemy.orm import Session, relationship
 
 from hummingbot.core.event.events import PositionAction
 from hummingbot.model import HummingbotBase
@@ -53,6 +37,7 @@ class TradeFill(HummingbotBase):
     amount = Column(SqliteDecimal(6), nullable=False)
     leverage = Column(Integer, nullable=False, default=1)
     trade_fee = Column(JSON, nullable=False)
+    trade_fee_in_quote = Column(SqliteDecimal(6))
     exchange_trade_id = Column(Text, primary_key=True, nullable=False)
     position = Column(Text, nullable=True, default=PositionAction.NIL.value)
     order = relationship("Order", back_populates="trade_fills")
@@ -120,9 +105,11 @@ class TradeFill(HummingbotBase):
         data = []
         for trade in trades:
 
-            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            age = pd.Timestamp(int(trade.timestamp / 1e3 - trade.order.creation_timestamp / 1e3),
-                               unit='s').strftime('%H:%M:%S')
+            if trade.order is None:  # order creation update has not arrived yet
+                age = pd.Timestamp(0, unit='s').strftime('%H:%M:%S')
+            else:
+                age = pd.Timestamp(int(trade.timestamp / 1e3 - trade.order.creation_timestamp / 1e3),
+                                   unit='s').strftime('%H:%M:%S')
             data.append([
                 trade.exchange_trade_id,
                 datetime.fromtimestamp(int(trade.timestamp / 1e3)).strftime("%Y-%m-%d %H:%M:%S"),
@@ -177,4 +164,5 @@ class TradeFill(HummingbotBase):
             "amount",
             "leverage",
             "trade_fee",
+            "trade_fee_in_quote",
             "position", ]

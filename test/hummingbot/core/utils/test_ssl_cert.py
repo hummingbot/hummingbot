@@ -102,8 +102,7 @@ class SslCertTest(unittest.TestCase):
             with open(verified_public_key_file_path2, "rb") as verified_public_key2:
                 self.assertNotEqual(verified_public_key, verified_public_key2)
 
-    @patch("hummingbot.core.gateway.get_gateway_container_name", return_value="test_container_abc")
-    def test_create_self_sign_certs(self, _):
+    def test_create_self_sign_certs(self):
         """
         Unit tests for create_self_sign_certs and certs_files_exist
         """
@@ -124,5 +123,5 @@ class SslCertTest(unittest.TestCase):
                 self.assertEqual(certs_files_exist(client_config_map=self.client_config_map), False)
 
                 # generate all necessary certs then confirm they exist in the expected place
-                create_self_sign_certs("abc123", client_config_map=self.client_config_map)
+                create_self_sign_certs("abc123", cert_path=mock_gateway_paths.local_certs_path.as_posix())
                 self.assertEqual(certs_files_exist(client_config_map=self.client_config_map), True)

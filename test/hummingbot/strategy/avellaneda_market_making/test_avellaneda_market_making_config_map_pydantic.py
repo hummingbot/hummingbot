@@ -11,6 +11,7 @@ from pydantic import validate_model
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigValidationError
 from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap,
     DailyBetweenTimesModel,
@@ -35,8 +36,11 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        config_settings = self.get_default_map()
-        self.config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
+        # Make sure market trading pair validations are not executed with real info
+        with patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher.fetch_all"):
+            TradingPairFetcher._sf_shared_instance = None
+            config_settings = self.get_default_map()
+            self.config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap(**config_settings))
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))

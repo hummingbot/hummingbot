@@ -214,6 +214,20 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         )
         return is_time_synchronizer_related
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
+        return False
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         data = {
             "symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
@@ -289,7 +303,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
         if trading_pair in self._trading_fees:
             fee_schema: TradeFeeSchema = self._trading_fees[trading_pair]
-            fee_rate = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.maker_percent_fee_decimal
+            fee_rate = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=fee_schema,
                 trade_type=order_side,

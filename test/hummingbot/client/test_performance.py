@@ -6,9 +6,9 @@ from typing import Awaitable
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.core.data_type.common import PositionAction, OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.trade import Trade
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, DeductedFromReturnsTradeFee, TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.model.order import Order  # noqa — Order needs to be defined for TradeFill
 from hummingbot.model.order_status import OrderStatus  # noqa — Order needs to be defined for TradeFill
@@ -326,3 +326,18 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         expected_fee_amount += flat_fees[0].amount * Decimal("0.9") * Decimal("2")
         expected_fee_amount += flat_fees[1].amount * Decimal("2")
         self.assertEqual(expected_fee_amount, performance_metric.fee_in_quote)
+
+    def test__process_deducted_fees_impact_in_quote_vol(self):
+        dummy_trade = Trade(trading_pair="HBOT-COINALPHA",
+                            side=TradeType.BUY,
+                            price=1000,
+                            amount=1,
+                            order_type=OrderType.LIMIT,
+                            market="binance",
+                            timestamp=1640001112.223,
+                            trade_fee=DeductedFromReturnsTradeFee(percent=Decimal("0.1"),
+                                                                  percent_token="COINALPHA"))
+
+        performance_metric = PerformanceMetrics()
+        returned_impact = performance_metric._process_deducted_fees_impact_in_quote_vol(dummy_trade)
+        self.assertEqual(returned_impact, Decimal("-100.0"))

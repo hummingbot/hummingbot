@@ -1,5 +1,0 @@
-version: 1
-configurations:
-  $namespace defira:
-    configurationPath: invalid-defira.yml
-    schemaPath: defira-schema.json 

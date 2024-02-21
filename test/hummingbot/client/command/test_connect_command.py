@@ -86,31 +86,6 @@ class ConnectCommandTest(unittest.TestCase):
         self.assertEqual(update_secure_config_mock.call_count, 1)
 
     @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
-    @patch("hummingbot.client.config.security.save_to_yml")
-    @patch("hummingbot.client.command.connect_command.CeloCLI")
-    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
-    def test_connect_celo_success(
-        self,
-        connector_config_file_exists_mock: MagicMock,
-        celo_cli_mock: MagicMock,
-        _: MagicMock,
-        __: AsyncMock,
-    ):
-        connector_config_file_exists_mock.return_value = False
-        exchange = "celo"
-        celo_address = "someAddress"
-        celo_password = "somePassword"
-        self.cli_mock_assistant.queue_prompt_reply(celo_address)
-        self.cli_mock_assistant.queue_prompt_reply(celo_password)
-        celo_cli_mock.validate_node_synced.return_value = None
-        celo_cli_mock.unlock_account.return_value = None
-
-        self.async_run_with_timeout(self.app.connect_exchange(exchange))
-        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="\nYou are now connected to celo."))
-        self.assertFalse(self.app.placeholder_mode)
-        self.assertFalse(self.app.app.hide_input)
-
-    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
     @patch("hummingbot.client.config.security.Security.update_secure_config")
     @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
     @patch("hummingbot.client.config.security.Security.api_keys")
@@ -186,7 +161,6 @@ class ConnectCommandTest(unittest.TestCase):
             columns=pd.Index(['Exchange', '  Keys Added', '  Keys Confirmed', '  Status'], dtype='object'),
             data=[
                 ["ascend_ex", "Yes", "Yes", "&cYELLOW"],
-                ["beaxy", "Yes", "Yes", "&cGREEN"]
             ]
         )
         connection_df_mock.return_value = (connections_df, [])
@@ -201,7 +175,6 @@ class ConnectCommandTest(unittest.TestCase):
             "\n    | Exchange   |   Keys Added   |   Keys Confirmed   |   Status   |"
             "\n    |------------+----------------+--------------------+------------|"
             "\n    | ascend_ex  | Yes            | Yes                | &cYELLOW   |"
-            "\n    | beaxy      | Yes            | Yes                | &cGREEN    |"
             "\n    +------------+----------------+--------------------+------------+"
         )
 

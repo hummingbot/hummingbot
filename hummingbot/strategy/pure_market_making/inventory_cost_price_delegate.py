@@ -25,7 +25,7 @@ class InventoryCostPriceDelegate:
                     session, self.base_asset, self.quote_asset
                 )
 
-                if record is None or record.base_volume is None or record.base_volume is None:
+                if record is None or record.base_volume is None or record.quote_volume is None:
                     return None
 
                 try:

@@ -1,0 +1,34 @@
+name: Bounty Request
+description: Create a bounty for developers to work on
+title: "Bounty Request "
+labels: bounty
+body:
+ - type: markdown
+   attributes:
+     value: |
+       ## **Before Submitting:**
+
+       * Please edit the "Bounty request" to the title of the bug/issue
+       * Please make sure to look on our GitHub issues to avoid duplicate tickets
+       * You can add additional `Labels` to support this ticket (connectors, strategies, etc)
+       * See https://docs.hummingbot.org/governance/bounties/sponsors/ for more information on bounties
+ - type: textarea
+   id: bounty-description
+   attributes:
+     label: Description
+     description: "Describe what you want to do on this request"
+   validations:
+     required: true
+ - type: textarea
+   id: bounty-info
+   attributes: 
+     label: Bounty
+     value: |
+       - Sponsor: 
+       - Bounty amount: 
+       - Developer portion: 
+   validations: 
+     required: true
+   
+     
+  

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 from prompt_toolkit.utils import is_windows
 
+from hummingbot.client.command.gateway_command import GatewayCommand
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     missing_required_configs_legacy,
@@ -41,6 +42,9 @@ no_restart_pmm_keys = ["order_amount",
                        "price_ceiling_pct",
                        "price_floor_pct",
                        "price_band_refresh_time"
+                       "order_optimization_enabled",
+                       "bid_order_optimization_depth",
+                       "ask_order_optimization_depth"
                        ]
 client_configs_to_display = ["autofill_import",
                              "kill_switch_mode",
@@ -48,17 +52,30 @@ client_configs_to_display = ["autofill_import",
                              "telegram_mode",
                              "telegram_token",
                              "telegram_chat_id",
+                             "mqtt_bridge",
+                             "mqtt_host",
+                             "mqtt_port",
+                             "mqtt_namespace",
+                             "mqtt_username",
+                             "mqtt_password",
+                             "mqtt_ssl",
+                             "mqtt_logger",
+                             "mqtt_notifier",
+                             "mqtt_commands",
+                             "mqtt_events",
+                             "mqtt_external_events",
+                             "mqtt_autostart",
+                             "instance_id",
                              "send_error_logs",
                              "pmm_script_mode",
                              "pmm_script_file_path",
                              "ethereum_chain_name",
                              "gateway",
-                             "gateway_enabled",
-                             "gateway_cert_passphrase",
                              "gateway_api_host",
                              "gateway_api_port",
                              "rate_oracle_source",
                              "extra_tokens",
+                             "fetch_pairs_from_all_exchanges",
                              "global_token",
                              "global_token_name",
                              "global_token_symbol",
@@ -67,7 +84,12 @@ client_configs_to_display = ["autofill_import",
                              "create_command_timeout",
                              "other_commands_timeout",
                              "tables_format",
-                             "tick_size"]
+                             "tick_size",
+                             "market_data_collection",
+                             "market_data_collection_enabled",
+                             "market_data_collection_interval",
+                             "market_data_collection_depth",
+                             ]
 color_settings_to_display = ["top_pane",
                              "bottom_pane",
                              "output_pane",
@@ -229,7 +251,12 @@ class ConfigCommand:
                     return
                 else:
                     config_map = self.strategy_config_map
-                    file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                    if self.strategy_file_name is not None:
+                        file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                    else:
+                        self.notify("Strategy file name is not configured.")
+                        return
+
                 if input_value is None:
                     self.notify("Please follow the prompt to complete configurations: ")
                 if key == "inventory_target_base_pct":
@@ -247,7 +274,7 @@ class ConfigCommand:
                     self.list_client_configs()
                 else:
                     self.list_strategy_configs()
-                self.app.app.style = load_style(self.client_config_map)
+                self.app.style = load_style(self.client_config_map)
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
@@ -324,7 +351,10 @@ class ConfigCommand:
             exchange = config_map.exchange
             market = config_map.market
             base, quote = split_hb_trading_pair(market)
-            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
+            if UserBalances.instance().is_gateway_market(exchange):
+                balances = await GatewayCommand.balance(self, exchange, config_map, base, quote)
+            else:
+                balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
@@ -361,7 +391,10 @@ class ConfigCommand:
             exchange = config_map['exchange'].value
             market = config_map["market"].value
             base, quote = market.split("-")
-            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
+            if UserBalances.instance().is_gateway_market(exchange):
+                balances = await GatewayCommand.balance(self, exchange, config_map, base, quote)
+            else:
+                balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
@@ -414,6 +447,8 @@ class ConfigCommand:
 
             if exchange.endswith("paper_trade"):
                 balances = self.client_config_map.paper_trade.paper_trade_account_balance
+            elif UserBalances.instance().is_gateway_market(exchange):
+                balances = await GatewayCommand.balance(self, exchange, config_map, base_asset, quote_asset)
             else:
                 balances = await UserBalances.instance().balances(
                     exchange, base_asset, quote_asset

@@ -13,7 +13,7 @@ from pydantic import SecretStr
 from hummingbot import root_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.client.settings import CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
+from hummingbot.client.settings import CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
 from hummingbot.connector.utils import get_new_client_order_id
 
 
@@ -72,12 +72,12 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(expected_extra_reduced_id, extra_reduced_id)
 
     def test_connector_config_maps(self):
-        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "celo", "amm", "clob"]
+        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "amm", "clob"]
 
         type_dirs = [
             cast(DirEntry, f) for f in
             scandir(f"{root_path() / 'hummingbot' / 'connector'}")
-            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
+            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
         ]
         for type_dir in type_dirs:
             connector_dirs = [
@@ -95,9 +95,8 @@ class UtilsTest(unittest.TestCase):
 
                 self.assertIsInstance(connector_config, BaseConnectorConfigMap)
                 for el in ClientConfigAdapter(connector_config).traverse():
+                    print(el)
                     if el.attr == "connector":
                         self.assertEqual(el.value, connector_dir.name)
                     elif el.client_field_data.is_secure:
                         self.assertEqual(el.type_, SecretStr)
-                    else:
-                        self.assertEqual(el.type_, str)

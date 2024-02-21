@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import time
 from collections import OrderedDict, deque
 from typing import TYPE_CHECKING, Dict, List
@@ -6,6 +7,7 @@ from typing import TYPE_CHECKING, Dict, List
 import pandas as pd
 
 from hummingbot import check_dev_mode
+from hummingbot.client.command.gateway_command import GatewayCommand
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     get_strategy_config_map,
@@ -91,12 +93,11 @@ class StatusCommand:
         self  # type: HummingbotApplication
     ) -> Dict[str, str]:
         invalid_conns = {}
-        if self.strategy_name == "celo_arb":
-            err_msg = await self.validate_n_connect_celo(True)
-            if err_msg is not None:
-                invalid_conns["celo"] = err_msg
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
-            connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
+            if any([UserBalances.instance().is_gateway_market(exchange) for exchange in required_exchanges]):
+                connections = await GatewayCommand.update_exchange(self, self.client_config_map, exchanges=required_exchanges)
+            else:
+                connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
             if ethereum_wallet_required():
@@ -125,6 +126,10 @@ class StatusCommand:
 
     def status(self,  # type: HummingbotApplication
                live: bool = False):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.status, live)
+            return
+
         safe_ensure_future(self.status_check_all(live=live), loop=self.ev_loop)
 
     async def status_check_all(self,  # type: HummingbotApplication

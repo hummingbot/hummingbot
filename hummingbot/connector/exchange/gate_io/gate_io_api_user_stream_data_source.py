@@ -36,7 +36,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
-        Subscribes to order events.
+        Subscribes to order events and balance events.
 
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
@@ -64,10 +64,20 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 payload=trades_payload,
                 is_auth_required=True)
 
+            balance_payload = {
+                "time": int(self._time()),
+                "channel": CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+                "event": "subscribe",  # "unsubscribe" for unsubscription
+            }
+            subscribe_balance_request: WSJSONRequest = WSJSONRequest(
+                payload=balance_payload,
+                is_auth_required=True)
+
             await websocket_assistant.send(subscribe_order_change_request)
             await websocket_assistant.send(subscribe_trades_request)
+            await websocket_assistant.send(subscribe_balance_request)
 
-            self.logger().info("Subscribed to private order changes channels...")
+            self.logger().info("Subscribed to private order changes and balance updates channels...")
         except asyncio.CancelledError:
             raise
         except Exception:

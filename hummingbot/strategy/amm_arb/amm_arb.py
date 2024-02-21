@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple, cast
 import pandas as pd
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
@@ -60,7 +60,7 @@ class AmmArbStrategy(StrategyPyBase):
     _quote_eth_rate_fetch_loop_task: Optional[asyncio.Task]
     _market_1_quote_eth_rate: None          # XXX (martin_kou): Why are these here?
     _market_2_quote_eth_rate: None          # XXX (martin_kou): Why are these here?
-    _rate_source: RateOracle
+    _rate_source: Optional[RateOracle]
     _cancel_outdated_orders_task: Optional[asyncio.Task]
     _gateway_transaction_cancel_interval: int
 
@@ -81,6 +81,7 @@ class AmmArbStrategy(StrategyPyBase):
                     concurrent_orders_submission: bool = True,
                     status_report_interval: float = 900,
                     gateway_transaction_cancel_interval: int = 600,
+                    rate_source: Optional[RateOracle] = RateOracle.get_instance(),
                     ):
         """
         Assigns strategy parameters, this function must be called directly after init.
@@ -100,6 +101,7 @@ class AmmArbStrategy(StrategyPyBase):
         :param status_report_interval: Amount of seconds to wait to refresh the status report
         :param gateway_transaction_cancel_interval: Amount of seconds to wait before trying to cancel orders that are
         blockchain transactions that have not been included in a block (they are still in the mempool).
+        :param rate_source: The rate source to use for conversion rate - (RateOracle or FixedRateSource) - default is FixedRateSource
         """
         self._market_info_1 = market_info_1
         self._market_info_2 = market_info_2
@@ -120,7 +122,7 @@ class AmmArbStrategy(StrategyPyBase):
         self.add_markets([market_info_1.market, market_info_2.market])
         self._quote_eth_rate_fetch_loop_task = None
 
-        self._rate_source = RateOracle.get_instance()
+        self._rate_source = rate_source
 
         self._cancel_outdated_orders_task = None
         self._gateway_transaction_cancel_interval = gateway_transaction_cancel_interval
@@ -148,11 +150,11 @@ class AmmArbStrategy(StrategyPyBase):
         self._order_amount = value
 
     @property
-    def rate_source(self) -> RateOracle:
+    def rate_source(self) -> Optional[RateOracle]:
         return self._rate_source
 
     @rate_source.setter
-    def rate_source(self, src: RateOracle):
+    def rate_source(self, src: Optional[RateOracle]):
         self._rate_source = src
 
     @property
@@ -163,10 +165,14 @@ class AmmArbStrategy(StrategyPyBase):
     @lru_cache(maxsize=10)
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
         return market_info.market.name in sorted(
-            AllConnectorSettings.get_gateway_amm_connector_names().union(
-                AllConnectorSettings.get_gateway_clob_connector_names()
-            )
+            AllConnectorSettings.get_gateway_amm_connector_names()
         )
+
+    @staticmethod
+    @lru_cache(maxsize=10)
+    def is_gateway_market_evm_compatible(market_info: MarketTradingPairTuple) -> bool:
+        connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(market_info.market.name)
+        return connector_spec["chain_type"] == "EVM"
 
     def tick(self, timestamp: float):
         """
@@ -232,10 +238,10 @@ class AmmArbStrategy(StrategyPyBase):
     async def apply_gateway_transaction_cancel_interval(self):
         # XXX (martin_kou): Concurrent cancellations are not supported before the nonce architecture is fixed.
         # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
-        gateway_connectors: List[GatewayEVMAMM] = []
-        if self.is_gateway_market(self._market_info_1):
+        gateway_connectors = []
+        if self.is_gateway_market(self._market_info_1) and self.is_gateway_market_evm_compatible(self._market_info_1):
             gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_1.market))
-        if self.is_gateway_market(self._market_info_2):
+        if self.is_gateway_market(self._market_info_2) and self.is_gateway_market_evm_compatible(self._market_info_2):
             gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_2.market))
 
         for gateway in gateway_connectors:
@@ -399,11 +405,12 @@ class AmmArbStrategy(StrategyPyBase):
                          f"{profit_pct:.2%}")
         return lines
 
-    def quotes_rate_df(self):
-        columns = ["Quotes pair", "Rate"]
+    def get_fixed_rates_df(self):
+        columns = ["Pair", "Rate"]
         quotes_pair: str = f"{self._market_info_2.quote_asset}-{self._market_info_1.quote_asset}"
-        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(quotes_pair))]]
-
+        bases_pair: str = f"{self._market_info_2.base_asset}-{self._market_info_1.base_asset}"
+        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(quotes_pair))],
+                [bases_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(bases_pair))]]
         return pd.DataFrame(data=data, columns=columns)
 
     async def format_status(self) -> str:
@@ -456,9 +463,9 @@ class AmmArbStrategy(StrategyPyBase):
 
         lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._all_arb_proposals))
 
-        quotes_rates_df = self.quotes_rate_df()
-        lines.extend(["", f"  Quotes Rates ({str(self._rate_source)})"] +
-                     ["    " + line for line in str(quotes_rates_df).split("\n")])
+        fixed_rates_df = self.get_fixed_rates_df()
+        lines.extend(["", f"  Exchange Rates: ({str(self._rate_source)})"] +
+                     ["    " + line for line in str(fixed_rates_df).split("\n")])
 
         warning_lines = self.network_warning([self._market_info_1])
         warning_lines.extend(self.network_warning([self._market_info_2]))

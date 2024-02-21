@@ -5,8 +5,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
-from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee, build_trade_fee
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
@@ -181,7 +181,7 @@ class OrderCandidate:
     def _adjust_for_order_collateral(self, available_balances: Dict[str, Decimal]):
         if self.order_collateral is not None:
             token, amount = self.order_collateral
-            if available_balances[token] < amount:
+            if not amount.is_nan() and available_balances[token] < amount:
                 scaler = available_balances[token] / amount
                 self._scale_order(scaler)
 

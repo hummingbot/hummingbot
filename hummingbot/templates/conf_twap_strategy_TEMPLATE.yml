@@ -45,6 +45,3 @@ end_datetime: null
 # How long to between placing incremental orders
 # Only valid if is_time_span_execution is False
 order_delay_time: null
-
-# For more detailed information, see:
-# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters

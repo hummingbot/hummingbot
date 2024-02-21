@@ -15,8 +15,8 @@ from async_timeout import timeout
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -56,7 +56,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
             connector_name="uniswap",
             chain="ethereum",
             network="ropsten",
-            wallet_address="0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
+            address="0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
             trading_pairs=["DAI-WETH"],
             trading_required=True
         )
@@ -126,8 +126,8 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_update_approval_status(self):
-        def create_approval_record(token_symbol: str, tx_hash: str) -> EVMInFlightOrder:
-            return EVMInFlightOrder(
+        def create_approval_record(token_symbol: str, tx_hash: str) -> GatewayInFlightOrder:
+            return GatewayInFlightOrder(
                 client_order_id=self._connector.create_approval_order_id(token_symbol),
                 exchange_order_id=tx_hash,
                 trading_pair=token_symbol,
@@ -138,7 +138,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 gas_price=s_decimal_0,
                 creation_timestamp=self._connector.current_timestamp
             )
-        successful_records: List[EVMInFlightOrder] = [
+        successful_records: List[GatewayInFlightOrder] = [
             create_approval_record(
                 "WETH",
                 "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff9"        # noqa: mock
@@ -148,7 +148,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 "0x4f81aa904fcb16a8938c0e0a76bf848df32ce6378e9e0060f7afc4b2955de405"        # noqa: mock
             ),
         ]
-        fake_records: List[EVMInFlightOrder] = [
+        fake_records: List[GatewayInFlightOrder] = [
             create_approval_record(
                 "WETH",
                 "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff8"        # noqa: mock
@@ -182,8 +182,8 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 tx_hash: str,
                 price: Decimal,
                 amount: Decimal,
-                gas_price: Decimal) -> EVMInFlightOrder:
-            order: EVMInFlightOrder = EVMInFlightOrder(
+                gas_price: Decimal) -> GatewayInFlightOrder:
+            order: GatewayInFlightOrder = GatewayInFlightOrder(
                 client_order_id=self._connector.create_market_order_id(trade_type, trading_pair),
                 exchange_order_id=tx_hash,
                 trading_pair=trading_pair,
@@ -197,7 +197,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
             order.fee_asset = self._connector._native_currency
             self._connector._order_tracker.start_tracking_order(order)
             return order
-        successful_records: List[EVMInFlightOrder] = [
+        successful_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
                 TradeType.BUY,
@@ -207,7 +207,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 Decimal("29")
             )
         ]
-        fake_records: List[EVMInFlightOrder] = [
+        fake_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
                 TradeType.BUY,
@@ -243,9 +243,9 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_approve_token(self):
         self._http_player.replay_timestamp_ms = 1648499867736
-        weth_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("WETH")
+        weth_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("WETH")
         self._http_player.replay_timestamp_ms = 1648499871595
-        dai_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("DAI")
+        dai_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("DAI")
 
         self.assertEqual(
             "0x6c975ba8c1d35e8542ffd05956d9ec227c1ac234ae4d5f69819aa24bae784321",       # noqa: mock
@@ -338,3 +338,51 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 await clock_task
             except asyncio.CancelledError:
                 pass
+
+    def test_order_restoration(self):
+        self._connector.restore_tracking_states(
+            saved_states={
+                "sell-WETH-USDT-1680822551019999": {
+                    "client_order_id": "sell-WETH-USDT-1680822551019999",
+                    "exchange_order_id": "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a",  # noqa: mock
+                    "trading_pair": "WETH-USDT",
+                    "order_type": "LIMIT",
+                    "trade_type": "SELL",
+                    "price": "1848.189431481628356",
+                    "amount": "0.010000",
+                    "executed_amount_base": "0.010000",
+                    "executed_amount_quote": "18.481894314816283560000",
+                    "last_state": "5",
+                    "leverage": "1",
+                    "position": "NIL",
+                    "creation_timestamp": 1680822551.0,
+                    "last_update_timestamp": 1680822555.0,
+                    "order_fills": {
+                        "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a": {  # noqa: mock
+                            "trade_id": "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a",  # noqa: mock
+                            "client_order_id": "sell-WETH-USDT-1680822551019999",
+                            "exchange_order_id": "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a",  # noqa: mock
+                            "trading_pair": "WETH-USDT",
+                            "fill_timestamp": 1680822555.0,
+                            "fill_price": "1848.189431481628356",
+                            "fill_base_amount": "0.010000",
+                            "fill_quote_amount": "18.481894314816283560000",
+                            "fee": {
+                                "fee_type": "AddedToCost",
+                                "percent": "0",
+                                "percent_token": None,
+                                "flat_fees": [{"token": "ETH", "amount": "0.0001152116000000000063955285512"}],
+                            },
+                            "is_taker": True,
+                        }
+                    },
+                    "nonce": None,
+                    "cancel_tx_hash": None,
+                    "creation_transaction_hash": None,
+                    "gas_price": "None",
+                }
+            }
+        )
+        inflight_orders = self._connector.in_flight_orders
+        self.assertEqual(len(inflight_orders), 1)
+        # more asserts

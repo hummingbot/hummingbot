@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from collections import Awaitable
+from typing import Awaitable
 from unittest.mock import MagicMock, patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap, DBSqliteMode

@@ -664,6 +664,5 @@ cdef class StrategyBase(TimeIterator):
         """
         timestamp = pd.Timestamp.fromtimestamp(self._current_timestamp)
         self.notify_hb_app(f"({timestamp}) {msg}")
-
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

@@ -8,13 +8,18 @@ from os.path import dirname
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, SecretStr, root_validator, validator
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_float
-from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH, PMM_SCRIPTS_PATH, AllConnectorSettings
+from hummingbot.client.settings import (
+    DEFAULT_GATEWAY_CERTS_PATH,
+    DEFAULT_LOG_FILE_PATH,
+    PMM_SCRIPTS_PATH,
+    AllConnectorSettings,
+)
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector_metrics_collector import (
     DummyMetricsCollector,
@@ -24,6 +29,7 @@ from hummingbot.connector.connector_metrics_collector import (
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import AscendExConfigMap
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES, RateOracle
@@ -47,6 +53,135 @@ def generate_client_id() -> str:
 
 def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
+
+
+class MQTTBridgeConfigMap(BaseClientModel):
+    mqtt_host: str = Field(
+        default="localhost",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT hostname to connect to (e.g. localhost)"
+            ),
+        ),
+    )
+    mqtt_port: int = Field(
+        default=1883,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT port to connect to (e.g. 1883)"
+            ),
+        ),
+    )
+    mqtt_username: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the username for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_password: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the password for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_namespace: str = Field(
+        default='hbot',
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the mqtt uri namespace (Default='hbot')"
+            ),
+        ),
+    )
+    mqtt_ssl: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable SSL for MQTT connections"
+            ),
+        ),
+    )
+    mqtt_logger: bool = Field(
+        default=True
+    )
+    mqtt_notifier: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Notifier"
+            ),
+        ),
+    )
+    mqtt_commands: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Commands"
+            ),
+        ),
+    )
+    mqtt_events: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable Events forwarding to MQTT broker"
+            ),
+        ),
+    )
+    mqtt_external_events: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable External MQTT Event listener"
+            ),
+        ),
+    )
+    mqtt_autostart: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable autostart"
+            ),
+        ),
+    )
+
+    class Config:
+        title = "mqtt_bridge"
+
+
+class MarketDataCollectionConfigMap(BaseClientModel):
+    market_data_collection_enabled: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable Market Data Collection"
+            ),
+        ),
+    )
+    market_data_collection_interval: int = Field(
+        default=60,
+        ge=1,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the market data collection interval in seconds (Default=60)"
+            ),
+        ),
+    )
+    market_data_collection_depth: int = Field(
+        default=20,
+        ge=2,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the order book collection depth (Default=20)"
+            ),
+        ),
+    )
+
+    class Config:
+        title = "market_data_collection"
 
 
 class ColorConfigMap(BaseClientModel):
@@ -122,6 +257,24 @@ class ColorConfigMap(BaseClientModel):
             prompt=lambda cm: "What is the background color for error label?",
         ),
     )
+    gold_label: str = Field(
+        default="#FFD700",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for gold label?",
+        ),
+    )
+    silver_label: str = Field(
+        default="#C0C0C0",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for silver label?",
+        ),
+    )
+    bronze_label: str = Field(
+        default="#CD7F32",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for bronze label?",
+        ),
+    )
 
     @validator(
         "top_pane",
@@ -136,6 +289,9 @@ class ColorConfigMap(BaseClientModel):
         "warning_label",
         "info_label",
         "error_label",
+        "gold_label",
+        "silver_label",
+        "bronze_label",
         pre=True,
     )
     def validate_color(cls, v: str):
@@ -151,6 +307,7 @@ class PaperTradeConfigMap(BaseClientModel):
             KuCoinConfigMap.Config.title,
             AscendExConfigMap.Config.title,
             GateIOConfigMap.Config.title,
+            InjectiveConfigMap.Config.title,
         ],
     )
     paper_trade_account_balance: Dict[str, float] = Field(
@@ -426,7 +583,12 @@ PMM_SCRIPT_MODES = {
 
 
 class GatewayConfigMap(BaseClientModel):
-    gateway_api_host: str = Field(default="localhost")
+    gateway_api_host: str = Field(
+        default="localhost",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Please enter your Gateway API host",
+        ),
+    )
     gateway_api_port: str = Field(
         default="15888",
         client_data=ClientFieldData(
@@ -438,21 +600,9 @@ class GatewayConfigMap(BaseClientModel):
         title = "gateway"
 
 
-class CertsConfigMap(BaseClientModel):
-    path: str = Field(
-        default="",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter the path for your certificate files",
-        ),
-    )
-
-    class Config:
-        title = "certs"
-
-
 class GlobalTokenConfigMap(BaseClientModel):
     global_token_name: str = Field(
-        default="USD",
+        default="USDT",
         client_data=ClientFieldData(
             prompt=lambda
                 cm: "What is your default display token? (e.g. USD,EUR,BTC)",
@@ -657,6 +807,87 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
         return values
 
 
+class CoinCapRateSourceMode(RateSourceModeBase):
+    name: str = Field(
+        default="coin_cap",
+        const=True,
+        client_data=None,
+    )
+    assets_map: Dict[str, str] = Field(
+        default=",".join(
+            [
+                ":".join(pair) for pair in {
+                    "BTC": "bitcoin",
+                    "ETH": "ethereum",
+                    "USDT": "tether",
+                    "CONV": "convergence",
+                    "FIRO": "zcoin",
+                    "BUSD": "binance-usd",
+                    "ONE": "harmony",
+                    "PDEX": "polkadex",
+                }.items()
+            ]
+        ),
+        description=(
+            "The symbol-to-asset ID map for CoinCap. Assets IDs can be found by selecting a symbol"
+            " on https://coincap.io/ and extracting the last segment of the URL path."
+        ),
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "CoinCap symbol-to-asset ID map (e.g. 'BTC:bitcoin,ETH:ethereum', find IDs on https://coincap.io/"
+                " by selecting a symbol and extracting the last segment of the URL path)"
+            ),
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="API key to use to request information from CoinCap (if empty public requests will be used)",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "CoinCap API key (optional, but improves rate limits)",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = "coin_cap"
+
+    def build_rate_source(self) -> RateSourceBase:
+        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
+            assets_map=self.assets_map, api_key=self.api_key.get_secret_value()
+        )
+        return rate_source
+
+    @validator("assets_map", pre=True)
+    def validate_extra_tokens(cls, value: Union[str, Dict[str, str]]):
+        if isinstance(value, str):
+            value = {key: val for key, val in [v.split(":") for v in value.split(",")]}
+        return value
+
+    # === post-validations ===
+
+    @root_validator()
+    def post_validations(cls, values: Dict):
+        cls.rate_oracle_source_on_validated(values)
+        return values
+
+    @classmethod
+    def rate_oracle_source_on_validated(cls, values: Dict):
+        RateOracle.get_instance().source = cls._build_rate_source_cls(
+            assets_map=values["assets_map"], api_key=values["api_key"]
+        )
+
+    @classmethod
+    def _build_rate_source_cls(cls, assets_map: Dict[str, str], api_key: SecretStr) -> RateSourceBase:
+        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
+            assets_map=assets_map, api_key=api_key.get_secret_value()
+        )
+        return rate_source
+
+
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="kucoin",
@@ -683,6 +914,7 @@ RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
+    CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
     GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
 }
@@ -696,7 +928,19 @@ class CommandShortcutModel(BaseModel):
 
 
 class ClientConfigMap(BaseClientModel):
-    instance_id: str = Field(default=generate_client_id())
+    instance_id: str = Field(
+        default=generate_client_id(),
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Instance UID of the bot",
+        ),
+    )
+    fetch_pairs_from_all_exchanges: bool = Field(
+        default=False,
+        description="Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Would you like to fetch from all exchanges? (True/False)",
+        ),
+    )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
     strategy_report_interval: float = Field(default=900)
@@ -729,6 +973,10 @@ class ClientConfigMap(BaseClientModel):
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
         )
+    )
+    mqtt_bridge: MQTTBridgeConfigMap = Field(
+        default=MQTTBridgeConfigMap(),
+        description=('MQTT Bridge configuration.'),
     )
     send_error_logs: bool = Field(
         default=True,
@@ -787,12 +1035,13 @@ class ClientConfigMap(BaseClientModel):
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
     )
-    certs: CertsConfigMap = Field(
-        default=CertsConfigMap(),
-        description=("Certs Configurations"
-                     "\ndefault: use the client generated certs"
-                     "\nPort need to match the certifactes for Gateway"),
+    certs_path: Path = Field(
+        default=DEFAULT_GATEWAY_CERTS_PATH,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
+        ),
     )
+
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsEnabledMode(),
         description="Whether to enable aggregated order and trade data collection",
@@ -869,6 +1118,7 @@ class ClientConfigMap(BaseClientModel):
             ),
         ),
     )
+    market_data_collection: MarketDataCollectionConfigMap = Field(default=MarketDataCollectionConfigMap())
 
     class Config:
         title = "client_config_map"
@@ -903,7 +1153,7 @@ class ClientConfigMap(BaseClientModel):
             sub_model = TELEGRAM_MODES[v].construct()
         return sub_model
 
-    @validator("send_error_logs", pre=True)
+    @validator("send_error_logs", "fetch_pairs_from_all_exchanges", pre=True)
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
@@ -994,7 +1244,5 @@ class ClientConfigMap(BaseClientModel):
     @classmethod
     def rate_oracle_source_on_validated(cls, values: Dict):
         rate_source_mode: RateSourceModeBase = values["rate_oracle_source"]
-        rate_source_name = rate_source_mode.Config.title
-        if rate_source_name != RateOracle.get_instance().source.name:
-            RateOracle.get_instance().source = rate_source_mode.build_rate_source()
+        RateOracle.get_instance().source = rate_source_mode.build_rate_source()
         RateOracle.get_instance().quote_token = values["global_token"].global_token_name

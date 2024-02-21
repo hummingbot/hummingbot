@@ -5,9 +5,10 @@ from typing import TYPE_CHECKING
 
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class StopCommand:
@@ -30,6 +31,9 @@ class StopCommand:
 
         if self._pmm_script_iterator is not None:
             self._pmm_script_iterator.stop(self.clock)
+
+        if isinstance(self.strategy, ScriptStrategyBase):
+            self.strategy.on_stop()
 
         if self._trading_required and not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to

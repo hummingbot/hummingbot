@@ -1,25 +1,28 @@
-import importlib
-import inspect
 import logging
-import sys
 from decimal import Decimal
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import pandas as pd
+from pydantic import BaseModel
 
-from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import OrderType, PositionAction
-from hummingbot.exceptions import InvalidScriptModule
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 lsb_logger = None
 s_decimal_nan = Decimal("NaN")
+
+
+class ScriptConfigBase(BaseModel):
+    """
+    Base configuration class for script strategies. Subclasses can add their own configuration parameters.
+    """
+    pass
 
 
 class ScriptStrategyBase(StrategyPyBase):
@@ -37,7 +40,13 @@ class ScriptStrategyBase(StrategyPyBase):
             lsb_logger = logging.getLogger(__name__)
         return lsb_logger
 
-    def __init__(self, connectors: Dict[str, ConnectorBase]):
+    @classmethod
+    def init_markets(cls, config: BaseModel):
+        """This method is called in the start command if the script has a config class defined, and allows
+        the script to define the market connectors and trading pairs needed for the strategy operation."""
+        raise NotImplementedError
+
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: Optional[BaseModel] = None):
         """
         Initialising a new script strategy object.
 
@@ -47,27 +56,7 @@ class ScriptStrategyBase(StrategyPyBase):
         self.connectors: Dict[str, ConnectorBase] = connectors
         self.ready_to_trade: bool = False
         self.add_markets(list(connectors.values()))
-
-    @classmethod
-    def load_script_class(cls, script_name):
-        """
-        Imports the script module based on its name (module file name) and returns the loaded script class
-
-        :param script_name: name of the module where the script class is defined
-        """
-        module = sys.modules.get(f"{SCRIPT_STRATEGIES_MODULE}.{script_name}")
-        if module is not None:
-            script_module = importlib.reload(module)
-        else:
-            script_module = importlib.import_module(f".{script_name}", package=SCRIPT_STRATEGIES_MODULE)
-        try:
-            script_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                 if inspect.isclass(member) and
-                                 issubclass(member, ScriptStrategyBase) and
-                                 member is not ScriptStrategyBase))
-        except StopIteration:
-            raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
-        return script_class
+        self.config = config
 
     def tick(self, timestamp: float):
         """
@@ -90,6 +79,9 @@ class ScriptStrategyBase(StrategyPyBase):
         An event which is called on every tick, a sub class implements this to define what operation the strategy needs
         to operate on a regular tick basis.
         """
+        pass
+
+    def on_stop(self):
         pass
 
     def buy(self,

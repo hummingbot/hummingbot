@@ -15,7 +15,7 @@ from async_timeout import timeout
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.amm.gateway_evm_amm_lp import GatewayEVMAMMLP, GatewayInFlightLPOrder
+from hummingbot.connector.gateway.amm_lp.gateway_evm_amm_lp import GatewayEVMAMMLP, GatewayInFlightLPOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -54,7 +54,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
             connector_name="uniswapLP",
             chain="ethereum",
             network="kovan",
-            wallet_address="0xefb7be8631d154d4c0ad8676fec0897b2894fe8f",
+            address="0xefb7be8631d154d4c0ad8676fec0897b2894fe8f",
             trading_pairs=["COIN1-COIN3"],
             trading_required=True
         )

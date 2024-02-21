@@ -5,6 +5,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting
 from hummingbot.logger import HummingbotLogger
 
+from ...client.config.security import Security
 from .async_utils import safe_ensure_future
 
 
@@ -28,6 +29,7 @@ class TradingPairFetcher:
     def __init__(self, client_config_map: ClientConfigAdapter):
         self.ready = False
         self.trading_pairs: Dict[str, Any] = {}
+        self.fetch_pairs_from_all_exchanges = client_config_map.fetch_pairs_from_all_exchanges
         self._fetch_task = safe_ensure_future(self.fetch_all(client_config_map))
 
     def _fetch_pairs_from_connector_setting(
@@ -36,18 +38,10 @@ class TradingPairFetcher:
             connector_name: Optional[str] = None):
         connector_name = connector_name or connector_setting.name
         connector = connector_setting.non_trading_connector_instance_with_default_configuration()
-        if connector_setting.uses_gateway_generic_connector():
-            connector_params = connector_setting.name.split("_")
-            try:
-                safe_ensure_future(self.call_fetch_pairs(
-                    connector.all_trading_pairs(connector_params[1], connector_params[2]), connector_name))
-            except TypeError:  # some gateway generic connector like gateway_EVM_Perpetual require an extra name parameter
-                safe_ensure_future(self.call_fetch_pairs(
-                    connector.all_trading_pairs(connector_params[1], connector_params[2], connector_params[0]), connector_name))
-        else:
-            safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
+        safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
 
     async def fetch_all(self, client_config_map: ClientConfigAdapter):
+        await Security.wait_til_decryption_done()
         connector_settings = self._all_connector_settings()
         for conn_setting in connector_settings.values():
             # XXX(martin_kou): Some connectors, e.g. uniswap v3, aren't completed yet. Ignore if you can't find the
@@ -58,6 +52,9 @@ class TradingPairFetcher:
                         connector_setting=connector_settings[conn_setting.parent_name],
                         connector_name=conn_setting.name
                     )
+                elif not self.fetch_pairs_from_all_exchanges:
+                    if conn_setting.connector_connected():
+                        self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
                 else:
                     self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
             except ModuleNotFoundError:
@@ -65,7 +62,6 @@ class TradingPairFetcher:
             except Exception:
                 self.logger().exception(f"An error occurred when fetching trading pairs for {conn_setting.name}."
                                         "Please check the logs")
-
         self.ready = True
 
     async def call_fetch_pairs(self, fetch_fn: Callable[[], Awaitable[List[str]]], exchange_name: str):

@@ -13,7 +13,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
-    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the dYdX domain to connect to ("exchange" or "us"). The default value is "exchange"
     :return: the full URL to the endpoint
     """
     return CONSTANTS.DYDX_REST_URL + path_url
@@ -23,7 +23,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the dYdX domain to connect to ("exchange" or "us"). The default value is "exchange"
     :return: the full URL to the endpoint
     """
     return CONSTANTS.DYDX_REST_URL + path_url

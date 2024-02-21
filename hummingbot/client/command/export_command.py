@@ -10,7 +10,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class ExportCommand:

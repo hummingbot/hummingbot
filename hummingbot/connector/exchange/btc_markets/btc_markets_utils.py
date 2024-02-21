@@ -22,7 +22,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :param exchange_info: the exchange information for a trading pair
     :return: True if the trading pair is enabled, False otherwise
     """
-    return exchange_info.get("status", None) in ("Online", "Post Only", "Limit Only")
+    return exchange_info.get("status", None) in ("Online", "Post Only", "Limit Only", "Offline")
 
 
 class BtcMarketsConfigMap(BaseConnectorConfigMap):

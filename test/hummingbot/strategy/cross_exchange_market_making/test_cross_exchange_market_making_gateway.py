@@ -289,7 +289,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 use_eth_gas_lookup=False),
             "mock_paper_decentralized_exchange": ConnectorSetting(
                 name='mock_paper_decentralized_exchange',
-                type=ConnectorType.EVM_AMM,
+                type=ConnectorType.AMM,
                 example_pair='WCOINALPHA-USDC',
                 centralised=False,
                 use_ethereum_wallet=False,
@@ -315,7 +315,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             'connector': 'mock_paper_decentralized_exchange',
             'chain': 'ethereum',
             'network': 'kovan',
-            'trading_type': 'EVM_AMM',
+            'trading_type': 'AMM',
+            'chain_type': 'EVM',
             'wallet_address': '0xXXXXX',
             'additional_spenders': []
         }

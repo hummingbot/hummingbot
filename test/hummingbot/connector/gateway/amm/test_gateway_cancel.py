@@ -15,8 +15,8 @@ from async_timeout import timeout
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -57,7 +57,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
             connector_name="uniswap",
             chain="ethereum",
             network=NETWORK,
-            wallet_address=WALLET_ADDRESS,
+            address=WALLET_ADDRESS,
             trading_pairs=[TRADING_PAIR],
             trading_required=True
         )
@@ -192,11 +192,11 @@ class GatewayCancelUnitTest(unittest.TestCase):
         try:
             async with self.run_clock():
                 self._http_player.replay_timestamp_ms = 1648503333290
-                tracked_order_1: EVMInFlightOrder = await connector.approve_token(
+                tracked_order_1: GatewayInFlightOrder = await connector.approve_token(
                     "DAI", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
                 )
                 self._http_player.replay_timestamp_ms = 1648503337964
-                tracked_order_2: EVMInFlightOrder = await connector.approve_token(
+                tracked_order_2: GatewayInFlightOrder = await connector.approve_token(
                     "WETH", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
                 )
                 self.assertEqual(2, len(connector.approval_orders))

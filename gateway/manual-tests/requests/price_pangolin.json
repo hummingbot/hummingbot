@@ -1,9 +1,0 @@
-{
-  "connector": "pangolin",
-  "chain": "avalanche",
-  "network": "avalanche",
-  "quote": "WAVAX",
-  "base": "USDC",
-  "amount": "1",
-  "side": "BUY"
-}

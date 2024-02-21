@@ -35,6 +35,9 @@ class StyleTest(unittest.TestCase):
         global_config_map.color.warning_label = "#FFFF00"
         global_config_map.color.info_label = "#5FD7FF"
         global_config_map.color.error_label = "#FF0000"
+        global_config_map.color.gold_label = "#FAFAFA"
+        global_config_map.color.silver_label = "#FAFAFA"
+        global_config_map.color.bronze_label = "#FAFAFA"
 
         adapter = ClientConfigAdapter(global_config_map)
 
@@ -56,7 +59,7 @@ class StyleTest(unittest.TestCase):
                 "dialog frame.label": "bg:#FCFCFC #000000",
                 "dialog.body": "bg:#000000 #FCFCFC",
                 "dialog shadow": "bg:#171E2B",
-                "button": "bg:#000000",
+                "button": "bg:#FFFFFF #000000",
                 "text-area": "bg:#000000 #FCFCFC",
                 # Label bg and font color
                 "primary_label": "bg:#5FFFD7 #FAFAFA",
@@ -65,6 +68,9 @@ class StyleTest(unittest.TestCase):
                 "warning_label": "bg:#FFFF00 #FAFAFA",
                 "info_label": "bg:#5FD7FF #FAFAFA",
                 "error_label": "bg:#FF0000 #FAFAFA",
+                "gold_label": "bg:#FAFAFA #FAFAFA",
+                "silver_label": "bg:#FAFAFA #FAFAFA",
+                "bronze_label": "bg:#FAFAFA #FAFAFA",
             }
         )
 
@@ -109,7 +115,7 @@ class StyleTest(unittest.TestCase):
                 "dialog frame.label": "bg:#ansiwhite #ansiblack",
                 "dialog.body": "bg:#ansiblack #ansiwhite",
                 "dialog shadow": "bg:#ansigreen",
-                "button": "bg:#ansigreen",
+                "button": "bg:#ansiwhite #ansiblack",
                 "text-area": "bg:#ansiblack #ansiwhite",
                 # Label bg and font color
                 "primary_label": "bg:#ansicyan #ansiwhite",
@@ -118,7 +124,9 @@ class StyleTest(unittest.TestCase):
                 "warning_label": "bg:#ansiyellow #ansiwhite",
                 "info_label": "bg:#ansicyan #ansiwhite",
                 "error_label": "bg:#ansired #ansiwhite",
-
+                "gold_label": "bg:#ansiwhite #ansiyellow",
+                "silver_label": "bg:#ansiwhite #ansilightgray",
+                "bronze_label": "bg:#ansiwhite #ansibrown",
             }
         )
 
@@ -139,6 +147,9 @@ class StyleTest(unittest.TestCase):
         global_config_map.color.warning_label = "#FAFAFA"
         global_config_map.color.info_label = "#FAFAFA"
         global_config_map.color.error_label = "#FAFAFA"
+        global_config_map.color.gold_label = "#FAFAFA"
+        global_config_map.color.silver_label = "#FAFAFA"
+        global_config_map.color.bronze_label = "#FAFAFA"
 
         adapter = ClientConfigAdapter(global_config_map)
 
@@ -160,7 +171,7 @@ class StyleTest(unittest.TestCase):
                 "dialog frame.label": "bg:#5FFFD7 #000000",
                 "dialog.body": "bg:#000000 #5FFFD7",
                 "dialog shadow": "bg:#171E2B",
-                "button": "bg:#000000",
+                "button": "bg:#FFFFFF #000000",
                 "text-area": "bg:#000000 #5FFFD7",
                 # Label bg and font color
                 "primary_label": "bg:#5FFFD7 #262626",
@@ -168,7 +179,10 @@ class StyleTest(unittest.TestCase):
                 "success_label": "bg:#5FFFD7 #262626",
                 "warning_label": "bg:#FFFF00 #262626",
                 "info_label": "bg:#5FD7FF #262626",
-                "error_label": "bg:#FF0000 #262626"
+                "error_label": "bg:#FF0000 #262626",
+                "gold_label": "bg:#262626 #FFD700",
+                "silver_label": "bg:#262626 #C0C0C0",
+                "bronze_label": "bg:#262626 #CD7F32",
             }
         )
 

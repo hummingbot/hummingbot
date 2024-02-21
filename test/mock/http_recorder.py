@@ -249,6 +249,7 @@ class HttpPlayer(HttpPlayerBase):
         with self.begin() as session:
             session: Session = session
             query: Query = (HttpPlayback.url == url)
+            query = cast(Query, and_(query, HttpPlayback.method == method))
             if "params" in kwargs:
                 query = cast(Query, and_(query, HttpPlayback.request_params == kwargs["params"]))
             if "json" in kwargs:
@@ -262,6 +263,7 @@ class HttpPlayer(HttpPlayerBase):
             # Loosen the query conditions if the first, precise query didn't work.
             if playback_entry is None:
                 query = (HttpPlayback.url == url)
+                query = cast(Query, and_(query, HttpPlayback.method == method))
                 if self._replay_timestamp_ms is not None:
                     query = cast(Query, and_(query, HttpPlayback.timestamp >= self._replay_timestamp_ms))
                 playback_entry = (

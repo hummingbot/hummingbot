@@ -2,9 +2,8 @@ import asyncio
 import json
 import re
 import unittest
-from collections import Awaitable
 from decimal import Decimal
-from typing import Dict, NamedTuple, Optional
+from typing import Awaitable, Dict, NamedTuple, Optional
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -642,7 +641,7 @@ class TestBybitExchange(unittest.TestCase):
                                         trading_pair=self.trading_pair,
                                         amount=Decimal("0.0001"),
                                         order_type=OrderType.LIMIT,
-                                        price=Decimal("0.0000001")))
+                                        price=Decimal("0.0001")))
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         asyncio.get_event_loop().create_task(
             self.exchange._create_order(trade_type=TradeType.BUY,
@@ -664,7 +663,9 @@ class TestBybitExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "WARNING",
-                "Buy order amount 0 is lower than the minimum order size 0.01. The order will not be created."
+                "Buy order amount 0.0001 is lower than the minimum order "
+                "size 0.01. The order will not be created, increase the "
+                "amount to be higher than the minimum order size."
             )
         )
         self.assertTrue(
@@ -722,7 +723,7 @@ class TestBybitExchange(unittest.TestCase):
                         body=json.dumps(response),
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(order_id="OID1", trading_pair=self.trading_pair)
+        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -765,7 +766,7 @@ class TestBybitExchange(unittest.TestCase):
                         status=400,
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(order_id="OID1", trading_pair=self.trading_pair)
+        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()

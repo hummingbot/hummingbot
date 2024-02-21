@@ -157,6 +157,20 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         )
         return is_time_synchronizer_related
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
+        return False
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         data = {"symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
         if tracked_order.exchange_order_id:

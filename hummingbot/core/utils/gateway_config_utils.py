@@ -6,12 +6,18 @@ import pandas as pd
 native_tokens = {
     "ethereum": "ETH",
     "avalanche": "AVAX",
-    "solana": "SOL",
+    "algorand": "ALGO",
+    "cosmos": "ATOM",
     "polygon": "MATIC",
     "harmony": "ONE",
     "binance-smart-chain": "BNB",
     "cronos": "CRO",
-    "near": "NEAR"
+    "near": "NEAR",
+    "injective": "INJ",
+    "xdc": "XDC",
+    "tezos": "XTZ",
+    "xrpl": "XRP",
+    "kujira": "KUJI"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
@@ -65,17 +71,53 @@ def build_connector_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     return pd.DataFrame(data=data, columns=columns)
 
 
-def build_connector_tokens_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
+def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
+    """
+    Display connector information as a table
+    """
+    columns = ["Exchange", "Chains", "Tier"]
+    data = []
+    for connector_spec in connectors:
+        data.extend([
+            [
+                connector_spec["name"],
+                ', '.join(connector_spec['chains']),
+                connector_spec["tier"],
+            ]
+        ])
+
+    return pd.DataFrame(data=data, columns=columns)
+
+
+def build_connector_tokens_display(chain_networks: Dict[str, List[str]]) -> pd.DataFrame:
     """
     Display connector and the tokens the balance command will report on
     """
     columns = ["Exchange", "Report Token Balances"]
     data = []
-    for connector_spec in connectors:
+    for network_spec in chain_networks:
         data.extend([
             [
-                f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}",
-                connector_spec.get("tokens", ""),
+                network_spec['chain_network'],
+                network_spec.get("tokens", ""),
+            ]
+        ])
+
+    return pd.DataFrame(data=data, columns=columns)
+
+
+def build_balances_allowances_display(symbols: List[str], balances: List[str], allowances: List[str]) -> pd.DataFrame:
+    """
+    Display balances and allowances for a list of symbols as a table
+    """
+    columns = ["Symbol", "Balance", "Allowances"]
+    data = []
+    for i in range(len(symbols)):
+        data.extend([
+            [
+                symbols[i],
+                balances[i],
+                allowances[i]
             ]
         ])
 

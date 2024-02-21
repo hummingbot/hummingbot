@@ -11,7 +11,7 @@ s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class RateCommand:

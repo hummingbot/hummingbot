@@ -39,7 +39,6 @@ encrypted_conf_prefix = "encrypted_"
 encrypted_conf_postfix = ".json"
 conf_dir_path = CONF_DIR_PATH
 strategies_conf_dir_path = STRATEGIES_CONF_DIR_PATH
-celo_address = None
 
 
 def migrate_configs(secrets_manager: BaseSecretsManager) -> List[str]:
@@ -90,8 +89,6 @@ def backup_existing_dir() -> List[str]:
 
 
 def migrate_global_config() -> List[str]:
-    global celo_address
-
     logging.getLogger().info("\nMigrating the global config...")
     global_config_path = CONF_DIR_PATH / "conf_global.yml"
     errors = []
@@ -103,7 +100,6 @@ def migrate_global_config() -> List[str]:
         _migrate_global_config_modes(client_config_map, data)
         data.pop("kraken_api_tier", None)
         data.pop("key_file_path", None)
-        celo_address = data.pop("celo_address", None)
         keys = list(data.keys())
         for key in keys:
             if key in client_config_map.keys():
@@ -179,6 +175,37 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
     )
     _migrate_global_config_field(
         client_config_map.gateway, data, "gateway_api_port"
+    )
+
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_host"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_port"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_username"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_password"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_ssl"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_logger"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_notifier"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_commands"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_events"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_autostart"
     )
 
     anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")
@@ -398,9 +425,6 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
     missing_fields = []
     for el in cm.traverse():
         if el.client_field_data is not None:
-            if el.attr == "celo_address" and celo_address is not None:
-                cm.setattr_no_validation(el.attr, celo_address)
-                continue
             key_path = conf_dir_path / f"{encrypted_conf_prefix}{el.attr}{encrypted_conf_postfix}"
             if key_path.exists():
                 with open(key_path, 'r') as f:

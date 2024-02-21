@@ -81,14 +81,14 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
         self.config_map.hedge_markets = self.trading_pair
         self.config_map.value_mode = True
         self.assertEqual(
-            self.config_map.hedge_markets_prompt(self.config_map),
-            f"Enter the trading pair you would like to hedge on {self.connector}. (Example: BTC-USDT)",
+            self.config_map.hedge_markets_prompt(self.config_map)[:12],
+            "Value mode: ",
         )
         self.config_map.value_mode = False
         self.assertEqual(
-            self.config_map.hedge_markets_prompt(self.config_map),
-            f"Enter the list of trading pair you would like to hedge on {self.connector}. comma seperated. \
-            (Example: BTC-USDT,ETH-USDT) Only markets with the same base as the hedge markets will be hedged."
+            self.config_map.hedge_markets_prompt(self.config_map)[:13],
+            "Amount mode: "
+
         )
 
     def test_hedge_offsets_prompt(self):

@@ -12,7 +12,6 @@ from typing import Coroutine, List
 
 import path_util  # noqa: F401
 
-from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
@@ -30,7 +29,6 @@ from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSet
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
-from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
 
@@ -42,6 +40,10 @@ class CmdlineParser(argparse.ArgumentParser):
                           type=str,
                           required=False,
                           help="Specify a file in `conf/` to load as the strategy config file.")
+        self.add_argument("--script-conf", "-c",
+                          type=str,
+                          required=False,
+                          help="Specify a file in `conf/scripts` to configure a script strategy.")
         self.add_argument("--config-password", "-p",
                           type=str,
                           required=False,
@@ -95,17 +97,24 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     # Todo: validate strategy and config_file_name before assinging
 
     strategy_config = None
+    is_script = False
+    script_config = None
     if config_file_name is not None:
         hb.strategy_file_name = config_file_name
-        strategy_config = await load_strategy_config_map_from_file(
-            STRATEGIES_CONF_DIR_PATH / config_file_name
-        )
-        hb.strategy_name = (
-            strategy_config.strategy
-            if isinstance(strategy_config, ClientConfigAdapter)
-            else strategy_config.get("strategy").value
-        )
-        hb.strategy_config_map = strategy_config
+        if config_file_name.split(".")[-1] == "py":
+            hb.strategy_name = hb.strategy_file_name
+            is_script = True
+            script_config = args.script_conf if args.script_conf else None
+        else:
+            strategy_config = await load_strategy_config_map_from_file(
+                STRATEGIES_CONF_DIR_PATH / config_file_name
+            )
+            hb.strategy_name = (
+                strategy_config.strategy
+                if isinstance(strategy_config, ClientConfigAdapter)
+                else strategy_config.get("strategy").value
+            )
+            hb.strategy_config_map = strategy_config
 
     if strategy_config is not None:
         if not all_configs_complete(strategy_config, hb.client_config_map):
@@ -113,10 +122,11 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(hb, is_quickstart=True)
+    start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, script_config=script_config,
+                                                      is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
+    tasks: List[Coroutine] = [hb.run()]
     if client_config_map.debug_console:
         management_port: int = detect_available_port(8211)
         tasks.append(start_management_console(locals(), host="localhost", port=management_port))
@@ -132,6 +142,10 @@ def main():
     # variable.
     if args.config_file_name is None and len(os.environ.get("CONFIG_FILE_NAME", "")) > 0:
         args.config_file_name = os.environ["CONFIG_FILE_NAME"]
+
+    if args.script_conf is None and len(os.environ.get("SCRIPT_CONFIG", "")) > 0:
+        args.script_conf = os.environ["SCRIPT_CONFIG"]
+
     if args.config_password is None and len(os.environ.get("CONFIG_PASSWORD", "")) > 0:
         args.config_password = os.environ["CONFIG_PASSWORD"]
 
@@ -145,8 +159,14 @@ def main():
     else:
         secrets_manager = secrets_manager_cls(args.config_password)
 
-    asyncio.get_event_loop().run_until_complete(quick_start(args, secrets_manager))
+    try:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    except Exception:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        asyncio.set_event_loop(ev_loop)
+
+    ev_loop.run_until_complete(quick_start(args, secrets_manager))
 
 
 if __name__ == "__main__":
-    fork_and_start(main)
+    main()

@@ -1,5 +1,0 @@
-{
-  "chain": "solana",
-  "network": "mainnet-beta",
-  "marketNames": ["SOL/USDT", "SOL/USDC"]
-}

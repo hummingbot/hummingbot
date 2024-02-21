@@ -120,6 +120,13 @@ async def main():
                   Decimal("0.00266"),
                   4
               ))
+        print("get signature:",
+              await gateway_http_client.wallet_sign(
+                  chain="avalanche",
+                  network="dexalot",
+                  address="0x010216bB52E46807a07d0101Bb828bA547534F37",  # noqa: mock
+                  message="dexalot",
+              ))
 
 
 if __name__ == "__main__":
