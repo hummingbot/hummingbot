@@ -20,7 +20,7 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -379,13 +379,8 @@ class KrakenExchange(ExchangePyBase):
         for retry_attempt in range(self.REQUEST_ATTEMPTS):
             try:
                 response_json = await self._api_request(path_url=path_url, method=method, params=params, data=data,
-                                                 is_auth_required=is_auth_required)
-                    # if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
-                    #     return {"error": err}
-                    # elif "EAPI:Invalid nonce" in err:
-                    #     self.logger().error(f"Invalid nonce error from {path_url}. " +
-                    #                         "Please ensure your Kraken API key nonce window is at least 10, " +
-                    #                         "and if needed reset your API key.")
+                                                        is_auth_required=is_auth_required)
+
                 if response_json.get("error") and "EAPI:Invalid nonce" in response_json.get("error", ""):
                     self.logger().error(f"Invalid nonce error from {path_url}. " +
                                         "Please ensure your Kraken API key nonce window is at least 10, " +
@@ -478,7 +473,6 @@ class KrakenExchange(ExchangePyBase):
         """
         retval: list = []
         trading_pair_rules = exchange_info_dict.values()
-        # for trading_pair, rule in asset_pairs_dict.items():
         for rule in filter(web_utils.is_exchange_information_valid, trading_pair_rules):
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("altname"))

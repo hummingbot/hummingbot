@@ -71,44 +71,44 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def latest_prices_request_mock_response(self):
         return {
-                self.ex_trading_pair: {
-                    "a": [
-                        "30300.10000",
-                        "1",
-                        "1.000"
-                    ],
-                    "b": [
-                        "30300.00000",
-                        "1",
-                        "1.000"
-                    ],
-                    "c": [
-                        self.expected_latest_price,
-                        "0.00067643"
-                    ],
-                    "v": [
-                        "4083.67001100",
-                        "4412.73601799"
-                    ],
-                    "p": [
-                        "30706.77771",
-                        "30689.13205"
-                    ],
-                    "t": [
-                        34619,
-                        38907
-                    ],
-                    "l": [
-                        "29868.30000",
-                        "29868.30000"
-                    ],
-                    "h": [
-                        "31631.00000",
-                        "31631.00000"
-                    ],
-                    "o": "30502.80000"
-                }
+            self.ex_trading_pair: {
+                "a": [
+                    "30300.10000",
+                    "1",
+                    "1.000"
+                ],
+                "b": [
+                    "30300.00000",
+                    "1",
+                    "1.000"
+                ],
+                "c": [
+                    self.expected_latest_price,
+                    "0.00067643"
+                ],
+                "v": [
+                    "4083.67001100",
+                    "4412.73601799"
+                ],
+                "p": [
+                    "30706.77771",
+                    "30689.13205"
+                ],
+                "t": [
+                    34619,
+                    38907
+                ],
+                "l": [
+                    "29868.30000",
+                    "29868.30000"
+                ],
+                "h": [
+                    "31631.00000",
+                    "31631.00000"
+                ],
+                "o": "30502.80000"
             }
+        }
 
     @property
     def balance_event_websocket_update(self):
@@ -117,133 +117,133 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def all_symbols_request_mock_response(self):
         response = {
-                self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
-                    "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "wsname": f"{self.base_asset}/{self.quote_asset}",
-                    "aclass_base": "currency",
-                    "base": self.base_asset,
-                    "aclass_quote": "currency",
-                    "quote": self.quote_asset,
-                    "lot": "unit",
-                    "pair_decimals": 1,
-                    "lot_decimals": 8,
-                    "lot_multiplier": 1,
-                    "leverage_buy": [2, 3],
-                    "leverage_sell": [2, 3],
-                    "fees": [
-                        [0, 0.26],
-                        [50000, 0.24],
-                        [100000, 0.22],
-                        [250000, 0.2],
-                        [500000, 0.18],
-                        [1000000, 0.16],
-                        [2500000, 0.14],
-                        [5000000, 0.12],
-                        [10000000, 0.1]
-                    ],
-                    "fees_maker": [
-                        [0, 0.16],
-                        [50000, 0.14],
-                        [100000, 0.12],
-                        [250000, 0.1],
-                        [500000, 0.08],
-                        [1000000, 0.06],
-                        [2500000, 0.04],
-                        [5000000, 0.02],
-                        [10000000, 0]
-                    ],
-                    "fee_volume_currency": "ZUSD",
-                    "margin_call": 80,
-                    "margin_stop": 40,
-                    "ordermin": "0.0002"
-                }
+            self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
+                "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "wsname": f"{self.base_asset}/{self.quote_asset}",
+                "aclass_base": "currency",
+                "base": self.base_asset,
+                "aclass_quote": "currency",
+                "quote": self.quote_asset,
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
             }
+        }
         return response
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
         response = {
-                self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
-                    "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "wsname": f"{self.base_asset}/{self.quote_asset}",
-                    "aclass_base": "currency",
-                    "base": self.base_asset,
-                    "aclass_quote": "currency",
-                    "quote": self.quote_asset,
-                    "lot": "unit",
-                    "pair_decimals": 1,
-                    "lot_decimals": 8,
-                    "lot_multiplier": 1,
-                    "leverage_buy": [2, 3],
-                    "leverage_sell": [2, 3],
-                    "fees": [
-                        [0, 0.26],
-                        [50000, 0.24],
-                        [100000, 0.22],
-                        [250000, 0.2],
-                        [500000, 0.18],
-                        [1000000, 0.16],
-                        [2500000, 0.14],
-                        [5000000, 0.12],
-                        [10000000, 0.1]
-                    ],
-                    "fees_maker": [
-                        [0, 0.16],
-                        [50000, 0.14],
-                        [100000, 0.12],
-                        [250000, 0.1],
-                        [500000, 0.08],
-                        [1000000, 0.06],
-                        [2500000, 0.04],
-                        [5000000, 0.02],
-                        [10000000, 0]
-                    ],
-                    "fee_volume_currency": "ZUSD",
-                    "margin_call": 80,
-                    "margin_stop": 40,
-                    "ordermin": "0.0002"
-                },
-                "ETHUSDT.d": {
-                    "altname": "ETHUSDT.d",
-                    "wsname": "XBT/USDT",
-                    "aclass_base": "currency",
-                    "base": "XXBT",
-                    "aclass_quote": "currency",
-                    "quote": "USDT",
-                    "lot": "unit",
-                    "pair_decimals": 1,
-                    "lot_decimals": 8,
-                    "lot_multiplier": 1,
-                    "leverage_buy": [2, 3],
-                    "leverage_sell": [2, 3],
-                    "fees": [
-                        [0, 0.26],
-                        [50000, 0.24],
-                        [100000, 0.22],
-                        [250000, 0.2],
-                        [500000, 0.18],
-                        [1000000, 0.16],
-                        [2500000, 0.14],
-                        [5000000, 0.12],
-                        [10000000, 0.1]
-                    ],
-                    "fees_maker": [
-                        [0, 0.16],
-                        [50000, 0.14],
-                        [100000, 0.12],
-                        [250000, 0.1],
-                        [500000, 0.08],
-                        [1000000, 0.06],
-                        [2500000, 0.04],
-                        [5000000, 0.02],
-                        [10000000, 0]
-                    ],
-                    "fee_volume_currency": "ZUSD",
-                    "margin_call": 80,
-                    "margin_stop": 40,
-                    "ordermin": "0.0002"
-                }
+            self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
+                "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "wsname": f"{self.base_asset}/{self.quote_asset}",
+                "aclass_base": "currency",
+                "base": self.base_asset,
+                "aclass_quote": "currency",
+                "quote": self.quote_asset,
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
+            },
+            "ETHUSDT.d": {
+                "altname": "ETHUSDT.d",
+                "wsname": "XBT/USDT",
+                "aclass_base": "currency",
+                "base": "XXBT",
+                "aclass_quote": "currency",
+                "quote": "USDT",
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
             }
+        }
         return "INVALID-PAIR", response
 
     @property
@@ -253,88 +253,88 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def trading_rules_request_mock_response(self):
         return {
-                self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
-                    "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "wsname": f"{self.base_asset}/{self.quote_asset}",
-                    "aclass_base": "currency",
-                    "base": self.base_asset,
-                    "aclass_quote": "currency",
-                    "quote": self.quote_asset,
-                    "lot": "unit",
-                    "pair_decimals": 1,
-                    "lot_decimals": 8,
-                    "lot_multiplier": 1,
-                    "leverage_buy": [2, 3],
-                    "leverage_sell": [2, 3],
-                    "fees": [
-                        [0, 0.26],
-                        [50000, 0.24],
-                        [100000, 0.22],
-                        [250000, 0.2],
-                        [500000, 0.18],
-                        [1000000, 0.16],
-                        [2500000, 0.14],
-                        [5000000, 0.12],
-                        [10000000, 0.1]
-                    ],
-                    "fees_maker": [
-                        [0, 0.16],
-                        [50000, 0.14],
-                        [100000, 0.12],
-                        [250000, 0.1],
-                        [500000, 0.08],
-                        [1000000, 0.06],
-                        [2500000, 0.04],
-                        [5000000, 0.02],
-                        [10000000, 0]
-                    ],
-                    "fee_volume_currency": "ZUSD",
-                    "margin_call": 80,
-                    "margin_stop": 40,
-                    "ordermin": "0.0002"
-                }
+            self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
+                "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "wsname": f"{self.base_asset}/{self.quote_asset}",
+                "aclass_base": "currency",
+                "base": self.base_asset,
+                "aclass_quote": "currency",
+                "quote": self.quote_asset,
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
             }
+        }
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
         return {
-                "XBTUSDT": {
-                    "altname": "XBTUSDT",
-                    "wsname": "XBT/USDT",
-                    "aclass_base": "currency",
-                    "base": "XXBT",
-                    "aclass_quote": "currency",
-                    "quote": "USDT",
-                    "lot": "unit",
-                    "leverage_buy": [2, 3],
-                    "leverage_sell": [2, 3],
-                    "fees": [
-                        [0, 0.26],
-                        [50000, 0.24],
-                        [100000, 0.22],
-                        [250000, 0.2],
-                        [500000, 0.18],
-                        [1000000, 0.16],
-                        [2500000, 0.14],
-                        [5000000, 0.12],
-                        [10000000, 0.1]
-                    ],
-                    "fees_maker": [
-                        [0, 0.16],
-                        [50000, 0.14],
-                        [100000, 0.12],
-                        [250000, 0.1],
-                        [500000, 0.08],
-                        [1000000, 0.06],
-                        [2500000, 0.04],
-                        [5000000, 0.02],
-                        [10000000, 0]
-                    ],
-                    "fee_volume_currency": "ZUSD",
-                    "margin_call": 80,
-                    "margin_stop": 40,
-                }
+            "XBTUSDT": {
+                "altname": "XBTUSDT",
+                "wsname": "XBT/USDT",
+                "aclass_base": "currency",
+                "base": "XXBT",
+                "aclass_quote": "currency",
+                "quote": "USDT",
+                "lot": "unit",
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
             }
+        }
 
     @property
     def order_creation_request_successful_mock_response(self):
@@ -350,15 +350,15 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return {
-                self.base_asset: str(10),
-                self.quote_asset: str(2000),
-            }
+            self.base_asset: str(10),
+            self.quote_asset: str(2000),
+        }
 
     @property
     def balance_request_mock_response_only_base(self):
         return {
-                self.base_asset: str(10),
-            }
+            self.base_asset: str(10),
+        }
 
     @property
     def expected_latest_price(self):
@@ -792,26 +792,26 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
-                order.exchange_order_id: {
-                    "refid": "None",
-                    "userref": 0,
-                    "status": "expired",
-                    "opentm": 1499827319.559,
-                    "starttm": 0,
-                    "expiretm": 0,
-                    "descr": {},
-                    "vol": "1.0",
-                    "vol_exec": "0.0",
-                    "cost": "11253.7",
-                    "fee": "0.00000",
-                    "price": "10000.0",
-                    "stopprice": "0.00000",
-                    "limitprice": "0.00000",
-                    "misc": "",
-                    "oflags": "fciq",
-                    "trades": []
-                }
+            order.exchange_order_id: {
+                "refid": "None",
+                "userref": 0,
+                "status": "expired",
+                "opentm": 1499827319.559,
+                "starttm": 0,
+                "expiretm": 0,
+                "descr": {},
+                "vol": "1.0",
+                "vol_exec": "0.0",
+                "cost": "11253.7",
+                "fee": "0.00000",
+                "price": "10000.0",
+                "stopprice": "0.00000",
+                "limitprice": "0.00000",
+                "misc": "",
+                "oflags": "fciq",
+                "trades": []
             }
+        }
 
         mock_response = order_status
         mock_api.post(regex_url, body=json.dumps(mock_response))
@@ -944,67 +944,67 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def get_asset_pairs_mock(self) -> Dict:
         asset_pairs = {
-                f"X{self.base_asset}{self.quote_asset}": {
-                    "altname": f"{self.base_asset}{self.quote_asset}",
-                    "wsname": f"{self.base_asset}/{self.quote_asset}",
-                    "aclass_base": "currency",
-                    "base": f"{self.base_asset}",
-                    "aclass_quote": "currency",
-                    "quote": f"{self.quote_asset}",
-                    "lot": "unit",
-                    "pair_decimals": 5,
-                    "lot_decimals": 8,
-                    "lot_multiplier": 1,
-                    "leverage_buy": [
-                        2,
-                        3,
+            f"X{self.base_asset}{self.quote_asset}": {
+                "altname": f"{self.base_asset}{self.quote_asset}",
+                "wsname": f"{self.base_asset}/{self.quote_asset}",
+                "aclass_base": "currency",
+                "base": f"{self.base_asset}",
+                "aclass_quote": "currency",
+                "quote": f"{self.quote_asset}",
+                "lot": "unit",
+                "pair_decimals": 5,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [
+                    2,
+                    3,
+                ],
+                "leverage_sell": [
+                    2,
+                    3,
+                ],
+                "fees": [
+                    [
+                        0,
+                        0.26
                     ],
-                    "leverage_sell": [
-                        2,
-                        3,
+                    [
+                        50000,
+                        0.24
                     ],
-                    "fees": [
-                        [
-                            0,
-                            0.26
-                        ],
-                        [
-                            50000,
-                            0.24
-                        ],
+                ],
+                "fees_maker": [
+                    [
+                        0,
+                        0.16
                     ],
-                    "fees_maker": [
-                        [
-                            0,
-                            0.16
-                        ],
-                        [
-                            50000,
-                            0.14
-                        ],
+                    [
+                        50000,
+                        0.14
                     ],
-                    "fee_volume_currency": "ZUSD",
-                    "margin_call": 80,
-                    "margin_stop": 40,
-                    "ordermin": "0.005"
-                },
-            }
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.005"
+            },
+        }
         return asset_pairs
 
     def get_balances_mock(self, base_asset_balance: float, quote_asset_balance: float) -> Dict:
         balances = {
-                self.base_asset: str(base_asset_balance),
-                self.quote_asset: str(quote_asset_balance),
-                "USDT": "171288.6158",
-            }
+            self.base_asset: str(base_asset_balance),
+            self.quote_asset: str(quote_asset_balance),
+            "USDT": "171288.6158",
+        }
         return balances
 
     def get_open_orders_mock(self, quantity: float, price: float, order_type: str) -> Dict:
         open_orders = {
-                "open": {
-                    "OQCLML-BW3P3-BUCMWZ": self.get_order_status_mock(quantity, price, order_type, status="open"),
-                }
+            "open": {
+                "OQCLML-BW3P3-BUCMWZ": self.get_order_status_mock(quantity, price, order_type, status="open"),
             }
+        }
         return open_orders
 
     def get_order_status_mock(self, quantity: float, price: float, order_type: str, status: str) -> Dict:
@@ -1062,137 +1062,137 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
-                "count": 1
-            }
+            "count": 1
+        }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-                order.exchange_order_id: {
-                    "refid": "None",
-                    "userref": 0,
-                    "status": "closed",
-                    "opentm": 1688666559.8974,
-                    "starttm": 0,
-                    "expiretm": 0,
-                    "descr": {},
-                    "vol": str(order.amount),
-                    "vol_exec": str(order.amount),
-                    "cost": "11253.7",
-                    "fee": "0.00000",
-                    "price": str(order.price),
-                    "stopprice": "0.00000",
-                    "limitprice": "0.00000",
-                    "misc": "",
-                    "oflags": "fciq",
-                    "trades": []
-                }
+            order.exchange_order_id: {
+                "refid": "None",
+                "userref": 0,
+                "status": "closed",
+                "opentm": 1688666559.8974,
+                "starttm": 0,
+                "expiretm": 0,
+                "descr": {},
+                "vol": str(order.amount),
+                "vol_exec": str(order.amount),
+                "cost": "11253.7",
+                "fee": "0.00000",
+                "price": str(order.price),
+                "stopprice": "0.00000",
+                "limitprice": "0.00000",
+                "misc": "",
+                "oflags": "fciq",
+                "trades": []
             }
+        }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-                order.exchange_order_id: {
-                    "refid": "None",
-                    "userref": 0,
-                    "status": "canceled",
-                    "opentm": 1688666559.8974,
-                    "starttm": 0,
-                    "expiretm": 0,
-                    "descr": {},
-                    "vol": str(order.amount),
-                    "vol_exec": "0",
-                    "cost": "11253.7",
-                    "fee": "0.00000",
-                    "price": str(order.price),
-                    "stopprice": "0.00000",
-                    "limitprice": "0.00000",
-                    "misc": "",
-                    "oflags": "fciq",
-                    "trades": []
-                }
+            order.exchange_order_id: {
+                "refid": "None",
+                "userref": 0,
+                "status": "canceled",
+                "opentm": 1688666559.8974,
+                "starttm": 0,
+                "expiretm": 0,
+                "descr": {},
+                "vol": str(order.amount),
+                "vol_exec": "0",
+                "cost": "11253.7",
+                "fee": "0.00000",
+                "price": str(order.price),
+                "stopprice": "0.00000",
+                "limitprice": "0.00000",
+                "misc": "",
+                "oflags": "fciq",
+                "trades": []
             }
+        }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
         return {
-                order.exchange_order_id: {
-                    "refid": "None",
-                    "userref": 0,
-                    "status": "open",
-                    "opentm": 1688666559.8974,
-                    "starttm": 0,
-                    "expiretm": 0,
-                    "descr": {},
-                    "vol": str(order.amount),
-                    "vol_exec": "0",
-                    "cost": "11253.7",
-                    "fee": "0.00000",
-                    "price": str(order.price),
-                    "stopprice": "0.00000",
-                    "limitprice": "0.00000",
-                    "misc": "",
-                    "oflags": "fciq",
-                    "trades": []
-                }
+            order.exchange_order_id: {
+                "refid": "None",
+                "userref": 0,
+                "status": "open",
+                "opentm": 1688666559.8974,
+                "starttm": 0,
+                "expiretm": 0,
+                "descr": {},
+                "vol": str(order.amount),
+                "vol_exec": "0",
+                "cost": "11253.7",
+                "fee": "0.00000",
+                "price": str(order.price),
+                "stopprice": "0.00000",
+                "limitprice": "0.00000",
+                "misc": "",
+                "oflags": "fciq",
+                "trades": []
             }
+        }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-                order.exchange_order_id: {
-                    "refid": "None",
-                    "userref": 0,
-                    "status": "open",
-                    "opentm": 1688666559.8974,
-                    "starttm": 0,
-                    "expiretm": 0,
-                    "descr": {},
-                    "vol": str(order.amount),
-                    "vol_exec": str(order.amount / 2),
-                    "cost": "11253.7",
-                    "fee": "0.00000",
-                    "price": str(order.price),
-                    "stopprice": "0.00000",
-                    "limitprice": "0.00000",
-                    "misc": "",
-                    "oflags": "fciq",
-                    "trades": []
-                }
+            order.exchange_order_id: {
+                "refid": "None",
+                "userref": 0,
+                "status": "open",
+                "opentm": 1688666559.8974,
+                "starttm": 0,
+                "expiretm": 0,
+                "descr": {},
+                "vol": str(order.amount),
+                "vol_exec": str(order.amount / 2),
+                "cost": "11253.7",
+                "fee": "0.00000",
+                "price": str(order.price),
+                "stopprice": "0.00000",
+                "limitprice": "0.00000",
+                "misc": "",
+                "oflags": "fciq",
+                "trades": []
             }
+        }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
         return {
-                self.expected_fill_trade_id: {
-                    "ordertxid": order.exchange_order_id,
-                    "postxid": "TKH2SE-M7IF5-CFI7LT",
-                    "pair": "XXBTZUSD",
-                    "time": 1499865549.590,
-                    "type": "buy",
-                    "ordertype": "limit",
-                    "price": str(self.expected_partial_fill_price),
-                    "cost": "600.20000",
-                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "vol": str(self.expected_partial_fill_amount),
-                    "margin": "0.00000",
-                    "misc": "",
-                    "trade_id": 93748276,
-                    "maker": "true"
-                }
+            self.expected_fill_trade_id: {
+                "ordertxid": order.exchange_order_id,
+                "postxid": "TKH2SE-M7IF5-CFI7LT",
+                "pair": "XXBTZUSD",
+                "time": 1499865549.590,
+                "type": "buy",
+                "ordertype": "limit",
+                "price": str(self.expected_partial_fill_price),
+                "cost": "600.20000",
+                "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "vol": str(self.expected_partial_fill_amount),
+                "margin": "0.00000",
+                "misc": "",
+                "trade_id": 93748276,
+                "maker": "true"
             }
+        }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
         return {
-                self.expected_fill_trade_id: {
-                    "ordertxid": order.exchange_order_id,
-                    "postxid": "TKH2SE-M7IF5-CFI7LT",
-                    "pair": "XXBTZUSD",
-                    "time": 1499865549.590,
-                    "type": "buy",
-                    "ordertype": "limit",
-                    "price": str(order.price),
-                    "cost": "600.20000",
-                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "vol": str(order.amount),
-                    "margin": "0.00000",
-                    "misc": "",
-                    "trade_id": 93748276,
-                    "maker": "true"
-                }
+            self.expected_fill_trade_id: {
+                "ordertxid": order.exchange_order_id,
+                "postxid": "TKH2SE-M7IF5-CFI7LT",
+                "pair": "XXBTZUSD",
+                "time": 1499865549.590,
+                "type": "buy",
+                "ordertype": "limit",
+                "price": str(order.price),
+                "cost": "600.20000",
+                "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "vol": str(order.amount),
+                "margin": "0.00000",
+                "misc": "",
+                "trade_id": 93748276,
+                "maker": "true"
             }
+        }
