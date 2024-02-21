@@ -18,8 +18,6 @@ class RESTAssistant:
     the `RESTPreProcessorBase` and `RESTPostProcessorBase` classes. The pre-processors are applied to a request
     before it is sent out, while the post-processors are applied to a response before it is returned to the caller.
     """
-    _BAD_REQUEST_HTTP_STATUS_CODE = 400
-
     def __init__(
         self,
         connection: RESTConnection,
@@ -57,17 +55,8 @@ class RESTAssistant:
             timeout=timeout,
             headers=headers,
         )
-        if self._BAD_REQUEST_HTTP_STATUS_CODE <= response.status and return_err:
-            error_response = await response.json()
-            return error_response
-
-        # Defaults to using text
-        result = await response.text()
-        try:
-            result = await response.json()
-        except Exception:
-            pass  # pass-through
-        return result
+        response_json = await response.json()
+        return response_json
 
     async def execute_request_and_get_response(
             self,
