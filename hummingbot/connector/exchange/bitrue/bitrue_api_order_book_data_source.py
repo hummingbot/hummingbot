@@ -1,8 +1,8 @@
 import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
 from hummingbot.connector.exchange.bitrue import bitrue_constants as CONSTANTS, bitrue_web_utils as web_utils
+from hummingbot.connector.exchange.bitrue.bitrue_order_book import BitrueOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.tracking_nonce import NonceCreator
@@ -45,7 +45,7 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ticker_data = await self._get_ticker_data(trading_pair=trading_pair)
         ticker_timestamp: float = self._time()
         update_id = int(ticker_timestamp * 1e3)
-        ticker_msg: OrderBookMessage = BinanceOrderBook.ticker_message_from_rest_endpoint(
+        ticker_msg: OrderBookMessage = BitrueOrderBook.ticker_message_from_rest_endpoint(
             msg=ticker_data,
             timestamp=ticker_timestamp,
             metadata={"trading_pair": trading_pair, "update_id": update_id},
@@ -122,7 +122,7 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = self._time()
-        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = BitrueOrderBook.snapshot_message_from_exchange(
             snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
