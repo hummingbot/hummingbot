@@ -25,6 +25,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 class BitrueExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     DEFAULT_DOMAIN = ""
+    _BAD_REQUEST_HTTP_STATUS_CODE = 400
 
     web_utils = web_utils
 
@@ -44,7 +46,7 @@ class BitrueExchange(ExchangePyBase):
         bitrue_api_secret: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
-        domain: str = DEFAULT_DOMAIN
+        domain: str = DEFAULT_DOMAIN,
     ):
         self.api_key = bitrue_api_key
         self.secret_key = bitrue_api_secret
@@ -194,14 +196,16 @@ class BitrueExchange(ExchangePyBase):
         is_maker = True if is_maker is None else is_maker
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
-    async def _place_order(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           trade_type: TradeType,
-                           order_type: OrderType,
-                           price: Decimal,
-                           **kwargs) -> Tuple[str, float]:
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
+    ) -> Tuple[str, float]:
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
         type_str = BitrueExchange.bitrue_order_type(order_type)
@@ -336,7 +340,9 @@ class BitrueExchange(ExchangePyBase):
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=tracked_order.trade_type,
                                 percent_token=event_message["N"].upper(),
-                                flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"].upper())],
+                                flat_fees=[
+                                    TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"].upper())
+                                ],
                             )
                             trade_update = TradeUpdate(
                                 trade_id=str(event_message["t"]),
@@ -566,14 +572,14 @@ class BitrueExchange(ExchangePyBase):
                 for r_l in rate_limits_copy:
                     if r_l.limit_id == limit_id:
                         rate_limits_copy.remove(r_l)
-                rate_limits_copy.append(RateLimit(
-                    limit_id=limit_id,
-                    limit=limit,
-                    time_interval=interval,
-                ))
-        self._throttler.set_rate_limits(
-            rate_limits_copy
-        )
+                rate_limits_copy.append(
+                    RateLimit(
+                        limit_id=limit_id,
+                        limit=limit,
+                        time_interval=interval,
+                    )
+                )
+        self._throttler.set_rate_limits(rate_limits_copy)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
@@ -610,3 +616,56 @@ class BitrueExchange(ExchangePyBase):
         except asyncio.CancelledError:
             raise
         return in_flight_orders
+
+    async def _api_request(
+        self,
+        path_url,
+        overwrite_url: Optional[str] = None,
+        method: RESTMethod = RESTMethod.GET,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        is_auth_required: bool = False,
+        return_err: bool = False,
+        limit_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+
+        last_exception = None
+        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+
+        url = overwrite_url or await self._api_request_url(path_url=path_url, is_auth_required=is_auth_required)
+
+        for _ in range(2):
+            try:
+                response = await rest_assistant.execute_request_and_get_response(
+                    url=url,
+                    throttler_limit_id=limit_id if limit_id else path_url,
+                    params=params,
+                    data=data,
+                    method=method,
+                    is_auth_required=is_auth_required,
+                    return_err=return_err,
+                    timeout=None,
+                    headers=None,
+                )
+                if self._BAD_REQUEST_HTTP_STATUS_CODE <= response.status and return_err:
+                    error_response = await response.json()
+                    return error_response
+
+                # Defaults to using text
+                result = await response.text()
+                try:
+                    result = await response.json()
+                except Exception:
+                    pass  # pass-through
+                return result
+            except IOError as request_exception:
+                last_exception = request_exception
+                if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
+                    self._time_synchronizer.clear_time_offset_ms_samples()
+                    await self._update_time_synchronizer()
+                else:
+                    raise
+
+        # Failed even after the last retry
+        raise last_exception
