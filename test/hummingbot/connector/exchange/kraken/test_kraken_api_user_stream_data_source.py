@@ -84,9 +84,9 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
     @staticmethod
     def get_auth_response_mock() -> Dict:
         auth_resp = {
-                "token": "1Dwc4lzSwNWOAwkMdqhssNNFhs1ed606d1WcF3XfEMw",
-                "expires": 900
-            }
+            "token": "1Dwc4lzSwNWOAwkMdqhssNNFhs1ed606d1WcF3XfEMw",
+            "expires": 900
+        }
         return auth_resp
 
     @staticmethod
