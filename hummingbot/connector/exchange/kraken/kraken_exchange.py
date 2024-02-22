@@ -612,18 +612,19 @@ class KrakenExchange(ExchangePyBase):
             raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
                           "- waiting for exchange order id.")
         except Exception as e:
-            if "EOrder:Unknown order" in e or "EOrder:Invalid order" in e:
+            if "EOrder:Unknown order" in str(e) or "EOrder:Invalid order" in str(e):
                 return trade_updates
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        exchange_order_id = await tracked_order.get_exchange_order_id()
         updated_order_data = await self._api_request_with_retry(
             method=RESTMethod.POST,
             path_url=CONSTANTS.QUERY_ORDERS_PATH_URL,
-            params={"txid": tracked_order.exchange_order_id},
+            params={"txid": exchange_order_id},
             is_auth_required=True)
 
-        update = updated_order_data.get(tracked_order.exchange_order_id)
+        update = updated_order_data.get(exchange_order_id)
 
         if update.get("error") is not None and "EOrder:Invalid order" not in update["error"]:
             self.logger().debug(f"Error in fetched status update for order {tracked_order.client_order_id}: "
@@ -633,7 +634,7 @@ class KrakenExchange(ExchangePyBase):
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=tracked_order.exchange_order_id,
+            exchange_order_id=exchange_order_id,
             trading_pair=tracked_order.trading_pair,
             update_timestamp=self.current_timestamp,
             new_state=new_state,
