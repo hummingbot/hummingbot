@@ -55,7 +55,7 @@ QUERY_TRADES_PATH_URL = "/0/private/QueryTrades"
 
 # Order States
 ORDER_STATE = {
-    "pending": OrderState.PENDING_CREATE,
+    "pending": OrderState.OPEN,
     "open": OrderState.OPEN,
     "closed": OrderState.FILLED,
     "canceled": OrderState.CANCELED,

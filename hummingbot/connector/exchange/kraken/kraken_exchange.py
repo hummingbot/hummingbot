@@ -387,7 +387,6 @@ class KrakenExchange(ExchangePyBase):
                                         "and if needed reset your API key.")
                 result = response_json.get("result")
                 if not result or response_json.get("error"):
-                    self.logger().error(f"Error received from {path_url}. Response is {response_json}.")
                     raise IOError({"error": response_json})
                 break
             except IOError as e:
@@ -411,8 +410,9 @@ class KrakenExchange(ExchangePyBase):
         return result
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        exchange_order_id = tracked_order.get_exchange_order_id()
         api_params = {
-            "txid": tracked_order.exchange_order_id,
+            "txid": exchange_order_id,
         }
         cancel_result = await self._api_request_with_retry(
             method=RESTMethod.POST,
@@ -621,15 +621,10 @@ class KrakenExchange(ExchangePyBase):
         updated_order_data = await self._api_request_with_retry(
             method=RESTMethod.POST,
             path_url=CONSTANTS.QUERY_ORDERS_PATH_URL,
-            params={"txid": exchange_order_id},
+            data={"txid": exchange_order_id},
             is_auth_required=True)
 
         update = updated_order_data.get(exchange_order_id)
-
-        if update.get("error") is not None and "EOrder:Invalid order" not in update["error"]:
-            self.logger().debug(f"Error in fetched status update for order {tracked_order.client_order_id}: "
-                                f"{update['error']}")
-            await self._place_cancel(tracked_order.client_order_id, tracked_order)
         new_state = CONSTANTS.ORDER_STATE[update["status"]]
 
         order_update = OrderUpdate(
