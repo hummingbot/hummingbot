@@ -63,6 +63,13 @@ class ExecutorOrchestrator:
         elif isinstance(action, StoreExecutorAction):
             self.store_executor(action)
 
+    def execute_actions(self, actions: List[ExecutorAction]):
+        """
+        Execute a list of actions.
+        """
+        for action in actions:
+            self.execute_action(action)
+
     def create_executor(self, action: CreateExecutorAction):
         """
         Create an executor based on the configuration in the action.
