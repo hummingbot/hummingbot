@@ -40,8 +40,8 @@ class PositionSide(Enum):
 
 # For Derivatives Exchanges
 class PositionMode(Enum):
-    HEDGE = True
-    ONEWAY = False
+    HEDGE = "HEDGE"
+    ONEWAY = "ONEWAY"
 
 
 class PriceType(Enum):
