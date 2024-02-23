@@ -34,3 +34,10 @@ class PerpetualMarketMakingOrderTracker(OrderTracker):
         for market_pair, orders_map in self.tracked_limit_orders_map.items():
             market_pair_to_orders[market_pair] = list(self.tracked_limit_orders_map[market_pair].values())
         return market_pair_to_orders
+
+    @property
+    def market_pair_to_shadow_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
+        market_pair_to_orders = {}
+        for market_pair, orders_map in self.get_shadow_limit_orders().items():
+            market_pair_to_orders[market_pair] = list(orders_map.values())
+        return market_pair_to_orders

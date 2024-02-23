@@ -19,6 +19,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     MarketEvent,
+    MarketOrderFailureEvent,
     OrderFilledEvent,
     PositionModeChangeEvent,
     SellOrderCompletedEvent,
@@ -158,6 +159,14 @@ class PerpetualMarketMakingTests(TestCase):
             base_currency_traded,
             quote_currency_traded,
             OrderType.LIMIT
+        ))
+
+    @staticmethod
+    def simulate_limit_order_failed(market: MockPaperExchange, limit_order: LimitOrder):
+        market.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
+            market.current_timestamp,
+            limit_order.client_order_id,
+            OrderType.LIMIT,
         ))
 
     def test_apply_budget_constraint(self):
@@ -810,3 +819,21 @@ class PerpetualMarketMakingTests(TestCase):
         )
 
         self.assertFalse(self.strategy._position_mode_ready)
+
+    def test_orders_are_cancelled_in_case_of_failure(self):
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, len(self.strategy.active_buys))
+        self.assertEqual(1, len(self.strategy.active_sells))
+
+        buy_order = self.strategy.active_buys[0]
+        sell_order = self.strategy.active_sells[0]
+
+        self.simulate_limit_order_failed(self.market, buy_order)
+
+        self.clock.backtest_til(self.strategy.current_timestamp + self.strategy.order_refresh_time)
+
+        self.assertEqual(2, len(self.cancel_order_logger.event_log))
+        self.assertEqual(buy_order.client_order_id, self.cancel_order_logger.event_log[0].order_id)
+        self.assertEqual(sell_order.client_order_id, self.cancel_order_logger.event_log[1].order_id)
+        self.assertEqual(0, len(self.strategy.active_orders))

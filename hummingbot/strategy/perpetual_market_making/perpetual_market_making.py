@@ -295,6 +295,12 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         return self._sb_order_tracker.market_pair_to_active_orders[self._market_info]
 
     @property
+    def shadow_orders(self) -> List[LimitOrder]:
+        if self._market_info not in self._sb_order_tracker.market_pair_to_shadow_orders:
+            return []
+        return self._sb_order_tracker.market_pair_to_shadow_orders[self._market_info]
+
+    @property
     def active_positions(self) -> Dict[str, Position]:
         return self._market_info.market.account_positions
 
@@ -502,6 +508,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                     self.filter_out_takers(proposal)
                     self.logger().debug(f"Proposals after takers filter: {proposal}")
 
+                self.check_and_cancel_shadow_orders()
                 self.cancel_active_orders(proposal)
                 self.cancel_orders_below_min_spread()
                 if self.to_create_orders(proposal):
@@ -898,6 +905,15 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             if abs(proposal - current) / current > self._order_refresh_tolerance_pct:
                 return False
         return True
+
+    # cancel shadow orders that are not being tracked
+    def check_and_cancel_shadow_orders(self):
+        if self._cancel_timestamp > self.current_timestamp:
+            return
+        for order in self.shadow_orders:
+            if order not in self.active_orders:
+                self.cancel_order(self._market_info, order.client_order_id)
+                self.logger().info(f"Canceling shadow order {order.client_order_id}.")
 
     # Return value: whether order cancelation is deferred.
     def cancel_active_orders(self, proposal: Proposal):
