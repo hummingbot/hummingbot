@@ -170,7 +170,8 @@ class StrategyV2Base(ScriptStrategyBase):
         while True:
             try:
                 action = await self.actions_queue.get()
-                self.executor_orchestrator.execute_action(action)
+                self.executor_orchestrator.execute_actions(action)
+                self.update_executors_info()
             except Exception as e:
                 self.logger().error(f"Error executing action: {e}", exc_info=True)
 
