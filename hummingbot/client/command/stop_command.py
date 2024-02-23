@@ -43,7 +43,7 @@ class StopCommand:
                 self.clock.remove_iterator(self.strategy)
             success = await self._cancel_outstanding_orders()
             # Give some time for cancellation events to trigger
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(2)
             if success:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
