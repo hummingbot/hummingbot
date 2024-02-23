@@ -892,7 +892,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             is_auth_required: bool = False,
             return_err: bool = False,
             limit_id: Optional[str] = None,
-            content_type: Optional[str] = None,
+            headers: Optional[Dict[str, Any]] = None,
             **kwargs,
     ) -> Dict[str, Any]:
 
@@ -911,7 +911,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                     is_auth_required=is_auth_required,
                     return_err=return_err,
                     throttler_limit_id=limit_id if limit_id else path_url,
-                    content_type=content_type,
+                    headers=headers,
                 )
 
                 return request_result
