@@ -13,6 +13,12 @@ class MarketDataProvider:
         self.candles_feeds = {}  # Stores instances of candle feeds
         self.connectors = connectors  # Stores instances of connectors
 
+    def stop(self):
+        for candle_feed in self.candles_feeds.values():
+            if hasattr(candle_feed, 'stop'):
+                candle_feed.stop()
+        self.candles_feeds.clear()
+
     @property
     def ready(self) -> bool:
         # TODO: unify the ready property for connectors and feeds
