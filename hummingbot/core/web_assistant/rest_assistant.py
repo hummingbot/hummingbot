@@ -43,6 +43,7 @@ class RESTAssistant:
         return_err: bool = False,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, Any]] = None,
+        content_type: Optional[str] = None,
     ) -> Union[str, Dict[str, Any]]:
         response = await self.execute_request_and_get_response(
             url=url,
@@ -54,6 +55,7 @@ class RESTAssistant:
             return_err=return_err,
             timeout=timeout,
             headers=headers,
+            content_type=content_type,
         )
         response_json = await response.json()
         return response_json
@@ -69,12 +71,17 @@ class RESTAssistant:
             return_err: bool = False,
             timeout: Optional[float] = None,
             headers: Optional[Dict[str, Any]] = None,
+            content_type: Optional[str] = None,
     ) -> RESTResponse:
 
         headers = headers or {}
 
-        local_headers = {
-            "Content-Type": ("application/json" if method != RESTMethod.GET else "application/x-www-form-urlencoded")}
+        if content_type is not None:
+            local_headers = {"Content-Type": content_type}
+        else:
+            local_headers = {
+                "Content-Type": ("application/json" if method != RESTMethod.GET else "application/x-www-form-urlencoded")}
+
         local_headers.update(headers)
 
         data = json.dumps(data) if data is not None else data
