@@ -116,8 +116,10 @@ class ExecutorBase(SmartComponentBase):
             net_pnl_quote=self.net_pnl_quote,
             cum_fees_quote=self.cum_fees_quote,
             filled_amount_quote=self.filled_amount_quote,
+            is_active=self.is_active,
             is_trading=self.is_trading,
-            custom_info=self.get_custom_info()
+            custom_info=self.get_custom_info(),
+            controller_id=self.config.id,
         )
 
     def get_custom_info(self) -> Dict:

@@ -31,7 +31,7 @@ class PositionExecutor(ExecutorBase):
         return cls._logger
 
     def __init__(self, strategy: ScriptStrategyBase, config: PositionExecutorConfig,
-                 update_interval: float = 1.0, max_retries: int = 5):
+                 update_interval: float = 1.0, max_retries: int = 10):
         """
         Initialize the PositionExecutor instance.
 
@@ -593,6 +593,7 @@ class PositionExecutor(ExecutorBase):
 
     def get_custom_info(self) -> Dict:
         return {
+            "level_id": self.config.level_id,
             "current_position_average_price": self.entry_price,
             "side": self.config.side,
             "current_retries": self._current_retries,
