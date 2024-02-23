@@ -48,4 +48,4 @@ class MexcAuthTests(TestCase):
             hashlib.sha256).hexdigest()
         self.assertEqual(now * 1e3, configured_request.params["timestamp"])
         self.assertEqual(expected_signature, configured_request.params["signature"])
-        self.assertEqual({"X-MEXC-APIKEY": self._api_key}, configured_request.headers)
+        self.assertEqual({"X-MEXC-APIKEY": self._api_key, "Content-Type": "application/json"}, configured_request.headers)
