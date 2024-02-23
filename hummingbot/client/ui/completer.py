@@ -26,6 +26,7 @@ from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES
 from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
 
 
 def file_name_list(path, file_extension):
@@ -99,8 +100,8 @@ class HummingbotCompleter(Completer):
                     script_module = importlib.import_module(f".{script_name}",
                                                             package=settings.SCRIPT_STRATEGIES_MODULE)
                 config_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                     if inspect.isclass(member) and
-                                     issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
+                                     if inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
+                                     (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
                 if config_class:
                     strategies_with_config.append(script_name)
             except Exception:

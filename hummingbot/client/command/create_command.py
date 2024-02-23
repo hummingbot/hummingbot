@@ -2,6 +2,7 @@ import asyncio
 import copy
 import importlib
 import inspect
+import json
 import os
 import shutil
 import sys
@@ -32,6 +33,7 @@ from hummingbot.client.settings import SCRIPT_STRATEGY_CONFIG_PATH, STRATEGIES_C
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import InvalidScriptModule
+from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -59,8 +61,9 @@ class CreateCommand:
             module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_to_config}")
             script_module = importlib.reload(module)
             config_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                 if inspect.isclass(member) and
-                                 issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
+                                 if
+                                 inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
+                                 (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
             config_map = ClientConfigAdapter(config_class.construct())
 
             await self.prompt_for_model_config(config_map)
@@ -85,10 +88,13 @@ class CreateCommand:
         # Extract the ordered field names from the Pydantic model
         field_order = list(config_instance.__fields__.keys())
 
-        # Use ordered field names to create an ordered dictionary
-        ordered_config_data = OrderedDict((field, getattr(config_instance, field)) for field in field_order)
+        # Convert Pydantic model to JSON string and then parse it back to a Python dictionary
+        config_json_str = config_instance.json()
+        config_data = json.loads(config_json_str)
 
-        # Add a representer to use the ordered dictionary and dump the YAML file
+        # Use ordered field names to create an ordered dictionary
+        ordered_config_data = OrderedDict((field, config_data.get(field)) for field in field_order)
+
         def _dict_representer(dumper, data):
             return dumper.represent_dict(data.items())
 
