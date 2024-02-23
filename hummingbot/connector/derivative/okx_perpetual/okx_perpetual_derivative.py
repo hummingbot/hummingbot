@@ -631,6 +631,14 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 self._perpetual_trading.remove_position(pos_key)
 
+    @staticmethod
+    def get_position_side(position_msg: Dict[str, Any]) -> PositionSide:
+        if position_msg.get("posSide") == "net":
+            position_side = PositionSide.LONG if int(position_msg["pos"]) > 0 else PositionSide.SHORT
+        else:
+            position_side = PositionSide.LONG if position_msg.get("posSide") == "long" else PositionSide.SHORT
+        return position_side
+
     async def _process_account_position_event(self, position_msg: Dict[str, Any]):
         """
         Updates position
@@ -639,7 +647,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if bool(position_msg.get("instId")):
             ex_trading_pair = position_msg["instId"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
-            position_side = PositionSide.LONG if position_msg["posSide"] == "long" else PositionSide.SHORT
+            position_side = self.get_position_side(position_msg)
             entry_price = Decimal(position_msg["avgPx"]) if bool(position_msg["avgPx"]) else Decimal("0")
             amount = Decimal(position_msg["notionalUsd"]) if bool(position_msg["notionalUsd"]) else Decimal("0")
             leverage = Decimal(position_msg["lever"]) if bool(position_msg["lever"]) else Decimal("0")
