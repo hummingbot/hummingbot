@@ -96,6 +96,7 @@ class ControllerBase(SmartComponentBase):
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
         self.initialize_candles()
+        self.executors_update_event = asyncio.Event()
 
     async def handle_executor_update(self, executors_info):
         """
@@ -103,17 +104,24 @@ class ControllerBase(SmartComponentBase):
         this method can be overridden to implement custom behavior.
         """
         self.executors_info = executors_info.get(self.config.id, [])
+        self.executors_update_event.set()
 
     def initialize_candles(self):
         for candles_config in self.config.candles_config:
             self.market_data_provider.initialize_candles_feed(candles_config)
 
     async def control_task(self):
+        await self.executors_update_event.wait()  # Wait for the event to be set
+
         if self.market_data_provider.ready:
             await self.update_market_data()
             executor_actions: List[ExecutorAction] = self.determine_executor_actions()
-            for action in executor_actions:
-                await self.actions_queue.put(action)
+            await self.send_actions(executor_actions)
+
+    async def send_actions(self, executor_actions: List[ExecutorAction]):
+        if len(executor_actions) > 0:
+            await self.actions_queue.put(executor_actions)
+            self.executors_update_event.clear()  # Clear the event after sending the actions
 
     @staticmethod
     def filter_executors(executors: List[ExecutorInfo], filter_func: Callable[[ExecutorInfo], bool]) -> List[ExecutorInfo]:

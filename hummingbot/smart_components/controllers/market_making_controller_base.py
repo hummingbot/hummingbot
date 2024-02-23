@@ -4,8 +4,9 @@ from typing import List, Optional, Tuple, Union
 from pydantic import Field, root_validator, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.core.data_type.common import PriceType, TradeType
+from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 
 
@@ -64,6 +65,18 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         client_field=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda: "Set the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading:"))
+    position_mode: PositionMode = Field(
+        default="HEDGE",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
+            prompt_on_new=True
+        )
+    )
+    closed_executors_buffer: int = Field(
+        default=10, gt=0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
+            prompt_on_new=False))
 
     @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
     def parse_spreads(cls, v):
@@ -96,6 +109,12 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
 
         return values
 
+    @validator('position_mode', pre=True, allow_reuse=True)
+    def validate_position_mode(cls, v: str) -> PositionMode:
+        if v.upper() in PositionMode.__members__:
+            return PositionMode[v.upper()]
+        raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+
     def update_parameters(self, trade_type: TradeType, new_spreads: Union[List[float], str], new_amounts_pct: Optional[Union[List[int], str]] = None):
         spreads_field = 'buy_spreads' if trade_type == TradeType.BUY else 'sell_spreads'
         amounts_pct_field = 'buy_amounts_pct' if trade_type == TradeType.BUY else 'sell_amounts_pct'
@@ -117,6 +136,8 @@ class MarketMakingControllerBase(ControllerBase):
     """
     This class represents the base class for a market making controller.
     """
+    EXECUTORS_BUFFER = 5  # Number of executors to keep in the buffer until they are stored
+
     def __init__(self, config: MarketMakingControllerConfigBase):
         super().__init__(config)
         self.config = config
@@ -146,10 +167,10 @@ class MarketMakingControllerBase(ControllerBase):
         not_active_levels = self.get_not_active_levels_ids(active_levels_ids)
         levels_to_execute = self.filter_not_active_levels(not_active_levels)
         for level_id in levels_to_execute:
-            price, amount_quote = self.get_price_and_amount_in_quote(level_id)
+            price, amount = self.get_price_and_amount(level_id)
             create_actions.append(CreateExecutorAction(
                 controller_id=self.config.id,
-                executor_config=self.get_executor_config(level_id, price, amount_quote)
+                executor_config=self.get_executor_config(level_id, price, amount)
             ))
         return create_actions
 
@@ -162,12 +183,32 @@ class MarketMakingControllerBase(ControllerBase):
         stop_actions.extend(self.executors_to_early_stop())
         return stop_actions
 
+    def store_actions_proposal(self) -> List[ExecutorAction]:
+        """
+        Create a list of actions to store the executors based on the buffer size.
+        """
+        store_actions = []
+        terminated_executors = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED)
+        executors_sorted_by_close_timestamp = sorted(terminated_executors, key=lambda x: x.close_timestamp, reverse=True)
+        if len(executors_sorted_by_close_timestamp) > self.EXECUTORS_BUFFER:
+            store_actions.extend([StopExecutorAction(executor_id=executor.id) for executor in self.executors_info[self.EXECUTORS_BUFFER:]])
+        return store_actions
+
     def executors_to_refresh(self) -> List[ExecutorAction]:
         executors_to_refresh = self.filter_executors(
             executors=self.executors_info,
             filter_func=lambda x: not x.is_trading and x.is_active and time.time() - x.timestamp > self.config.executor_refresh_time)
 
         return [StopExecutorAction(executor_id=executor.id) for executor in executors_to_refresh]
+
+    def executors_to_early_stop(self) -> List[ExecutorAction]:
+        """
+        Get the executors to early stop based on the current state of market data. This method can be overridden to
+        implement custom behavior.
+        """
+        return []
 
     async def update_market_data(self):
         """
@@ -185,7 +226,7 @@ class MarketMakingControllerBase(ControllerBase):
         """
         raise NotImplementedError
 
-    def get_price_and_amount_in_quote(self, level_id: str) -> Tuple[float, float]:
+    def get_price_and_amount(self, level_id: str) -> Tuple[float, float]:
         """
         Get the spread and amount in quote for a given level id.
         """
@@ -195,13 +236,19 @@ class MarketMakingControllerBase(ControllerBase):
         spread_in_pct = spreads[int(level)] * self.processed_data["spread_multiplier"]
         side_multiplier = -1 if trade_type == TradeType.BUY else 1
         order_price = reference_price * (1 + side_multiplier * spread_in_pct)
-        return order_price, amounts_quote[int(level)]
+        return order_price, amounts_quote[int(level)] / order_price
 
     def get_level_id_from_side(self, trade_type: TradeType, level: int) -> str:
         """
         Get the level id based on the trade type and the level.
         """
         return f"{trade_type.name.lower()}_{level}"
+
+    def get_trade_type_from_level_id(self, level_id: str) -> TradeType:
+        return TradeType.BUY if level_id.startswith("buy") else TradeType.SELL
+
+    def get_level_from_level_id(self, level_id: str) -> int:
+        return int(level_id.split('_')[1])
 
     def get_not_active_levels_ids(self, active_levels_ids: List[str]) -> List[str]:
         """
