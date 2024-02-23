@@ -1,4 +1,6 @@
 import logging
+from collections import Counter
+from decimal import Decimal
 from typing import Dict, List
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -15,7 +17,7 @@ from hummingbot.smart_components.models.executor_actions import (
     StopExecutorAction,
     StoreExecutorAction,
 )
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
+from hummingbot.smart_components.models.executors_info import ExecutorInfo, PerformanceReport
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -42,10 +44,9 @@ class ExecutorOrchestrator:
         """
         for controller_id, executors_list in self.executors.items():
             for executor in executors_list:
-                if executor.is_active:
-                    executor.early_stop()
-                    # Assuming a method to store executor data is available
-                    self.execute_action(StoreExecutorAction(controller_id=controller_id, executor_id=executor.config.id))
+                executor.early_stop()
+                # Assuming a method to store executor data is available
+                self.execute_action(StoreExecutorAction(controller_id=controller_id, executor_id=executor.config.id))
 
     def execute_action(self, action: ExecutorAction):
         """
@@ -110,7 +111,7 @@ class ExecutorOrchestrator:
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
-        MarketsRecorder.get_instance().store_executor(executor)
+        MarketsRecorder.get_instance().store_or_update_executor(executor)
         self.executors[controller_id].remove(executor)
 
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
@@ -120,4 +121,49 @@ class ExecutorOrchestrator:
         report = {}
         for controller_id, executors_list in self.executors.items():
             report[controller_id] = [executor.executor_info for executor in executors_list if executor]
+        return report
+
+    def generate_performance_report(self, controller_id: str) -> PerformanceReport:
+        # Fetch executors from database and active in-memory executors
+        db_executors = MarketsRecorder.get_instance().get_executors_by_controller(controller_id)
+        active_executor_ids = [executor.executor_info.id for executor in self.executors.get(controller_id, [])]
+        filtered_db_executors = [executor for executor in db_executors if executor.id not in active_executor_ids]
+        combined_executors = self.executors.get(controller_id, []) + filtered_db_executors
+
+        # Initialize performance metrics
+        realized_pnl_quote = Decimal(0)
+        unrealized_pnl_quote = Decimal(0)
+        volume_traded = Decimal(0)
+        close_type_counts = Counter()
+
+        for executor in combined_executors:
+            if executor.is_active:  # For active executors
+                unrealized_pnl_quote += executor.net_pnl_quote
+            else:  # For closed executors
+                realized_pnl_quote += executor.net_pnl_quote
+            volume_traded += executor.filled_amount_quote
+            if not executor.is_active:
+                close_type = executor.close_type  # Assuming close_type is an attribute of executor
+                close_type_counts[close_type] += 1
+
+        # Calculate global PNL values
+        global_pnl_quote = unrealized_pnl_quote + realized_pnl_quote
+        global_pnl_pct = (global_pnl_quote / volume_traded) * 100 if volume_traded != 0 else Decimal(0)
+
+        # Calculate individual PNL percentages
+        unrealized_pnl_pct = (unrealized_pnl_quote / volume_traded) * 100 if volume_traded != 0 else Decimal(0)
+        realized_pnl_pct = (realized_pnl_quote / volume_traded) * 100 if volume_traded != 0 else Decimal(0)
+
+        # Create Performance Report
+        report = PerformanceReport(
+            realized_pnl_quote=realized_pnl_quote,
+            unrealized_pnl_quote=unrealized_pnl_quote,
+            unrealized_pnl_pct=unrealized_pnl_pct,
+            realized_pnl_pct=realized_pnl_pct,
+            global_pnl_quote=global_pnl_quote,
+            global_pnl_pct=global_pnl_pct,
+            volume_traded=volume_traded,
+            close_type_counts=close_type_counts
+        )
+
         return report
