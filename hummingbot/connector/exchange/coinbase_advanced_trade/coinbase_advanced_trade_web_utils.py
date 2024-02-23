@@ -102,6 +102,7 @@ async def get_current_server_time_s(
         url=private_rest_url(path_url=constants.SERVER_TIME_EP, domain=domain),
         method=RESTMethod.GET,
         throttler_limit_id=constants.SERVER_TIME_EP,
+        is_auth_required=True
     )
     server_time: float = float(get_timestamp_from_exchange_time(response["data"]["iso"], "s"))
     return server_time

@@ -148,9 +148,9 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         new_callable=Mock)
     @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
            '.private_rest_url')
-    async def test_get_current_server_time_s(self, mock_public_rest_url, mock_api_factory):
+    async def test_get_current_server_time_s(self, mock_private_rest_url, mock_api_factory):
         # Prepare Mocks
-        mock_public_rest_url.return_value = 'mock_url'
+        mock_private_rest_url.return_value = 'mock_url'
         mock_rest_assistant = AsyncMock()
         mock_rest_assistant.execute_request.return_value = {
             "data": {"iso": "2007-04-05T14:30Z", "epoch": 1175783400}}
@@ -164,11 +164,12 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         server_time = await get_current_server_time_s()
 
         # Assertions
-        mock_public_rest_url.assert_called_with(path_url=CONSTANTS.SERVER_TIME_EP, domain=CONSTANTS.DEFAULT_DOMAIN)
+        mock_private_rest_url.assert_called_with(path_url=CONSTANTS.SERVER_TIME_EP, domain=CONSTANTS.DEFAULT_DOMAIN)
         mock_rest_assistant.execute_request.assert_called_with(
             url='mock_url',
             method=RESTMethod.GET,
             throttler_limit_id=CONSTANTS.SERVER_TIME_EP,
+            is_auth_required=True
         )
         self.assertEqual(server_time, 1175783400)
 
