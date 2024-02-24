@@ -1,13 +1,16 @@
 import asyncio
 import importlib
 import inspect
+import os
 from collections import Counter
 from decimal import Decimal
 from typing import Callable, Dict, List, Optional, Set
 
 import pandas as pd
+import yaml
 from pydantic import Field, validator
 
+from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
@@ -16,7 +19,9 @@ from hummingbot.core.event.events import ExecutorEvent
 from hummingbot.core.pubsub import PubSub
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
+from hummingbot.exceptions import InvalidController
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.smart_components.controllers.market_making_controller_base import MarketMakingControllerConfigBase
 from hummingbot.smart_components.executors.executor_orchestrator import ExecutorOrchestrator
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executor_actions import (
@@ -52,12 +57,45 @@ class StrategyV2ConfigBase(BaseClientModel):
             )
         )
     )
-    controllers_config: List[ControllerConfigBase] = Field(
-        default_factory=list,
+    controllers_config: List[str] = Field(
+        default=None,
         client_data=ClientFieldData(
-            prompt_on_new=False,
-            prompt=lambda mi: "Enter controller configurations:"
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter controller configurations (comma-separated file paths), leave it empty if none: "
         ))
+
+    @validator('controllers_config', pre=True)
+    def parse_controllers_config(cls, v):
+        # Parse string input into a list of file paths
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(',') if item.strip()]
+        return v
+
+    def load_controller_configs(self):
+        loaded_configs = []
+        for config_path in self.controllers_config:
+            full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
+            with open(full_path, 'r') as file:
+                config_data = yaml.safe_load(file)
+
+            controller_type = config_data.get('controller_type')
+            controller_name = config_data.get('controller_name')
+
+            if not controller_type or not controller_name:
+                raise ValueError(f"Missing controller_type or controller_name in {config_path}")
+
+            module_path = f"{settings.CONTROLLERS_MODULE}.{controller_type}.{controller_name}"
+            module = importlib.import_module(module_path)
+
+            config_class = next((member for member_name, member in inspect.getmembers(module)
+                                 if inspect.isclass(member) and member not in [ControllerConfigBase, MarketMakingControllerConfigBase]
+                                 and (issubclass(member, ControllerConfigBase))), None)
+            if not config_class:
+                raise InvalidController(f"No configuration class found in the module {controller_name}.")
+
+            loaded_configs.append(config_class(**config_data))
+
+        return loaded_configs
 
     @validator('markets', pre=True)
     def parse_markets(cls, v) -> Dict[str, Set[str]]:
@@ -128,11 +166,16 @@ class StrategyV2Base(ScriptStrategyBase):
         Initialize the markets that the strategy is going to use. This method is called when the strategy is created in
         the start command. Can be overridden to implement custom behavior.
         """
-        cls.markets = config.markets
+        markets = config.markets
+        controllers_configs = config.load_controller_configs()
+        for controller_config in controllers_configs:
+            markets = controller_config.update_markets(markets)
+        cls.markets = markets
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: Optional[StrategyV2ConfigBase] = None):
         super().__init__(connectors, config)
         # Initialize the executor orchestrator
+        self.config = config
         self.executor_orchestrator = ExecutorOrchestrator(strategy=self)
 
         self.executors_info: Dict[str, List[ExecutorInfo]] = {}
@@ -145,23 +188,24 @@ class StrategyV2Base(ScriptStrategyBase):
         self.market_data_provider = MarketDataProvider(connectors)
         self.market_data_provider.initialize_candles_feed_list(config.candles_config)
         self.controllers: Dict[str, ControllerBase] = {}
-        self.initialize_controllers(config.controllers_config)
+        self.initialize_controllers()
 
-    def initialize_controllers(self, controllers_config: List[ControllerConfigBase]):
+    def initialize_controllers(self):
         """
         Initialize the controllers based on the provided configuration.
         """
-        for controller_config in controllers_config:
+        controllers_configs = self.config.load_controller_configs()
+        for controller_config in controllers_configs:
             self.add_controller(controller_config)
 
     def add_controller(self, config: ControllerConfigBase):
-        module = importlib.import_module(config.__module__)
-        for name, obj in inspect.getmembers(module):
-            if inspect.isclass(obj) and issubclass(obj, ControllerBase) and obj is not ControllerBase:
-                controller = obj(config, self.market_data_provider, self.actions_queue)
-                self.controllers[name] = controller
-                self.pubsub.add_listener(ExecutorEvent.EXECUTOR_INFO_UPDATE, controller.handle_executor_update)
-                break
+        try:
+            controller = config.get_controller_class()(config, self.market_data_provider, self.actions_queue)
+            controller.start()
+            self.pubsub.add_listener(ExecutorEvent.EXECUTOR_INFO_UPDATE, controller.executors_update_listener)
+            self.controllers[config.id] = controller
+        except Exception as e:
+            self.logger().error(f"Error adding controller: {e}", exc_info=True)
 
     async def listen_to_executor_actions(self):
         """
