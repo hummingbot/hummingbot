@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import asyncio
 import hashlib
+import importlib
+import inspect
 import random
 import time
-from typing import Callable, List
+from typing import Callable, Dict, List, Set
 
 import base58
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.smart_components.models.executor_actions import ExecutorAction
@@ -27,6 +32,7 @@ class ControllerConfigBase(BaseClientModel):
     """
     id: str = None
     controller_name: str
+    controller_type: str = "generic"
     candles_config: List[CandlesConfig] = Field(
         default="binance_perpetual.WLD-USDT.1m.500",
         client_data=ClientFieldData(
@@ -82,6 +88,27 @@ class ControllerConfigBase(BaseClientModel):
             return base58.b58encode(hashed_id).decode()  # Base58 encode
         return v
 
+    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
+        """
+        Update the markets dict of the script from the config.
+        """
+        return markets
+
+    def get_controller_class(self):
+        """
+        Dynamically load and return the controller class based on the controller configuration.
+        """
+        try:
+            module = importlib.import_module(self.__module__)
+            base_classes = ["ControllerBase", "MarketMakingControllerBase"]
+            for name, obj in inspect.getmembers(module):
+                if inspect.isclass(obj) and issubclass(obj, ControllerBase) and obj.__name__ not in base_classes:
+                    return obj
+        except ImportError as e:
+            raise ImportError(f"Could not import the module: {self.__module__}. Error: {str(e)}")
+
+        raise ValueError(f"No valid controller class found for module: {self.__module__}")
+
 
 class ControllerBase(SmartComponentBase):
     """
@@ -97,12 +124,14 @@ class ControllerBase(SmartComponentBase):
         self.processed_data = {}
         self.initialize_candles()
         self.executors_update_event = asyncio.Event()
+        self.executors_update_listener = SourceInfoEventForwarder(to_function=self.handle_executor_update)
 
-    async def handle_executor_update(self, executors_info):
+    async def handle_executor_update(self, event_tag, event_caller, executors_info):
         """
         Handle executors updates, by default we are going to store the executors related to this controller, but
         this method can be overridden to implement custom behavior.
         """
+        self.logger().debug(f"Received executors update: {executors_info}, event_tag: {event_tag}, event_caller: {event_caller}")
         self.executors_info = executors_info.get(self.config.id, [])
         self.executors_update_event.set()
 
@@ -111,12 +140,11 @@ class ControllerBase(SmartComponentBase):
             self.market_data_provider.initialize_candles_feed(candles_config)
 
     async def control_task(self):
-        await self.executors_update_event.wait()  # Wait for the event to be set
-
-        if self.market_data_provider.ready:
-            await self.update_market_data()
+        if self.market_data_provider.ready and self.executors_update_event.is_set():
+            await self.update_processed_data()
             executor_actions: List[ExecutorAction] = self.determine_executor_actions()
             await self.send_actions(executor_actions)
+            await self.executors_update_event.wait()
 
     async def send_actions(self, executor_actions: List[ExecutorAction]):
         if len(executor_actions) > 0:
@@ -127,7 +155,7 @@ class ControllerBase(SmartComponentBase):
     def filter_executors(executors: List[ExecutorInfo], filter_func: Callable[[ExecutorInfo], bool]) -> List[ExecutorInfo]:
         return [executor for executor in executors if filter_func(executor)]
 
-    async def update_market_data(self):
+    async def update_processed_data(self):
         """
         This method should be overridden by the derived classes to implement the logic to update the market data
         used by the controller. And should update the local market data collection to be used by the controller to
