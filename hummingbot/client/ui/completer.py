@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import os
 import re
 import sys
 from os import listdir
@@ -16,7 +17,7 @@ from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     PMM_SCRIPTS_PATH,
     SCRIPT_STRATEGIES_PATH,
-    SCRIPT_STRATEGY_CONFIG_PATH,
+    SCRIPT_STRATEGY_CONF_DIR_PATH,
     STRATEGIES,
     STRATEGIES_CONF_DIR_PATH,
     AllConnectorSettings,
@@ -78,8 +79,9 @@ class HummingbotCompleter(Completer):
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
-        self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONFIG_PATH), "yml"))
+        self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONF_DIR_PATH), "yml"))
         self._strategy_v2_create_config_completer = self.get_strategies_v2_with_config()
+        self._controller_completer = self.get_available_controllers()
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
         self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
         self._gateway_chains = []
@@ -107,6 +109,20 @@ class HummingbotCompleter(Completer):
             except Exception:
                 pass
         return WordCompleter(strategies_with_config, ignore_case=True)
+
+    def get_available_controllers(self):
+        controllers_path = settings.CONTROLLERS_PATH  # Ensure this points to the controllers directory
+        available_controllers = []
+
+        for root, dirs, files in os.walk(controllers_path):
+            for file in files:
+                if file.endswith(".py") and not file.startswith("__"):
+                    # Extract controller name from file path
+                    relative_path = os.path.relpath(os.path.join(root, file), controllers_path)
+                    controller_name = os.path.splitext(relative_path)[0].replace(os.path.sep, ".")
+                    available_controllers.append(controller_name)
+
+        return WordCompleter(available_controllers, ignore_case=True)
 
     def set_gateway_chains(self, gateway_chains):
         self._gateway_chains = gateway_chains
@@ -251,6 +267,10 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("create --script-config ")
 
+    def _complete_controllers_config(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("create --controller-config ")
+
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
 
@@ -309,6 +329,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_strategy_v2_files_with_config(document):
             for c in self._strategy_v2_create_config_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_controllers_config(document):
+            for c in self._controller_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_paths(document):
