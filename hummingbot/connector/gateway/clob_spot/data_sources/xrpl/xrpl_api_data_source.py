@@ -21,8 +21,11 @@ from hummingbot.connector.gateway.clob_spot.data_sources.xrpl.xrpl_constants imp
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.connector.utils import (
+    combine_to_hb_trading_pair,
+    get_new_numeric_client_order_id,
+    split_hb_trading_pair,
+)
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -62,9 +65,10 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         self._client = JsonRpcClient(self._base_url)
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
-        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.max_snapshots_update_interval = 15
-        self.min_snapshots_update_interval = 5
+        self._snapshots_min_update_interval = 30
+        self._snapshots_max_update_interval = 60
+        self.cancel_all_orders_timeout = 60
+        self._is_loading_markets = False
 
     @property
     def connector_name(self) -> str:
@@ -79,6 +83,37 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def stop(self):
         await super().stop()
+
+    async def _update_markets(self):
+        if self._is_loading_markets:
+            # Wait till the previous load markets is done
+            while self._is_loading_markets:
+                await asyncio.sleep(1)
+            return
+
+        self._is_loading_markets = True
+        for market_info in await self._get_markets_info():
+            trading_pair = self._get_trading_pair_from_market_info(market_info=market_info)
+            self._markets_info[trading_pair] = market_info
+            base, quote = split_hb_trading_pair(trading_pair=trading_pair)
+            base_exchange, quote_exchange = self._get_exchange_base_quote_tokens_from_market_info(
+                market_info=market_info
+            )
+            self._hb_to_exchange_tokens_map[base] = base_exchange
+            self._hb_to_exchange_tokens_map[quote] = quote_exchange
+        self._is_loading_markets = False
+
+    async def _get_markets_info(self) -> List[Dict[str, Any]]:
+        resp = await self._get_gateway_instance().get_clob_markets(
+            connector=self.connector_name, chain=self._chain, network=self._network
+        )
+        return resp["markets"]
+
+    async def _get_single_market_info(self, trading_pair: str) -> Dict[str, Any]:
+        resp = await self._get_gateway_instance().get_clob_markets(
+            connector=self.connector_name, chain=self._chain, network=self._network, trading_pair=trading_pair
+        )
+        return resp["market"][0]
 
     def get_supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
@@ -161,15 +196,13 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
         self._check_markets_initialized() or await self._update_markets()
-
-        async with self._throttler.execute_task(limit_id=CONSTANTS.BALANCE_REQUEST_LIMIT_ID):
-            result = await self._get_gateway_instance().get_balances(
-                chain=self.chain,
-                network=self._network,
-                address=self._account_id,
-                token_symbols=list(self._hb_to_exchange_tokens_map.values()),
-                connector=self.connector_name,
-            )
+        result = await self._get_gateway_instance().get_balances(
+            chain=self.chain,
+            network=self._network,
+            address=self._account_id,
+            token_symbols=list(self._hb_to_exchange_tokens_map.values()),
+            connector=self.connector_name,
+        )
 
         balances = defaultdict(dict)
 
@@ -186,10 +219,9 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return balances
 
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ORDERBOOK_REQUEST_LIMIT_ID):
-            data = await self._get_gateway_instance().get_clob_orderbook_snapshot(
-                trading_pair=trading_pair, connector=self.connector_name, chain=self._chain, network=self._network
-            )
+        data = await self._get_gateway_instance().get_clob_orderbook_snapshot(
+            trading_pair=trading_pair, connector=self.connector_name, chain=self._chain, network=self._network
+        )
 
         bids = [
             (Decimal(bid["price"]), Decimal(bid["quantity"]))
@@ -375,13 +407,12 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return status_update
 
     async def _get_ticker_data(self, trading_pair: str) -> Dict[str, Any]:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.TICKER_REQUEST_LIMIT_ID):
-            ticker_data = await self._get_gateway_instance().get_clob_ticker(
-                connector=self.connector_name,
-                chain=self._chain,
-                network=self._network,
-                trading_pair=trading_pair,
-            )
+        ticker_data = await self._get_gateway_instance().get_clob_ticker(
+            connector=self.connector_name,
+            chain=self._chain,
+            network=self._network,
+            trading_pair=trading_pair,
+        )
 
         for market in ticker_data["markets"]:
             if market["marketId"] == trading_pair:
