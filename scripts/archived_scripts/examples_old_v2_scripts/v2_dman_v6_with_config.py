@@ -4,10 +4,10 @@ from typing import Dict
 
 from pydantic import Field
 
+from controllers.market_making import DManV6, DManV6Config
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.market_making.dman_v6 import DManV6, DManV6Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor_handler import (
