@@ -1,7 +1,8 @@
 import time
-from typing import List, Optional, Tuple, Union
+from decimal import Decimal
+from typing import Dict, List, Optional, Set, Tuple, Union
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType
@@ -14,6 +15,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     """
     This class represents the base configuration for a market making controller.
     """
+    controller_type: str = "market_making"
     connector_name: str = Field(
         default="binance_perpetual",
         client_field=ClientFieldData(
@@ -30,22 +32,22 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt_on_new=True,
             prompt=lambda: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
 
-    buy_spreads: Union[List[float], str] = Field(
+    buy_spreads: List[float] = Field(
         default="0.01, 0.02",
         client_field=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda: "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'):"))
-    buy_amounts_pct: Union[List[int], str, None] = Field(
+    buy_amounts_pct: Union[List[int], None] = Field(
         default=None,
         client_field=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda: "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
-    sell_spreads: Union[List[float], str] = Field(
+    sell_spreads: List[float] = Field(
         default="0.01,0.02",
         client_field=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
-    sell_amounts_pct: Union[List[int], str, None] = Field(
+    sell_amounts_pct: Union[List[int], None] = Field(
         default=None,
         client_field=ClientFieldData(
             prompt_on_new=True,
@@ -96,19 +98,6 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
                 f"The number of {field.name} must match the number of {field.name.replace('amounts_pct', 'spreads')}.")
         return v
 
-    @root_validator
-    def normalize_amounts(cls, values):
-        buy_amounts_pct = values['buy_amounts_pct']
-        sell_amounts_pct = values['sell_amounts_pct']
-
-        total_buy = sum(buy_amounts_pct)
-        total_sell = sum(sell_amounts_pct)
-
-        values['buy_amounts_pct'] = [amt / total_buy for amt in buy_amounts_pct]
-        values['sell_amounts_pct'] = [amt / total_sell for amt in sell_amounts_pct]
-
-        return values
-
     @validator('position_mode', pre=True, allow_reuse=True)
     def validate_position_mode(cls, v: str) -> PositionMode:
         if v.upper() in PositionMode.__members__:
@@ -124,12 +113,28 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             setattr(self, amounts_pct_field, self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, amounts_pct_field))
         else:
             setattr(self, amounts_pct_field, [1 for _ in getattr(self, spreads_field)])
-        self.normalize_amounts(self.__dict__)
 
     def get_spreads_and_amounts_in_quote(self, trade_type: TradeType) -> Tuple[List[float], List[float]]:
+        buy_amounts_pct = getattr(self, 'buy_amounts_pct')
+        sell_amounts_pct = getattr(self, 'sell_amounts_pct')
+
+        # Calculate total percentages across buys and sells
+        total_pct = sum(buy_amounts_pct) + sum(sell_amounts_pct)
+
+        # Normalize amounts_pct based on total percentages
+        if trade_type == TradeType.BUY:
+            normalized_amounts_pct = [amt_pct / total_pct for amt_pct in buy_amounts_pct]
+        else:  # TradeType.SELL
+            normalized_amounts_pct = [amt_pct / total_pct for amt_pct in sell_amounts_pct]
+
         spreads = getattr(self, f'{trade_type.name.lower()}_spreads')
-        amounts_pct = getattr(self, f'{trade_type.name.lower()}_amounts_pct')
-        return spreads, [amt_pct * self.total_amount_quote for amt_pct in amounts_pct]
+        return spreads, [amt_pct * self.total_amount_quote for amt_pct in normalized_amounts_pct]
+
+    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
+        if self.connector_name not in markets:
+            markets[self.connector_name] = set()
+        markets[self.connector_name].add(self.trading_pair)
+        return markets
 
 
 class MarketMakingControllerBase(ControllerBase):
@@ -138,8 +143,8 @@ class MarketMakingControllerBase(ControllerBase):
     """
     EXECUTORS_BUFFER = 5  # Number of executors to keep in the buffer until they are stored
 
-    def __init__(self, config: MarketMakingControllerConfigBase):
-        super().__init__(config)
+    def __init__(self, config: MarketMakingControllerConfigBase, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
         self.config = config
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
@@ -210,7 +215,7 @@ class MarketMakingControllerBase(ControllerBase):
         """
         return []
 
-    async def update_market_data(self):
+    async def update_processed_data(self):
         """
         Update the market data for the controller. This method should be reimplemented to modify the reference price
         and spread multiplier based on the market data. By default, it will update the reference price as mid price and
@@ -234,7 +239,7 @@ class MarketMakingControllerBase(ControllerBase):
         spreads, amounts_quote = self.config.get_spreads_and_amounts_in_quote(TradeType[trade_type.upper()])
         reference_price = self.processed_data["reference_price"]
         spread_in_pct = spreads[int(level)] * self.processed_data["spread_multiplier"]
-        side_multiplier = -1 if trade_type == TradeType.BUY else 1
+        side_multiplier = Decimal("-1") if trade_type == TradeType.BUY else Decimal("1")
         order_price = reference_price * (1 + side_multiplier * spread_in_pct)
         return order_price, amounts_quote[int(level)] / order_price
 
