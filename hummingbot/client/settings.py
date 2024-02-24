@@ -39,12 +39,15 @@ CLIENT_CONFIG_PATH = CONF_DIR_PATH / "conf_client.yml"
 TRADE_FEES_CONFIG_PATH = CONF_DIR_PATH / "conf_fee_overrides.yml"
 STRATEGIES_CONF_DIR_PATH = CONF_DIR_PATH / "strategies"
 CONNECTORS_CONF_DIR_PATH = CONF_DIR_PATH / "connectors"
+SCRIPT_STRATEGY_CONF_DIR_PATH = CONF_DIR_PATH / "scripts"
+CONTROLLERS_CONF_DIR_PATH = CONF_DIR_PATH / "controllers"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 PMM_SCRIPTS_PATH = root_path() / "pmm_scripts"
 SCRIPT_STRATEGIES_MODULE = "scripts"
 SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
-SCRIPT_STRATEGY_CONFIG_PATH = root_path() / "conf" / "scripts"
+CONTROLLERS_MODULE = "controllers"
+CONTROLLERS_PATH = root_path() / CONTROLLERS_MODULE
 DEFAULT_GATEWAY_CERTS_PATH = root_path() / "certs"
 
 GATEWAY_SSL_CONF_FILE = root_path() / "gateway" / "conf" / "ssl.yml"
