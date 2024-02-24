@@ -1,10 +1,12 @@
 import time
 from decimal import Decimal
+from typing import List
 
-from pydantic import Field
+from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
@@ -16,6 +18,9 @@ from hummingbot.smart_components.executors.position_executor.data_types import (
 
 
 class PMMSimpleConfig(MarketMakingControllerConfigBase):
+    controller_name = "pmm_simple"
+    # As this controller is a simple version of the PMM, we are not using the candles feed
+    candles_config: List[CandlesConfig] = Field(default=[], client_data=ClientFieldData(prompt_on_new=False))
     # Triple Barrier Configuration
     stop_loss: Decimal = Field(
         default=Decimal("0.03"), gt=0,
@@ -38,6 +43,20 @@ class PMMSimpleConfig(MarketMakingControllerConfigBase):
             prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
             prompt_on_new=True))
 
+    @validator('take_profit_order_type', pre=True, allow_reuse=True)
+    def validate_order_type(cls, v) -> OrderType:
+        if isinstance(v, OrderType):
+            return v
+        elif isinstance(v, str):
+            if v.upper() in OrderType.__members__:
+                return OrderType[v.upper()]
+        elif isinstance(v, int):
+            try:
+                return OrderType(v)
+            except ValueError:
+                pass
+        raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
+
     @property
     def triple_barrier_config(self) -> TripleBarrierConfig:
         return TripleBarrierConfig(
@@ -52,8 +71,8 @@ class PMMSimpleConfig(MarketMakingControllerConfigBase):
 
 
 class PMMSimpleController(MarketMakingControllerBase):
-    def __init__(self, config: PMMSimpleConfig):
-        super().__init__(config)
+    def __init__(self, config: PMMSimpleConfig, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
         self.config = config
 
     def get_executor_config(self, level_id: str, price: Decimal, amount_in_quote: Decimal):
