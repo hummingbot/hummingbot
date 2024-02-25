@@ -73,8 +73,7 @@ class RESTAssistant:
 
         headers = headers or {}
 
-        local_headers = {
-            "Content-Type": ("application/json" if method != RESTMethod.GET else "application/x-www-form-urlencoded")}
+        local_headers = {"Content-Type": "application/json"}
 
         local_headers.update(headers)
 
