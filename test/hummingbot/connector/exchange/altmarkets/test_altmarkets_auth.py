@@ -2,11 +2,11 @@ from unittest.mock import patch
 
 from unittest import TestCase
 
-from hummingbot.connector.exchange.msamex.msamex_auth import mSamexAuth
-from hummingbot.connector.exchange.msamex.msamex_constants import Constants
+from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
+from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 
 
-class mSamexAuthTests(TestCase):
+class AltmarketsAuthTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
@@ -14,12 +14,12 @@ class mSamexAuthTests(TestCase):
         self._secret_key = 'testSecretKey'
         self._username = 'testUserName'
 
-        self.auth = mSamexAuth(
+        self.auth = AltmarketsAuth(
             api_key=self._api_key,
             secret_key=self._secret_key
         )
 
-    @patch("hummingbot.connector.exchange.msamex.msamex_auth.mSamexAuth._nonce")
+    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_auth.AltmarketsAuth._nonce")
     def test_get_headers(self, nonce_mock):
         nonce_mock.return_value = '1234567899'
         headers = self.auth.get_headers()

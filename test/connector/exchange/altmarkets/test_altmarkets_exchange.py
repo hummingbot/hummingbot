@@ -10,7 +10,7 @@ from os.path import join, realpath
 from typing import List
 
 import conf
-from hummingbot.connector.exchange.msamex.msamex_exchange import mSamexExchange
+from hummingbot.connector.exchange.altmarkets.altmarkets_exchange import AltmarketsExchange
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.common import OrderType
@@ -36,11 +36,11 @@ from hummingbot.model.trade_fill import TradeFill
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
-API_KEY = conf.msamex_api_key
-API_SECRET = conf.msamex_secret_key
+API_KEY = conf.altmarkets_api_key
+API_SECRET = conf.altmarkets_secret_key
 
 
-class mSamexExchangeUnitTest(unittest.TestCase):
+class AltmarketsExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -51,7 +51,7 @@ class mSamexExchangeUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
-    connector: mSamexExchange
+    connector: AltmarketsExchange
     event_logger: EventLogger
     trading_pair = "ROGER-BTC"
     base_token, quote_token = trading_pair.split("-")
@@ -64,13 +64,13 @@ class mSamexExchangeUnitTest(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.connector: mSamexExchange = mSamexExchange(
-            msamex_api_key=API_KEY,
-            msamex_secret_key=API_SECRET,
+        cls.connector: AltmarketsExchange = AltmarketsExchange(
+            altmarkets_api_key=API_KEY,
+            altmarkets_secret_key=API_SECRET,
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
-        print("Initializing mSamex market... this will take about a minute.")
+        print("Initializing Altmarkets market... this will take about a minute.")
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
@@ -352,7 +352,7 @@ class mSamexExchangeUnitTest(unittest.TestCase):
                 self.connector.remove_listener(event_tag, self.event_logger)
             # Clear the event loop
             self.event_logger.clear()
-            new_connector = mSamexExchange(API_KEY, API_SECRET, [self.trading_pair], True)
+            new_connector = AltmarketsExchange(API_KEY, API_SECRET, [self.trading_pair], True)
             for event_tag in self.events:
                 new_connector.add_listener(event_tag, self.event_logger)
             recorder.stop()

@@ -14,15 +14,15 @@ from typing import (
 )
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.msamex.msamex_constants import Constants
-from hummingbot.connector.exchange.msamex.msamex_auth import mSamexAuth
-from hummingbot.connector.exchange.msamex.msamex_utils import RequestId
+from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
+from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
+from hummingbot.connector.exchange.altmarkets.altmarkets_utils import RequestId
 
 # reusable websocket class
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
 
 
-class mSamexWebsocket(RequestId):
+class AltmarketsWebsocket(RequestId):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -32,9 +32,9 @@ class mSamexWebsocket(RequestId):
         return cls._logger
 
     def __init__(self,
-                 auth: Optional[mSamexAuth] = None,
+                 auth: Optional[AltmarketsAuth] = None,
                  throttler: Optional[AsyncThrottler] = None):
-        self._auth: Optional[mSamexAuth] = auth
+        self._auth: Optional[AltmarketsAuth] = auth
         self._isPrivate = True if self._auth is not None else False
         self._WS_URL = Constants.WS_PRIVATE_URL if self._isPrivate else Constants.WS_PUBLIC_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None

@@ -7,8 +7,8 @@ from typing import (
     Optional,
 )
 
-from hummingbot.connector.exchange.msamex.msamex_constants import Constants
-from hummingbot.connector.exchange.msamex.msamex_order_book_message import mSamexOrderBookMessage
+from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
+from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_message import AltmarketsOrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
@@ -19,7 +19,7 @@ from hummingbot.logger import HummingbotLogger
 _logger = None
 
 
-class mSamexOrderBook(OrderBook):
+class AltmarketsOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global _logger
@@ -36,13 +36,13 @@ class mSamexOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: mSamexOrderBookMessage
+        :return: AltmarketsOrderBookMessage
         """
 
         if metadata:
             msg.update(metadata)
 
-        return mSamexOrderBookMessage(
+        return AltmarketsOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=timestamp
@@ -57,13 +57,13 @@ class mSamexOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: mSamexOrderBookMessage
+        :return: AltmarketsOrderBookMessage
         """
 
         if metadata:
             msg.update(metadata)
 
-        return mSamexOrderBookMessage(
+        return AltmarketsOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp
@@ -77,7 +77,7 @@ class mSamexOrderBook(OrderBook):
         """
         Convert a trade data into standard OrderBookMessage format
         :param record: a trade data from the database
-        :return: mSamexOrderBookMessage
+        :return: AltmarketsOrderBookMessage
         """
 
         if metadata:
@@ -90,7 +90,7 @@ class mSamexOrderBook(OrderBook):
             "amount": msg.get("amount"),
         })
 
-        return mSamexOrderBookMessage(
+        return AltmarketsOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
             content=msg,
             timestamp=timestamp

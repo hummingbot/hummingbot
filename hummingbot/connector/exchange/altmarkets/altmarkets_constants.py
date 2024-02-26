@@ -3,7 +3,7 @@ from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeigh
 
 # A single source of truth for constant variables related to the exchange
 class Constants:
-    EXCHANGE_NAME = "msamex"
+    EXCHANGE_NAME = "altmarkets"
     REST_URL = "https://www.msamex.com/api/v2/peatio"
     WS_PRIVATE_URL = "wss://www.msamex.com/api/v2/ranger/private"
     WS_PUBLIC_URL = "wss://www.msamex.com/api/v2/ranger/public"

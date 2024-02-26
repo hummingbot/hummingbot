@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'msamex': 'bronze',
+    'altmarkets': 'bronze',
     'ascend_ex': 'silver',
     'binance': 'gold',
     'binance_perpetual': 'gold',

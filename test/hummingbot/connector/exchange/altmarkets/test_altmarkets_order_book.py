@@ -1,10 +1,10 @@
 from unittest import TestCase
 
-from hummingbot.connector.exchange.msamex.msamex_order_book import mSamexOrderBook
+from hummingbot.connector.exchange.altmarkets.altmarkets_order_book import AltmarketsOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class mSamexOrderBookTests(TestCase):
+class AltmarketsOrderBookTests(TestCase):
 
     def test_trade_message_from_exchange(self):
         example_time = 1234567890
@@ -16,7 +16,7 @@ class mSamexOrderBookTests(TestCase):
             "price": 8772.05,
             "amount": 0.1,
         }
-        message = mSamexOrderBook.trade_message_from_exchange(example_trade,
+        message = AltmarketsOrderBook.trade_message_from_exchange(example_trade,
                                                                   example_time,
                                                                   metadata={"trading_pair": "BTC-USDT"})
 

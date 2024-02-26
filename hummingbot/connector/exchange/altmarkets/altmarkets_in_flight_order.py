@@ -8,12 +8,12 @@ from typing import (
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.data_type.common import OrderType, TradeType
-from .msamex_constants import Constants
+from .altmarkets_constants import Constants
 
 s_decimal_0 = Decimal(0)
 
 
-class mSamexInFlightOrder(InFlightOrderBase):
+class AltmarketsInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],

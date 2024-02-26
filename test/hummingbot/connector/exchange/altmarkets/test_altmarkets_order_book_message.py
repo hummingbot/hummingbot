@@ -1,10 +1,10 @@
 from unittest import TestCase
 
-from hummingbot.connector.exchange.msamex.msamex_order_book_message import mSamexOrderBookMessage
+from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_message import AltmarketsOrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class mSamexOrderBookMessageTests(TestCase):
+class AltmarketsOrderBookMessageTests(TestCase):
 
     def _snapshot_example(self):
         return {
@@ -21,16 +21,16 @@ class mSamexOrderBookMessageTests(TestCase):
         }
 
     def test_equality_based_on_type_and_timestamp(self):
-        message = mSamexOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
+        message = AltmarketsOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
                                              content={},
                                              timestamp=10000000)
-        equal_message = mSamexOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
+        equal_message = AltmarketsOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
                                                    content={},
                                                    timestamp=10000000)
-        message_with_different_type = mSamexOrderBookMessage(message_type=OrderBookMessageType.DIFF,
+        message_with_different_type = AltmarketsOrderBookMessage(message_type=OrderBookMessageType.DIFF,
                                                                  content={},
                                                                  timestamp=10000000)
-        message_with_different_timestamp = mSamexOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
+        message_with_different_timestamp = AltmarketsOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
                                                                       content={},
                                                                       timestamp=90000000)
 
@@ -43,10 +43,10 @@ class mSamexOrderBookMessageTests(TestCase):
 
     def test_equal_messages_have_equal_hash(self):
         content = self._snapshot_example()
-        message = mSamexOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
+        message = AltmarketsOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
                                              content=content,
                                              timestamp=10000000)
-        equal_message = mSamexOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
+        equal_message = AltmarketsOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
                                                    content=content,
                                                    timestamp=10000000)
 
@@ -54,12 +54,12 @@ class mSamexOrderBookMessageTests(TestCase):
 
     def test_init_error(self):
         with self.assertRaises(ValueError) as context:
-            _ = mSamexOrderBookMessage(OrderBookMessageType.SNAPSHOT, {})
+            _ = AltmarketsOrderBookMessage(OrderBookMessageType.SNAPSHOT, {})
         self.assertEqual('timestamp must not be None when initializing snapshot messages.', str(context.exception))
 
     def test_instance_creation(self):
         content = self._snapshot_example()
-        message = mSamexOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
+        message = AltmarketsOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT,
                                              content=content,
                                              timestamp=content["timestamp"])
         bids = message.bids

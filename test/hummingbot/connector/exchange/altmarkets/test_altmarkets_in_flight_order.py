@@ -1,14 +1,14 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.msamex.msamex_in_flight_order import mSamexInFlightOrder
+from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 
 
-class mSamexInFlightOrderTests(TestCase):
+class AltmarketsInFlightOrderTests(TestCase):
 
     def test_order_is_local_after_creation(self):
-        order = mSamexInFlightOrder(
+        order = AltmarketsInFlightOrder(
             client_order_id="OID1",
             exchange_order_id="EOID1",
             trading_pair="BTC-USDT",
@@ -22,7 +22,7 @@ class mSamexInFlightOrderTests(TestCase):
         self.assertTrue(order.is_local)
 
     def test_order_state_is_new_after_update_exchange_order_id(self):
-        order = mSamexInFlightOrder(
+        order = AltmarketsInFlightOrder(
             client_order_id="OID1",
             exchange_order_id=None,
             trading_pair="BTC-USDT",

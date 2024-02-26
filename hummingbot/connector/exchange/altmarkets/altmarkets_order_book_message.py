@@ -13,12 +13,12 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
-from .msamex_utils import (
+from .altmarkets_utils import (
     convert_from_exchange_trading_pair,
 )
 
 
-class mSamexOrderBookMessage(OrderBookMessage):
+class AltmarketsOrderBookMessage(OrderBookMessage):
     def __new__(
         cls,
         message_type: OrderBookMessageType,
@@ -32,7 +32,7 @@ class mSamexOrderBookMessage(OrderBookMessage):
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = content["date"]
 
-        return super(mSamexOrderBookMessage, cls).__new__(
+        return super(AltmarketsOrderBookMessage, cls).__new__(
             cls, message_type, content, timestamp=timestamp, *args, **kwargs
         )
 

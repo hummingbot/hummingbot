@@ -5,15 +5,15 @@ import json
 import re
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.msamex.msamex_constants import Constants
+from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.connector.exchange.msamex.msamex_order_book import mSamexOrderBook
-from hummingbot.connector.exchange.msamex.msamex_order_book_message import mSamexOrderBookMessage
-from hummingbot.connector.exchange.msamex.msamex_order_book_tracker import mSamexOrderBookTracker
+from hummingbot.connector.exchange.altmarkets.altmarkets_order_book import AltmarketsOrderBook
+from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_message import AltmarketsOrderBookMessage
+from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_tracker import AltmarketsOrderBookTracker
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class mSamexOrderBookTrackerUnitTest(unittest.TestCase):
+class AltmarketsOrderBookTrackerUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -27,11 +27,11 @@ class mSamexOrderBookTrackerUnitTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         throttler = AsyncThrottler(Constants.RATE_LIMITS)
-        self.tracker: mSamexOrderBookTracker = mSamexOrderBookTracker(throttler, [self.trading_pair])
+        self.tracker: AltmarketsOrderBookTracker = AltmarketsOrderBookTracker(throttler, [self.trading_pair])
         self.tracking_task = None
 
         # Simulate start()
-        self.tracker._order_books[self.trading_pair] = mSamexOrderBook()
+        self.tracker._order_books[self.trading_pair] = AltmarketsOrderBook()
         self.tracker._tracking_message_queues[self.trading_pair] = asyncio.Queue()
         self.tracker._order_books_initialized.set()
 
@@ -58,13 +58,13 @@ class mSamexOrderBookTrackerUnitTest(unittest.TestCase):
                 ['7196.15', '0.69481598']]
         }
 
-    def simulate_queue_order_book_messages(self, message: mSamexOrderBookMessage):
+    def simulate_queue_order_book_messages(self, message: AltmarketsOrderBookMessage):
         message_queue = self.tracker._tracking_message_queues[self.trading_pair]
         message_queue.put_nowait(message)
 
     def test_track_single_book_apply_snapshot(self):
         snapshot_data = self._example_snapshot()
-        snapshot_msg = mSamexOrderBook.snapshot_message_from_exchange(
+        snapshot_msg = AltmarketsOrderBook.snapshot_message_from_exchange(
             msg=snapshot_data,
             timestamp=snapshot_data["timestamp"],
             metadata={"trading_pair": self.trading_pair}

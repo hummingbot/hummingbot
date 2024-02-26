@@ -12,12 +12,12 @@ from typing import (
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .msamex_constants import Constants
-from .msamex_auth import mSamexAuth
-from .msamex_websocket import mSamexWebsocket
+from .altmarkets_constants import Constants
+from .altmarkets_auth import AltmarketsAuth
+from .altmarkets_websocket import AltmarketsWebsocket
 
 
-class mSamexAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class AltmarketsAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -29,15 +29,15 @@ class mSamexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  throttler: AsyncThrottler,
-                 msamex_auth: mSamexAuth,
+                 altmarkets_auth: AltmarketsAuth,
                  trading_pairs: Optional[List[str]] = []):
-        self._msamex_auth: mSamexAuth = msamex_auth
+        self._altmarkets_auth: AltmarketsAuth = altmarkets_auth
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
         self._throttler = throttler
-        self._ws: mSamexWebsocket = None
+        self._ws: AltmarketsWebsocket = None
         super().__init__()
 
     @property
@@ -54,7 +54,7 @@ class mSamexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = mSamexWebsocket(self._msamex_auth, throttler=self._throttler)
+            self._ws = AltmarketsWebsocket(self._altmarkets_auth, throttler=self._throttler)
 
             await self._ws.connect()
 

@@ -9,17 +9,17 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 import aiohttp
 from async_timeout import timeout
 
-import hummingbot.connector.exchange.msamex.msamex_http_utils as http_utils
-from hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source import (
-    mSamexAPIOrderBookDataSource,
+import hummingbot.connector.exchange.altmarkets.altmarkets_http_utils as http_utils
+from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import (
+    AltmarketsAPIOrderBookDataSource,
 )
-from hummingbot.connector.exchange.msamex.msamex_auth import mSamexAuth
-from hummingbot.connector.exchange.msamex.msamex_constants import Constants
-from hummingbot.connector.exchange.msamex.msamex_in_flight_order import mSamexInFlightOrder
-from hummingbot.connector.exchange.msamex.msamex_order_book_tracker import mSamexOrderBookTracker
-from hummingbot.connector.exchange.msamex.msamex_user_stream_tracker import mSamexUserStreamTracker
-from hummingbot.connector.exchange.msamex.msamex_utils import (
-    mSamexAPIError,
+from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
+from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
+from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
+from hummingbot.connector.exchange.altmarkets.altmarkets_order_book_tracker import AltmarketsOrderBookTracker
+from hummingbot.connector.exchange.altmarkets.altmarkets_user_stream_tracker import AltmarketsUserStreamTracker
+from hummingbot.connector.exchange.altmarkets.altmarkets_utils import (
+    AltmarketsAPIError,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
@@ -56,9 +56,9 @@ s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
 
-class mSamexExchange(ExchangeBase):
+class AltmarketsExchange(ExchangeBase):
     """
-    mSamexExchange connects with mSamex.io exchange and provides order book pricing, user account tracking and
+    AltmarketsExchange connects with AltMarkets.io exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
@@ -74,14 +74,14 @@ class mSamexExchange(ExchangeBase):
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
-                 msamex_api_key: str,
-                 msamex_secret_key: str,
+                 altmarkets_api_key: str,
+                 altmarkets_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
-        :param msamex_api_key: The API key to connect to private mSamex.io APIs.
-        :param msamex_secret_key: The API secret.
+        :param altmarkets_api_key: The API key to connect to private AltMarkets.io APIs.
+        :param altmarkets_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
@@ -89,19 +89,19 @@ class mSamexExchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._throttler = AsyncThrottler(Constants.RATE_LIMITS, self._client_config.rate_limits_share_pct)
-        self._msamex_auth = mSamexAuth(msamex_api_key, msamex_secret_key)
-        self._set_order_book_tracker(mSamexOrderBookTracker(
+        self._altmarkets_auth = AltmarketsAuth(altmarkets_api_key, altmarkets_secret_key)
+        self._set_order_book_tracker(AltmarketsOrderBookTracker(
             throttler=self._throttler,
             trading_pairs=trading_pairs))
-        self._user_stream_tracker = mSamexUserStreamTracker(
+        self._user_stream_tracker = AltmarketsUserStreamTracker(
             throttler=self._throttler,
-            msamex_auth=self._msamex_auth,
+            altmarkets_auth=self._altmarkets_auth,
             trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, mSamexInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, AltmarketsInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._order_not_created_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
@@ -112,7 +112,7 @@ class mSamexExchange(ExchangeBase):
 
     @property
     def name(self) -> str:
-        return "msamex"
+        return "altmarkets"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -123,7 +123,7 @@ class mSamexExchange(ExchangeBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, mSamexInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, AltmarketsInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -178,7 +178,7 @@ class mSamexExchange(ExchangeBase):
         :param saved_states: The saved tracking_states.
         """
         self._in_flight_orders.update({
-            key: mSamexInFlightOrder.from_json(value)
+            key: AltmarketsInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -342,7 +342,7 @@ class mSamexExchange(ExchangeBase):
         parsed_response = await http_utils.api_call_with_retries(
             method=method,
             endpoint=endpoint,
-            auth_headers=self._msamex_auth.get_headers if is_auth_required else None,
+            auth_headers=self._altmarkets_auth.get_headers if is_auth_required else None,
             params=params,
             shared_client=shared_client,
             throttler=self._throttler,
@@ -353,7 +353,7 @@ class mSamexExchange(ExchangeBase):
 
         if "errors" in parsed_response or "error" in parsed_response:
             parsed_response['errors'] = parsed_response.get('errors', parsed_response.get('error'))
-            raise mSamexAPIError(parsed_response)
+            raise AltmarketsAPIError(parsed_response)
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -480,7 +480,7 @@ class mSamexExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            if isinstance(e, mSamexAPIError):
+            if isinstance(e, AltmarketsAPIError):
                 error_reason = e.error_payload.get('error', {}).get('message', e.error_payload.get('errors'))
             else:
                 error_reason = e
@@ -508,7 +508,7 @@ class mSamexExchange(ExchangeBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = mSamexInFlightOrder(
+        self._in_flight_orders[order_id] = AltmarketsInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -534,7 +534,7 @@ class mSamexExchange(ExchangeBase):
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
-        :param trading_pair: The market trading pair (Unused during cancel on mSamex.io)
+        :param trading_pair: The market trading pair (Unused during cancel on AltMarkets.io)
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
@@ -563,7 +563,7 @@ class mSamexExchange(ExchangeBase):
             self.logger().info(f"The order {order_id} could not be canceled due to a timeout."
                                " The action will be retried later.")
             errors_found = {"message": "Timeout during order cancelation"}
-        except mSamexAPIError as e:
+        except AltmarketsAPIError as e:
             errors_found = e.error_payload.get('errors', e.error_payload)
             if isinstance(errors_found, dict):
                 order_state = errors_found.get("state", None)
@@ -632,7 +632,7 @@ class mSamexExchange(ExchangeBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def stop_tracking_order_exceed_not_found_limit(self, tracked_order: mSamexInFlightOrder):
+    def stop_tracking_order_exceed_not_found_limit(self, tracked_order: AltmarketsInFlightOrder):
         """
         Increments and checks if the tracked order has exceed the ORDER_NOT_EXIST_CONFIRMATION_COUNT limit.
         If true, Triggers a MarketOrderFailureEvent and stops tracking the order.
@@ -701,7 +701,7 @@ class mSamexExchange(ExchangeBase):
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             responses = await safe_gather(*tasks, return_exceptions=True)
             for response, tracked_order in zip(responses, tracked_orders):
-                if isinstance(response, mSamexAPIError):
+                if isinstance(response, AltmarketsAPIError):
                     err = response.error_payload.get('errors', response.error_payload)
                     if "record.not_found" in err:
                         self.stop_tracking_order_exceed_not_found_limit(tracked_order=tracked_order)
@@ -806,7 +806,7 @@ class mSamexExchange(ExchangeBase):
             str(balance_message["balance"]))
 
     async def _trigger_order_fill(self,
-                                  tracked_order: mSamexInFlightOrder,
+                                  tracked_order: AltmarketsInFlightOrder,
                                   update_msg: Dict[str, Any]):
         executed_price = Decimal(str(update_msg.get("price")
                                      if update_msg.get("price") is not None
@@ -927,7 +927,7 @@ class mSamexExchange(ExchangeBase):
     async def _user_stream_event_listener(self):
         """
         Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        mSamexAPIUserStreamDataSource.
+        AltmarketsAPIUserStreamDataSource.
         """
         async for event_message in self._iter_user_event_queue():
             try:
@@ -988,11 +988,11 @@ class mSamexExchange(ExchangeBase):
 
     async def all_trading_pairs(self) -> List[str]:
         # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
-        return await mSamexAPIOrderBookDataSource.fetch_trading_pairs()
+        return await AltmarketsAPIOrderBookDataSource.fetch_trading_pairs()
 
     async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
         # This method should be removed and instead we should implement _get_last_traded_price
-        return await mSamexAPIOrderBookDataSource.get_last_traded_prices(
+        return await AltmarketsAPIOrderBookDataSource.get_last_traded_prices(
             trading_pairs=trading_pairs,
             throttler=self._throttler
         )

@@ -24,12 +24,12 @@ binance_buy_percent_fee_deducted_from_returns:  # True
 # List of supported Exchanges for which the user's conf/conf_fee_override.yml
 # will work. This file currently needs to be in sync with hummingbot list of
 # supported exchanges
-msamex_buy_percent_fee_deducted_from_returns:
-msamex_maker_fixed_fees:
-msamex_maker_percent_fee:
-msamex_percent_fee_token:
-msamex_taker_fixed_fees:
-msamex_taker_percent_fee:
+altmarkets_buy_percent_fee_deducted_from_returns:
+altmarkets_maker_fixed_fees:
+altmarkets_maker_percent_fee:
+altmarkets_percent_fee_token:
+altmarkets_taker_fixed_fees:
+altmarkets_taker_percent_fee:
 ascend_ex_buy_percent_fee_deducted_from_returns:
 ascend_ex_maker_fixed_fees:
 ascend_ex_maker_percent_fee:
