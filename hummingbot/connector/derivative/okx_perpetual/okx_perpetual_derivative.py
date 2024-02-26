@@ -263,6 +263,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 data["posSide"] = "long" if trade_type is TradeType.BUY else "short"
             else:
                 data["posSide"] = "short" if trade_type is TradeType.BUY else "long"
+        else:
+            data["posSide"] = "net"
 
         exchange_order_id = await self._api_post(
             path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
@@ -615,7 +617,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             position_side = PositionSide.LONG if data["posSide"] == "long" else PositionSide.SHORT
             unrealized_pnl = Decimal(data["upl"]) if bool(data["upl"]) else Decimal(str(0.0))
             entry_price = Decimal(data["avgPx"]) if bool(data["avgPx"]) else Decimal(str(0.0))
-            amount = Decimal(data["notionalUsd"]) if bool(data["notionalUsd"]) else Decimal(str(0.0))
+            amount = round(Decimal(data["notionalUsd"]) / Decimal(data["avgPx"])) if (
+                bool(data["notionalUsd"])) else Decimal(str(0.0))
             leverage = Decimal(data["lever"]) if bool(data["lever"]) else Decimal(str(0.0))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
@@ -649,7 +652,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
             position_side = self.get_position_side(position_msg)
             entry_price = Decimal(position_msg["avgPx"]) if bool(position_msg["avgPx"]) else Decimal("0")
-            amount = Decimal(position_msg["notionalUsd"]) if bool(position_msg["notionalUsd"]) else Decimal("0")
+            amount = round(Decimal(position_msg["notionalUsd"]) / Decimal(position_msg["avgPx"])) if (
+                bool(position_msg["notionalUsd"])) else Decimal("0")
             leverage = Decimal(position_msg["lever"]) if bool(position_msg["lever"]) else Decimal("0")
             unrealized_pnl = Decimal(position_msg["upl"]) if bool(position_msg["upl"]) else Decimal("0")
             pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
