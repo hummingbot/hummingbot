@@ -59,6 +59,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             params=params,
             method=RESTMethod.GET,
             throttler_limit_id=CONSTANTS.SNAPSHOT_PATH_URL,
+            headers={"Content-Type": "application/json"}
         )
 
         return data
