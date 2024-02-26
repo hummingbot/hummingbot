@@ -410,7 +410,7 @@ class KrakenExchange(ExchangePyBase):
         return result
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        exchange_order_id = tracked_order.get_exchange_order_id()
+        exchange_order_id = await tracked_order.get_exchange_order_id()
         api_params = {
             "txid": exchange_order_id,
         }
