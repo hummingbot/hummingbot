@@ -455,7 +455,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             fee_schema=self.trade_fee_schema(),
             position_action=position_action,
             percent_token=trade_msg["feeCcy"],
-            flat_fees=[TokenAmount(amount=Decimal(trade_msg["fee"]), token=trade_msg["feeCcy"])]
+            flat_fees=[TokenAmount(amount=abs(Decimal(trade_msg["fee"])), token=trade_msg["feeCcy"])]
         )
 
         trade_update: TradeUpdate = TradeUpdate(
@@ -707,7 +707,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                               (trade_type == TradeType.SELL and pos_side == PositionSide.SHORT)
                            else PositionAction.CLOSE)
         fill_fee_currency = order_msg.get("fillFeeCcy")
-        fill_fee = Decimal(order_msg.get("fillFee", "0"))
+        fill_fee = abs(Decimal(order_msg.get("fillFee", "0")))
 
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
         if updatable_order is not None:
