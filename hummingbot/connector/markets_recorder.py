@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os.path
 import threading
@@ -34,6 +35,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.executors import Executors
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_data import MarketData
 from hummingbot.model.market_state import MarketState
@@ -44,6 +46,9 @@ from hummingbot.model.range_position_collected_fees import RangePositionCollecte
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
+from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
+from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 
 
 class MarketsRecorder:
@@ -188,10 +193,22 @@ class MarketsRecorder:
         if self._market_data_collection_task is not None:
             self._market_data_collection_task.cancel()
 
-    def store_executor(self, executor: Dict):
+    def store_position_executor(self, executor: Dict):
         with self._sql_manager.get_new_session() as session:
             with session.begin():
                 session.add(PositionExecutors(**executor))
+
+    def store_executor(self, executor: Union[PositionExecutor, ArbitrageExecutor, DCAExecutor]):
+        # Here can be implemented the routing of the executor to the right table, for now we use a general table
+        with self._sql_manager.get_new_session() as session:
+            with session.begin():
+                serialized_config = executor.executor_info.json()
+                session.add(Executors(**json.loads(serialized_config)))
+
+    def get_executors_by_ids(self, executor_ids: List[str]):
+        with self._sql_manager.get_new_session() as session:
+            executors = session.query(Executors).filter(Executors.id.in_(executor_ids)).all()
+            return executors
 
     def get_position_executors(self,
                                controller_name: str = None,

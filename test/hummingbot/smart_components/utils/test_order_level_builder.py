@@ -1,8 +1,8 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.smart_components.strategy_frameworks.data_types import TripleBarrierConf
-from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevelBuilder
 
 
 class TestOrderLevelBuilder(unittest.TestCase):

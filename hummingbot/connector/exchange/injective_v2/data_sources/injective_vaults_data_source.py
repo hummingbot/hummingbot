@@ -1,7 +1,7 @@
 import asyncio
 import json
 from decimal import Decimal
-from typing import Any, Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 from google.protobuf import any_pb2, json_format
 from pyinjective import Transaction
@@ -28,6 +28,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveFeeCalculatorMode
+
 
 class InjectiveVaultsDataSource(InjectiveDataSource):
     _logger: Optional[HummingbotLogger] = None
@@ -40,6 +43,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             vault_subaccount_index: int,
             network: Network,
             rate_limits: List[RateLimit],
+            fee_calculator_mode: "InjectiveFeeCalculatorMode",
             use_secure_connection: bool = True):
         self._network = network
         self._client = AsyncClient(
@@ -48,6 +52,8 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         )
         self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
+        self._fee_calculator_mode = fee_calculator_mode
+        self._fee_calculator = None
 
         self._private_key = None
         self._public_key = None
@@ -68,7 +74,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             self._vault_subaccount_id = self._vault_contract_address.get_subaccount_id(index=vault_subaccount_index)
 
         self._publisher = PubSub()
-        self._last_received_message_time = 0
+        self._last_received_message_timestamp = 0
         self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._is_timeout_height_initialized = False
@@ -122,6 +128,10 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    @property
+    def last_received_message_timestamp(self) -> float:
+        return self._last_received_message_timestamp
 
     async def composer(self) -> Composer:
         if self._composer is None:
@@ -239,7 +249,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._events_listening_tasks = []
 
     async def initialize_trading_account(self):
-        await self._client.get_account(address=self.trading_account_injective_address)
+        await self._client.fetch_account(address=self.trading_account_injective_address)
         self._is_trading_account_initialized = True
 
     def supported_order_types(self) -> List[OrderType]:
@@ -265,10 +275,10 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         perpetual_orders = perpetual_orders or []
         order_updates = []
 
-        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
-            transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
+        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
+            transaction_info = await self.query_executor.get_tx(tx_hash=transaction_hash)
 
-        if transaction_info["data"].get("errorLog", "") != "":
+        if transaction_info["txResponse"]["code"] != CONSTANTS.TRANSACTION_SUCCEEDED_CODE:
             # The transaction failed. All orders should be marked as failed
             for order in (spot_orders + perpetual_orders):
                 order_update = OrderUpdate(
@@ -526,3 +536,29 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
                 }
             }
         }
+
+    async def _process_chain_stream_update(
+            self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
+    ):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_chain_stream_update(
+            chain_stream_update=chain_stream_update,
+            derivative_markets=derivative_markets,
+        )
+
+    async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_transaction_update(transaction_event=transaction_event)
+
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        if self._fee_calculator is None:
+            self._fee_calculator = self._fee_calculator_mode.create_calculator(
+                client=self._client,
+                composer=await self.composer(),
+            )
+
+        await self._fee_calculator.configure_gas_fee_for_transaction(
+            transaction=transaction,
+            private_key=self._private_key,
+            public_key=self._public_key,
+        )

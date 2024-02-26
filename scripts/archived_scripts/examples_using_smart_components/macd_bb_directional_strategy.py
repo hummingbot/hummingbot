@@ -11,7 +11,7 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -75,7 +75,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
                 MACD: {indicators[2]}
                 """)
                 signal_executor = PositionExecutor(
-                    position_config=PositionConfig(
+                    config=PositionExecutorConfig(
                         timestamp=self.current_timestamp, trading_pair=self.trading_pair,
                         exchange=self.exchange, order_type=OrderType.MARKET,
                         side=PositionSide.SHORT if signal_value < 0 else PositionSide.LONG,
