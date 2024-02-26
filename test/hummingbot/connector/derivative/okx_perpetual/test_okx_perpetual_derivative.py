@@ -1179,7 +1179,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "accFillSz": "323",
                     "fillNotionalUsd": "",
                     "fillTime": "0",
-                    "fillFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fillFee": str(-self.expected_fill_fee.flat_fees[0].amount),
                     "fillFeeCcy": self.expected_fill_fee.flat_fees[0].token,
                     "execType": "T",
                     "state": "filled",
@@ -1576,7 +1576,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "slTriggerPxType": "last",
                     "slOrdPx": "",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
-                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fee": str(-self.expected_fill_fee.flat_fees[0].amount),
                     "rebateCcy": "",
                     "rebate": "",
                     "tgtCcy": "",
@@ -1630,7 +1630,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
-                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fee": str(-self.expected_fill_fee.flat_fees[0].amount),
                     "ts": "1597026383085"
                 },
             ]
@@ -1657,7 +1657,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
-                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fee": str(-self.expected_fill_fee.flat_fees[0].amount),
                     "ts": "1597026383085"
                 },
             ]
