@@ -19,13 +19,14 @@ DEFAULT_GAS_PRICE = pyinjective.constant.GAS_PRICE
 
 EXPECTED_BLOCK_TIME = 1.5
 TRANSACTIONS_CHECK_INTERVAL = 3 * EXPECTED_BLOCK_TIME
+TRANSACTION_SUCCEEDED_CODE = 0
 
 # Public limit ids
 SPOT_MARKETS_LIMIT_ID = "SpotMarkets"
 DERIVATIVE_MARKETS_LIMIT_ID = "DerivativeMarkets"
 SPOT_ORDERBOOK_LIMIT_ID = "SpotOrderBookSnapshot"
 DERIVATIVE_ORDERBOOK_LIMIT_ID = "DerivativeOrderBookSnapshot"
-GET_TRANSACTION_INDEXER_LIMIT_ID = "GetTransactionIndexer"
+GET_TRANSACTION_LIMIT_ID = "GetTransaction"
 FUNDING_RATES_LIMIT_ID = "FundingRates"
 ORACLE_PRICES_LIMIT_ID = "OraclePrices"
 FUNDING_PAYMENTS_LIMIT_ID = "FundingPayments"
@@ -58,6 +59,11 @@ ENDPOINTS_RATE_LIMITS = [
         time_interval=ONE_SECOND,
         linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
     RateLimit(
+        limit_id=GET_TRANSACTION_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+    RateLimit(
         limit_id=SPOT_MARKETS_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
@@ -74,11 +80,6 @@ ENDPOINTS_RATE_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
     RateLimit(
         limit_id=DERIVATIVE_ORDERBOOK_LIMIT_ID,
-        limit=NO_LIMIT,
-        time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
-    RateLimit(
-        limit_id=GET_TRANSACTION_INDEXER_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
         linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
@@ -157,8 +158,5 @@ STREAM_ORDER_STATE_MAP = {
 ORDER_NOT_FOUND_ERROR_MESSAGE = "order not found"
 ACCOUNT_SEQUENCE_MISMATCH_ERROR = "account sequence mismatch"
 
-BATCH_UPDATE_ORDERS_MESSAGE_TYPE = "/injective.exchange.v1beta1.MsgBatchUpdateOrders"
-MARKET_ORDER_MESSAGE_TYPES = [
-    "/injective.exchange.v1beta1.MsgCreateSpotMarketOrder",
-    "/injective.exchange.v1beta1.MsgCreateDerivativeMarketOrder",
-]
+NEW_SPOT_ORDERS_EVENT_NAME = "injective.exchange.v1beta1.EventNewSpotOrders"
+NEW_DERIVATIVE_ORDERS_EVENT_NAME = "injective.exchange.v1beta1.EventNewDerivativeOrders"

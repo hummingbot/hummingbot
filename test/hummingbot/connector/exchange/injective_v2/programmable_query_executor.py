@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from pyinjective.core.market import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
@@ -18,7 +18,7 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._tokens_responses = asyncio.Queue()
         self._spot_order_book_responses = asyncio.Queue()
         self._derivative_order_book_responses = asyncio.Queue()
-        self._transaction_by_hash_responses = asyncio.Queue()
+        self._get_tx_responses = asyncio.Queue()
         self._account_portfolio_responses = asyncio.Queue()
         self._simulate_transaction_responses = asyncio.Queue()
         self._send_transaction_responses = asyncio.Queue()
@@ -62,8 +62,8 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._derivative_order_book_responses.get()
         return response
 
-    async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:
-        response = await self._transaction_by_hash_responses.get()
+    async def get_tx(self, tx_hash: str) -> Dict[str, Any]:
+        response = await self._get_tx_responses.get()
         return response
 
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:
@@ -142,13 +142,21 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._oracle_prices_responses.get()
         return response
 
-    async def transactions_stream(self,):
+    async def listen_transactions_updates(
+        self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
+    ):
         while True:
             next_event = await self._transaction_events.get()
-            yield next_event
+            await callback(next_event)
 
-    async def chain_stream(
+    async def listen_chain_stream_updates(
         self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
         bank_balances_filter: Optional[chain_stream_query.BankBalancesFilter] = None,
         subaccount_deposits_filter: Optional[chain_stream_query.SubaccountDepositsFilter] = None,
         spot_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
@@ -162,4 +170,4 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
     ):
         while True:
             next_event = await self._chain_stream_events.get()
-            yield next_event
+            await callback(next_event)

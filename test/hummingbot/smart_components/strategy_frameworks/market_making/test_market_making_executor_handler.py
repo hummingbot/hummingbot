@@ -3,8 +3,12 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest.mock import MagicMock, patch
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus, TrailingStop
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorStatus,
+    TrailingStop,
+    TripleBarrierConf,
+)
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.market_making import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
@@ -22,7 +26,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         triple_barrier_conf = TripleBarrierConf(
             stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
             time_limit=60 * 60 * 24,
-            trailing_stop_activation_price_delta=Decimal("0.002"),
+            trailing_stop_activation_price=Decimal("0.002"),
             trailing_stop_trailing_delta=Decimal("0.0005")
         )
         self.mock_controller.config = MagicMock(spec=MarketMakingControllerConfigBase)
@@ -66,60 +70,60 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         self.handler.on_start()
         mock_set_leverage.assert_not_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_position_executor")
     async def test_control_task_all_candles_ready(self, mock_create_executor):
         self.mock_controller.all_candles_ready = True
         await self.handler.control_task()
         mock_create_executor.assert_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_position_executor")
     async def test_control_task_candles_not_ready(self, mock_create_executor):
         self.mock_controller.all_candles_ready = False
         await self.handler.control_task()
         mock_create_executor.assert_not_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_position_executor")
     async def test_control_task_executor_closed_not_in_cooldown(self, mock_store_executor):
         self.mock_controller.all_candles_ready = True
         mock_executor = MagicMock()
         mock_executor.is_closed = True
         mock_executor.executor_status = PositionExecutorStatus.COMPLETED
-        self.handler.level_executors["BUY_1"] = mock_executor
-        self.handler.level_executors["SELL_1"] = mock_executor
+        self.handler.position_executors["BUY_1"] = mock_executor
+        self.handler.position_executors["SELL_1"] = mock_executor
         self.mock_controller.cooldown_condition.return_value = False
 
         await self.handler.control_task()
         mock_store_executor.assert_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_position_executor")
     async def test_control_task_executor_not_started_refresh_order(self, _):
         self.mock_controller.all_candles_ready = True
         mock_executor = MagicMock()
         mock_executor.is_closed = False
         mock_executor.executor_status = PositionExecutorStatus.NOT_STARTED
-        self.handler.level_executors["BUY_1"] = mock_executor
-        self.handler.level_executors["SELL_1"] = mock_executor
+        self.handler.position_executors["BUY_1"] = mock_executor
+        self.handler.position_executors["SELL_1"] = mock_executor
         self.mock_controller.refresh_order_condition.return_value = True
 
         await self.handler.control_task()
         mock_executor.early_stop.assert_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_position_executor")
     async def test_control_task_no_executor(self, mock_create_executor):
         self.mock_controller.all_candles_ready = True
         await self.handler.control_task()
         mock_create_executor.assert_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_position_executor")
     async def test_control_task_global_trailing_stop_activated(self, mock_create_executor):
         self.mock_controller.all_candles_ready = True
         self.mock_controller.early_stop_condition.return_value = False
         global_trailing_stop_activation_price_delta = Decimal("0.002")
         global_trailing_stop_trailing_delta = Decimal("0.0005")
         self.mock_controller.config.global_trailing_stop_config = {
-            TradeType.BUY: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+            TradeType.BUY: TrailingStop(activation_price=global_trailing_stop_activation_price_delta,
                                         trailing_delta=global_trailing_stop_trailing_delta),
-            TradeType.SELL: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+            TradeType.SELL: TrailingStop(activation_price=global_trailing_stop_activation_price_delta,
                                          trailing_delta=global_trailing_stop_trailing_delta)
         }
 
@@ -134,7 +138,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
             strategy=self.mock_strategy,
             controller=self.mock_controller
         )
-        self.handler.level_executors["BUY_1"] = mock_executor
+        self.handler.position_executors["BUY_1"] = mock_executor
 
         # Call the control_task method
         await self.handler.control_task()

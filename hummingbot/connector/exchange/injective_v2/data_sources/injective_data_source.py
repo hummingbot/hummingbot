@@ -5,11 +5,11 @@ import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from enum import Enum
-from functools import partial
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 from bidict import bidict
 from google.protobuf import any_pb2
+from grpc import RpcError
 from pyinjective import Transaction
 from pyinjective.composer import Composer, injective_exchange_tx_pb
 from pyinjective.core.market import DerivativeMarket, SpotMarket
@@ -102,6 +102,11 @@ class InjectiveDataSource(ABC):
     @property
     @abstractmethod
     def network_name(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def last_received_message_timestamp(self):
         raise NotImplementedError
 
     @abstractmethod
@@ -319,8 +324,8 @@ class InjectiveDataSource(ABC):
         async with self.throttler.execute_task(limit_id=CONSTANTS.PORTFOLIO_BALANCES_LIMIT_ID):
             portfolio_response = await self.query_executor.account_portfolio(account_address=account_address)
 
-        bank_balances = portfolio_response["bankBalances"]
-        sub_account_balances = portfolio_response.get("subaccounts", [])
+        bank_balances = portfolio_response["portfolio"]["bankBalances"]
+        sub_account_balances = portfolio_response["portfolio"].get("subaccounts", [])
 
         balances_dict: Dict[str, Dict[str, Decimal]] = {}
 
@@ -639,7 +644,7 @@ class InjectiveDataSource(ABC):
             trading_pair=await self.trading_pair_for_market(market_id=market_id),
             index_price=last_traded_price,  # Use the last traded price as the index_price
             mark_price=oracle_price,
-            next_funding_utc_timestamp=int(updated_market_info["perpetualMarketInfo"]["nextFundingTimestamp"]),
+            next_funding_utc_timestamp=int(updated_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]),
             rate=funding_rate,
         )
         return funding_info
@@ -717,6 +722,10 @@ class InjectiveDataSource(ABC):
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> Dict[str, Any]:
         raise NotImplementedError
 
+    @abstractmethod
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        raise NotImplementedError
+
     def _place_order_results(
             self,
             orders_to_create: List[GatewayInFlightOrder],
@@ -775,12 +784,15 @@ class InjectiveDataSource(ABC):
 
         return price
 
-    def _chain_stream(
+    async def _listen_chain_stream_updates(
             self,
             spot_markets: List[InjectiveSpotMarket],
             derivative_markets: List[InjectiveDerivativeMarket],
             subaccount_ids: List[str],
             composer: Composer,
+            callback: Callable,
+            on_end_callback: Optional[Callable] = None,
+            on_status_callback: Optional[Callable] = None,
     ):
         spot_market_ids = [market_info.market_id for market_info in spot_markets]
         derivative_market_ids = []
@@ -820,7 +832,10 @@ class InjectiveDataSource(ABC):
             positions_filter = None
             oracle_price_filter = None
 
-        stream = self.query_executor.chain_stream(
+        await self.query_executor.listen_chain_stream_updates(
+            callback=callback,
+            on_end_callback=on_end_callback,
+            on_status_callback=on_status_callback,
             subaccount_deposits_filter=subaccount_deposits_filter,
             spot_trades_filter=spot_trades_filter,
             derivative_trades_filter=derivative_trades_filter,
@@ -831,11 +846,18 @@ class InjectiveDataSource(ABC):
             positions_filter=positions_filter,
             oracle_price_filter=oracle_price_filter
         )
-        return stream
 
-    def _transactions_stream(self):
-        stream = self.query_executor.transactions_stream()
-        return stream
+    async def _listen_transactions_updates(
+        self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
+    ):
+        await self.query_executor.listen_transactions_updates(
+            callback=callback,
+            on_end_callback=on_end_callback,
+            on_status_callback=on_status_callback,
+        )
 
     async def _parse_spot_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
         exchange_order_id: str = trade_info["orderHash"]
@@ -963,25 +985,14 @@ class InjectiveDataSource(ABC):
         transaction.with_account_num(await self.trading_account_number())
         transaction.with_chain_id(self.injective_chain_id)
 
-        signed_transaction_data = self._sign_and_encode(transaction=transaction)
-
         async with self.throttler.execute_task(limit_id=CONSTANTS.SIMULATE_TRANSACTION_LIMIT_ID):
             try:
-                simulation_result = await self.query_executor.simulate_tx(tx_byte=signed_transaction_data)
+                await self._configure_gas_fee_for_transaction(transaction=transaction)
             except RuntimeError as simulation_ex:
                 if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in str(simulation_ex):
                     await self.initialize_trading_account()
                 raise
 
-        composer = await self.composer()
-        gas_limit = int(simulation_result["gasInfo"]["gasUsed"]) + CONSTANTS.EXTRA_TRANSACTION_GAS
-        fee = [composer.Coin(
-            amount=gas_limit * CONSTANTS.DEFAULT_GAS_PRICE,
-            denom=self.fee_denom,
-        )]
-
-        transaction.with_gas(gas_limit)
-        transaction.with_fee(fee)
         transaction.with_memo("")
         transaction.with_timeout_height(await self.timeout_height())
 
@@ -995,6 +1006,12 @@ class InjectiveDataSource(ABC):
 
         return result
 
+    def _chain_stream_exception_handler(self, exception: RpcError):
+        self.logger().warning(f"Error while listening to chain stream ({exception})")
+
+    def _chain_stream_closed_handler(self):
+        self.logger().debug("Reconnecting stream for chain stream")
+
     async def _listen_to_chain_updates(
             self,
             spot_markets: List[InjectiveSpotMarket],
@@ -1002,51 +1019,47 @@ class InjectiveDataSource(ABC):
             subaccount_ids: List[str],
     ):
         composer = await self.composer()
-        await self._listen_stream_events(
-            stream_provider=partial(
-                self._chain_stream,
-                spot_markets=spot_markets,
-                derivative_markets=derivative_markets,
-                subaccount_ids=subaccount_ids,
-                composer=composer
-            ),
-            event_processor=self._process_chain_stream_update,
-            event_name_for_errors="chain stream",
-            spot_markets=spot_markets,
-            derivative_markets=derivative_markets,
-        )
 
-    async def _listen_to_chain_transactions(self):
-        await self._listen_stream_events(
-            stream_provider=self._transactions_stream,
-            event_processor=self._process_transaction_update,
-            event_name_for_errors="transaction",
-        )
-
-    async def _listen_stream_events(
-            self,
-            stream_provider: Callable,
-            event_processor: Callable,
-            event_name_for_errors: str,
-            **kwargs):
-        while True:
-            self.logger().debug(f"Starting stream for {event_name_for_errors}")
+        async def _chain_stream_event_handler(event: Dict[str, Any]):
             try:
-                stream = stream_provider()
-                async for event in stream:
-                    try:
-                        await event_processor(event, **kwargs)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        self.logger().warning(f"Invalid {event_name_for_errors} event format ({ex})\n{event}")
+                await self._process_chain_stream_update(
+                    chain_stream_update=event, derivative_markets=derivative_markets,
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().error(f"Error while listening to {event_name_for_errors} stream, reconnecting ... ({ex})")
-            self.logger().debug(f"Reconnecting stream for {event_name_for_errors}")
+                self.logger().warning(f"Invalid chain stream event format ({ex})\n{event}")
 
-    async def _process_chain_stream_update(self, chain_stream_update: Dict[str, Any], **kwargs):
+        while True:
+            # Running in a cycle to reconnect to the stream after connection errors
+            await self._listen_chain_stream_updates(
+                spot_markets=spot_markets,
+                derivative_markets=derivative_markets,
+                subaccount_ids=subaccount_ids,
+                composer=composer,
+                callback=_chain_stream_event_handler,
+                on_end_callback=self._chain_stream_closed_handler,
+                on_status_callback=self._chain_stream_exception_handler,
+            )
+
+    def _transaction_stream_exception_handler(self, exception: RpcError):
+        self.logger().warning(f"Error while listening to transaction stream ({exception})")
+
+    def _transaction_stream_closed_handler(self):
+        self.logger().debug("Reconnecting stream for transaction stream")
+
+    async def _listen_to_chain_transactions(self):
+        while True:
+            # Running in a cycle to reconnect to the stream after connection errors
+            await self._listen_transactions_updates(
+                callback=self._process_transaction_update,
+                on_end_callback=self._transaction_stream_closed_handler,
+                on_status_callback=self._transaction_stream_exception_handler,
+            )
+
+    async def _process_chain_stream_update(
+        self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
+    ):
         block_height = int(chain_stream_update["blockHeight"])
         block_timestamp = int(chain_stream_update["blockTime"]) * 1e-3
         tasks = []
@@ -1129,7 +1142,7 @@ class InjectiveDataSource(ABC):
                     oracle_price_updates=chain_stream_update.get("oraclePrices", []),
                     block_height=block_height,
                     block_timestamp=block_timestamp,
-                    derivative_markets=kwargs.get("derivative_markets", [])
+                    derivative_markets=derivative_markets,
                 )
             )
         )
