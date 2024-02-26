@@ -643,10 +643,13 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     @staticmethod
     def get_position_amount(position_msg: Dict[str, Any]) -> Decimal:
-        notional_usd = Decimal(position_msg.get("notionalUsd", "0"))
-        avg_px = Decimal(position_msg.get("avgPx", "0"))
-        amount = abs(notional_usd / avg_px) if notional_usd != s_decimal_0 else s_decimal_0
-        return max(amount, round(amount))
+        if bool(position_msg["notionalUsd"]):
+            notional_usd = Decimal(position_msg["notionalUsd"])
+            avg_px = Decimal(position_msg["avgPx"])
+            amount = abs(notional_usd / avg_px) if notional_usd != s_decimal_0 else s_decimal_0
+            return max(amount, round(amount))
+        else:
+            return Decimal("0.0")
 
     async def _process_account_position_event(self, position_msg: Dict[str, Any]):
         """
