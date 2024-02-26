@@ -585,9 +585,10 @@ class KrakenExchange(ExchangePyBase):
                     self.logger().debug(
                         f"Ignoring order message with id {order_msg}: not in in_flight_orders.")
                     return
-                order_update = self._create_order_update_with_order_status_data(order_status=order_msg,
-                                                                                order=tracked_order)
-                self._order_tracker.process_order_update(order_update=order_update)
+                if "status" in order_msg:
+                    order_update = self._create_order_update_with_order_status_data(order_status=order_msg,
+                                                                                    order=tracked_order)
+                    self._order_tracker.process_order_update(order_update=order_update)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
