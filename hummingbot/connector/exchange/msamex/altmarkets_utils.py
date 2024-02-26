@@ -7,7 +7,7 @@ from pydantic import Field, SecretStr
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
-from .altmarkets_constants import Constants
+from .msamex_constants import Constants
 
 TRADING_PAIR_SPLITTER = re.compile(Constants.TRADING_PAIR_SPLITTER)
 
@@ -18,7 +18,7 @@ EXAMPLE_PAIR = "ALTM-BTC"
 DEFAULT_FEES = [0.25, 0.25]
 
 
-class AltmarketsAPIError(IOError):
+class mSamexAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__(str(error_payload))
         self.error_payload = error_payload
@@ -54,13 +54,13 @@ def convert_from_exchange_trading_pair(ex_trading_pair: str) -> Optional[str]:
     regex_match = split_trading_pair(ex_trading_pair)
     if regex_match is None:
         return None
-    # AltMarkets.io uses lowercase (btcusdt)
+    # mSamex.io uses lowercase (btcusdt)
     base_asset, quote_asset = split_trading_pair(ex_trading_pair)
     return f"{base_asset.upper()}-{quote_asset.upper()}"
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    # AltMarkets.io uses lowercase (btcusdt)
+    # mSamex.io uses lowercase (btcusdt)
     return hb_trading_pair.replace("-", "").lower()
 
 
@@ -74,9 +74,9 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     return f"{Constants.HBOT_BROKER_ID}-{side}{base_str}{quote_str}{get_tracking_nonce()}"
 
 
-class AltmarketsConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="altmarkets", client_data=None)
-    altmarkets_api_key: SecretStr = Field(
+class mSamexConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="msamex", client_data=None)
+    msamex_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: f"Enter your {Constants.EXCHANGE_NAME} API key",
@@ -85,7 +85,7 @@ class AltmarketsConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-    altmarkets_secret_key: SecretStr = Field(
+    msamex_secret_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: f"Enter your {Constants.EXCHANGE_NAME} secret key",
@@ -96,7 +96,7 @@ class AltmarketsConfigMap(BaseConnectorConfigMap):
     )
 
     class Config:
-        title = "altmarkets"
+        title = "msamex"
 
 
-KEYS = AltmarketsConfigMap.construct()
+KEYS = mSamexConfigMap.construct()

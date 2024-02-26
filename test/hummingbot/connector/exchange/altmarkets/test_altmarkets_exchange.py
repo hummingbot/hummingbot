@@ -12,10 +12,10 @@ from aioresponses import aioresponses
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
-from hummingbot.connector.exchange.altmarkets.altmarkets_exchange import AltmarketsExchange
-from hummingbot.connector.exchange.altmarkets.altmarkets_in_flight_order import AltmarketsInFlightOrder
-from hummingbot.connector.exchange.altmarkets.altmarkets_utils import (
+from hummingbot.connector.exchange.msamex.msamex_constants import Constants
+from hummingbot.connector.exchange.msamex.msamex_exchange import mSamexExchange
+from hummingbot.connector.exchange.msamex.msamex_in_flight_order import mSamexInFlightOrder
+from hummingbot.connector.exchange.msamex.msamex_utils import (
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
 )
@@ -29,7 +29,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.time_iterator import TimeIterator
 
 
-class AltmarketsExchangeTests(TestCase):
+class mSamexExchangeTests(TestCase):
     # logging.Level required to receive logs from the exchange
     level = 0
 
@@ -51,10 +51,10 @@ class AltmarketsExchangeTests(TestCase):
         self.async_tasks: List[asyncio.Task] = []
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = AltmarketsExchange(
+        self.exchange = mSamexExchange(
             client_config_map=self.client_config_map,
-            altmarkets_api_key=self.api_key,
-            altmarkets_secret_key=self.api_secret_key,
+            msamex_api_key=self.api_key,
+            msamex_secret_key=self.api_secret_key,
             trading_pairs=[self.trading_pair]
         )
         self.return_values_queue = asyncio.Queue()
@@ -148,8 +148,8 @@ class AltmarketsExchangeTests(TestCase):
                             client_order_id: str,
                             exchange_order_id: str = "someExchId",
                             amount: str = "1",
-                            price: str = "5.1") -> AltmarketsInFlightOrder:
-        order = AltmarketsInFlightOrder(
+                            price: str = "5.1") -> mSamexInFlightOrder:
+        order = mSamexInFlightOrder(
             client_order_id,
             exchange_order_id,
             self.trading_pair,
@@ -231,7 +231,7 @@ class AltmarketsExchangeTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(coroutine=self.exchange.check_network())
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     @aioresponses()
     def test_check_network_not_connected_for_error_status(self, retry_sleep_time_mock, mock_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -444,7 +444,7 @@ class AltmarketsExchangeTests(TestCase):
         )
         self.assertFalse(result.success)
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     @aioresponses()
     def test_execute_cancel_failed_is_logged(self, retry_sleep_time_mock, mocked_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -474,7 +474,7 @@ class AltmarketsExchangeTests(TestCase):
         )
         self.assertTrue(self._is_logged("NETWORK", logged_msg))
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     @aioresponses()
     def test_execute_cancel_raises_on_asyncio_cancelled_error(self, retry_sleep_time_mock, mocked_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -497,7 +497,7 @@ class AltmarketsExchangeTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, order_id))
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     @aioresponses()
     def test_execute_cancel_other_exceptions_are_logged(self, retry_sleep_time_mock, mocked_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -536,7 +536,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(0, len(self.exchange.in_flight_orders))
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange.current_timestamp")
+    @patch("hummingbot.connector.exchange.msamex.msamex_exchange.mSamexExchange.current_timestamp")
     def test_update_order_status_unable_to_fetch_order_status(self, mock_api, current_ts_mock):
         client_order_id = "someId"
         exchange_order_id = "someExchId"
@@ -738,7 +738,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(order_id, order_failure_events[0].order_id)
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange._sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_exchange.mSamexExchange._sleep_time")
     def test_update_order_status_no_exchange_id(self, mocked_api, sleep_time_mock):
         sleep_time_mock.return_value = 0
         exchange_order_id = "someId"
@@ -775,8 +775,8 @@ class AltmarketsExchangeTests(TestCase):
 
         self.assertEqual(exchange_order_id, order.exchange_order_id)
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange._sleep_time")
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_exchange.mSamexExchange._sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     @aioresponses()
     def test_update_order_status_no_exchange_id_failure(self, retry_sleep_time_mock, sleep_time_mock, mocked_api):
         sleep_time_mock.return_value = 0
@@ -823,7 +823,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(order_id, order_failure_events[0].order_id)
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange.current_timestamp")
+    @patch("hummingbot.connector.exchange.msamex.msamex_exchange.mSamexExchange.current_timestamp")
     def test_status_polling_loop(self, mock_api, current_ts_mock):
         # Order Balance Updates
         balances_url = f"{Constants.REST_URL}/{Constants.ENDPOINT['USER_BALANCES']}"
@@ -859,7 +859,7 @@ class AltmarketsExchangeTests(TestCase):
         partially_filled_order = self.exchange.in_flight_orders[client_order_id]
         self.assertEqual(Decimal("0.5"), partially_filled_order.executed_amount_base)
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange._update_balances")
+    @patch("hummingbot.connector.exchange.msamex.msamex_exchange.mSamexExchange._update_balances")
     def test_status_polling_loop_raises_on_asyncio_cancelled_error(self, update_balances_mock: AsyncMock):
         update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_with_event(
             exception=asyncio.CancelledError
@@ -870,7 +870,7 @@ class AltmarketsExchangeTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.exchange._status_polling_loop())
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_exchange.AltmarketsExchange._update_balances")
+    @patch("hummingbot.connector.exchange.msamex.msamex_exchange.mSamexExchange._update_balances")
     def test_status_polling_loop_logs_other_exceptions(self, update_balances_mock: AsyncMock):
         update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_with_event(
             exception=Exception("Dummy test error")
@@ -997,7 +997,7 @@ class AltmarketsExchangeTests(TestCase):
         with self.assertRaises(Exception):
             self.async_run_with_timeout(self.exchange.cancel_all(timeout_seconds=1))
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     @aioresponses()
     def test_cancel_all(self, retry_sleep_time_mock, mocked_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -1034,7 +1034,7 @@ class AltmarketsExchangeTests(TestCase):
         self.assertEqual(1, len(cancellation_results))
         self.assertEqual(order_id, cancellation_results[0].order_id)
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     @aioresponses()
     def test_cancel_all_logs_exceptions(self, retry_sleep_time_mock, mocked_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0

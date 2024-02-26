@@ -7,8 +7,8 @@ import unittest
 import conf
 
 from os.path import join, realpath
-from hummingbot.connector.exchange.altmarkets.altmarkets_user_stream_tracker import AltmarketsUserStreamTracker
-from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
+from hummingbot.connector.exchange.msamex.msamex_user_stream_tracker import mSamexUserStreamTracker
+from hummingbot.connector.exchange.msamex.msamex_auth import mSamexAuth
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
@@ -17,16 +17,16 @@ sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class AltmarketsUserStreamTrackerUnitTest(unittest.TestCase):
-    api_key = conf.altmarkets_api_key
-    api_secret = conf.altmarkets_secret_key
+class mSamexUserStreamTrackerUnitTest(unittest.TestCase):
+    api_key = conf.msamex_api_key
+    api_secret = conf.msamex_secret_key
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.trading_pairs = ["BTC-USD"]
-        cls.user_stream_tracker: AltmarketsUserStreamTracker = AltmarketsUserStreamTracker(
-            altmarkets_auth=AltmarketsAuth(cls.api_key, cls.api_secret),
+        cls.user_stream_tracker: mSamexUserStreamTracker = mSamexUserStreamTracker(
+            msamex_auth=mSamexAuth(cls.api_key, cls.api_secret),
             trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 

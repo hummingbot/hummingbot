@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-import hummingbot.connector.exchange.altmarkets.altmarkets_http_utils as http_utils
+import hummingbot.connector.exchange.msamex.msamex_http_utils as http_utils
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -16,14 +16,14 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 # from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 
-from .altmarkets_active_order_tracker import AltmarketsActiveOrderTracker
-from .altmarkets_constants import Constants
-from .altmarkets_order_book import AltmarketsOrderBook
-from .altmarkets_utils import AltmarketsAPIError, convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
-from .altmarkets_websocket import AltmarketsWebsocket
+from .msamex_active_order_tracker import mSamexActiveOrderTracker
+from .msamex_constants import Constants
+from .msamex_order_book import mSamexOrderBook
+from .msamex_utils import mSamexAPIError, convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
+from .msamex_websocket import mSamexWebsocket
 
 
-class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class mSamexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -119,7 +119,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                                                    limit_id=Constants.RL_ID_ORDER_BOOK,
                                                                                    logger=cls.logger())
             return orderbook_response
-        except AltmarketsAPIError as e:
+        except mSamexAPIError as e:
             err = e.error_payload.get('errors', e.error_payload)
             raise IOError(
                 f"Error fetching OrderBook for {trading_pair} at {Constants.EXCHANGE_NAME}. "
@@ -128,12 +128,12 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
         snapshot_timestamp: float = self._time()
-        snapshot_msg: OrderBookMessage = AltmarketsOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = mSamexOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair})
         order_book = self.order_book_create_function()
-        active_order_tracker: AltmarketsActiveOrderTracker = AltmarketsActiveOrderTracker()
+        active_order_tracker: mSamexActiveOrderTracker = mSamexActiveOrderTracker()
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
@@ -144,7 +144,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = AltmarketsWebsocket(throttler=self._throttler)
+                ws = mSamexWebsocket(throttler=self._throttler)
 
                 await ws.connect()
 
@@ -160,12 +160,12 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             split_key = msg_key.split(Constants.WS_METHODS['TRADES_UPDATE'], 1)
                             if len(split_key) != 2:
                                 # Debug log output for pub WS messages
-                                self.logger().info(f"Unrecognized message received from Altmarkets websocket: {response}")
+                                self.logger().info(f"Unrecognized message received from mSamex websocket: {response}")
                                 continue
                             trading_pair = convert_from_exchange_trading_pair(split_key[0])
                             for trade in response[msg_key]["trades"]:
                                 trade_timestamp: int = int(trade.get('date', self._time()))
-                                trade_msg: OrderBookMessage = AltmarketsOrderBook.trade_message_from_exchange(
+                                trade_msg: OrderBookMessage = mSamexOrderBook.trade_message_from_exchange(
                                     trade,
                                     trade_timestamp,
                                     metadata={"trading_pair": trading_pair})
@@ -185,7 +185,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = AltmarketsWebsocket(throttler=self._throttler)
+                ws = mSamexWebsocket(throttler=self._throttler)
                 await ws.connect()
 
                 ws_streams = [
@@ -199,14 +199,14 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         for msg_key in list(response.keys()):
                             # split_key = msg_key.split(Constants.WS_METHODS['TRADES_UPDATE'], 1)
                             if Constants.WS_METHODS['ORDERS_UPDATE'] in msg_key:
-                                order_book_msg_cls = AltmarketsOrderBook.diff_message_from_exchange
+                                order_book_msg_cls = mSamexOrderBook.diff_message_from_exchange
                                 split_key = msg_key.split(Constants.WS_METHODS['ORDERS_UPDATE'], 1)
                             elif Constants.WS_METHODS['ORDERS_SNAPSHOT'] in msg_key:
-                                order_book_msg_cls = AltmarketsOrderBook.snapshot_message_from_exchange
+                                order_book_msg_cls = mSamexOrderBook.snapshot_message_from_exchange
                                 split_key = msg_key.split(Constants.WS_METHODS['ORDERS_SNAPSHOT'], 1)
                             else:
                                 # Debug log output for pub WS messages
-                                self.logger().info(f"Unrecognized message received from Altmarkets websocket: {response}")
+                                self.logger().info(f"Unrecognized message received from mSamex websocket: {response}")
                                 continue
                             order_book_data: str = response.get(msg_key, None)
                             timestamp: int = int(self._time())
@@ -239,7 +239,7 @@ class AltmarketsAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair,
                                                                               throttler=self._throttler)
                     snapshot_timestamp: int = int(snapshot["timestamp"])
-                    snapshot_msg: OrderBookMessage = AltmarketsOrderBook.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = mSamexOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"trading_pair": trading_pair}

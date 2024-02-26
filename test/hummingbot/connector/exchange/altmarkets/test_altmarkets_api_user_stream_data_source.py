@@ -7,16 +7,16 @@ from unittest.mock import AsyncMock, patch
 
 import numpy as np
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_user_stream_data_source import (
-    AltmarketsAPIUserStreamDataSource,
+from hummingbot.connector.exchange.msamex.msamex_api_user_stream_data_source import (
+    mSamexAPIUserStreamDataSource,
 )
-from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
-from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
+from hummingbot.connector.exchange.msamex.msamex_auth import mSamexAuth
+from hummingbot.connector.exchange.msamex.msamex_constants import Constants
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class TestAltmarketsAPIUserStreamDataSource(unittest.TestCase):
+class TestmSamexAPIUserStreamDataSource(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -28,8 +28,8 @@ class TestAltmarketsAPIUserStreamDataSource(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        altmarkets_auth = AltmarketsAuth(api_key="someKey", secret_key="someSecret")
-        self.data_source = AltmarketsAPIUserStreamDataSource(AsyncThrottler(Constants.RATE_LIMITS), altmarkets_auth=altmarkets_auth, trading_pairs=[self.trading_pair])
+        msamex_auth = mSamexAuth(api_key="someKey", secret_key="someSecret")
+        self.data_source = mSamexAPIUserStreamDataSource(AsyncThrottler(Constants.RATE_LIMITS), msamex_auth=msamex_auth, trading_pairs=[self.trading_pair])
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))

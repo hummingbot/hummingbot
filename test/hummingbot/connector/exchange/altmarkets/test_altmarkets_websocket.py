@@ -4,13 +4,13 @@ from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
-from hummingbot.connector.exchange.altmarkets.altmarkets_websocket import AltmarketsWebsocket
+from hummingbot.connector.exchange.msamex.msamex_constants import Constants
+from hummingbot.connector.exchange.msamex.msamex_websocket import mSamexWebsocket
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class AltmarketsWebsocketTests(TestCase):
+class mSamexWebsocketTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
@@ -21,12 +21,12 @@ class AltmarketsWebsocketTests(TestCase):
         return ret
 
     @patch("websockets.connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_websocket.AltmarketsWebsocket.generate_request_id")
+    @patch("hummingbot.connector.exchange.msamex.msamex_websocket.mSamexWebsocket.generate_request_id")
     def test_send_subscription_message(self, request_id_mock, ws_connect_mock):
         request_id_mock.return_value = 1234567899
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         throttler = AsyncThrottler(Constants.RATE_LIMITS)
-        websocket = AltmarketsWebsocket(throttler=throttler)
+        websocket = mSamexWebsocket(throttler=throttler)
         message = [Constants.WS_SUB["TRADES"].format(trading_pair="btcusdt")]
 
         self.async_run_with_timeout(websocket.connect())

@@ -4,10 +4,10 @@ from typing import (
     Optional,
 )
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_user_stream_data_source import \
-    AltmarketsAPIUserStreamDataSource
-from hummingbot.connector.exchange.altmarkets.altmarkets_auth import AltmarketsAuth
-from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
+from hummingbot.connector.exchange.msamex.msamex_api_user_stream_data_source import \
+    mSamexAPIUserStreamDataSource
+from hummingbot.connector.exchange.msamex.msamex_auth import mSamexAuth
+from hummingbot.connector.exchange.msamex.msamex_constants import Constants
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker import (
     UserStreamTracker
@@ -20,7 +20,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.logger import HummingbotLogger
 
 
-class AltmarketsUserStreamTracker(UserStreamTracker):
+class mSamexUserStreamTracker(UserStreamTracker):
     _cbpust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -31,14 +31,14 @@ class AltmarketsUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  throttler: Optional[AsyncThrottler] = None,
-                 altmarkets_auth: Optional[AltmarketsAuth] = None,
+                 msamex_auth: Optional[mSamexAuth] = None,
                  trading_pairs: Optional[List[str]] = None):
-        self._altmarkets_auth: AltmarketsAuth = altmarkets_auth
+        self._msamex_auth: mSamexAuth = msamex_auth
         self._trading_pairs: List[str] = trading_pairs or []
         self._throttler = throttler or AsyncThrottler(Constants.RATE_LIMITS)
-        super().__init__(data_source=AltmarketsAPIUserStreamDataSource(
+        super().__init__(data_source=mSamexAPIUserStreamDataSource(
             throttler=self._throttler,
-            altmarkets_auth=self._altmarkets_auth,
+            msamex_auth=self._msamex_auth,
             trading_pairs=self._trading_pairs
         ))
 
@@ -50,9 +50,9 @@ class AltmarketsUserStreamTracker(UserStreamTracker):
         :return: OrderBookTrackerDataSource
         """
         if not self._data_source:
-            self._data_source = AltmarketsAPIUserStreamDataSource(
+            self._data_source = mSamexAPIUserStreamDataSource(
                 throttler=self._throttler,
-                altmarkets_auth=self._altmarkets_auth,
+                msamex_auth=self._msamex_auth,
                 trading_pairs=self._trading_pairs
             )
         return self._data_source

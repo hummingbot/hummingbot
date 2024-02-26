@@ -11,8 +11,8 @@ from typing import (
 
 import ujson
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
-from hummingbot.connector.exchange.altmarkets.altmarkets_utils import AltmarketsAPIError
+from hummingbot.connector.exchange.msamex.msamex_constants import Constants
+from hummingbot.connector.exchange.msamex.msamex_utils import mSamexAPIError
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.logger import HummingbotLogger
 
@@ -92,7 +92,7 @@ async def api_call_with_retries(method,
 
     if isinstance(parsed_response, dict) and ("errors" in parsed_response or "error" in parsed_response):
         parsed_response['errors'] = parsed_response.get('errors', parsed_response.get('error'))
-        raise AltmarketsAPIError(parsed_response)
+        raise mSamexAPIError(parsed_response)
 
     if request_errors or parsed_response is None:
         if try_count < Constants.API_MAX_RETRIES and not disable_retries:
@@ -116,5 +116,5 @@ async def api_call_with_retries(method,
                                                params=params, shared_client=shared_client, throttler=throttler,
                                                limit_id=limit_id, try_count=try_count, logger=logger)
         else:
-            raise AltmarketsAPIError({"errors": parsed_response, "status": http_status})
+            raise mSamexAPIError({"errors": parsed_response, "status": http_status})
     return parsed_response

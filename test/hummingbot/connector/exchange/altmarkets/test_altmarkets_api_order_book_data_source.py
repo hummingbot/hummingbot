@@ -9,18 +9,18 @@ from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source import (
-    AltmarketsAPIOrderBookDataSource,
+from hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source import (
+    mSamexAPIOrderBookDataSource,
 )
-from hummingbot.connector.exchange.altmarkets.altmarkets_constants import Constants
-from hummingbot.connector.exchange.altmarkets.altmarkets_order_book import AltmarketsOrderBook
-from hummingbot.connector.exchange.altmarkets.altmarkets_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.msamex.msamex_constants import Constants
+from hummingbot.connector.exchange.msamex.msamex_order_book import mSamexOrderBook
+from hummingbot.connector.exchange.msamex.msamex_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
-class AltmarketsAPIOrderBookDataSourceTests(TestCase):
+class mSamexAPIOrderBookDataSourceTests(TestCase):
     # logging.Level required to receive logs from the exchange
     level = 0
 
@@ -48,7 +48,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         super().setUp()
         self.log_records = []
         self.listening_task = None
-        self.data_source = AltmarketsAPIOrderBookDataSource(
+        self.data_source = mSamexAPIOrderBookDataSource(
             throttler=self.throttler,
             trading_pairs=[self.trading_pair])
         self.mocking_assistant = NetworkMockingAssistant()
@@ -80,7 +80,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         resp = {"ticker": {"last": 51234.56}}
         mock_api.get(url, body=json.dumps(resp))
 
-        results = self.async_run_with_timeout(AltmarketsAPIOrderBookDataSource.get_last_traded_prices(
+        results = self.async_run_with_timeout(mSamexAPIOrderBookDataSource.get_last_traded_prices(
             trading_pairs=[self.trading_pair],
             throttler=self.throttler))
 
@@ -88,7 +88,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(Decimal("51234.56"), results[self.trading_pair])
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     def test_get_last_traded_prices_multiple(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['TICKER']}"
@@ -108,7 +108,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         }
         mock_api.get(url, body=json.dumps(resp))
 
-        results = self.async_run_with_timeout(AltmarketsAPIOrderBookDataSource.get_last_traded_prices(
+        results = self.async_run_with_timeout(mSamexAPIOrderBookDataSource.get_last_traded_prices(
             trading_pairs=[self.trading_pair, 'rogerbtc', 'btcusdt', 'hbotbtc'],
             throttler=self.throttler))
 
@@ -133,26 +133,26 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         ]
         mock_api.get(url, body=json.dumps(resp))
 
-        results = self.async_run_with_timeout(AltmarketsAPIOrderBookDataSource.fetch_trading_pairs(
+        results = self.async_run_with_timeout(mSamexAPIOrderBookDataSource.fetch_trading_pairs(
             throttler=self.throttler))
 
         self.assertIn(self.trading_pair, results)
         self.assertIn("ROGER-BTC", results)
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
     def test_fetch_trading_pairs_returns_empty_on_error(self, mock_api, retry_sleep_time_mock):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['SYMBOL']}"
         for i in range(Constants.API_MAX_RETRIES):
             mock_api.get(url, body=json.dumps([{"noname": "empty"}]))
 
-        results = self.async_run_with_timeout(AltmarketsAPIOrderBookDataSource.fetch_trading_pairs(
+        results = self.async_run_with_timeout(mSamexAPIOrderBookDataSource.fetch_trading_pairs(
             throttler=self.throttler))
 
         self.assertEqual(0, len(results))
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._time")
     @aioresponses()
     def test_get_new_order_book(self, time_mock, mock_api):
         time_mock.return_value = 1234567899
@@ -164,13 +164,13 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
                 "asks": []}
         mock_api.get(url, body=json.dumps(resp))
 
-        order_book: AltmarketsOrderBook = self.async_run_with_timeout(
+        order_book: mSamexOrderBook = self.async_run_with_timeout(
             self.data_source.get_new_order_book(self.trading_pair))
 
         self.assertEqual(1234567899 * 1e3, order_book.snapshot_uid)
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_http_utils.retry_sleep_time")
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_http_utils.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._time")
     @aioresponses()
     def test_get_new_order_book_raises_error(self, retry_sleep_time_mock, time_mock, mock_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -206,7 +206,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     @patch(
-        "hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._sleep",
+        "hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._sleep",
         new_callable=AsyncMock)
     def test_listen_for_snapshots_logs_exception_when_fetching_snapshot(self, mock_get, mock_sleep):
         # the queue and the division by zero error are used just to synchronize the test
@@ -234,7 +234,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     @patch(
-        "hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._sleep",
+        "hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._sleep",
         new_callable=AsyncMock)
     def test_listen_for_snapshots_successful(self, mock_get, mock_sleep):
         # the queue and the division by zero error are used just to synchronize the test
@@ -323,7 +323,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(received_messages.get())
 
         self.assertTrue(self._is_logged("INFO",
-                                        "Unrecognized message received from Altmarkets websocket: {'hbotusdttrades': {}}"))
+                                        "Unrecognized message received from mSamex websocket: {'hbotusdttrades': {}}"))
 
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_trades_handles_exception(self, ws_connect_mock):
@@ -348,7 +348,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR",
                                         "Trades: Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._time")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diff(self, ws_connect_mock, time_mock):
         time_mock.return_value = 1234567890
@@ -387,7 +387,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(-1, diff_message.trade_id)
         self.assertEqual(self.trading_pair, diff_message.trading_pair)
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._time")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_snapshot(self, ws_connect_mock, time_mock):
         time_mock.return_value = 1234567890
@@ -426,7 +426,7 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(-1, diff_message.trade_id)
         self.assertEqual(self.trading_pair, diff_message.trading_pair)
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._time")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diff_unrecognised(self, ws_connect_mock, time_mock):
         time_mock.return_value = 1234567890
@@ -447,9 +447,9 @@ class AltmarketsAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(received_messages.get())
 
         self.assertTrue(self._is_logged("INFO",
-                                        "Unrecognized message received from Altmarkets websocket: {'snapcracklepop': {}}"))
+                                        "Unrecognized message received from mSamex websocket: {'snapcracklepop': {}}"))
 
-    @patch("hummingbot.connector.exchange.altmarkets.altmarkets_api_order_book_data_source.AltmarketsAPIOrderBookDataSource._time")
+    @patch("hummingbot.connector.exchange.msamex.msamex_api_order_book_data_source.mSamexAPIOrderBookDataSource._time")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diff_handles_exception(self, ws_connect_mock, time_mock):
         time_mock.return_value = "NaN"

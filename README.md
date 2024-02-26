@@ -59,7 +59,7 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Quickswap](https://docs.hummingbot.org/exchanges/quickswap/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [TraderJoe](https://docs.hummingbot.org/exchanges/traderjoe/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [dYdX](https://dydx.exchange/) | PERP DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [AltMarkets](https://docs.hummingbot.org/exchanges/altmarkets/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [mSamex](https://docs.hummingbot.org/exchanges/msamex/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BTC-Markets](https://docs.hummingbot.org/exchanges/btc-markets/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Binance US](https://docs.hummingbot.org/exchanges/binance-us/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BitGet](https://docs.hummingbot.org/exchanges/bitget-perpetual/) | PERP CEX |
