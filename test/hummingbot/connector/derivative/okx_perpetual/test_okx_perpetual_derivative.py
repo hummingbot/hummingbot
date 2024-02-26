@@ -1245,7 +1245,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "mgnMode": "isolated",
                     "mgnRatio": "11.731726509588816",
                     "mmr": "0.0000311811092368",
-                    "notionalUsd": f"{order.amount}",
+                    "notionalUsd": f"{order.amount * order.price}",
                     "optVal": "",
                     "pTime": "1619507761462",
                     "pos": "1",
