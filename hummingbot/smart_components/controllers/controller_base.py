@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import importlib
 import inspect
-import random
-import time
 from typing import Callable, Dict, List, Set
 
-import base58
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
@@ -18,6 +14,7 @@ from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.smart_components.models.executor_actions import ExecutorAction
 from hummingbot.smart_components.models.executors_info import ExecutorInfo
 from hummingbot.smart_components.smart_component_base import SmartComponentBase
+from hummingbot.smart_components.utils.common import generate_unique_id
 
 
 class ControllerConfigBase(BaseClientModel):
@@ -30,7 +27,12 @@ class ControllerConfigBase(BaseClientModel):
         controller_name (str): The name of the trading strategy that the controller will use.
         candles_config (List[CandlesConfig]): A list of configurations for the candles data feed.
     """
-    id: str = None
+    id: str = Field(
+        default=generate_unique_id(),
+        client_data=ClientFieldData(
+            prompt_on_new=False,
+            prompt=lambda mi: "Enter a unique identifier for the controller or leave empty to generate one."
+        ))
     controller_name: str
     controller_type: str = "generic"
     candles_config: List[CandlesConfig] = Field(
@@ -43,6 +45,12 @@ class ControllerConfigBase(BaseClientModel):
             )
         )
     )
+
+    @validator('id', pre=True, always=True)
+    def set_id(cls, v):
+        if v is None or v.strip() == "":
+            return generate_unique_id()
+        return v
 
     @validator('candles_config', pre=True)
     def parse_candles_config(cls, v) -> List[CandlesConfig]:
@@ -76,17 +84,6 @@ class ControllerConfigBase(BaseClientModel):
                 )
                 configs.append(config)
         return configs
-
-    @validator('id', pre=True, always=True)
-    def set_id(cls, v, values):
-        if v is None:
-            # Use timestamp from values if available, else current time
-            timestamp = values.get('timestamp', time.time())
-            unique_component = random.randint(0, 99999)
-            raw_id = f"{timestamp}-{unique_component}"
-            hashed_id = hashlib.sha256(raw_id.encode()).digest()  # Get bytes
-            return base58.b58encode(hashed_id).decode()  # Base58 encode
-        return v
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         """
@@ -126,7 +123,7 @@ class ControllerBase(SmartComponentBase):
         self.executors_update_event = asyncio.Event()
         self.executors_update_listener = SourceInfoEventForwarder(to_function=self.handle_executor_update)
 
-    async def handle_executor_update(self, event_tag, event_caller, executors_info):
+    def handle_executor_update(self, event_tag, event_caller, executors_info):
         """
         Handle executors updates, by default we are going to store the executors related to this controller, but
         this method can be overridden to implement custom behavior.
@@ -138,6 +135,17 @@ class ControllerBase(SmartComponentBase):
     def initialize_candles(self):
         for candles_config in self.config.candles_config:
             self.market_data_provider.initialize_candles_feed(candles_config)
+
+    def update_config(self, new_config: ControllerConfigBase):
+        """
+        Update the controller configuration. With the variables that in the client_data have the is_updatable flag set
+        to True. This will be only available for those variables that don't interrupt the bot operation so you can't
+        update the exchange or trading pair of the controller.
+        """
+        for field in self.config.__fields__.values():
+            client_data = field.field_info.extra.get("client_data")
+            if client_data and client_data.is_updatable:
+                setattr(self.config, field.name, getattr(new_config, field.name))
 
     async def control_task(self):
         if self.market_data_provider.ready and self.executors_update_event.is_set():
