@@ -86,6 +86,11 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         await super().stop()
 
     async def _update_markets(self):
+        # TODO: This is very similar to the lock implementation in the base class. Although it is a naive attempt to fix
+        #       the issue where checks in status_dict get delayed a lot making connector to load very slowly, we should
+        #       consider refactoring this in the next iteration to avoid code duplication. This is a temporary fix.
+        # TODO: Implement a TTL cache for this because at init time,  symbols_mapping, trading_rule, and user_strean are
+        #       all calling this at the same time, making a bottle neck thus delaying the connector to load.
         await self._loading_markets_event.wait()
 
         self._loading_markets_event.clear()
