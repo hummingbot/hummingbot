@@ -95,6 +95,15 @@ async def get_current_server_time_s(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = constants.DEFAULT_DOMAIN,
 ) -> float:
+    """
+    Get the current server time in seconds
+    :param throttler: the throttler to use for the request
+    :param domain: the coinbase_advanced_trade domain to connect to ("com" or "us"). The default value is "com"
+    :return: the current server time in seconds
+    """
+    """
+    https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getservertime
+    """
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
@@ -104,7 +113,11 @@ async def get_current_server_time_s(
         throttler_limit_id=constants.SERVER_TIME_EP,
         is_auth_required=True
     )
-    server_time: float = float(get_timestamp_from_exchange_time(response["data"]["iso"], "s"))
+    server_time: float = float(get_timestamp_from_exchange_time(response["iso"], "s"))
+    # We could implement:
+    # server_time = float(response["epochSeconds"])
+    # server_time = float(response["epochMillis"]) / 1000
+
     return server_time
 
 

@@ -33,16 +33,15 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
             # ISO8601 and epoch time, however, for sake of consistency, we use the iso format in the
             # get_current_server_time_s method - Make sure the response is self-consistent
             mock_response = {
-                "data": {
-                    "iso": "2023-05-09T18:47:30.000Z",
-                    "epoch": 1683658050
-                }
+                "iso": "2023-05-09T18:47:30.000Z",
+                "epochSeconds": 1683658050,
+                "epochMillis": 1683658050123
             }
             mocked.get("https://api.coinbase.com/api/v3/brokerage/time", payload=mock_response, status=200)
 
             current_server_time_s = await get_current_server_time_s()
 
-            self.assertEqual(mock_response["data"]["epoch"], current_server_time_s)
+            self.assertEqual(mock_response["epochSeconds"], current_server_time_s)
 
     # These are live test to verify the expectations of the server response unit. They will fail if there is a network issue
     #    async def test_get_current_server_time_s_fuzzy(self):
