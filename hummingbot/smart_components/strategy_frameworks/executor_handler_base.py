@@ -1,13 +1,10 @@
 import asyncio
 import logging
 
-import pandas as pd
-
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.logger import HummingbotLogger
-from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.smart_component_base import SmartComponentBase
@@ -111,34 +108,6 @@ class ExecutorHandlerBase(SmartComponentBase):
                        order_type=OrderType.MARKET,
                        price=connector.get_mid_price(position.trading_pair),
                        position_action=PositionAction.CLOSE)
-
-    def get_closed_executors_df(self):
-        executors = MarketsRecorder.get_instance().get_position_executors(
-            self.controller.config.strategy_name,
-            self.controller.config.exchange,
-            self.controller.config.trading_pair)
-        executors_df = PositionExecutors.to_pandas(executors)
-        return executors_df
-
-    def get_active_executors_df(self) -> pd.DataFrame:
-        """
-        Get active executors as a DataFrame.
-
-        :return: DataFrame containing active executors.
-        """
-        executors_info = []
-        for level, executor in self.position_executors.items():
-            if executor:
-                executor_info = executor.to_json()
-                executor_info["level_id"] = level
-                executors_info.append(executor_info)
-        if len(executors_info) > 0:
-            executors_df = pd.DataFrame(executors_info)
-            executors_df.sort_values(by="entry_price", ascending=False, inplace=True)
-            executors_df["spread_to_next_level"] = -1 * executors_df["entry_price"].pct_change(periods=1)
-            return executors_df
-        else:
-            return pd.DataFrame()
 
     def get_dca_executors(self) -> list:
         """
