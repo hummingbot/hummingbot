@@ -45,6 +45,7 @@ from hummingbot.model.range_position_collected_fees import RangePositionCollecte
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.smart_components.models.executors_info import ExecutorInfo
 
 
 class MarketsRecorder:
@@ -209,10 +210,10 @@ class MarketsRecorder:
             executors = session.query(Executors).filter(Executors.id.in_(executor_ids)).all()
             return executors
 
-    def get_executors_by_controller(self, controller_id: str = None):
+    def get_executors_by_controller(self, controller_id: str = None) -> List[ExecutorInfo]:
         with self._sql_manager.get_new_session() as session:
             executors = session.query(Executors).filter(Executors.controller_id == controller_id).all()
-            return executors
+            return [executor.to_executor_info() for executor in executors]
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,
