@@ -8,7 +8,12 @@ from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
+from hummingbot.smart_components.models.executor_actions import (
+    CreateExecutorAction,
+    ExecutorAction,
+    StopExecutorAction,
+    StoreExecutorAction,
+)
 
 
 class MarketMakingControllerConfigBase(ControllerConfigBase):
@@ -18,55 +23,62 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     controller_type: str = "market_making"
     connector_name: str = Field(
         default="binance_perpetual",
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
             prompt_on_new=True,
-            prompt=lambda: "Enter the name of the exchange to trade on (e.g., binance_perpetual):"))
+            prompt=lambda mi: "Enter the name of the exchange to trade on (e.g., binance_perpetual):"))
     trading_pair: str = Field(
         default="WLD-USDT",
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
             prompt_on_new=True,
-            prompt=lambda: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
+            prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
     total_amount_quote: float = Field(
         default=100,
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
-            prompt=lambda: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
+            prompt=lambda mi: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
 
     buy_spreads: List[float] = Field(
         default="0.01, 0.02",
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
-            prompt=lambda: "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'):"))
-    buy_amounts_pct: Union[List[int], None] = Field(
+            prompt=lambda mi: "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'):"))
+    buy_amounts_pct: Union[List[float], None] = Field(
         default=None,
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
-            prompt=lambda: "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
+            prompt=lambda mi: "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
     sell_spreads: List[float] = Field(
         default="0.01,0.02",
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
-            prompt=lambda: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
-    sell_amounts_pct: Union[List[int], None] = Field(
+            prompt=lambda mi: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
+    sell_amounts_pct: Union[List[float], None] = Field(
         default=None,
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
-            prompt=lambda: "Enter a comma-separated list of sell amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
+            prompt=lambda mi: "Enter a comma-separated list of sell amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
     executor_refresh_time: int = Field(
         default=60 * 5,
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
-            prompt=lambda: "Enter the refresh time in seconds for executors (e.g., 300 for 5 minutes):"))
+            prompt=lambda mi: "Enter the refresh time in seconds for executors (e.g., 300 for 5 minutes):"))
     cooldown_time: int = Field(
         default=15,
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
-            prompt=lambda: "Specify the cooldown time in seconds between order placements (e.g., 15):"))
+            prompt=lambda mi: "Specify the cooldown time in seconds between order placements (e.g., 15):"))
     leverage: int = Field(
         default=20,
-        client_field=ClientFieldData(
+        client_data=ClientFieldData(
             prompt_on_new=True,
-            prompt=lambda: "Set the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading:"))
+            prompt=lambda mi: "Set the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading:"))
     position_mode: PositionMode = Field(
         default="HEDGE",
         client_data=ClientFieldData(
@@ -88,11 +100,11 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
 
     @validator('buy_amounts_pct', 'sell_amounts_pct', pre=True, always=True)
     def parse_and_validate_amounts(cls, v, values, field):
-        if isinstance(v, str):
-            v = [int(x.strip()) for x in v.split(',')]
-        if v is None:
+        if v is None or v == "":
             spread_field = field.name.replace('amounts_pct', 'spreads')
             return [1 for _ in values[spread_field]]
+        if isinstance(v, str):
+            v = [float(x.strip()) for x in v.split(',')]
         if len(v) != len(values[field.name.replace('amounts_pct', 'spreads')]):
             raise ValueError(
                 f"The number of {field.name} must match the number of {field.name.replace('amounts_pct', 'spreads')}.")
@@ -141,7 +153,6 @@ class MarketMakingControllerBase(ControllerBase):
     """
     This class represents the base class for a market making controller.
     """
-    EXECUTORS_BUFFER = 5  # Number of executors to keep in the buffer until they are stored
 
     def __init__(self, config: MarketMakingControllerConfigBase, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
@@ -162,15 +173,7 @@ class MarketMakingControllerBase(ControllerBase):
         Create actions proposal based on the current state of the controller.
         """
         create_actions = []
-        active_buy_executors = self.filter_executors(
-            executors=self.executors_info,
-            filter_func=lambda executor: executor.trade_type == TradeType.BUY and executor.is_active)
-        active_sell_executors = self.filter_executors(
-            executors=self.executors_info,
-            filter_func=lambda executor: executor.trade_type == TradeType.SELL and executor.is_active)
-        active_levels_ids = [executor.custom_info["level_id"] for executor in active_buy_executors + active_sell_executors]
-        not_active_levels = self.get_not_active_levels_ids(active_levels_ids)
-        levels_to_execute = self.filter_not_active_levels(not_active_levels)
+        levels_to_execute = self.get_levels_to_execute()
         for level_id in levels_to_execute:
             price, amount = self.get_price_and_amount(level_id)
             create_actions.append(CreateExecutorAction(
@@ -178,6 +181,14 @@ class MarketMakingControllerBase(ControllerBase):
                 executor_config=self.get_executor_config(level_id, price, amount)
             ))
         return create_actions
+
+    def get_levels_to_execute(self) -> List[str]:
+        working_levels = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda x: x.is_active or (not x.is_active and x.filled_amount_quote > Decimal("0") and time.time() - x.close_timestamp < self.config.cooldown_time)
+        )
+        working_levels_ids = [executor.custom_info["level_id"] for executor in working_levels]
+        return self.get_not_active_levels_ids(working_levels_ids)
 
     def stop_actions_proposal(self) -> List[ExecutorAction]:
         """
@@ -196,9 +207,11 @@ class MarketMakingControllerBase(ControllerBase):
         terminated_executors = self.filter_executors(
             executors=self.executors_info,
             filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED)
-        executors_sorted_by_close_timestamp = sorted(terminated_executors, key=lambda x: x.close_timestamp, reverse=True)
-        if len(executors_sorted_by_close_timestamp) > self.EXECUTORS_BUFFER:
-            store_actions.extend([StopExecutorAction(executor_id=executor.id) for executor in self.executors_info[self.EXECUTORS_BUFFER:]])
+        executors_sorted_by_close_timestamp = sorted(terminated_executors, key=lambda x: x.timestamp, reverse=True)
+        if len(executors_sorted_by_close_timestamp) > self.config.closed_executors_buffer:
+            store_actions.extend([StoreExecutorAction(
+                controller_id=self.config.id,
+                executor_id=executor.id) for executor in executors_sorted_by_close_timestamp[self.config.closed_executors_buffer:]])
         return store_actions
 
     def executors_to_refresh(self) -> List[ExecutorAction]:
@@ -206,7 +219,9 @@ class MarketMakingControllerBase(ControllerBase):
             executors=self.executors_info,
             filter_func=lambda x: not x.is_trading and x.is_active and time.time() - x.timestamp > self.config.executor_refresh_time)
 
-        return [StopExecutorAction(executor_id=executor.id) for executor in executors_to_refresh]
+        return [StopExecutorAction(
+            controller_id=self.config.id,
+            executor_id=executor.id) for executor in executors_to_refresh]
 
     def executors_to_early_stop(self) -> List[ExecutorAction]:
         """
@@ -225,7 +240,7 @@ class MarketMakingControllerBase(ControllerBase):
                                                                       self.config.trading_pair, PriceType.MidPrice)
         self.processed_data = {"reference_price": reference_price, "spread_multiplier": 1}
 
-    def get_executor_config(self, level_id: str, price: float, amount_in_quote: float):
+    def get_executor_config(self, level_id: str, price: float, amount: float):
         """
         Get the executor config for a given level id.
         """
@@ -235,13 +250,14 @@ class MarketMakingControllerBase(ControllerBase):
         """
         Get the spread and amount in quote for a given level id.
         """
-        trade_type, level = level_id.split('_')
-        spreads, amounts_quote = self.config.get_spreads_and_amounts_in_quote(TradeType[trade_type.upper()])
+        level = self.get_level_from_level_id(level_id)
+        trade_type = self.get_trade_type_from_level_id(level_id)
+        spreads, amounts_quote = self.config.get_spreads_and_amounts_in_quote(trade_type)
         reference_price = self.processed_data["reference_price"]
         spread_in_pct = spreads[int(level)] * self.processed_data["spread_multiplier"]
         side_multiplier = Decimal("-1") if trade_type == TradeType.BUY else Decimal("1")
-        order_price = reference_price * (1 + side_multiplier * spread_in_pct)
-        return order_price, amounts_quote[int(level)] / order_price
+        order_price = reference_price * (1 + side_multiplier * Decimal(spread_in_pct))
+        return order_price, Decimal(amounts_quote[int(level)]) / order_price
 
     def get_level_id_from_side(self, trade_type: TradeType, level: int) -> str:
         """
@@ -264,10 +280,3 @@ class MarketMakingControllerBase(ControllerBase):
         sell_ids_missing = [self.get_level_id_from_side(TradeType.SELL, level) for level in range(len(self.config.sell_spreads))
                             if self.get_level_id_from_side(TradeType.SELL, level) not in active_levels_ids]
         return buy_ids_missing + sell_ids_missing
-
-    def filter_not_active_levels(self, not_active_levels: List[str]) -> List[str]:
-        """
-        Filter the not active levels based on the current state of the controller.
-        This method can be overridden to implement custom behavior.
-        """
-        return not_active_levels

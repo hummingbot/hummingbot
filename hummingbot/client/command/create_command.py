@@ -134,6 +134,12 @@ class CreateCommand:
         if self.app.to_stop_config:
             self.app.set_text("")
             return
+        config_path = config_dir_path / file_name
+
+        # Check if the file already exists
+        if config_path.exists():
+            self.notify(f"File {file_name} already exists. Please enter a different file name.")
+            return await self.save_config(name, config_instance, config_dir_path)  # Recursive call
 
         config_path = config_dir_path / file_name
         field_order = list(config_instance.__fields__.keys())
