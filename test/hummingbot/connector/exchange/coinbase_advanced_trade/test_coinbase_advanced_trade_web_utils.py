@@ -153,7 +153,7 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         mock_private_rest_url.return_value = 'mock_url'
         mock_rest_assistant = AsyncMock()
         mock_rest_assistant.execute_request.return_value = {
-            "data": {"iso": "2007-04-05T14:30Z", "epoch": 1175783400}}
+            "iso": "2007-04-05T14:30Z", "epochSeconds": 1175783400, "epochMillis": 1175783400123}
 
         async def get_rest_assistant():
             return mock_rest_assistant

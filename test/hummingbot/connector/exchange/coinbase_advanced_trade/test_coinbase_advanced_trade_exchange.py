@@ -152,10 +152,9 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @property
     def network_status_request_successful_mock_response(self):
         return {
-            "data": {
-                "iso": "2015-06-23T18:02:51Z",
-                "epoch": 1435082571
-            }
+            "iso": "2015-06-23T18:02:51Z",
+            "epochSeconds": 1435082571,
+            "epochMillis": 1435082571123,
         }
 
     @property
@@ -921,7 +920,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_EP)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        response = {"data": {"iso": "2021-12-20T11:33:23.000Z", "epoch": 1640000003}}
+        response = {"iso": "2021-12-20T11:33:23.000Z", "epochSeconds": 1640000003, "epochMillis": 1640000003123}
 
         mock_api.get(regex_url,
                      body=json.dumps(response),
@@ -929,7 +928,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
 
-        self.assertAlmostEqual(response["data"]["epoch"], self.exchange._time_synchronizer.time(), 4)
+        self.assertAlmostEqual(response["epochSeconds"], self.exchange._time_synchronizer.time(), 4)
 
     @aioresponses()
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
