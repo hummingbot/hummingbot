@@ -39,9 +39,13 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._last_mark_price = None
         self._last_next_funding_utc_timestamp = None
         self._last_rate = None
+        self._trading_rules = {}
 
     # 1 - Order Book Snapshot REST
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        await self._set_trading_rules()
+        ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+        ct_val = self._trading_rules[ex_trading_pair]
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_data: Dict[str, Any] = snapshot_response['data'][0]
         snapshot_timestamp: float = int(snapshot_data["ts"])
@@ -50,8 +54,8 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         order_book_message_content = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": [(bid[0], bid[1]) for bid in snapshot_data["bids"]],
-            "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
+            "bids": [(bid[0], str(float(bid[1]) * ct_val)) for bid in snapshot_data["bids"]],
+            "asks": [(ask[0], str(float(ask[1]) * ct_val)) for ask in snapshot_data["asks"]],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
             OrderBookMessageType.SNAPSHOT,
@@ -79,6 +83,31 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             method=RESTMethod.GET,
         )
 
+        return data
+
+    async def _set_trading_rules(self) -> Dict[str, Any]:
+        if not bool(self._trading_rules):
+            resp = await self._request_trading_rules_info()
+            for rule in resp["data"]:
+                self._trading_rules[rule["instId"]] = float(rule["ctVal"])
+        return self._trading_rules
+
+    async def _request_trading_rules_info(self) -> Dict[str, Any]:
+        params = {
+            "instType": "SWAP"
+        }
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        endpoint = CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
+        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self._domain)
+        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
+            method=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.METHOD],
+            endpoint=endpoint)
+        data = await rest_assistant.execute_request(
+            url=url,
+            throttler_limit_id=limit_id,
+            method=RESTMethod.GET,
+            params=params
+        )
         return data
 
     # 2 - Get Last Traded Prices REST
@@ -290,18 +319,21 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     # 6 - Parsers
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         diff_updates: Dict[str, Any] = raw_message["data"]
+        await self._set_trading_rules()
 
         for diff_data in diff_updates:
             timestamp: float = int(diff_data["ts"])
             update_id: int = int(timestamp)
+            ex_trading_pair = raw_message["arg"]["instId"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                symbol=raw_message["arg"]["instId"])
+                symbol=ex_trading_pair)
+            ct_val = self._trading_rules[ex_trading_pair]
 
             order_book_message_content = {
                 "trading_pair": trading_pair,
                 "update_id": update_id,
-                "bids": [(bid[0], bid[1]) for bid in diff_data["bids"]],
-                "asks": [(ask[0], ask[1]) for ask in diff_data["asks"]],
+                "bids": [(bid[0], str(float(bid[1]) * ct_val)) for bid in diff_data["bids"]],
+                "asks": [(ask[0], str(float(ask[1]) * ct_val)) for ask in diff_data["asks"]],
             }
             diff_message: OrderBookMessage = OrderBookMessage(
                 OrderBookMessageType.DIFF,

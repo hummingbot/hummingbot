@@ -379,7 +379,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         :returns: A dictionary of trading pair to its respective TradingRule.
         """
         trading_rules = {}
-        # TODO: Check if multiplying by contract size is ok
         for rule in instrument_info_dict["data"]:
             try:
                 if okx_utils.is_exchange_information_valid(rule):
