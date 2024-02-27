@@ -67,8 +67,9 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
         self._snapshots_min_update_interval = 30
         self._snapshots_max_update_interval = 60
+        self._loading_markets_event = asyncio.Event()
+        self._loading_markets_event.set()
         self.cancel_all_orders_timeout = 60
-        self._is_loading_markets = False
 
     @property
     def connector_name(self) -> str:
@@ -85,23 +86,21 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         await super().stop()
 
     async def _update_markets(self):
-        if self._is_loading_markets:
-            # Wait till the previous load markets is done
-            while self._is_loading_markets:
-                await asyncio.sleep(1)
-            return
+        await self._loading_markets_event.wait()
 
-        self._is_loading_markets = True
-        for market_info in await self._get_markets_info():
-            trading_pair = self._get_trading_pair_from_market_info(market_info=market_info)
-            self._markets_info[trading_pair] = market_info
-            base, quote = split_hb_trading_pair(trading_pair=trading_pair)
-            base_exchange, quote_exchange = self._get_exchange_base_quote_tokens_from_market_info(
-                market_info=market_info
-            )
-            self._hb_to_exchange_tokens_map[base] = base_exchange
-            self._hb_to_exchange_tokens_map[quote] = quote_exchange
-        self._is_loading_markets = False
+        self._loading_markets_event.clear()
+        try:
+            for market_info in await self._get_markets_info():
+                trading_pair = self._get_trading_pair_from_market_info(market_info=market_info)
+                self._markets_info[trading_pair] = market_info
+                base, quote = split_hb_trading_pair(trading_pair=trading_pair)
+                base_exchange, quote_exchange = self._get_exchange_base_quote_tokens_from_market_info(
+                    market_info=market_info
+                )
+                self._hb_to_exchange_tokens_map[base] = base_exchange
+                self._hb_to_exchange_tokens_map[quote] = quote_exchange
+        finally:
+            self._loading_markets_event.set()
 
     async def _get_markets_info(self) -> List[Dict[str, Any]]:
         resp = await self._get_gateway_instance().get_clob_markets(
