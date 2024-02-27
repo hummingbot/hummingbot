@@ -1,0 +1,237 @@
+import time
+from decimal import Decimal
+from typing import Dict, List, Set
+
+from pydantic import Field, validator
+
+from hummingbot.client.config.config_data_types import ClientFieldData
+from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
+from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorConfig,
+    TrailingStop,
+    TripleBarrierConfig,
+)
+from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.models.executor_actions import (
+    CreateExecutorAction,
+    ExecutorAction,
+    StoreExecutorAction,
+)
+
+
+class DirectionalTradingControllerConfigBase(ControllerConfigBase):
+    """
+    This class represents the configuration required to run a Directional Strategy.
+    """
+    controller_type = "directional_trading"
+    connector_name: str = Field(
+        default="binance_perpetual",
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the name of the exchange to trade on (e.g., binance_perpetual):"))
+    trading_pair: str = Field(
+        default="WLD-USDT",
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
+
+    order_amount_quote: float = Field(
+        default=100.0,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the amount of quote asset to use per order (e.g., 100):"))
+
+    max_orders_per_side: int = Field(
+        default=2,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the maximum number of orders per side (e.g., 2):"))
+
+    cooldown_time: int = Field(
+        default=60,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt_on_new=False,
+            prompt=lambda mi: "Specify the cooldown time in seconds after executing a signal (e.g., 60):"))
+
+    leverage: int = Field(
+        default=20,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Set the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading:"))
+    position_mode: PositionMode = Field(
+        default="HEDGE",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
+            prompt_on_new=False
+        )
+    )
+    closed_executors_buffer: int = Field(
+        default=10, gt=0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
+            prompt_on_new=False))
+    # Triple Barrier Configuration
+    stop_loss: Decimal = Field(
+        default=Decimal("0.03"), gt=0,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
+            prompt_on_new=True))
+    take_profit: Decimal = Field(
+        default=Decimal("0.02"), gt=0,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
+            prompt_on_new=True))
+    time_limit: int = Field(
+        default=60 * 45, gt=0,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
+            prompt_on_new=True))
+    take_profit_order_type: OrderType = Field(
+        default="LIMIT",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
+            prompt_on_new=True))
+    trailing_stop: TrailingStop = Field(
+        default="0.015,0.003",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
+            prompt_on_new=True))
+
+    @validator("trailing_stop", pre=True, always=True)
+    def parse_trailing_stop(cls, v):
+        if isinstance(v, str):
+            activation_price, trailing_delta = v.split(",")
+            return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
+        return v
+
+    @validator('take_profit_order_type', pre=True, allow_reuse=True)
+    def validate_order_type(cls, v) -> OrderType:
+        if isinstance(v, OrderType):
+            return v
+        elif isinstance(v, str):
+            if v.upper() in OrderType.__members__:
+                return OrderType[v.upper()]
+        elif isinstance(v, int):
+            try:
+                return OrderType(v)
+            except ValueError:
+                pass
+        raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
+
+    @property
+    def triple_barrier_config(self) -> TripleBarrierConfig:
+        return TripleBarrierConfig(
+            stop_loss=self.stop_loss,
+            take_profit=self.take_profit,
+            time_limit=self.time_limit,
+            trailing_stop=self.trailing_stop,
+            open_order_type=OrderType.MARKET,  # Defaulting to MARKET as is a Taker Controller
+            take_profit_order_type=self.take_profit_order_type,
+            stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
+            time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
+        )
+
+    @validator('position_mode', pre=True, allow_reuse=True)
+    def validate_position_mode(cls, v: str) -> PositionMode:
+        if v.upper() in PositionMode.__members__:
+            return PositionMode[v.upper()]
+        raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+
+    def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
+        if self.connector_name not in markets:
+            markets[self.connector_name] = set()
+        markets[self.connector_name].add(self.trading_pair)
+        return markets
+
+
+class DirectionalTradingControllerBase(ControllerBase):
+    """
+    This class represents the base class for a Directional Strategy.
+    """
+    def __init__(self, config: DirectionalTradingControllerConfigBase, *args, **kwargs):
+        super().__init__(config, *args, **kwargs)
+        self.config = config
+
+    def determine_executor_actions(self) -> List[ExecutorAction]:
+        """
+        Determine actions based on the provided executor handler report.
+        """
+        actions = []
+        actions.extend(self.create_actions_proposal())
+        actions.extend(self.stop_actions_proposal())
+        actions.extend(self.store_actions_proposal())
+        return actions
+
+    async def update_processed_data(self):
+        """
+        Update the processed data based on the current state of the strategy.
+        """
+        signal = self.get_signal()
+        self.processed_data = {"signal": signal}
+
+    def get_signal(self) -> int:
+        """
+        Get the signal for the strategy.
+        """
+        raise NotImplementedError
+
+    def create_actions_proposal(self) -> List[ExecutorAction]:
+        """
+        Create actions based on the provided executor handler report.
+        """
+        create_actions = []
+        signal = self.processed_data["signal"]
+        if signal != 0:
+            price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair,
+                                                                PriceType.MidPrice)
+            amount = self.config.order_amount_quote / price
+            trade_type = TradeType.BUY if signal > 0 else TradeType.SELL
+            create_actions.append(CreateExecutorAction(
+                controller_id=self.config.id,
+                executor_config=self.get_executor_config(trade_type, price, amount)))
+
+        return create_actions
+
+    def stop_actions_proposal(self) -> List[ExecutorAction]:
+        """
+        Stop actions based on the provided executor handler report.
+        """
+        stop_actions = []
+        return stop_actions
+
+    def store_actions_proposal(self) -> List[ExecutorAction]:
+        """
+        Store actions based on the provided executor handler report.
+        """
+        store_actions = []
+        terminated_executors = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED)
+        executors_sorted_by_close_timestamp = sorted(terminated_executors, key=lambda x: x.timestamp, reverse=True)
+        if len(executors_sorted_by_close_timestamp) > self.config.closed_executors_buffer:
+            store_actions.extend([StoreExecutorAction(
+                controller_id=self.config.id,
+                executor_id=executor.id) for executor in
+                executors_sorted_by_close_timestamp[self.config.closed_executors_buffer:]])
+        return store_actions
+
+    def get_executor_config(self, trade_type: TradeType, price: Decimal, amount: Decimal):
+        """
+        Get the executor config based on the trade_type, price and amount. This method can be overridden by the
+        subclasses if required.
+        """
+        return PositionExecutorConfig(
+            timestamp=time.time(),
+            exchange=self.config.connector_name,
+            trading_pair=self.config.trading_pair,
+            side=trade_type,
+            entry_price=price,
+            amount=amount,
+            triple_barrier_config=self.config.triple_barrier_config,
+            leverage=self.config.leverage,
+        )
