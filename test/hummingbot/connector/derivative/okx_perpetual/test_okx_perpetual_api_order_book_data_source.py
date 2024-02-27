@@ -2,9 +2,10 @@ import asyncio
 import json
 import re
 from decimal import Decimal
-from typing import Awaitable, Dict
+from typing import Awaitable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlencode
 
 from aioresponses import aioresponses
 from bidict import bidict
@@ -170,7 +171,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         return {
             "arg": {
                 "channel": "books",
-                "instId": self.trading_pair
+                "instId": self.ex_trading_pair
             },
             "action": "update",
             "data": [
@@ -348,9 +349,68 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             ]
         }
 
+    @property
+    def trading_rules_request_mock_response(self):
+        response = {
+            "code": "0",
+            "data": [
+                {
+                    "alias": "",
+                    "baseCcy": "",
+                    "category": "1",
+                    "ctMult": "1",
+                    "ctType": "linear",
+                    "ctVal": "1",
+                    "ctValCcy": self.base_asset,
+                    "expTime": "",
+                    "instFamily": "LTC-USDT",
+                    "instId": self.ex_trading_pair,
+                    "instType": "SWAP",
+                    "lever": "50",
+                    "listTime": "1611916828000",
+                    "lotSz": "1",
+                    "maxIcebergSz": "100000000.0000000000000000",
+                    "maxLmtAmt": "20000000",
+                    "maxLmtSz": "100000000",
+                    "maxMktAmt": "",
+                    "maxMktSz": "10000",
+                    "maxStopSz": "10000",
+                    "maxTriggerSz": "100000000.0000000000000000",
+                    "maxTwapSz": "100000000.0000000000000000",
+                    "minSz": "1",
+                    "optType": "",
+                    "quoteCcy": "",
+                    "settleCcy": self.quote_asset,
+                    "state": "live",
+                    "stk": "",
+                    "tickSz": "0.01",
+                    "uly": self.ex_trading_pair,
+                }
+            ],
+            "msg": ""
+        }
+        return response
+
+    def configure_trading_rules_response(
+            self,
+            mock_api: aioresponses,
+    ) -> List[str]:
+        base_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT],
+                                                       domain=CONSTANTS.DEFAULT_DOMAIN)
+        params = {
+            "instType": "SWAP"
+        }
+        encoded_params = urlencode(params)
+        full_url = f"{base_url}?{encoded_params}"
+        regex_url = re.compile(f"^{full_url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        response = self.trading_rules_request_mock_response
+        mock_api.get(regex_url, body=json.dumps(response))
+        return [base_url]
+
     # TODO: Check if unclosed client session should remain after test run
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
         url = web_utils.get_rest_url_for_endpoint(endpoint, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -377,6 +437,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
         url = web_utils.get_rest_url_for_endpoint(endpoint, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -660,7 +721,9 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
-    def test_listen_for_order_book_diffs_successful(self):
+    @aioresponses()
+    def test_listen_for_order_book_diffs_successful(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         mock_queue = AsyncMock()
         diff_event = self.get_ws_order_book_diff_msg()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
@@ -692,6 +755,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+        self.configure_trading_rules_response(mock_api)
         endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
         url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
