@@ -63,6 +63,14 @@ class StrategyV2ConfigBase(BaseClientModel):
             prompt_on_new=True,
             prompt=lambda mi: "Enter controller configurations (comma-separated file paths), leave it empty if none: "
         ))
+    config_update_interval: int = Field(
+        default=60,
+        gt=0,
+        client_data=ClientFieldData(
+            prompt_on_new=False,
+            prompt=lambda mi: "Enter the config update interval in seconds (e.g. 60): ",
+        )
+    )
 
     @validator('controllers_config', pre=True)
     def parse_controllers_config(cls, v):
@@ -159,6 +167,7 @@ class StrategyV2Base(ScriptStrategyBase):
     """
     pubsub: PubSub = PubSub()
     markets: Dict[str, Set[str]]
+    _last_config_update_ts: float = 0
 
     @classmethod
     def init_markets(cls, config: StrategyV2ConfigBase):
@@ -207,6 +216,19 @@ class StrategyV2Base(ScriptStrategyBase):
         except Exception as e:
             self.logger().error(f"Error adding controller: {e}", exc_info=True)
 
+    def update_controllers_configs(self):
+        """
+        Update the controllers configurations based on the provided configuration.
+        """
+        if self._last_config_update_ts + self.config.config_update_interval < self.current_timestamp:
+            self._last_config_update_ts = self.current_timestamp
+            controllers_configs = self.config.load_controller_configs()
+            for controller_config in controllers_configs:
+                if controller_config.id in self.controllers:
+                    self.controllers[controller_config.id].update_config(controller_config)
+                else:
+                    self.add_controller(controller_config)
+
     async def listen_to_executor_actions(self):
         """
         Asynchronously listen to actions from the controllers and execute them.
@@ -236,9 +258,13 @@ class StrategyV2Base(ScriptStrategyBase):
     def on_stop(self):
         self.executor_orchestrator.stop()
         self.market_data_provider.stop()
+        self.listen_to_executor_actions_task.cancel()
+        for controller in self.controllers.values():
+            controller.stop()
 
     def on_tick(self):
         self.update_executors_info()
+        self.update_controllers_configs()
         if self.market_data_provider.ready:
             executor_actions: List[ExecutorAction] = self.determine_executor_actions()
             for action in executor_actions:
