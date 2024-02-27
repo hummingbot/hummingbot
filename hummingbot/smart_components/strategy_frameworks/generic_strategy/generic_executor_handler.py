@@ -135,7 +135,7 @@ class GenericExecutorHandler(ExecutorHandlerBase):
             elif isinstance(action, StoreExecutorAction):
                 executor = self.get_executor_by_id(action.executor_id)
                 if executor and executor.is_closed:
-                    MarketsRecorder.get_instance().store_executor(executor)
+                    MarketsRecorder.get_instance().store_or_update_executor(executor)
                     self.remove_executor(executor)
                     self.stored_executors_ids.add(executor.config.id)
             else:
