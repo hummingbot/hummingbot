@@ -25,16 +25,19 @@ class PMMSimpleConfig(MarketMakingControllerConfigBase):
     stop_loss: Decimal = Field(
         default=Decimal("0.03"), gt=0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
             prompt_on_new=True))
     take_profit: Decimal = Field(
         default=Decimal("0.01"), gt=0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
             prompt_on_new=True))
     time_limit: int = Field(
         default=60 * 45, gt=0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
             prompt_on_new=True))
     take_profit_order_type: OrderType = Field(
@@ -75,8 +78,7 @@ class PMMSimpleController(MarketMakingControllerBase):
         super().__init__(config, *args, **kwargs)
         self.config = config
 
-    def get_executor_config(self, level_id: str, price: Decimal, amount_in_quote: Decimal):
-        amount = amount_in_quote / price
+    def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         trade_type = self.get_trade_type_from_level_id(level_id)
         return PositionExecutorConfig(
             timestamp=time.time(),
@@ -87,5 +89,5 @@ class PMMSimpleController(MarketMakingControllerBase):
             amount=amount,
             triple_barrier_config=self.config.triple_barrier_config,
             leverage=self.config.leverage,
-            side=trade_type
+            side=trade_type,
         )
