@@ -25,6 +25,7 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     candles_config: List[CandlesConfig] = []
+    controllers_config: List[str] = []
     order_amount_quote: Decimal = Field(
         default=30, gt=0,
         client_data=ClientFieldData(
@@ -124,9 +125,9 @@ class PMMSingleLevel(StrategyV2Base):
         self.set_position_mode_and_leverage()
         self.update_executors_info()
         if self.market_data_provider.ready:
-            executor_actions: List[ExecutorAction] = self.determine_executor_actions()
-            for action in executor_actions:
-                self.executor_orchestrator.execute_action(action)
+            actions: List[ExecutorAction] = self.determine_executor_actions()
+            if len(actions) > 0:
+                self.executor_orchestrator.execute_actions(actions)
 
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         """
