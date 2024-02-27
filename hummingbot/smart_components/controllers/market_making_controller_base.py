@@ -5,8 +5,9 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executor_actions import (
     CreateExecutorAction,
@@ -91,6 +92,69 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
             prompt_on_new=False))
+    # Triple Barrier Configuration
+    stop_loss: Decimal = Field(
+        default=Decimal("0.03"), gt=0,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
+            prompt_on_new=True))
+    take_profit: Decimal = Field(
+        default=Decimal("0.02"), gt=0,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
+            prompt_on_new=True))
+    time_limit: int = Field(
+        default=60 * 45, gt=0,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
+            prompt_on_new=True))
+    take_profit_order_type: OrderType = Field(
+        default="LIMIT",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
+            prompt_on_new=True))
+    trailing_stop: TrailingStop = Field(
+        default="0.015,0.003",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
+            prompt_on_new=True))
+
+    @validator("trailing_stop", pre=True, always=True)
+    def parse_trailing_stop(cls, v):
+        if isinstance(v, str):
+            activation_price, trailing_delta = v.split(",")
+            return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
+        return v
+
+    @validator('take_profit_order_type', pre=True, allow_reuse=True)
+    def validate_order_type(cls, v) -> OrderType:
+        if isinstance(v, OrderType):
+            return v
+        elif isinstance(v, str):
+            if v.upper() in OrderType.__members__:
+                return OrderType[v.upper()]
+        elif isinstance(v, int):
+            try:
+                return OrderType(v)
+            except ValueError:
+                pass
+        raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
+
+    @property
+    def triple_barrier_config(self) -> TripleBarrierConfig:
+        return TripleBarrierConfig(
+            stop_loss=self.stop_loss,
+            take_profit=self.take_profit,
+            time_limit=self.time_limit,
+            trailing_stop=self.trailing_stop,
+            open_order_type=OrderType.LIMIT,  # Defaulting to LIMIT as is a Maker Controller
+            take_profit_order_type=self.take_profit_order_type,
+            stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
+            time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
+        )
 
     @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
     def parse_spreads(cls, v):

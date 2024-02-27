@@ -176,3 +176,10 @@ class ControllerBase(SmartComponentBase):
         that the executors should take.
         """
         raise NotImplementedError
+
+    def to_format_status(self) -> List[str]:
+        """
+        This method should be overridden by the derived classes to implement the logic to format the status of the
+        controller to be displayed in the UI.
+        """
+        return []
