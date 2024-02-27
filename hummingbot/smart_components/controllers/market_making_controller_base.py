@@ -39,7 +39,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
 
     buy_spreads: List[float] = Field(
-        default="0.01, 0.02",
+        default="0.01,0.02",
         client_data=ClientFieldData(
             is_updatable=True,
             prompt_on_new=True,
@@ -73,7 +73,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         client_data=ClientFieldData(
             is_updatable=True,
             prompt_on_new=False,
-            prompt=lambda mi: "Specify the cooldown time in seconds between order placements (e.g., 15):"))
+            prompt=lambda mi: "Specify the cooldown time in seconds between after replacing an executor that traded (e.g., 15):"))
     leverage: int = Field(
         default=20,
         client_data=ClientFieldData(
@@ -232,7 +232,7 @@ class MarketMakingControllerBase(ControllerBase):
 
     async def update_processed_data(self):
         """
-        Update the market data for the controller. This method should be reimplemented to modify the reference price
+        Update the processed data for the controller. This method should be reimplemented to modify the reference price
         and spread multiplier based on the market data. By default, it will update the reference price as mid price and
         the spread multiplier as 1.
         """
@@ -240,13 +240,13 @@ class MarketMakingControllerBase(ControllerBase):
                                                                       self.config.trading_pair, PriceType.MidPrice)
         self.processed_data = {"reference_price": reference_price, "spread_multiplier": Decimal("1")}
 
-    def get_executor_config(self, level_id: str, price: float, amount: float):
+    def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         """
         Get the executor config for a given level id.
         """
         raise NotImplementedError
 
-    def get_price_and_amount(self, level_id: str) -> Tuple[float, float]:
+    def get_price_and_amount(self, level_id: str) -> Tuple[Decimal, Decimal]:
         """
         Get the spread and amount in quote for a given level id.
         """
