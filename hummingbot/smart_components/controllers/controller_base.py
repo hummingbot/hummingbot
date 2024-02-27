@@ -139,8 +139,7 @@ class ControllerBase(SmartComponentBase):
     def update_config(self, new_config: ControllerConfigBase):
         """
         Update the controller configuration. With the variables that in the client_data have the is_updatable flag set
-        to True. This will be only available for those variables that don't interrupt the bot operation so you can't
-        update the exchange or trading pair of the controller.
+        to True. This will be only available for those variables that don't interrupt the bot operation.
         """
         for field in self.config.__fields__.values():
             client_data = field.field_info.extra.get("client_data")

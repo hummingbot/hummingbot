@@ -72,7 +72,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         default=15,
         client_data=ClientFieldData(
             is_updatable=True,
-            prompt_on_new=True,
+            prompt_on_new=False,
             prompt=lambda mi: "Specify the cooldown time in seconds between order placements (e.g., 15):"))
     leverage: int = Field(
         default=20,
@@ -83,7 +83,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         default="HEDGE",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
-            prompt_on_new=True
+            prompt_on_new=False
         )
     )
     closed_executors_buffer: int = Field(
@@ -238,7 +238,7 @@ class MarketMakingControllerBase(ControllerBase):
         """
         reference_price = self.market_data_provider.get_price_by_type(self.config.connector_name,
                                                                       self.config.trading_pair, PriceType.MidPrice)
-        self.processed_data = {"reference_price": reference_price, "spread_multiplier": 1}
+        self.processed_data = {"reference_price": reference_price, "spread_multiplier": Decimal("1")}
 
     def get_executor_config(self, level_id: str, price: float, amount: float):
         """
@@ -254,9 +254,9 @@ class MarketMakingControllerBase(ControllerBase):
         trade_type = self.get_trade_type_from_level_id(level_id)
         spreads, amounts_quote = self.config.get_spreads_and_amounts_in_quote(trade_type)
         reference_price = self.processed_data["reference_price"]
-        spread_in_pct = spreads[int(level)] * self.processed_data["spread_multiplier"]
+        spread_in_pct = Decimal(spreads[int(level)]) * self.processed_data["spread_multiplier"]
         side_multiplier = Decimal("-1") if trade_type == TradeType.BUY else Decimal("1")
-        order_price = reference_price * (1 + side_multiplier * Decimal(spread_in_pct))
+        order_price = reference_price * (1 + side_multiplier * spread_in_pct)
         return order_price, Decimal(amounts_quote[int(level)]) / order_price
 
     def get_level_id_from_side(self, trade_type: TradeType, level: int) -> str:
