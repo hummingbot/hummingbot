@@ -21,11 +21,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.xrpl.xrpl_constants imp
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import (
-    combine_to_hb_trading_pair,
-    get_new_numeric_client_order_id,
-    split_hb_trading_pair,
-)
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -36,6 +32,9 @@ from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.logger import HummingbotLogger
+
+# TODO: Implement a TTL cache for _update_markets at init time,  symbols_mapping, trading_rule, and user_strean are
+#       all calling this at the same time, making a bottle neck thus delaying the connector to load.
 
 
 class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
@@ -67,8 +66,6 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
         self._snapshots_min_update_interval = 30
         self._snapshots_max_update_interval = 60
-        self._loading_markets_event = asyncio.Event()
-        self._loading_markets_event.set()
         self.cancel_all_orders_timeout = 60
 
     @property
@@ -85,39 +82,17 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def stop(self):
         await super().stop()
 
-    async def _update_markets(self):
-        # TODO: This is very similar to the lock implementation in the base class. Although it is a naive attempt to fix
-        #       the issue where checks in status_dict get delayed a lot making connector to load very slowly, we should
-        #       consider refactoring this in the next iteration to avoid code duplication. This is a temporary fix.
-        # TODO: Implement a TTL cache for this because at init time,  symbols_mapping, trading_rule, and user_strean are
-        #       all calling this at the same time, making a bottle neck thus delaying the connector to load.
-        await self._loading_markets_event.wait()
-
-        self._loading_markets_event.clear()
-        try:
-            for market_info in await self._get_markets_info():
-                trading_pair = self._get_trading_pair_from_market_info(market_info=market_info)
-                self._markets_info[trading_pair] = market_info
-                base, quote = split_hb_trading_pair(trading_pair=trading_pair)
-                base_exchange, quote_exchange = self._get_exchange_base_quote_tokens_from_market_info(
-                    market_info=market_info
-                )
-                self._hb_to_exchange_tokens_map[base] = base_exchange
-                self._hb_to_exchange_tokens_map[quote] = quote_exchange
-        finally:
-            self._loading_markets_event.set()
-
     async def _get_markets_info(self) -> List[Dict[str, Any]]:
         resp = await self._get_gateway_instance().get_clob_markets(
             connector=self.connector_name, chain=self._chain, network=self._network
         )
         return resp["markets"]
 
-    async def _get_single_market_info(self, trading_pair: str) -> Dict[str, Any]:
-        resp = await self._get_gateway_instance().get_clob_markets(
-            connector=self.connector_name, chain=self._chain, network=self._network, trading_pair=trading_pair
-        )
-        return resp["market"][0]
+    # async def _get_single_market_info(self, trading_pair: str) -> Dict[str, Any]:
+    #     resp = await self._get_gateway_instance().get_clob_markets(
+    #         connector=self.connector_name, chain=self._chain, network=self._network, trading_pair=trading_pair
+    #     )
+    #     return resp["market"][0]
 
     def get_supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
