@@ -119,7 +119,7 @@ class ExecutorBase(SmartComponentBase):
             is_active=self.is_active,
             is_trading=self.is_trading,
             custom_info=self.get_custom_info(),
-            controller_id=self.config.id,
+            controller_id=self.config.controller_id,
         )
 
     def get_custom_info(self) -> Dict:
