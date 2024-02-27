@@ -118,6 +118,9 @@ class ExecutorOrchestrator:
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
+        if executor.is_active:
+            self.logger().error(f"Executor ID {executor_id} is still active.")
+            return
         MarketsRecorder.get_instance().store_or_update_executor(executor)
         self.executors[controller_id].remove(executor)
 
