@@ -49,6 +49,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._last_ws_message_sent_timestamp = 0
+        self._category = "spot"
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -64,6 +65,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
+            "category": self._category,
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "limit": "1000"
         }
@@ -74,7 +76,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        snapshot_timestamp: float = float(snapshot["time"]) * 1e-3
+        snapshot_timestamp: float = float(snapshot["ts"]) * 1e-3
         snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_rest(
             snapshot,
             snapshot_timestamp,
@@ -90,11 +92,15 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
-        for diff_message in raw_message["data"]:
-            order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
-                diff_message, diff_message["t"], {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+            symbol=str(raw_message["data"]["s"])
+        )
+        order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
+            raw_message,
+            raw_message["ts"],
+            {"trading_pair": trading_pair}
+        )
+        message_queue.put_nowait(order_book_message)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -125,7 +131,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_V1_PUBLIC_URL[self._domain])
+                await ws.connect(ws_url=CONSTANTS.WSS_V5_PUBLIC_URL[self._domain])
                 await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
 
