@@ -21,6 +21,9 @@ from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.exceptions import InvalidController
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+    DirectionalTradingControllerConfigBase,
+)
 from hummingbot.smart_components.controllers.market_making_controller_base import MarketMakingControllerConfigBase
 from hummingbot.smart_components.executors.executor_orchestrator import ExecutorOrchestrator
 from hummingbot.smart_components.models.base import SmartComponentStatus
@@ -60,6 +63,7 @@ class StrategyV2ConfigBase(BaseClientModel):
     controllers_config: List[str] = Field(
         default=None,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
             prompt=lambda mi: "Enter controller configurations (comma-separated file paths), leave it empty if none: "
         ))
@@ -96,7 +100,9 @@ class StrategyV2ConfigBase(BaseClientModel):
             module = importlib.import_module(module_path)
 
             config_class = next((member for member_name, member in inspect.getmembers(module)
-                                 if inspect.isclass(member) and member not in [ControllerConfigBase, MarketMakingControllerConfigBase]
+                                 if inspect.isclass(member) and member not in [ControllerConfigBase,
+                                                                               MarketMakingControllerConfigBase,
+                                                                               DirectionalTradingControllerConfigBase]
                                  and (issubclass(member, ControllerConfigBase))), None)
             if not config_class:
                 raise InvalidController(f"No configuration class found in the module {controller_name}.")
@@ -334,7 +340,7 @@ class StrategyV2Base(ScriptStrategyBase):
     def format_status(self) -> str:
         original_info = super().format_status()
         columns_to_show = ["id", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
-                           "filled_amount_quote", "is_trading", "close_type"]
+                           "filled_amount_quote", "is_trading", "close_type", "age"]
         extra_info = []
 
         # Initialize global performance metrics
@@ -344,11 +350,17 @@ class StrategyV2Base(ScriptStrategyBase):
         global_close_type_counts = Counter()
 
         # Process each controller
-        for controller_id, executors_list in self.executors_info.items():
-            extra_info.append(f"Controller: {controller_id}")
-
+        for controller_id, controller in self.controllers.items():
+            extra_info.append(f"\n\nController: {controller_id}")
+            # Append controller market data metrics
+            extra_info.extend(controller.to_format_status())
+            executors_list = self.get_executors_by_controller(controller_id)
+            if len(executors_list) == 0:
+                extra_info.append("No executors found.")
+                continue
             # In memory executors info
             executors_df = self.executors_info_to_df(executors_list)
+            executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
             extra_info.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
 
             # Generate performance report for each controller
@@ -356,13 +368,8 @@ class StrategyV2Base(ScriptStrategyBase):
 
             # Append performance metrics
             controller_performance_info = [
-                f"Controller {controller_id} Performance:",
-                f"Realized PNL (Quote): {performance_report.realized_pnl_quote:.2f}",
-                f"Unrealized PNL (Quote): {performance_report.unrealized_pnl_quote:.2f}",
-                f"Realized PNL (%): {performance_report.realized_pnl_pct:.2f}%",
-                f"Unrealized PNL (%): {performance_report.unrealized_pnl_pct:.2f}%",
-                f"Global PNL (Quote): {performance_report.global_pnl_quote:.2f}",
-                f"Global PNL (%): {performance_report.global_pnl_pct:.2f}%",
+                f"Realized PNL (Quote): {performance_report.realized_pnl_quote:.2f} | Unrealized PNL (Quote): {performance_report.unrealized_pnl_quote:.2f}"
+                f"--> Global PNL (Quote): {performance_report.global_pnl_quote:.2f} | Global PNL (%): {performance_report.global_pnl_pct:.2f}%",
                 f"Total Volume Traded: {performance_report.volume_traded:.2f}"
             ]
 
@@ -386,12 +393,8 @@ class StrategyV2Base(ScriptStrategyBase):
         global_pnl_pct = (global_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0)
 
         global_performance_summary = [
-            "\nGlobal Performance Summary:",
-            f"Global Realized PNL (Quote): {global_realized_pnl_quote:.2f}",
-            f"Global Unrealized PNL (Quote): {global_unrealized_pnl_quote:.2f}",
-            f"Global PNL (Quote): {global_pnl_quote:.2f}",
-            f"Global PNL (%): {global_pnl_pct:.2f}%",
-            f"Total Volume Traded (Global): {global_volume_traded:.2f}"
+            "\n\nGlobal Performance Summary:",
+            f"Global PNL (Quote): {global_pnl_quote:.2f} | Global PNL (%): {global_pnl_pct:.2f}% | Total Volume Traded (Global): {global_volume_traded:.2f}"
         ]
 
         # Append global close type counts
