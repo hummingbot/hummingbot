@@ -540,7 +540,7 @@ class KrakenExchange(ExchangePyBase):
         trade_update = TradeUpdate(
             trade_id=str(order_fill["trade_id"]),
             client_order_id=order.client_order_id,
-            exchange_order_id=order.exchange_order_id,
+            exchange_order_id=order_fill.get("ordertxid"),
             trading_pair=order.trading_pair,
             fee=fee,
             fill_base_amount=Decimal(order_fill["vol"]),
