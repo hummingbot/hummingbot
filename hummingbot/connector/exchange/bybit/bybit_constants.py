@@ -41,7 +41,7 @@ SERVER_TIME_PATH_URL = "/v5/market/time"
 # Private API endpoints
 ACCOUNT_INFO_PATH_URL = "/v5/account/info"
 BALANCE_PATH_URL = "/v5/account/wallet-balance"
-ORDER_CREATE_PATH_URL = "/v5/order/create"
+ORDER_PLACE_PATH_URL = "/v5/order/create"
 ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
 
 # Order States
@@ -100,7 +100,7 @@ RATE_LIMITS = {
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=ORDER_CREATE_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+    RateLimit(limit_id=ORDER_PLACE_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
     RateLimit(limit_id=ACCOUNT_INFO_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,

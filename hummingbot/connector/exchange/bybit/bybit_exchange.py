@@ -46,6 +46,7 @@ class BybitExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._last_trades_poll_bybit_timestamp = 1.0
         self._account_type = None  # To be update on firtst call to balances
+        self._category = "spot"  # Required by the V5 API
         super().__init__(client_config_map)
 
     @staticmethod
@@ -212,18 +213,21 @@ class BybitExchange(ExchangePyBase):
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
-                      "side": side_str,
-                      "qty": amount_str,
-                      "type": type_str,
-                      "orderLinkId": order_id}
+        api_params = {
+            "category": self._category,
+            "symbol": symbol,
+            "side": side_str,
+            "orderType": type_str,
+            "qty": amount_str,
+            "orderLinkId": order_id
+        }
         if order_type != OrderType.MARKET:
             api_params["price"] = f"{price:f}"
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
         order_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
             params=api_params,
             is_auth_required=True,
             trading_pair=trading_pair,
@@ -235,15 +239,19 @@ class BybitExchange(ExchangePyBase):
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        api_params = {}
+        api_params = {
+            "category": self._category,
+            "symbol": tracked_order.trading_pair
+        }
         if tracked_order.exchange_order_id:
             api_params["orderId"] = tracked_order.exchange_order_id
         else:
             api_params["orderLinkId"] = tracked_order.client_order_id
         cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
             params=api_params,
-            is_auth_required=True)
+            is_auth_required=True
+        )
 
         if isinstance(cancel_result, dict) and "orderLinkId" in cancel_result["result"]:
             return True
@@ -473,6 +481,7 @@ class BybitExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
+            "category": self._category,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
         }
         resp_json = await self._api_request(
@@ -481,7 +490,7 @@ class BybitExchange(ExchangePyBase):
             params=params,
         )
 
-        return float(resp_json["result"]["price"])
+        return float(resp_json["result"]["list"][0]["lastPrice"])
 
     async def _api_request(self,
                            path_url,
@@ -497,7 +506,8 @@ class BybitExchange(ExchangePyBase):
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
         local_headers = {
-            "Content-Type": "application/x-www-form-urlencoded"}
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
         for _ in range(2):
             try:
                 request_result = await rest_assistant.execute_request(
