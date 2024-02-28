@@ -15,8 +15,7 @@ class MarketDataProvider:
 
     def stop(self):
         for candle_feed in self.candles_feeds.values():
-            if hasattr(candle_feed, 'stop'):
-                candle_feed.stop()
+            candle_feed.stop()
         self.candles_feeds.clear()
 
     @property
