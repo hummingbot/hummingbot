@@ -34,6 +34,9 @@ from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import InvalidController, InvalidScriptModule
 from hummingbot.smart_components.controllers.controller_base import ControllerConfigBase
+from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+    DirectionalTradingControllerConfigBase,
+)
 from hummingbot.smart_components.controllers.market_making_controller_base import MarketMakingControllerConfigBase
 from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
 
@@ -80,7 +83,9 @@ class CreateCommand:
 
             # Load the configuration class from the module
             config_class = next((member for member_name, member in inspect.getmembers(module)
-                                 if inspect.isclass(member) and member not in [ControllerConfigBase, MarketMakingControllerConfigBase]
+                                 if inspect.isclass(member) and member not in [ControllerConfigBase,
+                                                                               MarketMakingControllerConfigBase,
+                                                                               DirectionalTradingControllerConfigBase,]
                                  and (issubclass(member, ControllerConfigBase))), None)
             if not config_class:
                 raise InvalidController(f"No configuration class found in the module {controller_name}.")

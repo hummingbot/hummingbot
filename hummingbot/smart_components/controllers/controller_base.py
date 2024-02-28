@@ -97,7 +97,7 @@ class ControllerConfigBase(BaseClientModel):
         """
         try:
             module = importlib.import_module(self.__module__)
-            base_classes = ["ControllerBase", "MarketMakingControllerBase"]
+            base_classes = ["ControllerBase", "MarketMakingControllerBase", "DirectionalTradingControllerBase"]
             for name, obj in inspect.getmembers(module):
                 if inspect.isclass(obj) and issubclass(obj, ControllerBase) and obj.__name__ not in base_classes:
                     return obj
