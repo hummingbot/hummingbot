@@ -230,6 +230,7 @@ def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
                     retries += 1
                     if retries >= max_retries:
                         log_exception(e, logger, "ERROR", f"Max retries reached for {url}.")
+                        log_exception(e, logger, "ERROR", f"    Exception: {e}.")
                         return [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}]
 
                     if "HTTP status is 401" in str(e):
