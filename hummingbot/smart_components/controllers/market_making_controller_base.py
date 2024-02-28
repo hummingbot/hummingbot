@@ -93,19 +93,19 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
             prompt_on_new=False))
     # Triple Barrier Configuration
-    stop_loss: Decimal = Field(
+    stop_loss: Optional[Decimal] = Field(
         default=Decimal("0.03"), gt=0,
         client_data=ClientFieldData(
             is_updatable=True,
             prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
             prompt_on_new=True))
-    take_profit: Decimal = Field(
+    take_profit: Optional[Decimal] = Field(
         default=Decimal("0.02"), gt=0,
         client_data=ClientFieldData(
             is_updatable=True,
             prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
             prompt_on_new=True))
-    time_limit: int = Field(
+    time_limit: Optional[int] = Field(
         default=60 * 45, gt=0,
         client_data=ClientFieldData(
             is_updatable=True,
@@ -116,7 +116,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
             prompt_on_new=True))
-    trailing_stop: TrailingStop = Field(
+    trailing_stop: Optional[TrailingStop] = Field(
         default="0.015,0.003",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
@@ -125,6 +125,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     @validator("trailing_stop", pre=True, always=True)
     def parse_trailing_stop(cls, v):
         if isinstance(v, str):
+            if v == "":
+                return None
             activation_price, trailing_delta = v.split(",")
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
