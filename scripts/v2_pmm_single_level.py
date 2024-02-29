@@ -147,8 +147,7 @@ class PMMSingleLevel(StrategyV2Base):
         for connector_name in self.connectors:
             for trading_pair in self.market_data_provider.get_trading_pairs(connector_name):
                 # Get mid-price
-                mid_price = self.market_data_provider.get_price_by_type(connector_name, trading_pair,
-                                                                        PriceType.MidPrice)
+                mid_price = self.market_data_provider.get_price_by_type(connector_name, trading_pair, PriceType.MidPrice)
                 len_active_buys = len(self.filter_executors(
                     executors=active_buy_position_executors,
                     filter_func=lambda x: x.config.trading_pair == trading_pair))
