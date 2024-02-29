@@ -53,6 +53,8 @@ OPEN_ORDERS_PATH_URL = "/0/private/OpenOrders"
 QUERY_ORDERS_PATH_URL = "/0/private/QueryOrders"
 QUERY_TRADES_PATH_URL = "/0/private/QueryTrades"
 
+
+UNKNOWN_ORDER_MESSAGE = "Unknown order"
 # Order States
 ORDER_STATE = {
     "pending": OrderState.OPEN,
