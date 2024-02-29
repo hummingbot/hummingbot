@@ -145,7 +145,7 @@ class KrakenExchange(ExchangePyBase):
         return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return False
+        return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -288,7 +288,8 @@ class KrakenExchange(ExchangePyBase):
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
         if not self._asset_pairs:
-            asset_pairs = await self._api_request_with_retry(method=RESTMethod.GET, path_url=CONSTANTS.ASSET_PAIRS_PATH_URL)
+            asset_pairs = await self._api_request_with_retry(method=RESTMethod.GET,
+                                                             path_url=CONSTANTS.ASSET_PAIRS_PATH_URL)
             self._asset_pairs = {f"{details['base']}-{details['quote']}": details
                                  for _, details in asset_pairs.items() if
                                  web_utils.is_exchange_information_valid(details)}
@@ -556,10 +557,22 @@ class KrakenExchange(ExchangePyBase):
             trade: Dict[str, str] = update[trade_id]
             trade["trade_id"] = trade_id
             exchange_order_id = trade.get("ordertxid")
-
+            _userref = trade.get("userref")
             tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
-            if tracked_order is None:
-                self.logger().debug(f"Ignoring trade message with id {exchange_order_id}: not in in_flight_orders.")
+
+            if not tracked_order:
+                all_orders = self._order_tracker.all_fillable_orders
+                for k, v in all_orders.items():
+                    if v.userref == _userref:
+                        tracked_order = v
+                        break
+                if not tracked_order:
+                    self.logger().debug(f"Ignoring trade message with id {exchange_order_id}: not in in_flight_orders.")
+                else:
+                    trade_update = self._create_trade_update_with_order_fill_data(
+                        order_fill=trade,
+                        order=tracked_order)
+                    self._order_tracker.process_trade_update(trade_update)
             else:
                 trade_update = self._create_trade_update_with_order_fill_data(
                     order_fill=trade,

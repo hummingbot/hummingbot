@@ -160,7 +160,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = self._snapshot_response()
 
@@ -181,7 +181,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
@@ -276,13 +276,13 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
             self.async_run_with_timeout(self.listening_task)
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
         )
 
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -300,7 +300,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -319,7 +319,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -328,12 +328,12 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertEqual(1534614057.324998, msg.trade_id)
+        self.assertEqual(1534614057.321597, msg.trade_id)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -351,7 +351,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -371,7 +371,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         mock_queue = AsyncMock()
         diff_event = self._order_diff_event()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -380,12 +380,12 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertEqual(int(diff_event[1]["a"][0][0][2]), msg.update_id)
+        self.assertEqual(diff_event[1]["a"][0][2], str(msg.update_id))
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError, repeat=True)
 
@@ -402,7 +402,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception, repeat=True)
 
@@ -418,7 +418,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
     def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
 
