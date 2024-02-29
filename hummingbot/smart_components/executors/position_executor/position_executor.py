@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import math
 from decimal import Decimal
@@ -257,10 +258,10 @@ class PositionExecutor(ExecutorBase):
             self.control_open_order()
             self.control_barriers()
         elif self.status == SmartComponentStatus.SHUTTING_DOWN:
-            self.control_shutdown_process()
+            await self.control_shutdown_process()
         self.evaluate_max_retries()
 
-    def control_shutdown_process(self):
+    async def control_shutdown_process(self):
         """
         This method is responsible for controlling the shutdown process of the executor.
 
@@ -268,10 +269,13 @@ class PositionExecutor(ExecutorBase):
         """
         if math.isclose(self.open_filled_amount, self.close_filled_amount):
             self.stop()
+        elif self._close_order.order and self._close_order.order.is_open:
+            self.logger().info(f"Waiting for close order to be filled --> Filled amount: {self.close_filled_amount} | Open amount: {self.open_filled_amount}")
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
             self._current_retries += 1
+        await asyncio.sleep(1.0)
 
     def evaluate_max_retries(self):
         """

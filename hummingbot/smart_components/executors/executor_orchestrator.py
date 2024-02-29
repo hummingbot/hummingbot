@@ -42,11 +42,14 @@ class ExecutorOrchestrator:
         """
         Stop the orchestrator task and all active executors.
         """
+        # first we stop all active executors
         for controller_id, executors_list in self.executors.items():
             for executor in executors_list:
                 executor.early_stop()
-                # Assuming a method to store executor data is available
-                self.execute_action(StoreExecutorAction(controller_id=controller_id, executor_id=executor.config.id))
+        # then we store all executors
+        for controller_id, executors_list in self.executors.items():
+            for executor in executors_list:
+                MarketsRecorder.get_instance().store_or_update_executor(executor)
 
     def execute_action(self, action: ExecutorAction):
         """
