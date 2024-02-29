@@ -1,64 +1,94 @@
-import time
+from typing import List
 
 import pandas as pd
 from pydantic import Field
 
-from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
-from hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_controller_base import (
+from hummingbot.client.config.config_data_types import ClientFieldData
+from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.smart_components.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
 )
 
 
 class TrendFollowerV1Config(DirectionalTradingControllerConfigBase):
-    strategy_name: str = "trend_follower_v1"
-    sma_fast: int = Field(default=20, ge=10, le=150)
-    sma_slow: int = Field(default=100, ge=50, le=400)
-    bb_length: int = Field(default=100, ge=20, le=200)
-    bb_std: float = Field(default=2.0, ge=2.0, le=3.0)
-    bb_threshold: float = Field(default=0.2, ge=0.1, le=0.5)
+    controller_name = "trend_follower_v1"
+    candles_config: List[CandlesConfig] = []
+    interval: str = Field(
+        default="3m",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
+            prompt_on_new=False))
+    sma_fast: int = Field(
+        default=20,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the fast SMA period: ",
+            prompt_on_new=True))
+    sma_slow: int = Field(
+        default=100,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the slow SMA period: ",
+            prompt_on_new=True))
+    bb_length: int = Field(
+        default=100,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the Bollinger Bands length: ",
+            prompt_on_new=True))
+    bb_std: float = Field(
+        default=2.0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the Bollinger Bands standard deviation: ",
+            prompt_on_new=False))
+    bb_threshold: float = Field(
+        default=0.2,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the Bollinger Bands threshold: ",
+            prompt_on_new=True))
 
 
 class TrendFollowerV1(DirectionalTradingControllerBase):
 
-    def __init__(self, config: TrendFollowerV1Config):
-        super().__init__(config)
+    def __init__(self, config: TrendFollowerV1Config, *args, **kwargs):
         self.config = config
+        self.max_records = max(config.sma_fast, config.sma_slow, config.bb_length)
+        if len(self.config.candles_config) == 0:
+            self.config.candles_config = [CandlesConfig(
+                connector=config.connector_name,
+                trading_pair=config.trading_pair,
+                interval=config.interval,
+                max_records=self.max_records
+            )]
+        super().__init__(config, *args, **kwargs)
 
-    def early_stop_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
-        # If an executor has an active position, should we close it based on a condition. This feature is not available
-        # for the backtesting yet
-        return False
-
-    def cooldown_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
-        # After finishing an order, the executor will be in cooldown for a certain amount of time.
-        # This prevents the executor from creating a new order immediately after finishing one and execute a lot
-        # of orders in a short period of time from the same side.
-        if executor.close_timestamp and executor.close_timestamp + order_level.cooldown_time > time.time():
-            return True
-        return False
+    def get_signal(self) -> int:
+        return self.get_processed_data()["signal"].iloc[-1]
 
     def get_processed_data(self) -> pd.DataFrame:
-        df = self.candles[0].candles_df
-        df.ta.sma(length=self.config.sma_fast, append=True)
-        df.ta.sma(length=self.config.sma_slow, append=True)
-        df.ta.bbands(length=self.config.bb_length, std=2.0, append=True)
+        df = self.market_data_provider.get_candles_df(connector_name=self.config.connector_name,
+                                                      trading_pair=self.config.trading_pair,
+                                                      interval=self.config.interval,
+                                                      max_records=self.max_records)
+        # Add indicators
+        df.ta.sma(close='close', length=self.config.sma_fast, append=True)
+        df.ta.sma(close='close', length=self.config.sma_slow, append=True)
+        df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
 
-        # Generate long and short conditions
-        bbp = df[f"BBP_{self.config.bb_length}_2.0"]
-        inside_bounds_condition = (bbp < 0.5 + self.config.bb_threshold) & (bbp > 0.5 - self.config.bb_threshold)
+        sma_fast = df[f"SMA_{self.config.sma_fast}"]
+        sma_slow = df[f"SMA_{self.config.sma_slow}"]
+        bb_upper = df[f"BBU_{self.config.bb_length}_{self.config.bb_std}"]
+        bb_lower = df[f"BBL_{self.config.bb_length}_{self.config.bb_std}"]
 
-        long_cond = (df[f'SMA_{self.config.sma_fast}'] > df[f'SMA_{self.config.sma_slow}'])
-        short_cond = (df[f'SMA_{self.config.sma_fast}'] < df[f'SMA_{self.config.sma_slow}'])
+        # Generate signal
+        long_condition = (sma_fast > sma_slow) & (df['close'] < bb_lower + self.config.bb_threshold * (bb_upper - bb_lower))
+        short_condition = (sma_fast < sma_slow) & (df['close'] > bb_upper - self.config.bb_threshold * (bb_upper - bb_lower))
 
-        # Choose side
-        df['signal'] = 0
-        df.loc[long_cond & inside_bounds_condition, 'signal'] = 1
-        df.loc[short_cond & inside_bounds_condition, 'signal'] = -1
+        df["signal"] = 0
+        df.loc[long_condition, "signal"] = 1
+        df.loc[short_condition, "signal"] = -1
+
         return df
 
-    def extra_columns_to_show(self):
-        return [f"BBP_{self.config.bb_length}_{self.config.bb_std}",
-                f"SMA_{self.config.sma_fast}",
-                f"SMA_{self.config.sma_slow}"]
+    def to_format_status(self) -> List[str]:
+        df = self.get_processed_data()
+        return [format_df_for_printout(df.tail(5), table_format="psql",)]
