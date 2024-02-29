@@ -13,7 +13,6 @@ from hummingbot.smart_components.controllers.market_making_controller_base impor
     MarketMakingControllerConfigBase,
 )
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions
 
 
@@ -60,24 +59,13 @@ class DManMakerConfig(MarketMakingControllerConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
             prompt_on_new=True))
-    trailing_stop: TrailingStop = Field(
-        default="0.015,0.003",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
-            prompt_on_new=True))
+
     activation_bounds: Optional[List[Decimal]] = Field(
         default=None,
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the activation bounds for the orders "
                               "(e.g., 0.01 activates the next order when the price is closer than 1%): ",
             prompt_on_new=True))
-
-    @validator("trailing_stop", pre=True, always=True)
-    def parse_trailing_stop(cls, v):
-        if isinstance(v, str):
-            activation_price, trailing_delta = v.split(",")
-            return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
-        return v
 
     @validator("activation_bounds", pre=True, always=True)
     def parse_activation_bounds(cls, v):

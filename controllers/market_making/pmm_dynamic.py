@@ -3,22 +3,19 @@ from decimal import Decimal
 from typing import List
 
 import pandas_ta as ta  # noqa: F401
-from pydantic import Field, validator
+from pydantic import Field
 
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.core.data_type.common import OrderType, PriceType
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import (
-    PositionExecutorConfig,
-    TripleBarrierConfig,
-)
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 
 
-class PMMDynamicConfig(MarketMakingControllerConfigBase):
+class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):
     controller_name = "pmm_dynamic"
     candles_config: List[CandlesConfig] = []
     interval: str = Field(
@@ -47,56 +44,6 @@ class PMMDynamicConfig(MarketMakingControllerConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the NATR length: ",
             prompt_on_new=True))
-    # Triple Barrier Configuration
-    stop_loss: Decimal = Field(
-        default=Decimal("0.03"), gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
-            prompt_on_new=True))
-    take_profit: Decimal = Field(
-        default=Decimal("0.01"), gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
-            prompt_on_new=True))
-    time_limit: int = Field(
-        default=60 * 45, gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
-            prompt_on_new=True))
-    take_profit_order_type: OrderType = Field(
-        default="LIMIT",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
-            prompt_on_new=True))
-
-    @validator('take_profit_order_type', pre=True, allow_reuse=True)
-    def validate_order_type(cls, v) -> OrderType:
-        if isinstance(v, OrderType):
-            return v
-        elif isinstance(v, str):
-            if v.upper() in OrderType.__members__:
-                return OrderType[v.upper()]
-        elif isinstance(v, int):
-            try:
-                return OrderType(v)
-            except ValueError:
-                pass
-        raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
-
-    @property
-    def triple_barrier_config(self) -> TripleBarrierConfig:
-        return TripleBarrierConfig(
-            stop_loss=self.stop_loss,
-            take_profit=self.take_profit,
-            time_limit=self.time_limit,
-            open_order_type=OrderType.LIMIT,
-            take_profit_order_type=self.take_profit_order_type,
-            stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
-            time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
-        )
 
 
 class PMMDynamicController(MarketMakingControllerBase):
@@ -104,15 +51,16 @@ class PMMDynamicController(MarketMakingControllerBase):
     This is a dynamic version of the PMM controller.It uses the MACD to shift the mid-price and the NATR
     to make the spreads dynamic. It also uses the Triple Barrier Strategy to manage the risk.
     """
-    def __init__(self, config: PMMDynamicConfig, *args, **kwargs):
+    def __init__(self, config: PMMDynamicControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = max(config.macd_slow, config.macd_fast, config.macd_signal, config.natr_length)
-        self.config.candles_config = config.candles_config or [CandlesConfig(
-            connector=config.connector_name,
-            trading_pair=config.trading_pair,
-            interval=config.interval,
-            max_records=self.max_records
-        )]
+        if len(self.config.candles_config) == 0:
+            self.config.candles_config = [CandlesConfig(
+                connector=config.connector_name,
+                trading_pair=config.trading_pair,
+                interval=config.interval,
+                max_records=self.max_records
+            )]
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
