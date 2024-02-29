@@ -213,7 +213,7 @@ class DirectionalTradingControllerBase(ControllerBase):
         """
         active_executors_by_signal_side = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: x.is_active and x.side == TradeType.BUY if signal > 0 else TradeType.SELL)
+            filter_func=lambda x: x.is_active and (x.side == TradeType.BUY if signal > 0 else TradeType.SELL))
         max_timestamp = max([executor.timestamp for executor in active_executors_by_signal_side], default=0)
         active_executors_condition = len(active_executors_by_signal_side) < self.config.max_orders_per_side
         cooldown_condition = time.time() - max_timestamp > self.config.cooldown_time
