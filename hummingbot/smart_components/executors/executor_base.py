@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
@@ -286,6 +287,16 @@ class ExecutorBase(SmartComponentBase):
         :return: The price.
         """
         return self.connectors[connector_name].get_price_by_type(trading_pair, price_type)
+
+    def get_trading_rules(self, connector_name: str, trading_pair: str) -> TradingRule:
+        """
+        Retrieves the trading rules for the specified trading pair from the specified connector.
+
+        :param connector_name: The name of the connector.
+        :param trading_pair: The trading pair.
+        :return: The trading rules.
+        """
+        return self.connectors[connector_name].trading_rules[trading_pair]
 
     def get_order_book(self, connector_name: str, trading_pair: str):
         """
