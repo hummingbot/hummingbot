@@ -42,7 +42,7 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             prompt_on_new=True,
             prompt=lambda mi: "Enter the amount of quote asset to use per order (e.g., 100):"))
 
-    max_orders_per_side: int = Field(
+    max_executors_per_side: int = Field(
         default=2,
         client_data=ClientFieldData(
             prompt_on_new=True,
@@ -215,7 +215,7 @@ class DirectionalTradingControllerBase(ControllerBase):
             executors=self.executors_info,
             filter_func=lambda x: x.is_active and (x.side == TradeType.BUY if signal > 0 else TradeType.SELL))
         max_timestamp = max([executor.timestamp for executor in active_executors_by_signal_side], default=0)
-        active_executors_condition = len(active_executors_by_signal_side) < self.config.max_orders_per_side
+        active_executors_condition = len(active_executors_by_signal_side) < self.config.max_executors_per_side
         cooldown_condition = time.time() - max_timestamp > self.config.cooldown_time
         return active_executors_condition and cooldown_condition
 

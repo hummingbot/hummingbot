@@ -55,13 +55,13 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
-            prompt_on_new=True,
+            prompt_on_new=False,
             prompt=lambda mi: "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
     sell_amounts_pct: Union[List[float], None] = Field(
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
-            prompt_on_new=True,
+            prompt_on_new=False,
             prompt=lambda mi: "Enter a comma-separated list of sell amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
     executor_refresh_time: int = Field(
         default=60 * 5,
@@ -88,7 +88,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         )
     )
     closed_executors_buffer: int = Field(
-        default=10, gt=0,
+        default=5, gt=0,
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
             prompt_on_new=False))
