@@ -358,6 +358,9 @@ class KrakenExchange(ExchangePyBase):
             "userref": userref,
             "price": str(price)
         }
+
+        if order_type is OrderType.MARKET:
+            del data["price"]
         if order_type is OrderType.LIMIT_MAKER:
             data["oflags"] = "post"
         order_result = await self._api_request_with_retry(RESTMethod.POST,
