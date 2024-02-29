@@ -38,6 +38,7 @@ class ControllerConfigBase(BaseClientModel):
     candles_config: List[CandlesConfig] = Field(
         default="binance_perpetual.WLD-USDT.1m.500",
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
             prompt=lambda mi: (
                 "Enter candle configs in format 'exchange1.tp1.interval1.max_records:"
