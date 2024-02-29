@@ -1,25 +1,21 @@
 import asyncio
-import datetime
 import logging
-from pathlib import Path
 
 import pandas as pd
 
-from hummingbot import data_path
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position_executors import PositionExecutors
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, OrderLevel
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class ExecutorHandlerBase:
+class ExecutorHandlerBase(SmartComponentBase):
     _logger = None
 
     @classmethod
@@ -37,22 +33,14 @@ class ExecutorHandlerBase:
         :param controller: The controller instance.
         :param update_interval: Update interval in seconds.
         """
+        super().__init__(update_interval)
         self.strategy = strategy
         self.controller = controller
         self.update_interval = update_interval
         self.executors_update_interval = executors_update_interval
         self.terminated = asyncio.Event()
-        self.level_executors = {level.level_id: None for level in self.controller.config.order_levels}
-        self.status = ExecutorHandlerStatus.NOT_STARTED
-
-    def start(self):
-        """Start the executor handler."""
-        self.controller.start()
-        safe_ensure_future(self.control_loop())
-
-    def stop(self):
-        """Stop the executor handler."""
-        self.terminated.set()
+        self.position_executors = {}
+        self.dca_executors = []
 
     def on_stop(self):
         """Actions to perform on stop."""
@@ -60,57 +48,51 @@ class ExecutorHandlerBase:
 
     def on_start(self):
         """Actions to perform on start."""
-        pass
+        self.controller.start()
 
     async def control_task(self):
         """Control task to be implemented by subclasses."""
         raise NotImplementedError
 
-    def get_csv_path(self) -> Path:
-        """
-        Get the CSV path for storing executor data.
-
-        :return: Path object for the CSV.
-        """
-        today = datetime.datetime.today()
-        return Path(data_path()) / f"{self.controller.get_csv_prefix()}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
-
-    def store_executor(self, executor: PositionExecutor, order_level: OrderLevel):
+    def store_position_executor(self, level_id: str = None):
         """
         Store executor data to CSV.
 
         :param executor: The executor instance.
-        :param order_level: The order level instance.
+        :param level_id: The order level id.
         """
+        executor = self.position_executors.get(level_id)
         if executor:
             executor_data = executor.to_json()
-            executor_data["order_level"] = order_level.level_id
+            executor_data["order_level"] = level_id
             executor_data["controller_name"] = self.controller.config.strategy_name
-            MarketsRecorder.get_instance().store_executor(executor_data)
-            self.level_executors[order_level.level_id] = None
+            MarketsRecorder.get_instance().store_position_executor(executor_data)
+            self.position_executors[level_id] = None
 
-    def create_executor(self, position_config: PositionConfig, order_level: OrderLevel):
+    def create_position_executor(self, position_config: PositionExecutorConfig, level_id: str = None):
         """
         Create an executor.
 
         :param position_config: The position configuration.
-        :param order_level: The order level instance.
+        :param level_id: The order level id.
         """
+        current_executor = self.position_executors.get(level_id)
+        if current_executor:
+            self.logger().warning(f"Executor for level {level_id} already exists.")
+            return
         executor = PositionExecutor(self.strategy, position_config, update_interval=self.executors_update_interval)
-        self.level_executors[order_level.level_id] = executor
+        executor.start()
+        self.position_executors[level_id] = executor
 
-    async def control_loop(self):
-        """Main control loop."""
-        self.on_start()
-        self.status = ExecutorHandlerStatus.ACTIVE
-        while not self.terminated.is_set():
-            try:
-                await self.control_task()
-            except Exception as e:
-                self.logger().error(e, exc_info=True)
-            await self._sleep(self.update_interval)
-        self.status = ExecutorHandlerStatus.TERMINATED
-        self.on_stop()
+    def stop_position_executor(self, executor_id: str):
+        """
+        Stop an executor.
+
+        :param executor_id: The executor ID.
+        """
+        executor = self.position_executors[executor_id]
+        if executor:
+            executor.early_stop()
 
     def close_open_positions(self, connector_name: str = None, trading_pair: str = None):
         """
@@ -145,7 +127,7 @@ class ExecutorHandlerBase:
         :return: DataFrame containing active executors.
         """
         executors_info = []
-        for level, executor in self.level_executors.items():
+        for level, executor in self.position_executors.items():
             if executor:
                 executor_info = executor.to_json()
                 executor_info["level_id"] = level
@@ -158,16 +140,11 @@ class ExecutorHandlerBase:
         else:
             return pd.DataFrame()
 
-    @staticmethod
-    def get_executors_df(csv_prefix: str) -> pd.DataFrame:
+    def get_dca_executors(self) -> list:
         """
-        Get executors from CSV.
-
-        :param csv_prefix: The CSV prefix.
-        :return: DataFrame containing executors.
+        Get active dca executors as a DataFrame.
         """
-        dfs = [pd.read_csv(file) for file in Path(data_path()).glob(f"{csv_prefix}*")]
-        return pd.concat(dfs) if dfs else pd.DataFrame()
+        return [dca_executor.to_json() for dca_executor in self.dca_executors]
 
     @staticmethod
     def summarize_executors_df(executors_df):

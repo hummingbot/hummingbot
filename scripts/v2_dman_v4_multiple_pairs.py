@@ -6,13 +6,13 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v4 import DManV4, DManV4Config
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConf
+from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.order_level_distributions.distributions import Distributions
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevelBuilder
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
     MarketMakingExecutorHandler,
 )
-from hummingbot.smart_components.utils.distributions import Distributions
-from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -98,9 +98,9 @@ class DManV4MultiplePairs(ScriptStrategyBase):
             activation_threshold=activation_threshold,
             leverage=leverage,
             global_trailing_stop_config={
-                TradeType.BUY: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+                TradeType.BUY: TrailingStop(activation_price=global_trailing_stop_activation_price_delta,
                                             trailing_delta=global_trailing_stop_trailing_delta),
-                TradeType.SELL: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+                TradeType.SELL: TrailingStop(activation_price=global_trailing_stop_activation_price_delta,
                                              trailing_delta=global_trailing_stop_trailing_delta),
             }
         )
@@ -165,7 +165,7 @@ class DManV4MultiplePairs(ScriptStrategyBase):
             self.rebalance()
         else:
             for executor_handler in self.executor_handlers.values():
-                if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
+                if executor_handler.status == SmartComponentStatus.NOT_STARTED:
                     executor_handler.start()
 
     def rebalance(self):

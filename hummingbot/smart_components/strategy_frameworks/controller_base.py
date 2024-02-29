@@ -1,32 +1,43 @@
+import hashlib
+import random
+import time
 from abc import ABC
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel
+import base58
+from pydantic import BaseModel, validator
 
+from hummingbot.core.data_type.common import PositionMode
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 
 
 class ControllerConfigBase(BaseModel):
+    id: str = None
     exchange: str
     trading_pair: str
     strategy_name: str
     candles_config: List[CandlesConfig]
-    order_levels: List[OrderLevel]
     close_price_trading_pair: Optional[str]
+    position_mode: PositionMode = PositionMode.HEDGE
+    leverage: int = 1
+
+    @validator('id', pre=True, always=True)
+    def set_id(cls, v, values):
+        if v is None:
+            # Use timestamp from values if available, else current time
+            timestamp = values.get('timestamp', time.time())
+            unique_component = random.randint(0, 99999)
+            raw_id = f"{timestamp}-{unique_component}"
+            hashed_id = hashlib.sha256(raw_id.encode()).digest()  # Get bytes
+            return base58.b58encode(hashed_id).decode()  # Base58 encode
+        return v
 
 
 class ControllerBase(ABC):
     """
     Abstract base class for controllers.
     """
-
-    def get_balance_required_by_order_levels(self):
-        """
-        Get the balance required by the order levels.
-        """
-        pass
 
     def __init__(self,
                  config: ControllerConfigBase,
@@ -48,6 +59,13 @@ class ControllerBase(ABC):
         Get the processed data.
         """
         pass
+
+    @staticmethod
+    def is_perpetual(exchange: str):
+        """
+        Checks if the exchange is a perpetual market.
+        """
+        return "perpetual" in exchange
 
     def filter_executors_df(self, df):
         """

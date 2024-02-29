@@ -40,20 +40,23 @@ bpm_logger = None
 
 class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
+
     SHORT_POLL_INTERVAL = 5.0
     LONG_POLL_INTERVAL = 12.0
 
     def __init__(
             self,
             client_config_map: "ClientConfigAdapter",
-            hyperliquid_perpetual_api_key: str = None,
             hyperliquid_perpetual_api_secret: str = None,
+            use_vault: bool = False,
+            hyperliquid_perpetual_api_key: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
         self.hyperliquid_perpetual_api_key = hyperliquid_perpetual_api_key
         self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_api_secret
+        self._use_vault = use_vault
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -62,6 +65,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self.coin_to_asset: Dict[str, int] = {}
         super().__init__(client_config_map)
 
+    SHORT_POLL_INTERVAL = 5.0
+
+    LONG_POLL_INTERVAL = 12.0
+
     @property
     def name(self) -> str:
         # Note: domain here refers to the entire exchange name. i.e. hyperliquid_perpetual or hyperliquid_perpetual_testnet
@@ -69,7 +76,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> HyperliquidPerpetualAuth:
-        return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key)
+        return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key,
+                                        self._use_vault)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -464,7 +472,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             self.logger().warning(
                 f"Error fetching status update for the active order {order.client_order_id}: {request_error}.",
             )
-            self.logger().debug(f"Order {order.client_order_id} not found counter: {self._order_tracker._order_not_found_records.get(order.client_order_id, 0)}")
+            self.logger().debug(
+                f"Order {order.client_order_id} not found counter: {self._order_tracker._order_not_found_records.get(order.client_order_id, 0)}")
             await self._order_tracker.process_order_not_found(order.client_order_id)
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:

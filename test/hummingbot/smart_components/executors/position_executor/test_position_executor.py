@@ -14,12 +14,12 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import (
-    CloseType,
-    PositionConfig,
+    PositionExecutorConfig,
     PositionExecutorStatus,
     TrailingStop,
 )
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -46,36 +46,35 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         return strategy
 
     def get_position_config_trailing_stop(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,
-                              trailing_stop=TrailingStop(
-                                  activation_price_delta=Decimal("0.02"),
-                                  trailing_delta=Decimal("0.01")))
+        return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,
+                                      trailing_stop=TrailingStop(activation_price=Decimal("0.02"),
+                                                                 trailing_delta=Decimal("0.01")))
 
     def get_position_config_market_long(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET, )
 
     def get_position_config_market_long_tp_market(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.MARKET, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.MARKET, stop_loss_order_type=OrderType.MARKET, )
 
     def get_position_config_market_short(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET, )
 
     def get_incomplete_position_config(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(id="test-3", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET, )
 
     def test_init_raises_exception(self):
         position_config = self.get_incomplete_position_config()
@@ -103,9 +102,9 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.time_limit_order_type, OrderType.MARKET)
         self.assertEqual(position_executor.filled_amount, Decimal("0"))
         self.assertEqual(position_executor.trailing_stop_config, None)
-        self.assertEqual(position_executor.close_price, None)
+        self.assertEqual(position_executor.close_price, Decimal("0"))
         self.assertIsInstance(position_executor.logger(), HummingbotLogger)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     async def test_control_position_not_started_create_open_order(self):
         position_config = self.get_position_config_market_short()
@@ -113,7 +112,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor = PositionExecutor(self.strategy, position_config)
         await position_executor.control_task()
         self.assertEqual(position_executor.open_order.order_id, "OID-SELL-1")
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     async def test_control_position_not_started_expired(self):
         position_config = self.get_position_config_market_short()
@@ -124,7 +123,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
         self.assertEqual(position_executor.trade_pnl, Decimal("0"))
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     async def test_control_open_order_expiration(self):
         position_config = self.get_position_config_market_short()
@@ -138,7 +137,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             order_id="OID-SELL-1")
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.NOT_STARTED)
         self.assertEqual(position_executor.trade_pnl, Decimal("0"))
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     async def test_control_position_order_placed_not_cancel_open_order(self):
         position_config = self.get_position_config_market_short()
@@ -147,7 +146,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor.open_order.order_id = "OID-SELL-1"
         await position_executor.control_task()
         position_executor._strategy.cancel.assert_not_called()
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     async def test_control_position_active_position_create_take_profit(self, _):
@@ -183,7 +182,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         await position_executor.control_task()
         self.assertEqual(position_executor.take_profit_order.order_id, "OID-BUY-1")
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.01"))
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price",
            return_value=Decimal("120"))
@@ -222,7 +221,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
         self.assertEqual(position_executor.trade_pnl, Decimal("0.2"))
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     async def test_control_position_active_position_close_by_stop_loss(self, _):
@@ -260,7 +259,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.3"))
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("100"))
     async def test_control_position_active_position_close_by_time_limit(self, _):
@@ -298,7 +297,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-2")
         self.assertEqual(position_executor.close_type, CloseType.TIME_LIMIT)
         self.assertEqual(position_executor.trade_pnl, Decimal("0.0"))
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     async def test_control_position_close_placed_stop_loss_failed(self, _):
@@ -343,7 +342,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     def test_process_order_completed_event_open_order(self):
         position_config = self.get_position_config_market_long()
@@ -362,7 +361,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         market = MagicMock()
         position_executor.process_order_completed_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.ACTIVE_POSITION)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     def test_process_order_completed_event_close_order(self):
         position_config = self.get_position_config_market_long()
@@ -384,7 +383,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_timestamp, 1234567890)
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     def test_process_order_completed_event_take_profit_order(self):
         position_config = self.get_position_config_market_long()
@@ -405,7 +404,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_timestamp, 1234567890)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     def test_process_order_filled_event_open_order_not_started(self):
         position_config = self.get_position_config_market_long()
@@ -424,7 +423,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         market = MagicMock()
         position_executor.process_order_filled_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.ACTIVE_POSITION)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     def test_process_order_filled_event_open_order_started(self):
         position_config = self.get_position_config_market_long()
@@ -444,7 +443,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
         position_executor.process_order_filled_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.ACTIVE_POSITION)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status(self, _):
@@ -480,7 +479,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL (%): 0.80%", status[0])
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status_is_closed(self, _):
@@ -517,7 +516,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL (%): 0.80%", status[0])
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     def test_process_order_canceled_event(self):
         position_config = self.get_position_config_market_long()
@@ -531,7 +530,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor.process_order_canceled_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
-        position_executor.terminate_control_loop()
+        position_executor.stop()
 
     def test_trailing_stop_condition(self):
         position_config = self.get_position_config_trailing_stop()
@@ -555,4 +554,4 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
 
         # Forth: triggered
         self.assertEqual(position_executor.trailing_stop_condition(), True)
-        position_executor.terminate_control_loop()
+        position_executor.stop()

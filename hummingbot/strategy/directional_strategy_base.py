@@ -10,7 +10,7 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -152,7 +152,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             if position_config:
                 signal_executor = PositionExecutor(
                     strategy=self,
-                    position_config=position_config,
+                    config=position_config,
                 )
                 self.active_executors.append(signal_executor)
 
@@ -167,12 +167,12 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 price = price * (1 - signal * self.open_order_slippage_buffer)
             if self.trailing_stop_activation_delta and self.trailing_stop_trailing_delta:
                 trailing_stop = TrailingStop(
-                    activation_price_delta=Decimal(self.trailing_stop_activation_delta),
+                    activation_price=Decimal(self.trailing_stop_activation_delta),
                     trailing_delta=Decimal(self.trailing_stop_trailing_delta),
                 )
             else:
                 trailing_stop = None
-            position_config = PositionConfig(
+            position_config = PositionExecutorConfig(
                 timestamp=self.current_timestamp,
                 trading_pair=self.trading_pair,
                 exchange=self.exchange,
@@ -272,9 +272,9 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                                 executor.amount,
                                 executor.trade_pnl,
                                 executor.trade_pnl_quote,
-                                executor.cum_fee_quote,
+                                executor.cum_fees_quote,
                                 executor.net_pnl_quote,
-                                executor.net_pnl,
+                                executor.net_pnl_pct,
                                 executor.close_timestamp,
                                 executor.executor_status,
                                 executor.close_type,
