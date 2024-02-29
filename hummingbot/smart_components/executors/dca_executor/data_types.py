@@ -26,3 +26,4 @@ class DCAExecutorConfig(ExecutorConfigBase):
     time_limit: Optional[int] = None
     mode: DCAMode = DCAMode.MAKER
     activation_bounds: Optional[List[Decimal]] = None
+    level_id: Optional[str] = None
