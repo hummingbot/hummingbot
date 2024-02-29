@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from hummingbot.smart_components.strategy_frameworks.backtesting_engine_base import BacktestingEngineBase
+from hummingbot.smart_components.backtesting.backtesting_engine_base import BacktestingEngineBase
 
 
 class TestBacktestingEngineBase(unittest.TestCase):
