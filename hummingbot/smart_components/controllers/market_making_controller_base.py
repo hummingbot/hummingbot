@@ -177,10 +177,12 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         return v
 
     @validator('position_mode', pre=True, allow_reuse=True)
-    def validate_position_mode(cls, v: str) -> PositionMode:
-        if v.upper() in PositionMode.__members__:
-            return PositionMode[v.upper()]
-        raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+    def validate_position_mode(cls, v) -> PositionMode:
+        if isinstance(v, str):
+            if v.upper() in PositionMode.__members__:
+                return PositionMode[v.upper()]
+            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+        return v
 
     def update_parameters(self, trade_type: TradeType, new_spreads: Union[List[float], str], new_amounts_pct: Optional[Union[List[int], str]] = None):
         spreads_field = 'buy_spreads' if trade_type == TradeType.BUY else 'sell_spreads'

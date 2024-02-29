@@ -4,8 +4,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from hummingbot import data_path
-from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
+from hummingbot.smart_components.controllers.controller_base import ControllerBase
 
 
 class BacktestingEngineBase:
@@ -18,7 +17,6 @@ class BacktestingEngineBase:
         :param end_date: End date for backtesting.
         """
         self.controller = controller
-        self.level_executors = {level.level_id: pd.Timestamp.min for level in self.controller.config.order_levels}
         self.processed_data = None
         self.executors_df = None
         self.results = None
@@ -88,13 +86,6 @@ class BacktestingEngineBase:
         df["close_type"].replace({"take_profit_time": "tp", "stop_loss_time": "sl"}, inplace=True)
         return df
 
-    def load_controller_data(self, data_path: str = data_path()):
-        self.controller.load_historical_data(data_path=data_path)
-
-    def get_data(self, start: Optional[str] = None, end: Optional[str] = None):
-        df = self.controller.get_processed_data()
-        return self.filter_df_by_time(df, start, end).copy()
-
     def run_backtesting(self, initial_portfolio_usd=1000, trade_cost=0.0006,
                         start: Optional[str] = None, end: Optional[str] = None):
         # Load historical candles
@@ -114,6 +105,9 @@ class BacktestingEngineBase:
         }
 
     def simulate_execution(self, df: pd.DataFrame, initial_portfolio_usd: float, trade_cost: float):
+        raise NotImplementedError
+
+    def get_data(self, start: Optional[str] = None, end: Optional[str] = None):
         raise NotImplementedError
 
     @staticmethod

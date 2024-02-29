@@ -375,7 +375,8 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         delta_amount_to_close = abs(self.open_filled_amount - self.close_filled_amount)
-        if delta_amount_to_close > self.connectors[self.config.exchange].trading_rules[self.config.trading_pair].min_order_size:
+        trading_rules = self.get_trading_rules(self.config.exchange, self.config.trading_pair)
+        if delta_amount_to_close > trading_rules.min_order_size:
             order_id = self.place_order(
                 connector_name=self.config.exchange,
                 trading_pair=self.config.trading_pair,
