@@ -437,7 +437,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 self.chain,
                 self.network,
                 self.connector_name,
-                self.address0,
+                self.address,
                 token_0,
                 token_1,
                 amount_0,
@@ -470,7 +470,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 self.logger().info(f"Created {lp_type.name} liquidity order {order_id} txHash: {transaction_hash} "
                                    f"on {self.network}. Estimated Gas Cost: {gas_cost} "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
-                
 
                 tracked_order.update_exchange_order_id(transaction_hash)
                 # update poolId into tracked_order here?
