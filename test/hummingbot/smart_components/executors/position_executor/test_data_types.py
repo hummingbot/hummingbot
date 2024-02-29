@@ -4,19 +4,18 @@ from unittest import TestCase
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.smart_components.executors.position_executor.data_types import (
-    CloseType,
-    PositionConfig,
+    PositionExecutorConfig,
     PositionExecutorStatus,
-    TrackedOrder,
 )
+from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 
 
 class TestPositionExecutorDataTypes(TestCase):
     def test_position_config_model(self):
-        config = PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                                open_order_type=OrderType.LIMIT,
-                                side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                                stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60)
+        config = PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                        open_order_type=OrderType.LIMIT,
+                                        side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+                                        stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60)
         self.assertEqual(config.trading_pair, "ETH-USDT")
         self.assertEqual(config.exchange, "binance")
         self.assertEqual(config.open_order_type, OrderType.LIMIT)

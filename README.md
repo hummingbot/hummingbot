@@ -88,7 +88,7 @@ The Hummingbot Foundation, supported by its sponsors, partners and backers, is d
 * [Gate.io](https://www.gate.io/signup/5868285)
 * [AscendEx](https://ascendex.com/register?inviteCode=UEIXNXKW)
 * [Huobi](https://www.htx.com/)
-* [OKX](https://www.okx.com/)
+* [OKX](https://www.okx.com/join/1931920)
 
 For more information about the support provided by these partners, see the financial reports provided in [HBOT Tracker](https://docs.google.com/spreadsheets/d/1UNAumPMnXfsghAAXrfKkPGRH9QlC8k7Cu1FGQVL1t0M/edit#gid=285483484).
 

@@ -1,7 +1,7 @@
 import random
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -27,12 +27,6 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.executor_handler.controller, self.mock_controller)
         self.assertTrue(isinstance(self.executor_handler.logger(), HummingbotLogger))
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.safe_ensure_future")
-    def test_start(self, mock_safe_ensure_future):
-        self.executor_handler.start()
-        self.mock_controller.start.assert_called_once()
-        mock_safe_ensure_future.assert_called_once()
-
     def test_terminate_control_loop(self):
         self.executor_handler.stop()
         self.assertTrue(self.executor_handler.terminated.is_set())
@@ -41,15 +35,9 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.executor_handler.on_stop()
         self.mock_controller.stop.assert_called_once()
 
-    def test_get_csv_path(self):
-        path = self.executor_handler.get_csv_path()
-        self.assertEqual(path.suffix, ".csv")
-        self.assertIn("test_strategy", path.name)
-
     @patch("hummingbot.connector.markets_recorder.MarketsRecorder", new_callable=MagicMock)
-    @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
-    def test_store_executor_removes_executor(self, _, market_recorder_mock):
-        market_recorder_mock.store_executor = MagicMock()
+    def test_store_executor_removes_executor(self, market_recorder_mock):
+        market_recorder_mock.store_position_executor = MagicMock()
         mock_executor = MagicMock()
         mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634,
                                                         "exchange": "binance_perpetual",
@@ -75,26 +63,18 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
                                                         "time_limit_order_type": "MARKET",
                                                         "leverage": 10,
                                                         })
-        mock_order_level = MagicMock()
-        mock_order_level.level_id = "BUY_1"
-        self.executor_handler.store_executor(mock_executor, mock_order_level)
-        self.assertIsNone(self.executor_handler.level_executors[mock_order_level.level_id])
-
-    @patch.object(ExecutorHandlerBase, "_sleep", new_callable=AsyncMock)
-    @patch.object(ExecutorHandlerBase, "control_task", new_callable=AsyncMock)
-    async def test_control_loop(self, mock_control_task, mock_sleep):
-        mock_sleep.side_effect = [None, Exception]
-        with self.assertRaises(Exception):
-            await self.executor_handler.control_loop()
-        mock_control_task.assert_called()
+        level_id = "BUY_1"
+        self.executor_handler.position_executors[level_id] = mock_executor
+        self.executor_handler.store_position_executor(level_id)
+        self.assertIsNone(self.executor_handler.position_executors[level_id])
 
     @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.PositionExecutor")
-    def test_create_executor(self, mock_position_executor):
+    def test_create_position_executor(self, mock_position_executor):
         mock_position_config = MagicMock()
         mock_order_level = MagicMock()
-        self.executor_handler.create_executor(mock_position_config, mock_order_level)
+        self.executor_handler.create_position_executor(mock_position_config, mock_order_level)
         mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config, update_interval=1.0)
-        self.assertIsNotNone(self.executor_handler.level_executors[mock_order_level.level_id])
+        self.assertIsNotNone(self.executor_handler.position_executors[mock_order_level])
 
     def generate_random_data(self, num_rows):
         data = {
@@ -162,7 +142,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         position_executor_mock = MagicMock()
         position_executor_mock.to_json = MagicMock(return_value={"entry_price": Decimal("100"),
                                                                  "amount": Decimal("10")})
-        self.executor_handler.level_executors = {
+        self.executor_handler.position_executors = {
             "level1": position_executor_mock,
             "level2": position_executor_mock,
             "level3": position_executor_mock

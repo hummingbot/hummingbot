@@ -9,7 +9,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, TradeTyp
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 
 GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
-GET_GATEWAY_TX_HASH = 10  # seconds
+GET_GATEWAY_TX_HASH = 30  # seconds
 
 s_decimal_0 = Decimal("0")
 

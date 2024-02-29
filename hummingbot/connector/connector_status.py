@@ -10,10 +10,6 @@ connector_status = {
     'bitfinex': 'bronze',
     'bitget_perpetual': 'bronze',
     'bitmart': 'bronze',
-    'bitmex': 'bronze',
-    'bitmex_perpetual': 'bronze',
-    'bitmex_testnet': 'bronze',
-    'bitmex_perpetual_testnet': 'bronze',
     'bit_com_perpetual': 'bronze',
     'bit_com_perpetual_testnet': 'bronze',
     'btc_markets': 'bronze',
@@ -67,10 +63,9 @@ connector_status = {
     'vega_perpetual': 'bronze',
     'vega_perpetual_testnet': 'bronze',
     'vvs': 'bronze',
-    'woo_x': 'bronze',
-    'woo_x_testnet': 'bronze',
     'xswap': 'bronze',
     'xrpl': 'silver',
+    'carbonamm': 'bronze',
 }
 
 warning_messages = {

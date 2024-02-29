@@ -36,6 +36,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         super().setUpClass()
         cls.api_key = "someKey"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+        cls.use_vault = False  # noqa: mock
         cls.user_id = "someUserId"
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear
@@ -385,8 +386,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = HyperliquidPerpetualDerivative(
             client_config_map,
-            self.api_key,
             self.api_secret,
+            self.use_vault,
+            self.api_key,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -777,6 +779,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             client_config_map=client_config_map,
             hyperliquid_perpetual_api_key=self.api_key,
             hyperliquid_perpetual_api_secret=self.api_secret,
+            use_vault=self.use_vault,
             trading_pairs=[self.trading_pair],
         )
 
