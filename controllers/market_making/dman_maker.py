@@ -60,14 +60,15 @@ class DManMakerConfig(MarketMakingControllerConfigBase):
             prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
             prompt_on_new=True))
 
-    activation_bounds: Optional[List[Decimal]] = Field(
+    executor_activation_bounds: Optional[List[Decimal]] = Field(
         default=None,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the activation bounds for the orders "
                               "(e.g., 0.01 activates the next order when the price is closer than 1%): ",
             prompt_on_new=False))
 
-    @validator("activation_bounds", pre=True, always=True)
+    @validator("executor_activation_bounds", pre=True, always=True)
     def parse_activation_bounds(cls, v):
         if isinstance(v, list):
             return [Decimal(val) for val in v]
@@ -109,6 +110,6 @@ class DManMaker(MarketMakingControllerBase):
             time_limit=self.config.time_limit,
             stop_loss=self.config.stop_loss,
             trailing_stop=self.config.trailing_stop,
-            activation_bounds=self.config.activation_bounds,
+            activation_bounds=self.config.executor_activation_bounds,
             leverage=self.config.leverage,
         )
