@@ -36,11 +36,11 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             prompt_on_new=True,
             prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
 
-    order_amount_quote: Decimal = Field(
+    executor_amount_quote: Decimal = Field(
         default=100.0,
         client_data=ClientFieldData(
             prompt_on_new=True,
-            prompt=lambda mi: "Enter the amount of quote asset to use per order (e.g., 100):"))
+            prompt=lambda mi: "Enter the amount of quote asset to use per executor (e.g., 100):"))
 
     max_executors_per_side: int = Field(
         default=2,
@@ -199,7 +199,7 @@ class DirectionalTradingControllerBase(ControllerBase):
         if signal != 0 and self.can_create_executor(signal):
             price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair,
                                                                 PriceType.MidPrice)
-            amount = self.config.order_amount_quote / price
+            amount = self.config.executor_amount_quote / price
             trade_type = TradeType.BUY if signal > 0 else TradeType.SELL
             create_actions.append(CreateExecutorAction(
                 controller_id=self.config.id,

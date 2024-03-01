@@ -20,11 +20,23 @@ from hummingbot.smart_components.executors.position_executor.data_types import T
 class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
     controller_name: str = "dman_v3"
     candles_config: List[CandlesConfig] = []
+    candles_connector: str = Field(
+        default=None,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ",)
+    )
+    candles_trading_pair: str = Field(
+        default=None,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ",)
+    )
     interval: str = Field(
-        default="3m",
+        default="30m",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
-            prompt_on_new=False))
+            prompt_on_new=True))
     bb_length: int = Field(
         default=100,
         client_data=ClientFieldData(
@@ -46,7 +58,7 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             prompt=lambda mi: "Enter the Bollinger Bands short threshold: ",
             prompt_on_new=True))
     dca_spreads: List[Decimal] = Field(
-        default="0.002,0.006,0.01,0.015,0.02",
+        default="0.001,0.004,0.018,0.15,0.25",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the spreads for each DCA level (comma-separated) if dynamic_spread=True this value "
                               "will multiply the Bollinger Bands width, e.g. if the Bollinger Bands width is 0.1 (10%)"
@@ -120,6 +132,18 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
 
         return self.dca_spreads, [amt_pct * total_amount_quote for amt_pct in normalized_amounts_pct]
 
+    @validator("candles_connector", pre=True, always=True)
+    def set_candles_connector(cls, v, values):
+        if v is None or v == "":
+            return values.get("connector_name")
+        return v
+
+    @validator("candles_trading_pair", pre=True, always=True)
+    def set_candles_trading_pair(cls, v, values):
+        if v is None or v == "":
+            return values.get("trading_pair")
+        return v
+
 
 class DManV3Controller(DirectionalTradingControllerBase):
     """
@@ -131,8 +155,8 @@ class DManV3Controller(DirectionalTradingControllerBase):
         self.max_records = config.bb_length
         if len(self.config.candles_config) == 0:
             self.config.candles_config = [CandlesConfig(
-                connector=config.connector_name,
-                trading_pair=config.trading_pair,
+                connector=config.candles_connector,
+                trading_pair=config.candles_trading_pair,
                 interval=config.interval,
                 max_records=self.max_records
             )]
@@ -142,8 +166,8 @@ class DManV3Controller(DirectionalTradingControllerBase):
         return self.get_processed_data()["signal"].iloc[-1]
 
     def get_processed_data(self) -> pd.DataFrame:
-        df = self.market_data_provider.get_candles_df(connector_name=self.config.connector_name,
-                                                      trading_pair=self.config.trading_pair,
+        df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
+                                                      trading_pair=self.config.candles_trading_pair,
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
         # Add indicators
