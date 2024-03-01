@@ -613,7 +613,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         for data in parsed_resps:
             ex_trading_pair = data["instId"]
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
-            position_side = PositionSide.LONG if data["posSide"] == "long" else PositionSide.SHORT
+            position_side = self.get_position_side(data)
             unrealized_pnl = Decimal(data["upl"]) if bool(data["upl"]) else Decimal(str(0.0))
             entry_price = Decimal(data["avgPx"]) if bool(data["avgPx"]) else Decimal(str(0.0))
             amount = self.get_position_amount(data)
