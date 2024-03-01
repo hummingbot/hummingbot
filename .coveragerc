@@ -27,7 +27,6 @@ omit =
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/user/user_balances.py
-        hummingbot/smart_components/controllers/*
 dynamic_context = test_function
 branch = true
 
