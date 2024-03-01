@@ -65,15 +65,15 @@ class DManMakerConfig(MarketMakingControllerConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the activation bounds for the orders "
                               "(e.g., 0.01 activates the next order when the price is closer than 1%): ",
-            prompt_on_new=True))
+            prompt_on_new=False))
 
     @validator("activation_bounds", pre=True, always=True)
     def parse_activation_bounds(cls, v):
-        if v == "":
-            return None
         if isinstance(v, list):
             return [Decimal(val) for val in v]
         elif isinstance(v, str):
+            if v == "":
+                return None
             return [Decimal(val) for val in v.split(",")]
         return v
 
