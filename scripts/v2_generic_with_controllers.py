@@ -54,9 +54,10 @@ class GenericV2StrategyWithControllers(StrategyV2Base):
         if not self.account_config_set:
             for controller_id, controller in self.controllers.items():
                 config_dict = controller.config.dict()
-                if "position_mode" in config_dict:
-                    self.connectors[config_dict["connector_name"]].set_position_mode(config_dict["position_mode"])
-                if "leverage" in config_dict:
-                    self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
-                                                                                trading_pair=config_dict["trading_pair"])
+                if self.is_perpetual(config_dict.get("connector_name")):
+                    if "position_mode" in config_dict:
+                        self.connectors[config_dict["connector_name"]].set_position_mode(config_dict["position_mode"])
+                    if "leverage" in config_dict:
+                        self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
+                                                                                    trading_pair=config_dict["trading_pair"])
             self.account_config_set = True
