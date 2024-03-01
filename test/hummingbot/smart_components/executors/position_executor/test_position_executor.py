@@ -7,12 +7,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketOrderFailureEvent, OrderCancelledEvent
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorConfig,
@@ -84,16 +79,11 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                                       triple_barrier_config=TripleBarrierConfig(
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
 
-    def test_init_raises_exception(self):
-        position_config = self.get_incomplete_position_config()
-        with self.assertRaises(ValueError):
-            PositionExecutor(self.strategy, position_config)
-
     def test_properties(self):
         position_config = self.get_position_config_market_short()
         position_executor = PositionExecutor(self.strategy, position_config)
         self.assertEqual(position_executor.trade_pnl_quote, Decimal("0"))
-        position_executor.close_type = CloseType.EARLY_STOP
+        position_executor._status = SmartComponentStatus.TERMINATED
         self.assertTrue(position_executor.is_closed)
         self.assertEqual(position_executor.config.trading_pair, "ETH-USDT")
         self.assertEqual(position_executor.config.exchange, "binance")
@@ -107,7 +97,6 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.config.triple_barrier_config.time_limit_order_type, OrderType.MARKET)
         self.assertEqual(position_executor.open_filled_amount, Decimal("0"))
         self.assertEqual(position_executor.config.triple_barrier_config.trailing_stop, None)
-        self.assertEqual(position_executor.close_price, Decimal("0"))
         self.assertIsInstance(position_executor.logger(), HummingbotLogger)
 
     def get_position_executor_running_from_config(self, position_config):
@@ -417,45 +406,11 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_timestamp, 1234567890)
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
 
-    def test_process_order_filled_event_open_order_not_started(self):
-        position_config = self.get_position_config_market_long()
-        position_executor = self.get_position_executor_running_from_config(position_config)
-        position_executor._open_order = TrackedOrder("OID-BUY-1")
-        event = OrderFilledEvent(
-            timestamp=1234567890,
-            order_id="OID-BUY-1",
-            trading_pair="ETH-USDT",
-            price=position_config.entry_price,
-            amount=position_config.amount,
-            order_type=position_config.triple_barrier_config.open_order_type,
-            trade_type=TradeType.SELL,
-            trade_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))])
-        )
-        market = MagicMock()
-        position_executor.process_order_filled_event("102", market, event)
-
-    def test_process_order_filled_event_open_order_started(self):
-        position_config = self.get_position_config_market_long()
-        position_executor = self.get_position_executor_running_from_config(position_config)
-        position_executor._open_order.order_id = "OID-BUY-1"
-        event = OrderFilledEvent(
-            timestamp=1234567890,
-            order_id="OID-BUY-1",
-            trading_pair="ETH-USDT",
-            price=position_config.entry_price,
-            amount=position_config.amount,
-            order_type=position_config.triple_barrier_config.open_order_type,
-            trade_type=TradeType.SELL,
-            trade_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))])
-        )
-        market = MagicMock()
-        position_executor.process_order_filled_event("102", market, event)
-
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status(self, _):
         position_config = self.get_position_config_market_long()
         position_executor = self.get_position_executor_running_from_config(position_config)
-        position_executor._open_order.order_id = "OID-BUY-1"
+        position_executor._open_order = TrackedOrder("OID-BUY-1")
         position_executor._open_order.order = InFlightOrder(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
@@ -488,7 +443,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
     def test_to_format_status_is_closed(self, _):
         position_config = self.get_position_config_market_long()
         position_executor = self.get_position_executor_running_from_config(position_config)
-        position_executor._open_order.order_id = "OID-BUY-1"
+        position_executor._open_order = TrackedOrder("OID-BUY-1")
         position_executor._open_order.order = InFlightOrder(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",

@@ -9,7 +9,7 @@ from hummingbot.smart_components.backtesting.backtesting_engine_base import Back
 
 class TestBacktestingEngineBase(unittest.TestCase):
 
-    @patch("hummingbot.smart_components.strategy_frameworks.controller_base.ControllerBase")
+    @patch("hummingbot.smart_components.controllers.controller_base.ControllerBase")
     def setUp(self, MockControllerBase):
         self.controller = MockControllerBase()
         self.backtesting_engine = BacktestingEngineBase(self.controller)
@@ -22,19 +22,6 @@ class TestBacktestingEngineBase(unittest.TestCase):
         self.assertEqual(len(filtered_df), 3)
         self.assertEqual(filtered_df["timestamp"].min(), pd.Timestamp("2021-01-02"))
         self.assertEqual(filtered_df["timestamp"].max(), pd.Timestamp("2021-01-04"))
-
-    @patch("pandas.read_csv")
-    def test_get_data(self, mock_read_csv):
-        mock_df = pd.DataFrame({
-            "timestamp": pd.date_range(start="2021-01-01", end="2021-01-05", freq="D")
-        })
-        mock_read_csv.return_value = mock_df
-        self.controller.get_processed_data.return_value = mock_df
-
-        df = self.backtesting_engine.get_data("2021-01-02", "2021-01-04")
-        self.assertEqual(len(df), 3)
-        self.assertEqual(df["timestamp"].min(), pd.Timestamp("2021-01-02"))
-        self.assertEqual(df["timestamp"].max(), pd.Timestamp("2021-01-04"))
 
     def test_summarize_results(self):
         initial_date = datetime(2023, 3, 16, 0, 0, tzinfo=timezone.utc)
