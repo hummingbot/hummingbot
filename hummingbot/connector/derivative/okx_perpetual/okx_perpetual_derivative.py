@@ -700,10 +700,10 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         client_order_id = order_msg["clOrdId"]
         order_status = CONSTANTS.ORDER_STATE[order_msg["state"]]
         trade_type = TradeType.BUY if order_msg["side"] == "buy" else TradeType.SELL
-        pos_side = PositionSide.LONG if order_msg["posSide"] == "long" else PositionSide.SHORT
+        position_side = PositionSide.LONG if order_msg["posSide"] == "long" else PositionSide.SHORT
         position_action = (PositionAction.OPEN
-                           if (trade_type == TradeType.BUY and pos_side == PositionSide.LONG) or
-                              (trade_type == TradeType.SELL and pos_side == PositionSide.SHORT)
+                           if (trade_type == TradeType.BUY and position_side == PositionSide.LONG) or
+                              (trade_type == TradeType.SELL and position_side == PositionSide.SHORT)
                            else PositionAction.CLOSE)
         fill_fee_currency = order_msg.get("fillFeeCcy")
         fill_fee = -Decimal(order_msg.get("fillFee", "0"))
