@@ -5,7 +5,7 @@
 template_version: 3
 strategy: null
 
-# The following configurations are only required for the AMM arbitrage trading strategy
+# The following configurations are only required for the Spot-Perpetual Arbitrage trading strategy
 
 # Connectors and markets parameters
 spot_connector: null
