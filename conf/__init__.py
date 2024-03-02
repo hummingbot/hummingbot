@@ -57,7 +57,6 @@ coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
-
 # Htx Tests
 htx_api_key = os.getenv("HTX_API_KEY")
 htx_secret_key = os.getenv("HTX_SECRET_KEY")
