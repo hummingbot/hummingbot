@@ -9,8 +9,6 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any, AsyncGenerator, Dict
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from boltons.funcutils import partial
-
 from hummingbot.connector.exchange.coinbase_advanced_trade import coinbase_advanced_trade_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_user_stream_data_source import (
     CoinbaseAdvancedTradeAPIUserStreamDataSource,
@@ -300,7 +298,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
         response = Mock(spec=WSResponse)
         response.data = data
         # Provide the data that the assistant should iterate upon
-        self.ws_assistants[0].iter_messages = partial(self.ws_assistants[0].iter_messages, data=response)
+        self.ws_assistants[0].iter_messages = functools.partial(self.ws_assistants[0].iter_messages, data=response)
 
         with patch.object(CoinbaseAdvancedTradeAPIUserStreamDataSource, "_decipher_message"):
             await self.data_source._process_websocket_messages(
