@@ -94,19 +94,15 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         :return: The connected WSAssistant instance.
         """
-        self.logger().debug(f"current assistant:{self._ws_assistant}...")
         if pair is not None:
             self._ws_assistant[pair] = await self._api_factory.get_ws_assistant()
-            self.logger().debug(f"_ws_assistant to {pair}:{self._ws_assistant[pair]}...")
 
             await self._ws_assistant[pair].connect(
                 ws_url=constants.WSS_URL.format(domain=self._domain),
                 ping_timeout=constants.WS_HEARTBEAT_TIME_INTERVAL
             )
-            self.logger().debug(f"connected {pair}:{self._ws_assistant[pair].ping()}...")
             return self._ws_assistant
 
-        self.logger().debug("All pair assistant request.")
         self._ws_assistant: Dict[str, WSAssistant] = {
             v: await self._api_factory.get_ws_assistant() for v in self._trading_pairs
         }
@@ -127,7 +123,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         if self._ws_assistant:
             last_recv_time: float = max(v.last_recv_time for v in self._ws_assistant.values() if v is not None)
-            self.logger().debug(f"Last received time: {last_recv_time}")
             return last_recv_time
         return 0
 
@@ -145,9 +140,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 for pair in self._trading_pairs:
                     try:
                         self._ws_assistant = await self._connected_websocket_assistant(pair)
-                        self.logger().debug(f"listen_for_user_stream task {pair}:{self._ws_assistant}...")
                         await self._subscribe_channel(websocket_assistant=self._ws_assistant[pair], pair=pair)
-                        self.logger().debug(f"subscribed {pair}:{self._ws_assistant}...")
                         await self._send_ping(
                             websocket_assistant=self._ws_assistant[pair])  # to update last_recv_timestamp
                         tasks[pair] = asyncio.create_task(
@@ -169,7 +162,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         self.logger().exception(
                             f"Unexpected error while listening to user stream for {pair}. Retrying after 1 seconds..."
                         )
-                        self.logger().debug(e)
+                        self.logger().debug(f"Exception: {e}")
                         await self._sleep(1.0)
                     finally:
                         await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant[pair])
@@ -183,7 +176,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Subscribes to the user events through the provided websocket connection.
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
-        self.logger().debug(f"subscribing for {pair}")
         await self._subscribe_or_unsubscribe(
             websocket_assistant,
             constants.WebsocketAction.SUBSCRIBE,
@@ -254,7 +246,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     f"{action.value.capitalize()}d to {constants.WS_USER_SUBSCRIPTION_KEYS} for {pair}...")
             except (asyncio.CancelledError, Exception) as e:
                 await self.close()  # Clean the async context
-                self.logger().error(
+                self.logger().exception(
                     f"Unexpected error occurred {action.value.capitalize()}-ing "
                     f"to {constants.WS_USER_SUBSCRIPTION_KEYS} for {pair}...\n"
                     f"Exception: {e}",
@@ -282,15 +274,13 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         :param queue: The intermediary queue to put the messages into.
         """
-        self.logger().debug(f"Processing websocket messages for {websocket_assistant}...")
         async for ws_response in websocket_assistant.iter_messages():  # type: ignore # PyCharm doesn't recognize iter_messages
             data: Dict[str, Any] = ws_response.data
-            self.logger().debug(f"   {data = }...")
             async for order in self._decipher_message(event_message=data):
                 try:
                     await self._try_except_queue_put(item=order, queue=queue)
                 except asyncio.QueueFull:
-                    self.logger().error("Timeout while waiting to put message into raw queue. Message dropped.")
+                    self.logger().exception("Timeout while waiting to put message into raw queue. Message dropped.")
                     raise
 
     async def _decipher_message(self, event_message: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
@@ -367,7 +357,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             trade_type=TradeType.BUY if order["order_side"] == "BUY" else TradeType.SELL,
                             creation_timestamp_s=get_timestamp_from_exchange_time(order["creation_time"], "s"),
                         )
-                        self.logger().debug(f"Cumulative handler {cumulative_order}")
                         yield cumulative_order
 
                 except Exception as e:
