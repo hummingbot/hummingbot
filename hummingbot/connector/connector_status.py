@@ -17,6 +17,7 @@ connector_status = {
     'bybit_perpetual_testnet': 'bronze',
     'bybit_testnet': 'bronze',
     'bybit': 'bronze',
+    'coinbase_advanced_trade': 'silver',
     'coinbase_pro': 'silver',
     'dydx_perpetual': 'gold',
     'foxbit': 'bronze',
