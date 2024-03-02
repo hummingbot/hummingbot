@@ -48,6 +48,10 @@ binance_api_secret = os.getenv("BINANCE_API_SECRET")
 binance_perpetuals_api_key = os.getenv("BINANCE_PERPETUALS_API_KEY")
 binance_perpetuals_api_secret = os.getenv("BINANCE_PERPETUALS_API_SECRET")
 
+# Coinbase Advanced Trade Tests
+coinbase_advanced_trade_api_key = os.getenv("COINBASE_ADVANCED_TRADE_API_KEY")
+coinbase_advanced_trade_secret_key = os.getenv("COINBASE_ADVANCED_TRADE_SECRET_KEY")
+
 # Coinbase Pro Tests
 coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
