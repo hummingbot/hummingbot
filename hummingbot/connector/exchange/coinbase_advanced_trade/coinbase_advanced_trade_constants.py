@@ -9,8 +9,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 EXCHANGE_NAME = "Coinbase Advanced Trade"
 
 CHANGELOG_URL = "https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog"
-LATEST_UPDATE = "2023-JUL-26"
-CHANGELOG_HASH = "3a99968df3223eb00502e2059012c9a5"
+LATEST_UPDATE = "2024-FEB-22"
+# curl https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog | sha256sum
+CHANGELOG_HASH = "941d1c216f05f28c57f35997be8de43c1c0fa5963d57922f70ee676a0a550a9f"  # noqa: documentation
 
 COINBASE_ADVANCED_TRADE_CLASS_PREFIX = "CoinbaseAdvancedTrade"
 
