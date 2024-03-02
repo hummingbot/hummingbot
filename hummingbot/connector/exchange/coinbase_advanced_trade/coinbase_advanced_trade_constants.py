@@ -10,8 +10,8 @@ EXCHANGE_NAME = "Coinbase Advanced Trade"
 
 CHANGELOG_URL = "https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog"
 LATEST_UPDATE = "2024-FEB-22"
-# curl https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog | sha256sum
-CHANGELOG_HASH = "941d1c216f05f28c57f35997be8de43c1c0fa5963d57922f70ee676a0a550a9f"  # noqa: documentation
+# curl https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog | md5sum
+CHANGELOG_HASH = "4825e9a0e67b58f6be38f7e411637b87"
 
 COINBASE_ADVANCED_TRADE_CLASS_PREFIX = "CoinbaseAdvancedTrade"
 
