@@ -4,6 +4,7 @@ from typing import Dict, List
 from pydantic import Field
 
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.models.executor_actions import (
     CreateExecutorAction,
     StopExecutorAction,
@@ -14,7 +15,7 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class GenericV2StrategyWithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    controllers_config: List[str] = []
+    candles_config: List[CandlesConfig] = []
     markets: List[str] = []
 
 
