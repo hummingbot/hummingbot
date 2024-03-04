@@ -100,7 +100,7 @@ class DManMaker(MarketMakingControllerBase):
         amounts_quote = [amount * price for amount, price in zip(amounts, prices)]
         return DCAExecutorConfig(
             timestamp=time.time(),
-            exchange=self.config.connector_name,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             mode=DCAMode.MAKER,
             side=trade_type,
