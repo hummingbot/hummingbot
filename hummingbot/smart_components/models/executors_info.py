@@ -33,6 +33,14 @@ class ExecutorInfo(BaseModel):
     def side(self) -> Optional[TradeType]:
         return self.custom_info.get("side", None)
 
+    @property
+    def trading_pair(self) -> Optional[str]:
+        return self.config.trading_pair
+
+    @property
+    def connector_name(self) -> Optional[str]:
+        return self.config.connector_name
+
 
 class ExecutorHandlerInfo(BaseModel):
     controller_id: str

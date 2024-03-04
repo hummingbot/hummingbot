@@ -249,7 +249,7 @@ class DirectionalTradingControllerBase(ControllerBase):
         """
         return PositionExecutorConfig(
             timestamp=time.time(),
-            exchange=self.config.connector_name,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             side=trade_type,
             entry_price=price,
