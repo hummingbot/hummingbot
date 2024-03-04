@@ -53,7 +53,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.smart_components.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config", new_callable=MagicMock)
     async def test_determine_executor_actions(self, executor_config_mock: MagicMock):
         executor_config_mock.return_value = PositionExecutorConfig(
-            timestamp=1234, controller_id=self.controller.config.id, exchange="binance_perpetual",
+            timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
             trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
         type(self.mock_market_data_provider).get_price_by_type = MagicMock(return_value=Decimal("100"))
         await self.controller.update_processed_data()

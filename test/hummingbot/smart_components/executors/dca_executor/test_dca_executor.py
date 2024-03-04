@@ -47,7 +47,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(DCAExecutor, "get_price", MagicMock(return_value=Decimal("120")))
     async def test_control_task_open_orders(self):
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
                                    prices=[Decimal(100), Decimal(80), Decimal(60)])
@@ -70,11 +70,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_prevents_order_creation(self, get_price_mock):
         get_price_mock.return_value = Decimal("120")
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
                                    prices=[Decimal(100), Decimal(80), Decimal(60)],
-                                   activation_bounds=[Decimal("0.01")],)
+                                   activation_bounds=[Decimal("0.01")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = SmartComponentStatus.RUNNING
         await executor.control_task()
@@ -84,11 +84,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_allows_order_creation(self, get_price_mock):
         get_price_mock.return_value = Decimal("101")
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
                                    prices=[Decimal(100), Decimal(80), Decimal(60)],
-                                   activation_bounds=[Decimal("0.1")],)
+                                   activation_bounds=[Decimal("0.1")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = SmartComponentStatus.RUNNING
         await executor.control_task()
@@ -97,11 +97,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_allows_order_creation_with_sell(self, get_price_mock):
         get_price_mock.return_value = Decimal("99")
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
                                    prices=[Decimal(100), Decimal(120), Decimal(140)],
-                                   activation_bounds=[Decimal("0.1")],)
+                                   activation_bounds=[Decimal("0.1")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = SmartComponentStatus.RUNNING
         await executor.control_task()
@@ -110,11 +110,11 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_prevents_order_creation_with_sell(self, get_price_mock):
         get_price_mock.return_value = Decimal("99")
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
                                    prices=[Decimal(100), Decimal(120), Decimal(140)],
-                                   activation_bounds=[Decimal("0.01")],)
+                                   activation_bounds=[Decimal("0.01")], )
         executor = self.get_dca_executor_from_config(config)
         executor._status = SmartComponentStatus.RUNNING
         await executor.control_task()
@@ -123,7 +123,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_stop_loss_triggered(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("120"), Decimal("90"), Decimal("50")]
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20)],
                                    prices=[Decimal(100), Decimal(80)],
@@ -190,7 +190,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_stop_loss_triggered_with_sell(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("100"), Decimal("120"), Decimal("140")]
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.SELL, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20)],
                                    prices=[Decimal(100), Decimal(120)],
@@ -257,7 +257,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_take_profit_triggered_with_first_order(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("110"), Decimal("100"), Decimal("105"), Decimal("115")]
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20)],
                                    prices=[Decimal(100), Decimal(80)],
@@ -310,7 +310,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     async def test_dca_activated_and_take_profit_triggered_with_average_price(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("105"), Decimal("95"), Decimal("89"),
                                       Decimal("105")]
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20)],
                                    prices=[Decimal(100), Decimal(90)],
@@ -375,7 +375,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(DCAExecutor, "get_price")
     async def test_dca_activated_and_trailing_stop_triggered(self, get_price_mock):
         get_price_mock.side_effect = [Decimal("105"), Decimal("95"), Decimal("89"), Decimal("105"), Decimal("100")]
-        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, exchange="binance",
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
                                    trading_pair="ETH-USDT",
                                    amounts_quote=[Decimal(10), Decimal(20)],
                                    prices=[Decimal(100), Decimal(90)],

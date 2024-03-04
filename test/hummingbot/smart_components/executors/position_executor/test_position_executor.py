@@ -44,7 +44,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         return strategy
 
     def get_position_config_trailing_stop(self):
-        return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+        return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance",
                                       side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
                                       triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
@@ -53,28 +53,28 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                                                                      trailing_delta=Decimal("0.01"))))
 
     def get_position_config_market_long(self):
-        return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+        return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance",
                                       side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
                                       triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
 
     def get_position_config_market_long_tp_market(self):
-        return PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+        return PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance",
                                       side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
                                       triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                           take_profit_order_type=OrderType.MARKET, stop_loss_order_type=OrderType.MARKET))
 
     def get_position_config_market_short(self):
-        return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+        return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance",
                                       side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
                                       triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
 
     def get_incomplete_position_config(self):
-        return PositionExecutorConfig(id="test-3", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+        return PositionExecutorConfig(id="test-3", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance",
                                       side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
                                       triple_barrier_config=TripleBarrierConfig(
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
@@ -86,7 +86,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor._status = SmartComponentStatus.TERMINATED
         self.assertTrue(position_executor.is_closed)
         self.assertEqual(position_executor.config.trading_pair, "ETH-USDT")
-        self.assertEqual(position_executor.config.exchange, "binance")
+        self.assertEqual(position_executor.config.connector_name, "binance")
         self.assertEqual(position_executor.config.side, TradeType.SELL)
         self.assertEqual(position_executor.entry_price, Decimal("100"))
         self.assertEqual(position_executor.config.amount, Decimal("1"))
