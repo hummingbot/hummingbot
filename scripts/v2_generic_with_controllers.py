@@ -14,6 +14,8 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class GenericV2StrategyWithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    controllers_config: List[str] = []
+    markets: List[str] = []
 
 
 class GenericV2StrategyWithControllers(StrategyV2Base):
