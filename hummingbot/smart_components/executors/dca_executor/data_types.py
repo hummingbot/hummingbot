@@ -14,7 +14,7 @@ class DCAMode(Enum):
 
 class DCAExecutorConfig(ExecutorConfigBase):
     type = "dca_executor"
-    exchange: str
+    connector_name: str
     trading_pair: str
     side: TradeType
     leverage: int = 1

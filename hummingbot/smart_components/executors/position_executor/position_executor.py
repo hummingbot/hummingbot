@@ -46,7 +46,7 @@ class PositionExecutor(ExecutorBase):
             error = "Only market orders are supported for time_limit and stop_loss"
             self.logger().error(error)
             raise ValueError(error)
-        super().__init__(strategy=strategy, config=config, connectors=[config.exchange], update_interval=update_interval)
+        super().__init__(strategy=strategy, config=config, connectors=[config.connector_name], update_interval=update_interval)
         self.config: PositionExecutorConfig = config
 
         # Order tracking
@@ -67,7 +67,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: True if the exchange connector is perpetual, False otherwise.
         """
-        return self.is_perpetual_connector(self.config.exchange)
+        return self.is_perpetual_connector(self.config.connector_name)
 
     @property
     def is_trading(self):
@@ -145,7 +145,7 @@ class PositionExecutor(ExecutorBase):
         :return: The current market price.
         """
         price_type = PriceType.BestBid if self.config.side == TradeType.BUY else PriceType.BestAsk
-        return self.get_price(self.config.exchange, self.config.trading_pair, price_type=price_type)
+        return self.get_price(self.config.connector_name, self.config.trading_pair, price_type=price_type)
 
     @property
     def entry_price(self) -> Decimal:
@@ -162,7 +162,7 @@ class PositionExecutor(ExecutorBase):
             return self.config.entry_price
         else:
             price_type = PriceType.BestAsk if self.config.side == TradeType.BUY else PriceType.BestBid
-            return self.get_price(self.config.exchange, self.config.trading_pair, price_type=price_type)
+            return self.get_price(self.config.connector_name, self.config.trading_pair, price_type=price_type)
 
     @property
     def close_price(self) -> Decimal:
@@ -341,7 +341,7 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         order_id = self.place_order(
-            connector_name=self.config.exchange,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             order_type=self.config.triple_barrier_config.open_order_type,
             amount=self.config.amount,
@@ -375,10 +375,10 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         delta_amount_to_close = abs(self.open_filled_amount - self.close_filled_amount)
-        trading_rules = self.get_trading_rules(self.config.exchange, self.config.trading_pair)
+        trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
         if delta_amount_to_close > trading_rules.min_order_size:
             order_id = self.place_order(
-                connector_name=self.config.exchange,
+                connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
                 order_type=OrderType.MARKET,
                 amount=delta_amount_to_close,
@@ -451,7 +451,7 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         order_id = self.place_order(
-            connector_name=self.config.exchange,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             amount=self.open_filled_amount,
             price=self.take_profit_price,
@@ -479,7 +479,7 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         self._strategy.cancel(
-            connector_name=self.config.exchange,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             order_id=self._take_profit_limit_order.order_id
         )
@@ -492,7 +492,7 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         self._strategy.cancel(
-            connector_name=self.config.exchange,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             order_id=self._open_order.order_id
         )
@@ -515,11 +515,11 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         if self._open_order and self._open_order.order_id == order_id:
-            self._open_order.order = self.get_in_flight_order(self.config.exchange, order_id)
+            self._open_order.order = self.get_in_flight_order(self.config.connector_name, order_id)
         elif self._close_order and self._close_order.order_id == order_id:
-            self._close_order.order = self.get_in_flight_order(self.config.exchange, order_id)
+            self._close_order.order = self.get_in_flight_order(self.config.connector_name, order_id)
         elif self._take_profit_limit_order and self._take_profit_limit_order.order_id == order_id:
-            self._take_profit_limit_order.order = self.get_in_flight_order(self.config.exchange, order_id)
+            self._take_profit_limit_order.order = self.get_in_flight_order(self.config.connector_name, order_id)
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         """
@@ -573,7 +573,7 @@ class PositionExecutor(ExecutorBase):
     def to_json(self):
         return {
             "timestamp": self.config.timestamp,
-            "exchange": self.config.exchange,
+            "exchange": self.config.connector_name,
             "trading_pair": self.config.trading_pair,
             "side": self.config.side.name,
             "amount": self.open_filled_amount,
@@ -607,19 +607,19 @@ class PositionExecutor(ExecutorBase):
 
     def to_format_status(self, scale=1.0):
         lines = []
-        current_price = self.get_price(self.config.exchange, self.config.trading_pair)
+        current_price = self.get_price(self.config.connector_name, self.config.trading_pair)
         amount_in_quote = self.entry_price * (self.open_filled_amount if self.open_filled_amount > Decimal("0") else self.config.amount)
         quote_asset = self.config.trading_pair.split("-")[1]
         if self.is_closed:
             lines.extend([f"""
-| Trading Pair: {self.config.trading_pair} | Exchange: {self.config.exchange} | Side: {self.config.side}
+| Trading Pair: {self.config.trading_pair} | Exchange: {self.config.connector_name} | Side: {self.config.side}
 | Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
 | Realized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fees_quote:.6f} {quote_asset}
 | PNL (%): {self.net_pnl_pct * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
 """])
         else:
             lines.extend([f"""
-| Trading Pair: {self.config.trading_pair} | Exchange: {self.config.exchange} | Side: {self.config.side} |
+| Trading Pair: {self.config.trading_pair} | Exchange: {self.config.connector_name} | Side: {self.config.side} |
 | Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
 | Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fees_quote:.6f} {quote_asset}
 | PNL (%): {self.net_pnl_pct * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
@@ -687,7 +687,7 @@ class PositionExecutor(ExecutorBase):
                 amount=self.config.amount,
                 price=self.entry_price,
             )
-        adjusted_order_candidates = self.adjust_order_candidates(self.config.exchange, [order_candidate])
+        adjusted_order_candidates = self.adjust_order_candidates(self.config.connector_name, [order_candidate])
         if adjusted_order_candidates[0].amount == Decimal("0"):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.logger().error("Not enough budget to open position.")

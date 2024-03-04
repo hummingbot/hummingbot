@@ -47,7 +47,7 @@ class TripleBarrierConfig(BaseModel):
 class PositionExecutorConfig(ExecutorConfigBase):
     type = "position_executor"
     trading_pair: str
-    exchange: str
+    connector_name: str
     side: TradeType
     entry_price: Optional[Decimal] = None
     amount: Decimal
