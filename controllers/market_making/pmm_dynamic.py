@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import List
 
 import pandas_ta as ta  # noqa: F401
-from pydantic import Field
+from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import PriceType
@@ -18,6 +18,18 @@ from hummingbot.smart_components.executors.position_executor.data_types import P
 class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):
     controller_name = "pmm_dynamic"
     candles_config: List[CandlesConfig] = []
+    candles_connector: str = Field(
+        default=None,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ", )
+    )
+    candles_trading_pair: str = Field(
+        default=None,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ", )
+    )
     interval: str = Field(
         default="3m",
         client_data=ClientFieldData(
@@ -45,6 +57,18 @@ class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):
             prompt=lambda mi: "Enter the NATR length: ",
             prompt_on_new=True))
 
+    @validator("candles_connector", pre=True, always=True)
+    def set_candles_connector(cls, v, values):
+        if v is None or v == "":
+            return values.get("connector_name")
+        return v
+
+    @validator("candles_trading_pair", pre=True, always=True)
+    def set_candles_trading_pair(cls, v, values):
+        if v is None or v == "":
+            return values.get("trading_pair")
+        return v
+
 
 class PMMDynamicController(MarketMakingControllerBase):
     """
@@ -56,8 +80,8 @@ class PMMDynamicController(MarketMakingControllerBase):
         self.max_records = max(config.macd_slow, config.macd_fast, config.macd_signal, config.natr_length)
         if len(self.config.candles_config) == 0:
             self.config.candles_config = [CandlesConfig(
-                connector=config.connector_name,
-                trading_pair=config.trading_pair,
+                connector=config.candles_connector,
+                trading_pair=config.candles_trading_pair,
                 interval=config.interval,
                 max_records=self.max_records
             )]
