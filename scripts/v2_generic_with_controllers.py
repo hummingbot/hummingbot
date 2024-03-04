@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from pydantic import Field
 
@@ -16,7 +16,7 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 class GenericV2StrategyWithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
     candles_config: List[CandlesConfig] = []
-    markets: List[str] = []
+    markets: Dict[str, Set[str]] = []
 
 
 class GenericV2StrategyWithControllers(StrategyV2Base):
