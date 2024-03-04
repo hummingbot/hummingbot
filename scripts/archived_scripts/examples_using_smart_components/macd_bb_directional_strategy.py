@@ -80,7 +80,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
                 signal_executor = PositionExecutor(
                     config=PositionExecutorConfig(
                         timestamp=self.current_timestamp, trading_pair=self.trading_pair,
-                        exchange=self.exchange,
+                        connector_name=self.exchange,
                         side=TradeType.SELL if signal_value < 0 else TradeType.BUY,
                         entry_price=price,
                         amount=self.order_amount_usd / price,
@@ -190,7 +190,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
         for executor in executors_to_store:
             self.stored_executors.append(executor)
             df = pd.DataFrame([(executor.config.timestamp,
-                                executor.config.exchange,
+                                executor.config.connector_name,
                                 executor.config.trading_pair,
                                 executor.config.side,
                                 executor.config.amount,

@@ -3,9 +3,7 @@ from typing import Dict, List
 
 from pydantic import Field
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import PositionMode
 from hummingbot.smart_components.models.executor_actions import (
     CreateExecutorAction,
     StopExecutorAction,
@@ -16,18 +14,6 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class GenericV2StrategyWithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    position_mode: PositionMode = Field(
-        default="HEDGE",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
-            prompt_on_new=True
-        )
-    )
-    leverage: int = Field(
-        default=20, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the leverage (e.g. 20): ",
-            prompt_on_new=True))
 
 
 class GenericV2StrategyWithControllers(StrategyV2Base):

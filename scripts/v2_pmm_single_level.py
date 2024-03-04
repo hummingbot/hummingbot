@@ -12,13 +12,7 @@ from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorConfig,
     TripleBarrierConfig,
 )
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import (
-    CreateExecutorAction,
-    ExecutorAction,
-    StopExecutorAction,
-    StoreExecutorAction,
-)
+from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
@@ -115,7 +109,6 @@ class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
 
 class PMMSingleLevel(StrategyV2Base):
     account_config_set = False
-    closed_executors_buffer: int = 10  # Number of closed executors to keep in the buffer
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: PMMWithPositionExecutorConfig):
         super().__init__(connectors, config)
@@ -159,7 +152,7 @@ class PMMSingleLevel(StrategyV2Base):
                         executor_config=PositionExecutorConfig(
                             timestamp=self.current_timestamp,
                             trading_pair=trading_pair,
-                            exchange=connector_name,
+                            connector_name=connector_name,
                             side=TradeType.BUY,
                             amount=order_amount,
                             entry_price=order_price,
@@ -177,7 +170,7 @@ class PMMSingleLevel(StrategyV2Base):
                         executor_config=PositionExecutorConfig(
                             timestamp=self.current_timestamp,
                             trading_pair=trading_pair,
-                            exchange=connector_name,
+                            connector_name=connector_name,
                             side=TradeType.SELL,
                             amount=order_amount,
                             entry_price=order_price,
@@ -195,19 +188,6 @@ class PMMSingleLevel(StrategyV2Base):
         stop_actions.extend(self.executors_to_refresh())
         stop_actions.extend(self.executors_to_early_stop())
         return stop_actions
-
-    def store_actions_proposal(self) -> List[StoreExecutorAction]:
-        """
-        Create a list of actions to store the executors that have been stopped.
-        """
-        potential_executors_to_store = self.filter_executors(
-            executors=self.get_all_executors(),
-            filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED and x.type == "position_executor")
-        sorted_executors = sorted(potential_executors_to_store, key=lambda x: x.timestamp, reverse=True)
-        if len(sorted_executors) > self.closed_executors_buffer:
-            return [StoreExecutorAction(executor_id=executor.id) for executor in
-                    sorted_executors[self.closed_executors_buffer:]]
-        return []
 
     def executors_to_refresh(self) -> List[StopExecutorAction]:
         """
