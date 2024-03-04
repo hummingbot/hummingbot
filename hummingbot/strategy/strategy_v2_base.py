@@ -75,11 +75,6 @@ class StrategyV2ConfigBase(BaseClientModel):
             prompt=lambda mi: "Enter the config update interval in seconds (e.g. 60): ",
         )
     )
-    closed_executors_buffer: int = Field(
-        default=5, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the number of closed executors to keep in the buffer before storing (e.g. 5): ",
-            prompt_on_new=True))
 
     @validator('controllers_config', pre=True)
     def parse_controllers_config(cls, v):
@@ -179,6 +174,7 @@ class StrategyV2Base(ScriptStrategyBase):
     pubsub: PubSub = PubSub()
     markets: Dict[str, Set[str]]
     _last_config_update_ts: float = 0
+    closed_executors_buffer: int = 5
 
     @classmethod
     def init_markets(cls, config: StrategyV2ConfigBase):
@@ -311,9 +307,9 @@ class StrategyV2Base(ScriptStrategyBase):
             executors=self.get_all_executors(),
             filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED)
         sorted_executors = sorted(potential_executors_to_store, key=lambda x: x.timestamp, reverse=True)
-        if len(sorted_executors) > self.config.closed_executors_buffer:
+        if len(sorted_executors) > self.closed_executors_buffer:
             return [StoreExecutorAction(executor_id=executor.id, controller_id=executor.controller_id) for executor in
-                    sorted_executors[self.config.closed_executors_buffer:]]
+                    sorted_executors[self.closed_executors_buffer:]]
         return []
 
     def get_executors_by_controller(self, controller_id: str) -> List[ExecutorInfo]:
