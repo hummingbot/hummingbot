@@ -154,10 +154,8 @@ class ExecutorOrchestrator:
                 unrealized_pnl_quote += executor.net_pnl_quote
             else:  # For closed executors
                 realized_pnl_quote += executor.net_pnl_quote
+                close_type_counts[executor.close_type] += 1
             volume_traded += executor.filled_amount_quote
-            if not executor.is_active:
-                close_type = executor.close_type  # Assuming close_type is an attribute of executor
-                close_type_counts[close_type] += 1
 
         # Calculate global PNL values
         global_pnl_quote = unrealized_pnl_quote + realized_pnl_quote

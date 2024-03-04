@@ -148,9 +148,11 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
 
     @validator('position_mode', pre=True, allow_reuse=True)
     def validate_position_mode(cls, v: str) -> PositionMode:
-        if v.upper() in PositionMode.__members__:
-            return PositionMode[v.upper()]
-        raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+        if isinstance(v, str):
+            if v.upper() in PositionMode.__members__:
+                return PositionMode[v.upper()]
+            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+        return v
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.connector_name not in markets:
