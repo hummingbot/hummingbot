@@ -207,7 +207,7 @@ class DManV3Controller(DirectionalTradingControllerBase):
             trailing_stop = self.config.trailing_stop
         return DCAExecutorConfig(
             timestamp=time.time(),
-            exchange=self.config.connector_name,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             side=trade_type,
             mode=DCAMode.MAKER,

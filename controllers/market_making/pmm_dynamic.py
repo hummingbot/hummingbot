@@ -87,7 +87,7 @@ class PMMDynamicController(MarketMakingControllerBase):
         return PositionExecutorConfig(
             timestamp=time.time(),
             level_id=level_id,
-            exchange=self.config.connector_name,
+            connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             entry_price=price,
             amount=amount,
