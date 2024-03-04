@@ -184,7 +184,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             position_config = PositionExecutorConfig(
                 timestamp=self.current_timestamp,
                 trading_pair=self.trading_pair,
-                exchange=self.exchange,
+                connector_name=self.exchange,
                 side=side,
                 amount=self.order_amount_usd / price,
                 entry_price=price,
@@ -267,7 +267,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         for executor in executors_to_store:
             self.stored_executors.append(executor)
             df = pd.DataFrame([(executor.config.timestamp,
-                                executor.config.exchange,
+                                executor.config.connector_name,
                                 executor.config.trading_pair,
                                 executor.config.side,
                                 executor.config.amount,
