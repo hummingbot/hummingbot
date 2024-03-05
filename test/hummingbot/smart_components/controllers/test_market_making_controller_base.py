@@ -10,7 +10,7 @@ from hummingbot.smart_components.controllers.market_making_controller_base impor
     MarketMakingControllerConfigBase,
 )
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.smart_components.models.executor_actions import ExecutorAction, StopExecutorAction, StoreExecutorAction
+from hummingbot.smart_components.models.executor_actions import ExecutorAction, StopExecutorAction
 
 
 class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
@@ -67,9 +67,3 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(stop_actions, list)
         for action in stop_actions:
             self.assertIsInstance(action, StopExecutorAction)
-
-    def test_store_actions_proposal(self):
-        store_actions = self.controller.store_actions_proposal()
-        self.assertIsInstance(store_actions, list)
-        for action in store_actions:
-            self.assertIsInstance(action, StoreExecutorAction)
