@@ -89,3 +89,32 @@ class TestMarketDataProvider(unittest.TestCase):
             get_vwap_for_volume=MagicMock(return_value=OrderBookQueryResult(100, 2, 100, 2)))
         result = self.provider.get_vwap_for_volume("mock_connector", "BTC-USDT", 1, True)
         self.assertIsInstance(result, OrderBookQueryResult)
+
+    def test_stop_candle_feed(self):
+        # Mocking a candle feed
+        mock_candles_feed = MagicMock()
+        config = CandlesConfig(connector="mock_connector", trading_pair="BTC-USDT", interval="1m", max_records=100)
+        key = "mock_connector_BTC-USDT_1m"
+        self.provider.candles_feeds[key] = mock_candles_feed
+
+        # Calling stop_candle_feed and asserting behavior
+        self.provider.stop_candle_feed(config)
+        mock_candles_feed.stop.assert_called_once()
+        self.assertNotIn(key, self.provider.candles_feeds)
+
+    def test_ready(self):
+        # Mocking connector and candle feed readiness
+        self.mock_connector.ready = True
+        mock_candles_feed = MagicMock(ready=True)
+        self.provider.candles_feeds = {"mock_feed": mock_candles_feed}
+
+        # Checking if the provider is ready
+        self.assertTrue(self.provider.ready)
+
+        # Testing not ready scenarios
+        self.mock_connector.ready = False
+        self.assertFalse(self.provider.ready)
+
+        self.mock_connector.ready = True
+        mock_candles_feed.ready = False
+        self.assertFalse(self.provider.ready)
