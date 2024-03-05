@@ -113,3 +113,40 @@ class TestExecutorOrchestrator(unittest.TestCase):
         report = self.orchestrator.generate_performance_report(controller_id="test")
         self.assertEqual(report.realized_pnl_quote, Decimal(10))
         self.assertEqual(report.unrealized_pnl_quote, Decimal(10))
+
+    @patch('hummingbot.connector.markets_recorder.MarketsRecorder.get_instance')
+    def test_generate_global_performance_report(self, mock_get_instance):
+        # Mock MarketsRecorder and its get_executors_by_controller method
+        mock_markets_recorder = MagicMock(spec=MarketsRecorder)
+        mock_markets_recorder.get_executors_by_controller.return_value = []
+        mock_get_instance.return_value = mock_markets_recorder
+
+        # Set up mock executors for two different controllers
+        controller_ids = ["controller_1", "controller_2"]
+        pnl_values = [Decimal(20), Decimal(30)]
+        volume_values = [Decimal(200), Decimal(300)]
+
+        for i, controller_id in enumerate(controller_ids):
+            executor_mock = MagicMock(spec=PositionExecutor)
+            executor_mock.is_active = False
+            executor_mock.close_type = CloseType.TAKE_PROFIT
+            executor_mock.net_pnl_quote = pnl_values[i]
+            executor_mock.filled_amount_quote = volume_values[i]
+            config_mock = MagicMock(PositionExecutorConfig)
+            config_mock.id = f"executor_{i}"
+            config_mock.controller_id = controller_id
+            executor_mock.config = config_mock
+
+            self.orchestrator.executors[controller_id] = [executor_mock]
+
+        # Generate the global performance report
+        global_report = self.orchestrator.generate_global_performance_report()
+
+        # Assertions to validate the global performance metrics
+        expected_total_realized_pnl = sum(pnl_values)
+        expected_total_volume_traded = sum(volume_values)
+        self.assertEqual(global_report.realized_pnl_quote, expected_total_realized_pnl)
+        self.assertEqual(global_report.volume_traded, expected_total_volume_traded)
+        self.assertAlmostEqual(global_report.global_pnl_quote, expected_total_realized_pnl)
+        self.assertAlmostEqual(global_report.global_pnl_pct,
+                               (expected_total_realized_pnl / expected_total_volume_traded) * 100)
