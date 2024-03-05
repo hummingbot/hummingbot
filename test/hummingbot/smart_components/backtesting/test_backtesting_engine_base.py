@@ -1,8 +1,9 @@
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
+from pandas._testing import assert_frame_equal
 
 from hummingbot.smart_components.backtesting.backtesting_engine_base import BacktestingEngineBase
 
@@ -79,3 +80,47 @@ class TestBacktestingEngineBase(unittest.TestCase):
         result = self.backtesting_engine.summarize_results(pd.DataFrame())
         self.assertEqual(result["net_pnl"], 0)
         self.assertEqual(result["net_pnl_quote"], 0)
+
+    def test_apply_triple_barrier_method(self):
+        # Setup test data
+        df = pd.DataFrame({
+            "timestamp": pd.date_range(start="2021-01-01", periods=5, freq="H").astype(int) / 10 ** 9,
+            "close": [100, 105, 110, 115, 120],
+            "signal": [1, -1, 1, -1, 1]
+        })
+        df["timestamp"] = df["timestamp"].astype("int")
+
+        result_df = self.backtesting_engine.apply_triple_barrier_method(df)
+
+        # Assertions
+        self.assertTrue("take_profit_price" in result_df.columns)
+        self.assertTrue("stop_loss_price" in result_df.columns)
+        self.assertTrue("close_time" in result_df.columns)
+        self.assertTrue("close_type" in result_df.columns)
+        self.assertTrue("stop_loss_time" in result_df.columns)
+        self.assertTrue("take_profit_time" in result_df.columns)
+
+    @patch("hummingbot.smart_components.backtesting.backtesting_engine_base.BacktestingEngineBase.simulate_execution")
+    @patch("hummingbot.smart_components.backtesting.backtesting_engine_base.BacktestingEngineBase.get_data")
+    def test_run_backtesting(self, mock_get_data, mock_simulate_execution):
+        # Setup test data
+        processed_data = pd.DataFrame()
+        executors_df = pd.DataFrame()
+        results = {"net_pnl": 100}
+
+        # Setup mock methods
+        mock_get_data.return_value = processed_data
+        mock_simulate_execution.return_value = executors_df
+
+        self.backtesting_engine.summarize_results = MagicMock(return_value=results)
+
+        output = self.backtesting_engine.run_backtesting()
+
+        # Assertions
+        mock_get_data.assert_called_once()
+        mock_simulate_execution.assert_called_once()
+
+        # Use assert_frame_equal for DataFrame comparison
+        assert_frame_equal(output["processed_data"], processed_data)
+        assert_frame_equal(output["executors_df"], executors_df)
+        self.assertEqual(output["results"], results)
