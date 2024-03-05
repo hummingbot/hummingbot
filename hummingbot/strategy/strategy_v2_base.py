@@ -2,7 +2,6 @@ import asyncio
 import importlib
 import inspect
 import os
-from collections import Counter
 from decimal import Decimal
 from typing import Callable, Dict, List, Optional, Set
 
@@ -359,7 +358,7 @@ class StrategyV2Base(ScriptStrategyBase):
         global_realized_pnl_quote = Decimal(0)
         global_unrealized_pnl_quote = Decimal(0)
         global_volume_traded = Decimal(0)
-        global_close_type_counts = Counter()
+        global_close_type_counts = {}
 
         # Process each controller
         for controller_id, controller in self.controllers.items():
@@ -369,11 +368,11 @@ class StrategyV2Base(ScriptStrategyBase):
             executors_list = self.get_executors_by_controller(controller_id)
             if len(executors_list) == 0:
                 extra_info.append("No executors found.")
-                continue
-            # In memory executors info
-            executors_df = self.executors_info_to_df(executors_list)
-            executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
-            extra_info.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
+            else:
+                # In memory executors info
+                executors_df = self.executors_info_to_df(executors_list)
+                executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
+                extra_info.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
 
             # Generate performance report for each controller
             performance_report = self.executor_orchestrator.generate_performance_report(controller_id)

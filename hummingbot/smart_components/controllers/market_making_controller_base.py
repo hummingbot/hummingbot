@@ -8,13 +8,7 @@ from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import (
-    CreateExecutorAction,
-    ExecutorAction,
-    StopExecutorAction,
-    StoreExecutorAction,
-)
+from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 
 
 class MarketMakingControllerConfigBase(ControllerConfigBase):
@@ -87,11 +81,6 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt_on_new=False
         )
     )
-    closed_executors_buffer: int = Field(
-        default=5, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
-            prompt_on_new=False))
     # Triple Barrier Configuration
     stop_loss: Optional[Decimal] = Field(
         default=Decimal("0.03"), gt=0,
@@ -233,7 +222,6 @@ class MarketMakingControllerBase(ControllerBase):
         actions = []
         actions.extend(self.create_actions_proposal())
         actions.extend(self.stop_actions_proposal())
-        actions.extend(self.store_actions_proposal())
         return actions
 
     def create_actions_proposal(self) -> List[ExecutorAction]:
@@ -266,21 +254,6 @@ class MarketMakingControllerBase(ControllerBase):
         stop_actions.extend(self.executors_to_refresh())
         stop_actions.extend(self.executors_to_early_stop())
         return stop_actions
-
-    def store_actions_proposal(self) -> List[ExecutorAction]:
-        """
-        Create a list of actions to store the executors based on the buffer size.
-        """
-        store_actions = []
-        terminated_executors = self.filter_executors(
-            executors=self.executors_info,
-            filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED)
-        executors_sorted_by_close_timestamp = sorted(terminated_executors, key=lambda x: x.timestamp, reverse=True)
-        if len(executors_sorted_by_close_timestamp) > self.config.closed_executors_buffer:
-            store_actions.extend([StoreExecutorAction(
-                controller_id=self.config.id,
-                executor_id=executor.id) for executor in executors_sorted_by_close_timestamp[self.config.closed_executors_buffer:]])
-        return store_actions
 
     def executors_to_refresh(self) -> List[ExecutorAction]:
         executors_to_refresh = self.filter_executors(

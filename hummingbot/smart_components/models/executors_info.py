@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Counter, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 from pydantic import BaseModel
 
@@ -62,4 +62,4 @@ class PerformanceReport(BaseModel):
     global_pnl_quote: Decimal
     global_pnl_pct: Decimal
     volume_traded: Decimal
-    close_type_counts: Counter[CloseType]
+    close_type_counts: Dict[CloseType, int]
