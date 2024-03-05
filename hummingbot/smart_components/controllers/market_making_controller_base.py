@@ -241,7 +241,7 @@ class MarketMakingControllerBase(ControllerBase):
     def get_levels_to_execute(self) -> List[str]:
         working_levels = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: x.is_active or (not x.is_active and x.filled_amount_quote > Decimal("0") and time.time() - x.close_timestamp < self.config.cooldown_time)
+            filter_func=lambda x: x.is_active or (x.is_done and x.filled_amount_quote > Decimal("0") and time.time() - x.close_timestamp < self.config.cooldown_time)
         )
         working_levels_ids = [executor.custom_info["level_id"] for executor in working_levels]
         return self.get_not_active_levels_ids(working_levels_ids)

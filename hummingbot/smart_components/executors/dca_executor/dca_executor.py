@@ -374,6 +374,7 @@ class DCAExecutor(ExecutorBase):
         self.cancel_open_orders()
         self.place_close_order(price)
         self._status = SmartComponentStatus.SHUTTING_DOWN
+        self.close_timestamp = self._strategy.current_timestamp
 
     def close_execution_by(self, close_type):
         self.close_type = close_type
