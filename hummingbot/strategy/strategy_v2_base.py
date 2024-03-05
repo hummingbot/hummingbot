@@ -76,11 +76,15 @@ class StrategyV2ConfigBase(BaseClientModel):
         )
     )
 
-    @validator('controllers_config', pre=True)
+    @validator("controllers_config", pre=True, always=True)
     def parse_controllers_config(cls, v):
-        # Parse string input into a list of file paths
+        # Parse string input into a list of file pathsq
         if isinstance(v, str):
+            if v == "":
+                return []
             return [item.strip() for item in v.split(',') if item.strip()]
+        if v is None:
+            return []
         return v
 
     def load_controller_configs(self):
