@@ -396,7 +396,7 @@ class DCAExecutor(ExecutorBase):
 
     def cancel_open_orders(self):
         for tracked_order in self._open_orders:
-            if tracked_order.order.is_open:
+            if tracked_order.order and tracked_order.order.is_open:
                 self._strategy.cancel(connector_name=self.config.connector_name, trading_pair=self.config.trading_pair,
                                       order_id=tracked_order.order_id)
 
