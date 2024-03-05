@@ -1,5 +1,4 @@
 import logging
-from collections import Counter
 from decimal import Decimal
 from typing import Dict, List
 
@@ -104,7 +103,8 @@ class ExecutorOrchestrator:
         controller_id = action.controller_id
         executor_id = action.executor_id
 
-        executor = next((executor for executor in self.executors[controller_id] if executor.config.id == executor_id), None)
+        executor = next((executor for executor in self.executors[controller_id] if executor.config.id == executor_id),
+                        None)
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
@@ -117,7 +117,8 @@ class ExecutorOrchestrator:
         controller_id = action.controller_id
         executor_id = action.executor_id
 
-        executor = next((executor for executor in self.executors[controller_id] if executor.config.id == executor_id), None)
+        executor = next((executor for executor in self.executors[controller_id] if executor.config.id == executor_id),
+                        None)
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
@@ -147,14 +148,18 @@ class ExecutorOrchestrator:
         realized_pnl_quote = Decimal(0)
         unrealized_pnl_quote = Decimal(0)
         volume_traded = Decimal(0)
-        close_type_counts = Counter()
+        close_type_counts = {}
 
         for executor in combined_executors:
             if executor.is_active:  # For active executors
                 unrealized_pnl_quote += executor.net_pnl_quote
             else:  # For closed executors
                 realized_pnl_quote += executor.net_pnl_quote
-                close_type_counts[executor.close_type] += 1
+                close_type = executor.close_type
+                if close_type in close_type_counts:
+                    close_type_counts[close_type] += 1
+                else:
+                    close_type_counts[close_type] = 1
             volume_traded += executor.filled_amount_quote
 
         # Calculate global PNL values
@@ -178,3 +183,32 @@ class ExecutorOrchestrator:
         )
 
         return report
+
+    def generate_global_performance_report(self) -> PerformanceReport:
+        global_realized_pnl_quote = Decimal(0)
+        global_unrealized_pnl_quote = Decimal(0)
+        global_volume_traded = Decimal(0)
+        global_close_type_counts = {}
+
+        for controller_id in self.executors.keys():
+            report = self.generate_performance_report(controller_id)
+            global_realized_pnl_quote += report.realized_pnl_quote
+            global_unrealized_pnl_quote += report.unrealized_pnl_quote
+            global_volume_traded += report.volume_traded
+
+            for close_type, count in report.close_type_counts.items():
+                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + count
+
+        global_pnl_quote = global_realized_pnl_quote + global_unrealized_pnl_quote
+        global_pnl_pct = (global_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0)
+
+        return PerformanceReport(
+            realized_pnl_quote=global_realized_pnl_quote,
+            unrealized_pnl_quote=global_unrealized_pnl_quote,
+            realized_pnl_pct=(global_realized_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0),
+            unrealized_pnl_pct=(global_unrealized_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0),
+            global_pnl_quote=global_pnl_quote,
+            global_pnl_pct=global_pnl_pct,
+            volume_traded=global_volume_traded,
+            close_type_counts=global_close_type_counts
+        )

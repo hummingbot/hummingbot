@@ -30,11 +30,6 @@ class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the time in seconds to refresh the executor (e.g. 20): ",
             prompt_on_new=True))
-    closed_executors_buffer: int = Field(
-        default=10, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
-            prompt_on_new=True))
     spread: Decimal = Field(
         default=Decimal("0.003"), gt=0,
         client_data=ClientFieldData(

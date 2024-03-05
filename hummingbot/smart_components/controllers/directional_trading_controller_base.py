@@ -12,12 +12,7 @@ from hummingbot.smart_components.executors.position_executor.data_types import (
     TrailingStop,
     TripleBarrierConfig,
 )
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import (
-    CreateExecutorAction,
-    ExecutorAction,
-    StoreExecutorAction,
-)
+from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction
 
 
 class DirectionalTradingControllerConfigBase(ControllerConfigBase):
@@ -67,11 +62,6 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             prompt_on_new=False
         )
     )
-    closed_executors_buffer: int = Field(
-        default=10, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the number of closed executors to keep in the buffer (e.g. 10): ",
-            prompt_on_new=False))
     # Triple Barrier Configuration
     stop_loss: Optional[Decimal] = Field(
         default=Decimal("0.03"), gt=0,
@@ -176,7 +166,6 @@ class DirectionalTradingControllerBase(ControllerBase):
         actions = []
         actions.extend(self.create_actions_proposal())
         actions.extend(self.stop_actions_proposal())
-        actions.extend(self.store_actions_proposal())
         return actions
 
     async def update_processed_data(self):
@@ -227,22 +216,6 @@ class DirectionalTradingControllerBase(ControllerBase):
         """
         stop_actions = []
         return stop_actions
-
-    def store_actions_proposal(self) -> List[ExecutorAction]:
-        """
-        Store actions based on the provided executor handler report.
-        """
-        store_actions = []
-        terminated_executors = self.filter_executors(
-            executors=self.executors_info,
-            filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED)
-        executors_sorted_by_close_timestamp = sorted(terminated_executors, key=lambda x: x.timestamp, reverse=True)
-        if len(executors_sorted_by_close_timestamp) > self.config.closed_executors_buffer:
-            store_actions.extend([StoreExecutorAction(
-                controller_id=self.config.id,
-                executor_id=executor.id) for executor in
-                executors_sorted_by_close_timestamp[self.config.closed_executors_buffer:]])
-        return store_actions
 
     def get_executor_config(self, trade_type: TradeType, price: Decimal, amount: Decimal):
         """
