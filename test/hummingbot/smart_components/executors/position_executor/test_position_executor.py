@@ -6,12 +6,12 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketOrderFailureEvent, OrderCancelledEvent
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorConfig,
-    TrailingStop,
     TripleBarrierConfig,
 )
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
@@ -42,15 +42,6 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             "binance": MagicMock(spec=ConnectorBase),
         }
         return strategy
-
-    def get_position_config_trailing_stop(self):
-        return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance",
-                                      side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                                      triple_barrier_config=TripleBarrierConfig(
-                                          stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                                          take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,
-                                          trailing_stop=TrailingStop(activation_price=Decimal("0.02"),
-                                                                     trailing_delta=Decimal("0.01"))))
 
     def get_position_config_market_long(self):
         return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance",
@@ -484,3 +475,42 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         market = MagicMock()
         position_executor.process_order_canceled_event("102", market, event)
         self.assertEqual(position_executor.close_type, None)
+
+    @patch.object(PositionExecutor, 'get_trading_rules')
+    @patch.object(PositionExecutor, 'adjust_order_candidates')
+    def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+        # Mock trading rules
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"), min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+        executor = PositionExecutor(self.strategy, self.get_position_config_market_long())
+        # Mock order candidate
+        order_candidate = OrderCandidate(
+            trading_pair="ETH-USDT",
+            is_maker=True,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100")
+        )
+        # Test for sufficient balance
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        executor.validate_sufficient_balance()
+        self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+
+        # Test for insufficient balance
+        order_candidate.amount = Decimal("0")
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        executor.validate_sufficient_balance()
+        self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertEqual(executor.status, SmartComponentStatus.TERMINATED)
+
+    def test_get_custom_info(self):
+        position_config = self.get_position_config_market_long()
+        executor = PositionExecutor(self.strategy, position_config)
+        custom_info = executor.get_custom_info()
+
+        self.assertEqual(custom_info["level_id"], position_config.level_id)
+        self.assertEqual(custom_info["current_position_average_price"], executor.entry_price)
+        self.assertEqual(custom_info["side"], position_config.side)
+        self.assertEqual(custom_info["current_retries"], executor._current_retries)
+        self.assertEqual(custom_info["max_retries"], executor._max_retries)

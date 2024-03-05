@@ -137,7 +137,8 @@ class DCAExecutor(ExecutorBase):
     def max_loss_quote(self) -> Decimal:
         # TODO: refactor the ExecutorBase class to handle max loss in pct and quote asset since some strategies like
         #  arbitrage and XEMM will need a more complex calculation
-        return self.max_amount_quote * self.config.stop_loss
+        sl = self.config.stop_loss if self.config.stop_loss else Decimal("0")
+        return self.max_amount_quote * sl
 
     @property
     def current_market_price(self):

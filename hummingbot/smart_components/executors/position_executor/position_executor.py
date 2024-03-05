@@ -570,32 +570,6 @@ class PositionExecutor(ExecutorBase):
             self._take_profit_limit_order = None
             self.logger().error(f"Take profit order failed. Retrying {self._current_retries}/{self._max_retries}")
 
-    def to_json(self):
-        return {
-            "timestamp": self.config.timestamp,
-            "exchange": self.config.connector_name,
-            "trading_pair": self.config.trading_pair,
-            "side": self.config.side.name,
-            "amount": self.open_filled_amount,
-            "trade_pnl": self.trade_pnl_pct,
-            "trade_pnl_quote": self.trade_pnl_quote,
-            "cum_fee_quote": self.cum_fees_quote,
-            "net_pnl_quote": self.net_pnl_quote,
-            "net_pnl_pct": self.net_pnl_pct,
-            "close_timestamp": self.close_timestamp,
-            "close_type": self.close_type.name if self.close_type else None,
-            "entry_price": self.entry_price,
-            "close_price": self.close_price,
-            "sl": self.config.triple_barrier_config.stop_loss,
-            "tp": self.config.triple_barrier_config.take_profit,
-            "tl": self.config.triple_barrier_config.time_limit,
-            "open_order_type": self.config.triple_barrier_config.open_order_type.name,
-            "take_profit_order_type": self.config.triple_barrier_config.take_profit_order_type.name,
-            "stop_loss_order_type": self.config.triple_barrier_config.stop_loss_order_type.name,
-            "time_limit_order_type": self.config.triple_barrier_config.time_limit_order_type.name,
-            "leverage": self.config.leverage,
-        }
-
     def get_custom_info(self) -> Dict:
         return {
             "level_id": self.config.level_id,
