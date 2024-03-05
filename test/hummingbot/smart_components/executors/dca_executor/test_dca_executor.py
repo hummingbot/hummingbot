@@ -68,6 +68,36 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.close_filled_amount_quote, Decimal("0"))
 
     @patch.object(DCAExecutor, "get_price")
+    def test_get_custom_info(self, get_price_mock):
+        get_price_mock.return_value = Decimal("120")
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
+                                   prices=[Decimal(100), Decimal(80), Decimal(60)])
+        executor = self.get_dca_executor_from_config(config)
+        self.assertEqual(executor.get_custom_info(),
+                         {'close_price': Decimal('120'),
+                          'close_timestamp': None,
+                          'close_type': None,
+                          'current_market_price': Decimal('120'),
+                          'current_position_average_price': Decimal('0'),
+                          'current_retries': 0,
+                          'filled_amount': 0,
+                          'filled_amount_quote': Decimal('0'),
+                          'level_id': None,
+                          'max_amount_quote': Decimal('60'),
+                          'max_loss_quote': Decimal('0'),
+                          'max_price': Decimal('100'),
+                          'max_retries': 15,
+                          'min_price': Decimal('60'),
+                          'n_levels': 3,
+                          'side': TradeType.BUY,
+                          'target_position_average_price': Decimal('73.33333333333333333333333333'),
+                          'total_executed_amount_backup': Decimal('0'),
+                          'trailing_stop_trigger_pct': None}
+                         )
+
+    @patch.object(DCAExecutor, "get_price")
     async def test_activation_bounds_prevents_order_creation(self, get_price_mock):
         get_price_mock.return_value = Decimal("120")
         config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
