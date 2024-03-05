@@ -91,7 +91,7 @@ class ExecutorBase(SmartComponentBase):
         """
         Returns whether the executor is open or trading.
         """
-        return self._status == SmartComponentStatus.RUNNING
+        return self._status in [SmartComponentStatus.RUNNING, SmartComponentStatus.NOT_STARTED]
 
     @property
     def is_closed(self):

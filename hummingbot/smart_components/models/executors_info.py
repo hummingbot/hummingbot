@@ -16,7 +16,7 @@ class ExecutorInfo(BaseModel):
     id: str
     timestamp: float
     type: str
-    close_timestamp: Optional[int]
+    close_timestamp: Optional[float]
     close_type: Optional[CloseType]
     status: SmartComponentStatus
     config: Union[PositionExecutorConfig, ArbitrageExecutorConfig, DCAExecutorConfig, ExecutorConfigBase]
@@ -28,6 +28,10 @@ class ExecutorInfo(BaseModel):
     is_trading: bool
     custom_info: Dict  # TODO: Define the custom info type for each executor
     controller_id: Optional[str] = None
+
+    @property
+    def is_done(self):
+        return self.status in [SmartComponentStatus.TERMINATED]
 
     @property
     def side(self) -> Optional[TradeType]:
