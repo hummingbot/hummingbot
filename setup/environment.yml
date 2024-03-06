@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - bidict
+  - coinbase-advanced-py
   - coverage
   - cython=3.0
   - nomkl

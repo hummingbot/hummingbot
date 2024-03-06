@@ -7,6 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 from aioresponses import aioresponses
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
@@ -17,6 +20,23 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
+# Generate a dummy private key
+private_key = rsa.generate_private_key(
+    public_exponent=65537,
+    key_size=2048,
+    backend=default_backend()
+)
+
+# Serialize the private key to PEM format
+pem_private_key = private_key.private_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PrivateFormat.PKCS8,
+    encryption_algorithm=serialization.NoEncryption()
+)
+
+# Convert the PEM private key to string
+pem_private_key_str = pem_private_key.decode('utf-8')
+
 
 class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
 
@@ -25,6 +45,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.secret_key = "testSecret"
         self.time_synchronizer_mock = AsyncMock(spec=TimeSynchronizer)
         self.auth = CoinbaseAdvancedTradeAuth(self.api_key, self.secret_key, self.time_synchronizer_mock)
+        self.request = WSJSONRequest(payload={"type": "subscribe", "product_ids": ["ETH-USD", "ETH-EUR"], "channel": "level2"})
 
     async def asyncTearDown(self):
         logging.info("Close")
@@ -101,8 +122,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
     #                        f"It is likely that there is a unit mismatch between the local and server times.\n"
     #                        f"Verify the API documentation and the assumptions of the implementation.")
 
-    @aioresponses()
-    async def test_rest_authenticate_on_public_time(self, mock_aioresponse):
+    async def test_rest_legacy_authenticate_on_public_time(self):
         self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=1234567890)
 
         params = {
@@ -120,7 +140,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
                    '.get_current_server_time_ms',
                    new_callable=MagicMock) as mocked_time:
             mocked_time.return_value = 1234567890.0
-            configured_request = await auth.rest_authenticate(request)
+            configured_request = await auth.rest_legacy_authenticate(request)
 
         full_params.update({"timestamp": "1234567890"})
         # full url is parsed-down to endpoint only
@@ -135,8 +155,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual("1234567890", configured_request.headers["CB-ACCESS-TIMESTAMP"])
         self.assertEqual(expected_signature, configured_request.headers["CB-ACCESS-SIGN"])
 
-    @aioresponses()
-    async def test_ws_authenticate(self, mock_aioresponse):
+    async def test_ws_legacy_authenticate(self):
         ws_request = WSJSONRequest(payload={"channel": "level2", "product_ids": ["ETH-USD", "ETH-EUR"]})
         self.time_synchronizer_mock.update_server_time_offset_with_time_provider = AsyncMock(return_value=None)
         self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=1234567890)
@@ -148,9 +167,54 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
                    new_callable=MagicMock) as mock_get_current_server_time_ms:
             mock_get_current_server_time_ms.return_value = 12345678900
 
-            authenticated_request = await self.auth.ws_authenticate(ws_request)
+            authenticated_request = await self.auth.ws_legacy_authenticate(ws_request)
 
         self.assertIsInstance(authenticated_request, WSJSONRequest)
         self.assertTrue("signature" in authenticated_request.payload)
         self.assertTrue("timestamp" in authenticated_request.payload)
         self.assertTrue("api_key" in authenticated_request.payload)
+
+    @patch('jwt.encode')
+    async def test_ws_jwt_authenticate(self, mock_encode):
+        self.auth.secret_key = pem_private_key_str
+        self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=12345678900)
+        result = await self.auth.ws_jwt_authenticate(self.request)
+        self.assertIn('jwt', result.payload)
+        self.assertIn('timestamp', result.payload)
+        self.assertEqual(12345678900, result.payload['timestamp'])
+        mock_encode.assert_called_once()
+
+    @patch('jwt.encode')
+    def test_build_jwt(self, mock_encode):
+        self.auth.secret_key = pem_private_key_str
+        mock_encode.return_value = 'test_jwt_token'
+        result = self.auth._build_jwt(service='test_service', uri='test_uri')
+        self.assertEqual(result, 'test_jwt_token')
+        mock_encode.assert_called_once()
+
+    def test_build_jwt_invalid_secret_key(self):
+        self.auth.secret_key = 'invalid_secret_key'
+        with self.assertRaises(ValueError):
+            self.auth._build_jwt(service='test_service', uri='test_uri')
+
+    @patch('jwt.encode')
+    def test_build_jwt_fields(self, mock_encode):
+        self.auth.secret_key = pem_private_key_str
+        mock_encode.return_value = 'test_jwt_token'
+        self.auth._build_jwt(service='test_service', uri='test_uri')
+        args, kwargs = mock_encode.call_args
+        jwt_data = args[0]
+        self.assertEqual(self.auth.api_key, jwt_data['sub'])
+        self.assertEqual('coinbase-cloud', jwt_data['iss'], )
+        self.assertEqual(['test_service'], jwt_data['aud'], )
+        self.assertEqual('test_uri', jwt_data['uri'], )
+
+    @patch('jwt.encode')
+    def test_build_jwt_algorithm_and_headers(self, mock_encode):
+        self.auth.secret_key = pem_private_key_str
+        mock_encode.return_value = 'test_jwt_token'
+        self.auth._build_jwt(service='test_service', uri='test_uri')
+        args, kwargs = mock_encode.call_args
+        self.assertEqual('ES256', kwargs['algorithm'], )
+        self.assertEqual(self.auth.api_key, kwargs['headers']['kid'])
+        self.assertTrue(isinstance(kwargs['headers']['nonce'], str))
