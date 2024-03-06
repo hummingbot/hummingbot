@@ -382,7 +382,7 @@ class DCAExecutor(ExecutorBase):
         self.stop()
 
     def place_close_order(self, price):
-        delta_amount_to_close = abs(self.open_filled_amount - self.close_filled_amount)
+        delta_amount_to_close = self.open_filled_amount - self.close_filled_amount
         min_order_size = self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_order_size
         if delta_amount_to_close >= min_order_size:
             order_id = self.place_order(
@@ -432,7 +432,7 @@ class DCAExecutor(ExecutorBase):
         """
         if math.isclose(self.open_filled_amount, self.close_filled_amount):
             self.close_execution_by(self.close_type)
-        elif self.active_close_orders[0].order and self.active_close_orders[0].order.is_open:
+        elif len(self.active_close_orders) > 0:
             self.logger().info(f"Waiting for close order {self.active_close_orders[0].order_id} to be filled | Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}, Back up filled amount {self._total_executed_amount_backup}")
