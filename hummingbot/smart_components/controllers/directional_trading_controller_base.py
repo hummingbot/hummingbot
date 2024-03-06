@@ -109,10 +109,12 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
-    @validator('take_profit_order_type', pre=True, allow_reuse=True)
+    @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
             return v
+        elif v is None:
+            return OrderType.MARKET
         elif isinstance(v, str):
             if v.upper() in OrderType.__members__:
                 return OrderType[v.upper()]
