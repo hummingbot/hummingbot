@@ -7,11 +7,11 @@ from unittest.mock import MagicMock
 
 from typing_extensions import Awaitable
 
-from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
+from hummingbot.connector.exchange.bitrue.bitrue_auth import BitrueAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
-class MexcAuthTests(TestCase):
+class BitrueAuthTests(TestCase):
 
     def setUp(self) -> None:
         self._api_key = "testApiKey"
@@ -36,7 +36,7 @@ class MexcAuthTests(TestCase):
         }
         full_params = copy(params)
 
-        auth = MexcAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+        auth = BitrueAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
         request = RESTRequest(method=RESTMethod.GET, params=params, is_auth_required=True)
         configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
 
@@ -48,4 +48,4 @@ class MexcAuthTests(TestCase):
             hashlib.sha256).hexdigest()
         self.assertEqual(now * 1e3, configured_request.params["timestamp"])
         self.assertEqual(expected_signature, configured_request.params["signature"])
-        self.assertEqual({"X-MEXC-APIKEY": self._api_key, "Content-Type": "application/json"}, configured_request.headers)
+        self.assertEqual({"X-MBX-APIKEY": self._api_key}, configured_request.headers)
