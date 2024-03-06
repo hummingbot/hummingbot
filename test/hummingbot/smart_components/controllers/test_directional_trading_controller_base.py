@@ -92,3 +92,18 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(config.time_limit, 2700)
         self.assertEqual(config.trailing_stop.activation_price, Decimal("0.015"))
         self.assertEqual(config.trailing_stop.trailing_delta, Decimal("0.003"))
+
+    def test_update_markets_new_connector(self):
+        markets = {}
+        updated_markets = self.mock_controller_config.update_markets(markets)
+
+        self.assertIn("binance_perpetual", updated_markets)
+        self.assertIn("ETH-USDT", updated_markets["binance_perpetual"])
+
+    def test_update_markets_existing_connector(self):
+        markets = {"binance_perpetual": {"BTC-USDT"}}
+        updated_markets = self.mock_controller_config.update_markets(markets)
+
+        self.assertIn("binance_perpetual", updated_markets)
+        self.assertIn("ETH-USDT", updated_markets["binance_perpetual"])
+        self.assertIn("BTC-USDT", updated_markets["binance_perpetual"])

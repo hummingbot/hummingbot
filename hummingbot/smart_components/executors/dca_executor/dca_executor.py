@@ -435,9 +435,7 @@ class DCAExecutor(ExecutorBase):
         elif self.active_close_orders[0].order and self.active_close_orders[0].order.is_open:
             self.logger().info(f"Waiting for close order {self.active_close_orders[0].order_id} to be filled | Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
         else:
-            self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
-            self.logger().info(f"Back up filled amount {self._total_executed_amount_backup}")
-            self.logger().info(f"Close orders: {self._close_orders}")
+            self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}, Back up filled amount {self._total_executed_amount_backup}")
             self.place_close_order_and_cancel_open_orders()
             self._current_retries += 1
         await asyncio.sleep(1.0)
