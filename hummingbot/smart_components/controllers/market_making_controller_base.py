@@ -100,7 +100,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             is_updatable=True,
             prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
             prompt_on_new=True))
-    take_profit_order_type: OrderType = Field(
+    take_profit_order_type: Optional[OrderType] = Field(
         default="LIMIT",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
@@ -120,10 +120,12 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
-    @validator('take_profit_order_type', pre=True, allow_reuse=True)
-    def validate_order_type(cls, v) -> OrderType:
+    @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
+    def validate_order_type(cls, v, values) -> OrderType:
         if isinstance(v, OrderType):
             return v
+        elif v is None and "take_profit" in values and values["take_profit"] is not None:
+            return OrderType.LIMIT
         elif isinstance(v, str):
             if v.upper() in OrderType.__members__:
                 return OrderType[v.upper()]
@@ -159,8 +161,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             spread_field = field.name.replace('amounts_pct', 'spreads')
             return [1 for _ in values[spread_field]]
         if isinstance(v, str):
-            v = [float(x.strip()) for x in v.split(',')]
-        if len(v) != len(values[field.name.replace('amounts_pct', 'spreads')]):
+            return [float(x.strip()) for x in v.split(',')]
+        elif isinstance(v, list) and len(v) != len(values[field.name.replace('amounts_pct', 'spreads')]):
             raise ValueError(
                 f"The number of {field.name} must match the number of {field.name.replace('amounts_pct', 'spreads')}.")
         return v
@@ -179,7 +181,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
 
         setattr(self, spreads_field, self.parse_spreads(new_spreads))
         if new_amounts_pct is not None:
-            setattr(self, amounts_pct_field, self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, amounts_pct_field))
+            setattr(self, amounts_pct_field, self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, self.__fields__[amounts_pct_field]))
         else:
             setattr(self, amounts_pct_field, [1 for _ in getattr(self, spreads_field)])
 

@@ -389,7 +389,7 @@ class DCAExecutor(ExecutorBase):
                 connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
                 order_type=OrderType.MARKET,
-                amount=self.open_filled_amount,
+                amount=delta_amount_to_close,
                 price=price,
                 side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
                 position_action=PositionAction.CLOSE,
@@ -495,7 +495,8 @@ class DCAExecutor(ExecutorBase):
         _total_executed_amount_backup, that can be used if the InFlightOrder
         is not available.
         """
-        self._total_executed_amount_backup += event.amount
+        if event.order_id in [order.order_id for order in self._open_orders]:
+            self._total_executed_amount_backup += event.amount
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def get_custom_info(self) -> Dict:

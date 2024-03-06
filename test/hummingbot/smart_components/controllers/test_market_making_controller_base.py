@@ -3,7 +3,7 @@ from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.core.data_type.common import PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.smart_components.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
@@ -67,3 +67,43 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(stop_actions, list)
         for action in stop_actions:
             self.assertIsInstance(action, StopExecutorAction)
+
+    def test_validate_order_type(self):
+        for order_type_name in OrderType.__members__:
+            self.assertEqual(
+                MarketMakingControllerConfigBase.validate_order_type(order_type_name),
+                OrderType[order_type_name]
+            )
+
+        with self.assertRaises(ValueError):
+            MarketMakingControllerConfigBase.validate_order_type("invalid_order_type")
+
+    def test_triple_barrier_config(self):
+        triple_barrier_config = self.mock_controller_config.triple_barrier_config
+        self.assertEqual(triple_barrier_config.stop_loss, self.mock_controller_config.stop_loss)
+        self.assertEqual(triple_barrier_config.take_profit, self.mock_controller_config.take_profit)
+        self.assertEqual(triple_barrier_config.time_limit, self.mock_controller_config.time_limit)
+        self.assertEqual(triple_barrier_config.trailing_stop, self.mock_controller_config.trailing_stop)
+
+    def test_validate_position_mode(self):
+        for position_mode_name in PositionMode.__members__:
+            self.assertEqual(
+                MarketMakingControllerConfigBase.validate_position_mode(position_mode_name),
+                PositionMode[position_mode_name]
+            )
+
+        with self.assertRaises(ValueError):
+            MarketMakingControllerConfigBase.validate_position_mode("invalid_position_mode")
+
+    def test_update_parameters(self):
+        new_spreads = [0.03, 0.04]
+        new_amounts_pct = [60, 40]
+        self.mock_controller_config.update_parameters(TradeType.BUY, new_spreads, new_amounts_pct)
+        self.assertEqual(self.mock_controller_config.buy_spreads, new_spreads)
+        self.assertEqual(self.mock_controller_config.buy_amounts_pct, new_amounts_pct)
+
+        # Test without new_amounts_pct
+        new_spreads = [0.05, 0.06]
+        self.mock_controller_config.update_parameters(TradeType.SELL, new_spreads)
+        self.assertEqual(self.mock_controller_config.sell_spreads, new_spreads)
+        self.assertEqual(self.mock_controller_config.sell_amounts_pct, [1, 1])
