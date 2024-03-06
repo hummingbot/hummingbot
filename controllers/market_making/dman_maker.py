@@ -27,26 +27,31 @@ class DManMakerConfig(MarketMakingControllerConfigBase):
     dca_amount_ratio_increase: float = Field(
         default=2.0, gt=1.0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the ratio of amount increase between DCA levels: ",
             prompt_on_new=True))
     dca_levels: int = Field(
         default=5, gt=0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the number of DCA levels: ",
             prompt_on_new=True))
     top_order_start_spread: float = Field(
         default=0.001, gt=0.0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the spread for the top order: ",
             prompt_on_new=True))
     start_spread: float = Field(
         default=0.03, gt=0.0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the spread for the second order: ",
             prompt_on_new=True))
     spread_ratio_increase: float = Field(
         default=1.5, gt=1.0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the ratio of spread increase between DCA levels: ",
             prompt_on_new=True))
     time_limit: int = Field(
