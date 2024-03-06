@@ -3,7 +3,7 @@ from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.core.data_type.common import PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.smart_components.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerBase,
@@ -59,3 +59,36 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0].controller_id, "test")
         self.assertIsInstance(actions[0], ExecutorAction)
+
+    def test_get_executor_config(self):
+        trade_type = TradeType.BUY
+        price = Decimal("100")
+        amount = Decimal("1")
+
+        executor_config = self.controller.get_executor_config(trade_type, price, amount)
+
+        self.assertIsInstance(executor_config, PositionExecutorConfig)
+        self.assertEqual(executor_config.connector_name, self.mock_controller_config.connector_name)
+        self.assertEqual(executor_config.trading_pair, self.mock_controller_config.trading_pair)
+        self.assertEqual(executor_config.side, trade_type)
+        self.assertEqual(executor_config.entry_price, price)
+        self.assertEqual(executor_config.amount, amount)
+
+    def test_validate_order_type(self):
+        for order_type_name in OrderType.__members__:
+            self.assertEqual(
+                DirectionalTradingControllerConfigBase.validate_order_type(order_type_name),
+                OrderType[order_type_name]
+            )
+
+        with self.assertRaises(ValueError):
+            DirectionalTradingControllerConfigBase.validate_order_type("invalid_order_type")
+
+    def test_triple_barrier_config(self):
+        config = self.mock_controller_config.triple_barrier_config
+
+        self.assertEqual(config.stop_loss, Decimal("0.03"))
+        self.assertEqual(config.take_profit, Decimal("0.02"))
+        self.assertEqual(config.time_limit, 2700)
+        self.assertEqual(config.trailing_stop.activation_price, Decimal("0.015"))
+        self.assertEqual(config.trailing_stop.trailing_delta, Decimal("0.003"))
