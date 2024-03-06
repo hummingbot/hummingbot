@@ -308,7 +308,7 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         potential_executors_to_store = self.filter_executors(
             executors=self.get_all_executors(),
-            filter_func=lambda x: x.status == SmartComponentStatus.TERMINATED)
+            filter_func=lambda x: x.is_done)
         sorted_executors = sorted(potential_executors_to_store, key=lambda x: x.timestamp, reverse=True)
         if len(sorted_executors) > self.closed_executors_buffer:
             return [StoreExecutorAction(executor_id=executor.id, controller_id=executor.controller_id) for executor in
