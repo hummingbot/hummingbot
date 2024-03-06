@@ -148,12 +148,9 @@ class TestKucoinSpotCandles(unittest.TestCase):
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
 
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_subscribes_to_klines(self, mock_api, ws_connect_mock):
-        url = self.data_feed.public_ws_url
-
-        resp = {
+    @staticmethod
+    def _token_generation_for_ws_subscription_mock_response():
+        return {
             "code": "200000",
             "data": {
                 "instanceServers": [
@@ -168,6 +165,14 @@ class TestKucoinSpotCandles(unittest.TestCase):
                 "token": "testToken"
             }
         }
+
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_subscribes_to_klines(self, mock_api, ws_connect_mock):
+        url = self.data_feed.public_ws_url
+
+        resp = self._token_generation_for_ws_subscription_mock_response()
+
         mock_api.post(url, body=json.dumps(resp))
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -196,10 +201,15 @@ class TestKucoinSpotCandles(unittest.TestCase):
             "Subscribed to public klines..."
         ))
 
-    @patch("hummingbot.data_feed.candles_feed.kucoin_spot_candles.KucoinSpotCandles._sleep")
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
-        mock_ws.side_effect = asyncio.CancelledError
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_api, ws_connect_mock):
+        url = self.data_feed.public_ws_url
+
+        resp = self._token_generation_for_ws_subscription_mock_response()
+        mock_api.post(url, body=json.dumps(resp))
+
+        ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
@@ -241,9 +251,15 @@ class TestKucoinSpotCandles(unittest.TestCase):
             self.is_logged("ERROR", "Unexpected error occurred subscribing to public klines...")
         )
 
-    @patch("hummingbot.data_feed.candles_feed.kucoin_spot_candles.KucoinSpotCandles.fill_historical_candles", new_callable=AsyncMock)
+    @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_empty_candle(self, ws_connect_mock, fill_historical_candles_mock):
+    @patch("hummingbot.data_feed.candles_feed.kucoin_spot_candles.KucoinSpotCandles.fill_historical_candles", new_callable=AsyncMock)
+    def test_process_websocket_messages_empty_candle(self, mock_api, fill_historical_candles_mock, ws_connect_mock):
+        url = self.data_feed.public_ws_url
+
+        resp = self._token_generation_for_ws_subscription_mock_response()
+        mock_api.post(url, body=json.dumps(resp))
+
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -258,10 +274,16 @@ class TestKucoinSpotCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
         fill_historical_candles_mock.assert_called_once()
 
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.data_feed.candles_feed.kucoin_spot_candles.KucoinSpotCandles.fill_historical_candles",
            new_callable=AsyncMock)
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
+    def test_process_websocket_messages_duplicated_candle_not_included(self, mock_api, fill_historical_candles, ws_connect_mock):
+        url = self.data_feed.public_ws_url
+
+        resp = self._token_generation_for_ws_subscription_mock_response()
+        mock_api.post(url, body=json.dumps(resp))
+
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         fill_historical_candles.return_value = None
 
@@ -282,9 +304,14 @@ class TestKucoinSpotCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.kucoin_spot_candles.KucoinSpotCandles.fill_historical_candles")
+    @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
+    def test_process_websocket_messages_with_two_valid_messages(self, mock_api, ws_connect_mock):
+        url = self.data_feed.public_ws_url
+
+        resp = self._token_generation_for_ws_subscription_mock_response()
+        mock_api.post(url, body=json.dumps(resp))
+
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
