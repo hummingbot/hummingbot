@@ -8,10 +8,12 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
+from hummingbot.core.event.events import MarketOrderFailureEvent
+from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
 from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
 from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.models.executors import TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -468,3 +470,133 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.control_task()
         await executor.control_task()
         self.assertEqual(executor.active_close_orders[0].order_id, "OID-SELL-1")
+
+    def test_process_order_failed_event_open_order(self):
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
+        executor = self.get_dca_executor_from_config(config)
+        executor._status = SmartComponentStatus.RUNNING
+
+        # Simulate an open order
+        open_order_id = "OID-OPEN-FAIL"
+        open_order = InFlightOrder(
+            client_order_id=open_order_id,
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN
+        )
+        tracked_order = TrackedOrder(open_order_id)
+        tracked_order.order = open_order
+        executor._open_orders.append(tracked_order)
+
+        # Trigger the order failed event
+        failure_event = MarketOrderFailureEvent(
+            order_id=open_order_id,
+            timestamp=1640001112.223,
+            order_type=OrderType.LIMIT
+        )
+        executor.process_order_failed_event(1, self.strategy.connectors["binance"], failure_event)
+
+        # Assertions
+        self.assertIn(tracked_order, executor._failed_orders)
+        self.assertNotIn(tracked_order, executor._open_orders)
+
+    def test_process_order_failed_event_close_order(self):
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
+        executor = self.get_dca_executor_from_config(config)
+        executor._status = SmartComponentStatus.RUNNING
+
+        # Simulate a close order
+        close_order_id = "OID-CLOSE-FAIL"
+        close_order = InFlightOrder(
+            client_order_id=close_order_id,
+            trading_pair=config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,  # Assuming a sell order for closing
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN
+        )
+        tracked_order = TrackedOrder(close_order_id)
+        tracked_order.order = close_order
+        executor._close_orders.append(tracked_order)
+
+        # Trigger the order failed event
+        failure_event = MarketOrderFailureEvent(
+            order_id=close_order_id,
+            timestamp=1640001112.223,
+            order_type=OrderType.MARKET
+        )
+        executor.process_order_failed_event(1, self.strategy.connectors["binance"], failure_event)
+
+        # Assertions
+        self.assertIn(tracked_order, executor._failed_orders)
+        self.assertNotIn(tracked_order, executor._close_orders)
+        self.assertEqual(executor._current_retries, 1)
+
+    def test_is_within_activation_bounds_maker(self):
+        # Assuming you have a setup method to initialize the executor with DCAMode.MAKER mode
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   activation_bounds=[Decimal("0.01")],
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
+        executor = self.get_dca_executor_from_config(config)
+        order_price = Decimal("100")
+
+        # Test for BUY side
+        executor.config.side = TradeType.BUY
+        # Case 1: close_price is within the activation bounds
+        self.assertTrue(executor._is_within_activation_bounds(order_price, Decimal("99")))
+        # Case 2: close_price is outside the activation bounds
+        self.assertFalse(executor._is_within_activation_bounds(order_price, Decimal("103")))
+
+        # Test for SELL side
+        executor.config.side = TradeType.SELL
+        # Case 1: close_price is within the activation bounds
+        self.assertTrue(executor._is_within_activation_bounds(order_price, Decimal("101")))
+        # Case 2: close_price is outside the activation bounds
+        self.assertFalse(executor._is_within_activation_bounds(order_price, Decimal("99")))
+
+    def test_is_within_activation_bounds_taker(self):
+        # Assuming you have a setup method to initialize the executor with DCAMode.TAKER mode
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   mode=DCAMode.TAKER,
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)],
+                                   activation_bounds=[Decimal("0.01"), Decimal("0.015")],  # Example bounds
+                                   trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
+                                                              trailing_delta=Decimal("0.01")))
+        executor = self.get_dca_executor_from_config(config)
+        order_price = Decimal("100")
+
+        # Test for BUY side
+        executor.config.side = TradeType.BUY
+        # Case 1: close_price is within the activation bounds
+        self.assertTrue(executor._is_within_activation_bounds(order_price, Decimal("99.5")))
+        # Case 2: close_price is outside the activation bounds
+        self.assertFalse(executor._is_within_activation_bounds(order_price, Decimal("95")))
+
+        # Test for SELL side
+        executor.config.side = TradeType.SELL
+        # Case 1: close_price is within the activation bounds
+        self.assertTrue(executor._is_within_activation_bounds(order_price, Decimal("100.5")))
+        # Case 2: close_price is outside the activation bounds
+        self.assertFalse(executor._is_within_activation_bounds(order_price, Decimal("106")))

@@ -92,14 +92,6 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
             prompt_on_new=True))
 
-    @validator("stop_loss", "take_profit", "time_limit", pre=True, always=True)
-    def validate_target(cls, v):
-        if isinstance(v, str):
-            if v == "":
-                return None
-            return Decimal(v)
-        return v
-
     @validator("trailing_stop", pre=True, always=True)
     def parse_trailing_stop(cls, v):
         if isinstance(v, str):

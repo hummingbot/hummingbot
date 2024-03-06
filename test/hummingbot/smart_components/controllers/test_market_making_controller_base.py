@@ -107,3 +107,18 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.mock_controller_config.update_parameters(TradeType.SELL, new_spreads)
         self.assertEqual(self.mock_controller_config.sell_spreads, new_spreads)
         self.assertEqual(self.mock_controller_config.sell_amounts_pct, [1, 1])
+
+    def test_update_markets_new_connector(self):
+        markets = {}
+        updated_markets = self.mock_controller_config.update_markets(markets)
+
+        self.assertIn("binance_perpetual", updated_markets)
+        self.assertIn("ETH-USDT", updated_markets["binance_perpetual"])
+
+    def test_update_markets_existing_connector(self):
+        markets = {"binance_perpetual": {"BTC-USDT"}}
+        updated_markets = self.mock_controller_config.update_markets(markets)
+
+        self.assertIn("binance_perpetual", updated_markets)
+        self.assertIn("ETH-USDT", updated_markets["binance_perpetual"])
+        self.assertIn("BTC-USDT", updated_markets["binance_perpetual"])
