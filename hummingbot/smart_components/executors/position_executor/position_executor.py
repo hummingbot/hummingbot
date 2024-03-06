@@ -269,7 +269,7 @@ class PositionExecutor(ExecutorBase):
         """
         if math.isclose(self.open_filled_amount, self.close_filled_amount):
             self.stop()
-        elif self._close_order.order and self._close_order.order.is_open:
+        elif self._close_order:
             self.logger().info(f"Waiting for close order to be filled --> Filled amount: {self.close_filled_amount} | Open amount: {self.open_filled_amount}")
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
@@ -374,7 +374,7 @@ class PositionExecutor(ExecutorBase):
         :param price: The price to be used in the close order.
         :return: None
         """
-        delta_amount_to_close = abs(self.open_filled_amount - self.close_filled_amount)
+        delta_amount_to_close = self.open_filled_amount - self.close_filled_amount
         trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
         if delta_amount_to_close > trading_rules.min_order_size:
             order_id = self.place_order(
