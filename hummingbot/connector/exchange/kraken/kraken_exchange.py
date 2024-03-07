@@ -283,7 +283,6 @@ class KrakenExchange(ExchangePyBase):
                                  web_utils.is_exchange_information_valid(details)}
         return self._asset_pairs
 
-
     async def _place_order(self,
                            order_id: str,
                            trading_pair: str,
@@ -503,7 +502,7 @@ class KrakenExchange(ExchangePyBase):
             trade: Dict[str, str] = update[trade_id]
             trade["trade_id"] = trade_id
             exchange_order_id = trade.get("ordertxid")
-            client_order_id = str(trade.get("userref",""))
+            client_order_id = str(trade.get("userref", ""))
             tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
             if not tracked_order:
@@ -528,7 +527,7 @@ class KrakenExchange(ExchangePyBase):
         update = orders[0]
         for message in update:
             for exchange_order_id, order_msg in message.items():
-                client_order_id = str(order_msg.get("userref",""))
+                client_order_id = str(order_msg.get("userref", ""))
                 tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                 if not tracked_order:
                     self.logger().debug(

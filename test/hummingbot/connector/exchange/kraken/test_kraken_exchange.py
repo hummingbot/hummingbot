@@ -14,13 +14,11 @@ from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, 
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_numeric_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.tracking_nonce import NonceCreator
 
 
 class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
