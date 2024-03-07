@@ -26,10 +26,6 @@ from hummingbot.core.event.events import (
     RangePositionLiquidityRemovedEvent,
     RangePositionUpdateEvent,
     RangePositionUpdateFailureEvent,
-    TokenApprovalCancelledEvent,
-    TokenApprovalEvent,
-    TokenApprovalFailureEvent,
-    TokenApprovalSuccessEvent,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
@@ -70,7 +66,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
     _last_balance_poll_timestamp: float
     _last_est_gas_cost_reported: float
     _in_flight_orders: Dict[str, GatewayInFlightLPOrder]
-    _allowances: Dict[str, Decimal]
+    # _allowances: Dict[str, Decimal]
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
     _get_chain_info_task: Optional[asyncio.Task]
@@ -114,7 +110,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
         self._in_flight_orders = {}
-        self._allowances = {}
+        # self._allowances = {}
         self._chain_info = {}
         self._status_polling_task = None
         self._get_chain_info_task = None
@@ -175,16 +171,16 @@ class GatewayOsmosisAMMLP(ConnectorBase):
         except Exception:
             return []
 
-    @staticmethod
-    def is_approval_order(in_flight_order: GatewayInFlightLPOrder) -> bool:
-        return in_flight_order.client_order_id.split("-")[0] == "approve"
+    # @staticmethod
+    # def is_approval_order(in_flight_order: GatewayInFlightLPOrder) -> bool:
+    #     return in_flight_order.client_order_id.split("-")[0] == "approve"
 
     @property
     def approval_orders(self) -> List[GatewayInFlightLPOrder]:
         return [
             approval_order
             for approval_order in self._in_flight_orders.values()
-            if self.is_approval_order(approval_order)
+            if False
             and not approval_order.is_pending_cancel_confirmation
         ]
 
@@ -193,7 +189,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
         return [
             in_flight_order
             for in_flight_order in self._in_flight_orders.values()
-            if not self.is_approval_order(in_flight_order)
+            if not False
             and not in_flight_order.is_pending_cancel_confirmation
         ]
 
@@ -216,25 +212,25 @@ class GatewayOsmosisAMMLP(ConnectorBase):
     def network_transaction_fee(self, new_fee: TokenAmount):
         self._network_transaction_fee = new_fee
 
-    def create_approval_order_id(self, spender: str, token_symbol: str) -> str:
-        return f"approve-{spender}-{token_symbol}"
+    # def create_approval_order_id(self, spender: str, token_symbol: str) -> str:
+    #     return f"approve-{spender}-{token_symbol}"
 
-    def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
-        match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
-        if match:
-            return f"{match.group(1)}_{match.group(2)}"
-        return None
+    # def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
+    #     match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
+    #     if match:
+    #         return f"{match.group(1)}_{match.group(2)}"
+    #     return None
 
     @staticmethod
     def create_lp_order_id(action: LPType, trading_pair: str) -> str:
         return f"{action.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
 
-    def is_pending_approval(self, spender_token: str) -> bool:
-        pending_approval_tokens: List[Optional[str]] = [
-            self.get_token_symbol_from_approval_order_id(order_id)
-            for order_id in self._in_flight_orders.keys()
-        ]
-        return True if spender_token in pending_approval_tokens else False
+    # def is_pending_approval(self, spender_token: str) -> bool:
+    #     pending_approval_tokens: List[Optional[str]] = [
+    #         self.get_token_symbol_from_approval_order_id(order_id)
+    #         for order_id in self._in_flight_orders.keys()
+    #     ]
+    #     return True if spender_token in pending_approval_tokens else False
 
     async def load_token_data(self):
         tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
@@ -264,13 +260,17 @@ class GatewayOsmosisAMMLP(ConnectorBase):
         """
         Gets the gas estimates for the connector.
         """
+        # print('get_gas_estimate() START')
         try:
+            # print('post amm/estimategas')
             response: Dict[Any] = await self._get_gateway_instance().amm_estimate_gas(
                 chain=self.chain, network=self.network, connector=self.connector_name
             )
             self.network_transaction_fee = TokenAmount(
                 response.get("gasPriceToken"), Decimal(response.get("gasCost"))
             )
+            # print(response.get("gasPriceToken"))
+            # print(response.get("gasCost"))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -280,69 +280,67 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
-    async def auto_approve(self):
-        """
-        Automatically approves trading pair tokens for contract(s).
-        It first checks if there are any already approved amount (allowance)
-        """
-        await self.update_allowances()
-        for spender_token, amount in self._allowances.items():
-            if amount <= s_decimal_0 and not self.is_pending_approval(spender_token):
-                spender, token = spender_token.split("_")
-                await self.approve_token(spender, token)
+    # async def auto_approve(self):
+    #     """
+    #     Automatically approves trading pair tokens for contract(s).
+    #     It first checks if there are any already approved amount (allowance)
+    #     """
+    #     await self.update_allowances()
+    #     for spender_token, amount in self._allowances.items():
+    #         if amount <= s_decimal_0 and not self.is_pending_approval(spender_token):
+    #             spender, token = spender_token.split("_")
+    #             await self.approve_token(spender, token)
 
-    async def approve_token(self, spender: str, token_symbol: str, **request_args) -> Optional[GatewayInFlightLPOrder]:
-        """
-        Approves contract as a spender for a token.
-        :param spender: contract to approve for.
-        :param token_symbol: token to approve.
-        """
-        order_id: str = self.create_approval_order_id(spender, token_symbol)
-        resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(
-            self.chain,
-            self.network,
-            self.address,
-            token_symbol,
-            spender,
-            **request_args
-        )
-        self.start_tracking_order(order_id, None, token_symbol)
+    # async def approve_token(self, spender: str, token_symbol: str, **request_args) -> Optional[GatewayInFlightLPOrder]:
+    #     """
+    #     Approves contract as a spender for a token.
+    #     :param spender: contract to approve for.
+    #     :param token_symbol: token to approve.
+    #     """
+    #     order_id: str = self.create_approval_order_id(spender, token_symbol)
+    #     resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(
+    #         self.chain,
+    #         self.network,
+    #         self.address,
+    #         token_symbol,
+    #         spender,
+    #         **request_args
+    #     )
+    #     self.start_tracking_order(order_id, None, token_symbol)
 
-        if "hash" in resp.get("approval", {}).keys():
-            nonce: int = resp.get("nonce")
-            await self._update_nonce(nonce)
-            hash = resp["approval"]["hash"]
-            tracked_order = self._in_flight_orders.get(order_id)
-            tracked_order.update_exchange_order_id(hash)
-            tracked_order.nonce = nonce
-            self.logger().info(
-                f"Maximum {token_symbol} approval for {spender} contract sent, hash: {hash}."
-            )
-            return tracked_order
-        else:
-            self.logger().info(f"Missing data from approval result. Incomplete return result for ({resp.keys()})")
-            self.logger().info(f"Approval for {token_symbol} on {spender} failed.")
-            return None
+    #     if "hash" in resp.get("approval", {}).keys():
+    #         hash = resp["approval"]["hash"]
+    #         tracked_order = self._in_flight_orders.get(order_id)
+    #         tracked_order.update_exchange_order_id(hash)
+    #         tracked_order.nonce = 0
+    #         self.logger().info(
+    #             f"Maximum {token_symbol} approval for {spender} contract sent, hash: {hash}."
+    #         )
+    #         return tracked_order
+    #     else:
+    #         self.logger().info(f"Missing data from approval result. Incomplete return result for ({resp.keys()})")
+    #         self.logger().info(f"Approval for {token_symbol} on {spender} failed.")
+    #         return None
 
-    async def update_allowances(self):
-        self._allowances = await self.get_allowances()
+    # async def update_allowances(self):
+        # self._allowances = await self.get_allowances()
 
-    async def get_allowances(self) -> Dict[str, Decimal]:
-        """
-        Retrieves allowances for token in trading_pairs
-        :return: A dictionary of token and its allowance.
-        """
-        ret_val = {}
-        approval_lists: List[str] = await safe_gather(*[
-            self._get_gateway_instance().get_allowances(
-                self.chain, self.network, self.address, list(self._tokens), spender
-            ) for spender in self._all_spenders
-        ])
+    # async def get_allowances(self) -> Dict[str, Decimal]:
+    #     """
+    #     Retrieves allowances for token in trading_pairs
+    #     :return: A dictionary of token and its allowance.
+    #     """
+    #     ret_val = {}
+    #     approval_lists: List[str] = await safe_gather(*[
+    #         self._get_gateway_instance().get_allowances(
+    #             self.chain, self.network, self.address, list(self._tokens), spender
+    #         ) for spender in self._all_spenders
+    #     ])
 
-        for spender, approval_list in zip(self._all_spenders, approval_lists):
-            for token, amount in approval_list["approvals"].items():
-                ret_val[f"{spender}_{token}"] = Decimal(str(amount))
-        return ret_val
+    #     for spender, approval_list in zip(self._all_spenders, approval_lists):
+    #         for token, amount in approval_list["approvals"].items():
+    #             ret_val[f"{spender}_{token}"] = Decimal(str(amount))
+    #     return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_price(
@@ -447,18 +445,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 upper_price,
                 **request_args
             )
-# export interface CosmosAddLiquidityResponse {     ADDITIONAL RETURN VARS need poolId at a min
-#   poolId: string;
-#   poolAddress: string;
-#   poolShares: string;
-#   token0FinalAmount: string;
-#   token1FinalAmount: string;
-#   gasUsed: string;
-#   gasWanted: string;
-# }
             transaction_hash: str = order_result.get("txHash")
-            nonce: int = order_result.get("nonce")
-            await self._update_nonce(nonce)
             gas_price: Decimal = Decimal(order_result.get("gasPrice"))
             gas_limit: int = int(order_result.get("gasLimit"))
             gas_cost: Decimal = Decimal(order_result.get("gasCost"))
@@ -472,12 +459,11 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
 
                 tracked_order.update_exchange_order_id(transaction_hash)
-                # update poolId into tracked_order here?
-
                 tracked_order.gas_price = gas_price
+                tracked_order.token_id = int(order_result.get("tokenId"))
                 tracked_order.current_state = OrderState.OPEN
             if transaction_hash is not None:
-                tracked_order.nonce = nonce
+                tracked_order.nonce = 0
                 tracked_order.fee_tier = fee
                 tracked_order.fee_asset = self._native_currency
                 event_tag: MarketEvent = MarketEvent.RangePositionUpdate
@@ -554,8 +540,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 **request_args
             )
             transaction_hash: str = order_result.get("txHash")
-            nonce: int = order_result.get("nonce")
-            await self._update_nonce(nonce)
             gas_price: Decimal = Decimal(order_result.get("gasPrice"))
             gas_limit: int = int(order_result.get("gasLimit"))
             gas_cost: Decimal = Decimal(order_result.get("gasCost"))
@@ -571,7 +555,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 tracked_order.gas_price = gas_price
                 tracked_order.current_state = OrderState.OPEN
             if transaction_hash is not None:
-                tracked_order.nonce = nonce
+                tracked_order.nonce = 0
                 tracked_order.fee_asset = self._native_currency
                 event_tag: MarketEvent = MarketEvent.RangePositionUpdate
                 event_class: Type[RangePositionUpdateEvent] = RangePositionUpdateEvent
@@ -640,8 +624,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 **request_args
             )
             transaction_hash: str = order_result.get("txHash")
-            nonce: int = order_result.get("nonce")
-            await self._update_nonce(nonce)
             gas_price: Decimal = Decimal(order_result.get("gasPrice"))
             gas_limit: int = int(order_result.get("gasLimit"))
             gas_cost: Decimal = Decimal(order_result.get("gasCost"))
@@ -657,7 +639,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 tracked_order.gas_price = gas_price
                 tracked_order.current_state = OrderState.OPEN
             if transaction_hash is not None:
-                tracked_order.nonce = nonce
+                tracked_order.nonce = 0
                 tracked_order.fee_asset = self._native_currency
                 event_tag: MarketEvent = MarketEvent.RangePositionUpdate
                 event_class: Type[RangePositionUpdateEvent] = RangePositionUpdateEvent
@@ -721,59 +703,59 @@ class GatewayOsmosisAMMLP(ConnectorBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightLPOrder]):
-        """
-        Calls REST API to get status update for each in-flight token approval transaction.
-        """
-        if len(tracked_approvals) < 1:
-            return
-        tx_hash_list: List[str] = await safe_gather(*[
-            tracked_approval.get_exchange_order_id() for tracked_approval in tracked_approvals
-        ])
-        transaction_states: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            self._get_gateway_instance().get_transaction_status(
-                self.chain,
-                self.network,
-                tx_hash
-            )
-            for tx_hash in tx_hash_list
-        ], return_exceptions=True)
-        for tracked_approval, transaction_status in zip(tracked_approvals, transaction_states):
-            token_symbol: str = self.get_token_symbol_from_approval_order_id(tracked_approval.client_order_id)
-            if isinstance(transaction_status, Exception):
-                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
-                                    f"{transaction_status}")
-                continue
-            if "txHash" not in transaction_status:
-                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
-                                    "txHash key not found in transaction status.")
-                continue
-            if transaction_status["txStatus"] == 1:
-                if transaction_status["txReceipt"]["status"] == 1:
-                    self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
-                                       f"successful.")
-                    self.trigger_event(
-                        TokenApprovalEvent.ApprovalSuccessful,
-                        TokenApprovalSuccessEvent(
-                            self.current_timestamp,
-                            self.connector_name,
-                            token_symbol
-                        )
-                    )
-                    safe_ensure_future(self.update_allowances())
-                else:
-                    self.logger().warning(
-                        f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
-                    )
-                    self.trigger_event(
-                        TokenApprovalEvent.ApprovalFailed,
-                        TokenApprovalFailureEvent(
-                            self.current_timestamp,
-                            self.connector_name,
-                            token_symbol
-                        )
-                    )
-                self.stop_tracking_order(tracked_approval.client_order_id)
+    # async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightLPOrder]):
+        # """
+        # Calls REST API to get status update for each in-flight token approval transaction.
+        # """
+        # if len(tracked_approvals) < 1:
+        #     return
+        # tx_hash_list: List[str] = await safe_gather(*[
+        #     tracked_approval.get_exchange_order_id() for tracked_approval in tracked_approvals
+        # ])
+        # transaction_states: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+        #     self._get_gateway_instance().get_transaction_status(
+        #         self.chain,
+        #         self.network,
+        #         tx_hash
+        #     )
+        #     for tx_hash in tx_hash_list
+        # ], return_exceptions=True)
+        # for tracked_approval, transaction_status in zip(tracked_approvals, transaction_states):
+        #     token_symbol: str = self.get_token_symbol_from_approval_order_id(tracked_approval.client_order_id)
+        #     if isinstance(transaction_status, Exception):
+        #         self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
+        #                             f"{transaction_status}")
+        #         continue
+        #     if "txHash" not in transaction_status:
+        #         self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
+        #                             "txHash key not found in transaction status.")
+        #         continue
+        #     if transaction_status["txStatus"] == 1:
+        #         self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
+        #                             f"successful.")
+        #         self.trigger_event(
+        #             TokenApprovalEvent.ApprovalSuccessful,
+        #             TokenApprovalSuccessEvent(
+        #                 self.current_timestamp,
+        #                 self.connector_name,
+        #                 token_symbol
+        #             )
+        #         )
+        #         # safe_ensure_future(self.update_allowances())
+        #     elif transaction_status["txStatus"] != 0: # tx failed
+        #         self.logger().warning(
+        #             f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
+        #         )
+        #         self.trigger_event(
+        #             TokenApprovalEvent.ApprovalFailed,
+        #             TokenApprovalFailureEvent(
+        #                 self.current_timestamp,
+        #                 self.connector_name,
+        #                 token_symbol
+        #             )
+        #         )
+
+        #     self.stop_tracking_order(tracked_approval.client_order_id)
 
     async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightLPOrder]):
         """
@@ -803,36 +785,32 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                                     f"{update_result}.")
                 continue
             if update_result["txStatus"] == 1:
-                if update_result["txReceipt"]["status"] == 1:
-                    if tracked_order.current_state == OrderState.PENDING_CANCEL:
-                        if not self.is_approval_order(tracked_order):
-                            self.trigger_event(
-                                MarketEvent.OrderCancelled,
-                                OrderCancelledEvent(
-                                    self.current_timestamp,
-                                    tracked_order.client_order_id,
-                                    tracked_order.exchange_order_id,
-                                )
-                            )
-                            self.logger().info(f"The {tracked_order.lp_type.name} order "
-                                               f"{tracked_order.client_order_id} has been canceled "
-                                               f"according to the order status API.")
-                        elif self.is_approval_order(tracked_order):
-                            token_symbol: str = self.get_token_symbol_from_approval_order_id(
-                                tracked_order.client_order_id
-                            )
-                            self.trigger_event(
-                                TokenApprovalEvent.ApprovalCancelled,
-                                TokenApprovalCancelledEvent(
-                                    self.current_timestamp,
-                                    self.connector_name,
-                                    token_symbol
-                                )
-                            )
-                            self.logger().info(f"Token approval for {tracked_order.client_order_id} on "
-                                               f"{self.connector_name} has been canceled.")
-                        tracked_order.current_state = OrderState.CANCELED
-                    self.stop_tracking_order(tracked_order.client_order_id)
+                # if not self.is_approval_order(tracked_order):
+                self.trigger_event(
+                    MarketEvent.OrderCancelled,
+                    OrderCancelledEvent(
+                        self.current_timestamp,
+                        tracked_order.client_order_id,
+                        tracked_order.exchange_order_id,
+                    )
+                )
+                self.logger().info(f"The {tracked_order.lp_type.name} order {tracked_order.client_order_id} has been canceled according to the order status API.")
+                # elif self.is_approval_order(tracked_order):
+                #     token_symbol: str = self.get_token_symbol_from_approval_order_id(
+                #         tracked_order.client_order_id
+                #     )
+                #     self.trigger_event(
+                #         TokenApprovalEvent.ApprovalCancelled,
+                #         TokenApprovalCancelledEvent(
+                #             self.current_timestamp,
+                #             self.connector_name,
+                #             token_symbol
+                #         )
+                #     )
+                #     self.logger().info(f"Token approval for {tracked_order.client_order_id} on "
+                #                         f"{self.connector_name} has been canceled.")
+                tracked_order.current_state = OrderState.CANCELED
+                self.stop_tracking_order(tracked_order.client_order_id)
 
     async def update_order_status(self, tracked_orders: List[GatewayInFlightLPOrder]):
         """
@@ -868,99 +846,80 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                                     f"{update_result}.")
                 continue
 
-# export interface CosmosPollResponse {
-#   txHash: string;
-#   currentBlock: number;
-#   txBlock: number;
-#   gasUsed: number;
-#   gasWanted: number;
-#   txData: DecodedTxRaw | null;
-# }
-        # missing txStatus, txReceipt - can we pull from txData.body?
             if update_result["txStatus"] == 1:
-                if update_result["txReceipt"]["status"] == 1:
-                    gas_used: int = update_result["txReceipt"]["gasUsed"]
-                    gas_price: Decimal = tracked_order.gas_price
-                    fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
-                    tracked_order.fee_paid = fee
-                    if tracked_order.lp_type == LPType.ADD:
-                        token_id = int(list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "IncreaseLiquidity", update_result["txReceipt"]["logs"]))[0]["events"]))[0]["value"])
-                        self.logger().info(f"Liquidity added for position with ID {token_id}.")
+                gas_used: int = update_result["gasUsed"]
+                gas_price: Decimal = tracked_order.gas_price
+                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                tracked_order.fee_paid = fee
+                token_id = update_result["tokenId"]
+                if tracked_order.lp_type == LPType.ADD:
+                    self.logger().info(f"Liquidity added for position with ID {token_id}.")
+                    self.trigger_event(
+                        MarketEvent.RangePositionLiquidityAdded,
+                        RangePositionLiquidityAddedEvent(
+                            timestamp=self.current_timestamp,
+                            order_id=tracked_order.client_order_id,
+                            exchange_order_id=tracked_order.exchange_order_id,
+                            trading_pair=tracked_order.trading_pair,
+                            lower_price=Decimal(str(tracked_order.lower_price)),
+                            upper_price=Decimal(str(tracked_order.upper_price)),
+                            amount=Decimal(str(tracked_order.amount)),
+                            fee_tier=tracked_order.fee_tier,
+                            creation_timestamp=tracked_order.creation_timestamp,
+                            trade_fee=AddedToCostTradeFee(
+                                flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                            ),
+                            token_id=token_id,
+                        )
+                    )
+
+                    if not self.token_id_exists(token_id):
+                        tracked_order.current_state = OrderState.CREATED
+                        tracked_order.token_id = token_id
+                        continue
+
+                    tracked_order.current_state = OrderState.COMPLETED
+                else:
+                    if not update_result["isCollectFees"]:
+                        tracked_order.token_id = token_id
+                        self.logger().info(f"Liquidity removed for position with ID {token_id}.")
                         self.trigger_event(
-                            MarketEvent.RangePositionLiquidityAdded,
-                            RangePositionLiquidityAddedEvent(
+                            MarketEvent.RangePositionLiquidityRemoved,
+                            RangePositionLiquidityRemovedEvent(
                                 timestamp=self.current_timestamp,
                                 order_id=tracked_order.client_order_id,
                                 exchange_order_id=tracked_order.exchange_order_id,
                                 trading_pair=tracked_order.trading_pair,
-                                lower_price=Decimal(str(tracked_order.lower_price)),
-                                upper_price=Decimal(str(tracked_order.upper_price)),
-                                amount=Decimal(str(tracked_order.amount)),
-                                fee_tier=tracked_order.fee_tier,
+                                creation_timestamp=tracked_order.creation_timestamp,
+                                token_id=token_id,
+                                trade_fee=AddedToCostTradeFee(
+                                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
+                                ),
+                            )
+                        )
+                    if update_result["isCollectFees"]:
+                        tracked_order.token_id = token_id
+                        self.logger().info(f"Unclaimed fees collected for position with ID {token_id}.")
+                        self.trigger_event(
+                            MarketEvent.RangePositionFeeCollected,
+                            RangePositionFeeCollectedEvent(
+                                timestamp=self.current_timestamp,
+                                order_id=tracked_order.client_order_id,
+                                exchange_order_id=tracked_order.exchange_order_id,
+                                trading_pair=tracked_order.trading_pair,
+                                token_id=token_id,
                                 creation_timestamp=tracked_order.creation_timestamp,
                                 trade_fee=AddedToCostTradeFee(
                                     flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
                                 ),
-                                token_id=token_id,
                             )
                         )
-
-                        if not self.token_id_exists(token_id):
-                            tracked_order.current_state = OrderState.CREATED
-                            tracked_order.token_id = token_id
-                            continue
-
-                        tracked_order.current_state = OrderState.COMPLETED
-                    else:
-                        reduce_evt = list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "DecreaseLiquidity", update_result["txReceipt"]["logs"]))[0]["events"])) if tracked_order.lp_type == LPType.REMOVE else []
-                        collect_evt = list(filter(lambda evt: evt["name"] == "tokenId", list(filter(lambda log: log["name"] == "Collect", update_result["txReceipt"]["logs"]))[0]["events"]))
-                        if len(reduce_evt) > 0:
-                            token_id = int(reduce_evt[0]["value"])
-                            tracked_order.token_id = token_id
-                            self.logger().info(f"Liquidity removed for position with ID {token_id}.")
-                            self.trigger_event(
-                                MarketEvent.RangePositionLiquidityRemoved,
-                                RangePositionLiquidityRemovedEvent(
-                                    timestamp=self.current_timestamp,
-                                    order_id=tracked_order.client_order_id,
-                                    exchange_order_id=tracked_order.exchange_order_id,
-                                    trading_pair=tracked_order.trading_pair,
-                                    creation_timestamp=tracked_order.creation_timestamp,
-                                    token_id=token_id,
-                                    trade_fee=AddedToCostTradeFee(
-                                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                                    ),
-                                )
-                            )
-                        if len(collect_evt) > 0:
-                            token_id = int(collect_evt[0]["value"])
-                            tracked_order.token_id = token_id
-                            self.logger().info(f"Unclaimed fees collected for position with ID {token_id}.")
-                            self.trigger_event(
-                                MarketEvent.RangePositionFeeCollected,
-                                RangePositionFeeCollectedEvent(
-                                    timestamp=self.current_timestamp,
-                                    order_id=tracked_order.client_order_id,
-                                    exchange_order_id=tracked_order.exchange_order_id,
-                                    trading_pair=tracked_order.trading_pair,
-                                    token_id=token_id,
-                                    creation_timestamp=tracked_order.creation_timestamp,
-                                    trade_fee=AddedToCostTradeFee(
-                                        flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                                    ),
-                                )
-                            )
-                        tracked_order.current_state = OrderState.COMPLETED
-                else:
-                    self.logger().info(
-                        f"The LP update order {tracked_order.client_order_id} has failed according to order status API. ")
-                    self.trigger_event(MarketEvent.RangePositionUpdateFailure,
-                                       RangePositionUpdateFailureEvent(
-                                           self.current_timestamp,
-                                           tracked_order.client_order_id,
-                                           tracked_order.lp_type
-                                       ))
-                self.stop_tracking_order(tracked_order.client_order_id)
+                    tracked_order.current_state = OrderState.COMPLETED
+            elif update_result["txStatus"] != 0:  # tx failed
+                self.logger().info(
+                    f"The LP update order {tracked_order.client_order_id} has failed according to order status API. ")
+                self.trigger_event(MarketEvent.RangePositionUpdateFailure, RangePositionUpdateFailureEvent(self.current_timestamp, tracked_order.client_order_id, tracked_order.lp_type))
+            self.stop_tracking_order(tracked_order.client_order_id)
 
     async def update_nft(self, tracked_orders: List[GatewayInFlightLPOrder]):
         """
@@ -977,12 +936,15 @@ class GatewayOsmosisAMMLP(ConnectorBase):
             len(nft_orders)
         )
 
+        for token_id in token_id_list:
+            print(str(token_id))
         nft_update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             self._get_gateway_instance().amm_lp_position(
                 self.chain,
                 self.network,
                 self.connector_name,
                 token_id,
+                self.address,
             )
             for token_id in token_id_list
         ], return_exceptions=True)
@@ -1044,18 +1006,26 @@ class GatewayOsmosisAMMLP(ConnectorBase):
     def ready(self):
         return all(self.status_dict.values())
 
-    def has_allowances(self) -> bool:
-        """
-        Checks if all tokens have allowance (an amount approved)
-        """
-        return ((len(self._allowances.values()) == len(self._tokens) * len(self._all_spenders)) and
-                (all(amount > s_decimal_0 for amount in self._allowances.values())))
+    # def has_allowances(self) -> bool:
+    #     """
+    #     Checks if all tokens have allowance (an amount approved)
+    #     """
+    #     return ((len(self._allowances.values()) == len(self._tokens) * len(self._all_spenders)) and
+    #             (all(amount > s_decimal_0 for amount in self._allowances.values())))
 
     @property
     def status_dict(self) -> Dict[str, bool]:
+        # print('len(self._account_balances) > 0')
+        # print(str(len(self._account_balances) > 0))
+        # print('self._trading_required')
+        # print(str(self._trading_required))
+        # print('self._native_currency')
+        # print(str(self._native_currency))
+        # print(str(self._native_currency is not None))
+        # print('self.network_transaction_fee is not None: ' + str(self.network_transaction_fee is not None))
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True,
+            "allowances": True,
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }
@@ -1063,7 +1033,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
+            # self._auto_approve_task = safe_ensure_future(self.auto_approve())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
@@ -1100,16 +1070,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
 
-    async def _update_nonce(self, new_nonce: Optional[int] = None):
-        """
-        Call the gateway API to get the current nonce for self.address
-        """
-        if not new_nonce:
-            resp_json: Dict[str, Any] = await self._get_gateway_instance().get_evm_nonce(self.chain, self.network, self.address)
-            new_nonce: int = resp_json.get("nonce")
-
-        self._nonce = new_nonce
-
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)
         while True:
@@ -1119,7 +1079,7 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 await safe_gather(
                     self.update_balances(on_interval=True),
                     self.update_canceling_transactions(self.canceling_orders),
-                    self.update_token_approval_status(self.approval_orders),
+                    # self.update_token_approval_status(self.approval_orders),
                     self.update_order_status(self.amm_lp_orders),
                     self.update_nft(self.amm_lp_orders)
                 )
