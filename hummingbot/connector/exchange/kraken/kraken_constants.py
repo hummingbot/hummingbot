@@ -8,6 +8,8 @@ DEFAULT_DOMAIN = "kraken"
 MAX_ORDER_ID_LEN = 32
 HBOT_ORDER_ID_PREFIX = "HBOT"
 
+MAX_ID_BIT_COUNT = 31
+
 
 class KrakenAPITier(Enum):
     """

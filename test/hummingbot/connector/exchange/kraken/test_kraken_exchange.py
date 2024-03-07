@@ -12,15 +12,15 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_web_utils as web_utils
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
-from hummingbot.connector.exchange.kraken.kraken_in_fight_order import KrakenInFlightOrder
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.connector.utils import get_new_numeric_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.tracking_nonce import NonceCreator
 
 
 class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -37,7 +37,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.ex_base_asset + cls.quote_asset
         cls.ws_ex_trading_pairs = cls.ex_base_asset + "/" + cls.quote_asset
-        cls._userref = 0
 
     @property
     def all_symbols_url(self):
@@ -682,7 +681,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "starttm": "0.000000",
                         "status": "open",
                         "stopprice": "0.000000",
-                        "userref": 0,
+                        "userref": order.client_order_id,
                         "vol": str(order.amount, ),
                         "vol_exec": "0.00000000"
                     }
@@ -721,7 +720,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "starttm": "0.000000",
                         "status": "canceled",
                         "stopprice": "0.000000",
-                        "userref": 0,
+                        "userref": order.client_order_id,
                         "vol": "10.00345345",
                         "vol_exec": "0.00000000"
                     }
@@ -760,7 +759,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "starttm": "0.000000",
                         "status": "closed",
                         "stopprice": "0.000000",
-                        "userref": 0,
+                        "userref": order.client_order_id,
                         "vol": order.amount,
                         "vol_exec": "0.00000000"
                     }
@@ -787,6 +786,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "price": str(order.price),
                         "time": "1560516023.070651",
                         "type": "sell",
+                        "userref": order.client_order_id,
                         "vol": str(order.amount)
                     }
                 }
@@ -852,7 +852,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
             amount=Decimal("1"),
-            userref=0,
         )
         order = self.exchange.in_flight_orders["OID1"]
 
@@ -862,7 +861,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         order_status = {
             order.exchange_order_id: {
                 "refid": "None",
-                "userref": 0,
+                "userref": order.client_order_id,
                 "status": "expired",
                 "opentm": 1499827319.559,
                 "starttm": 0,
@@ -908,22 +907,16 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "misc_updates=None)")
         )
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce")
-    def test_client_order_id_on_order(self, mocked_nonce):
-        mocked_nonce.return_value = 7
-
+    @patch("hummingbot.connector.exchange.kraken.kraken_exchange.get_new_numeric_client_order_id")
+    def test_client_order_id_on_order(self, mock_ts):
+        mock_ts.return_value = 7
         result = self.exchange.buy(
             trading_pair=self.trading_pair,
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             price=Decimal("2"),
         )
-        expected_client_order_id = get_new_client_order_id(
-            is_buy=True,
-            trading_pair=self.trading_pair,
-            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
-        )
+        expected_client_order_id = str(7)
 
         self.assertEqual(result, expected_client_order_id)
 
@@ -933,12 +926,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order_type=OrderType.LIMIT,
             price=Decimal("2"),
         )
-        expected_client_order_id = get_new_client_order_id(
-            is_buy=False,
-            trading_pair=self.trading_pair,
-            hbot_order_id_prefix=CONSTANTS.HBOT_ORDER_ID_PREFIX,
-            max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
-        )
+        expected_client_order_id = str(7)
 
         self.assertEqual(result, expected_client_order_id)
 
@@ -950,68 +938,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertIn("API-Sign", request_headers)
         self.assertIn("API-Key", request_headers)
         self.assertEqual("someKey", request_headers["API-Key"])
-
-    def test_restore_tracking_states_only_registers_open_orders(self):
-        orders = []
-        orders.append(KrakenInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "1",
-            exchange_order_id=str(self.expected_exchange_order_id),
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            userref=self._userref
-        ))
-        orders.append(KrakenInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "2",
-            exchange_order_id=self.exchange_order_id_prefix + "2",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELED,
-            userref=self._userref
-
-        ))
-        orders.append(KrakenInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "3",
-            exchange_order_id=self.exchange_order_id_prefix + "3",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED,
-            userref=self._userref
-
-        ))
-        orders.append(KrakenInFlightOrder(
-            client_order_id=self.client_order_id_prefix + "4",
-            exchange_order_id=self.exchange_order_id_prefix + "4",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FAILED,
-            userref=self._userref
-
-        ))
-
-        tracking_states = {order.client_order_id: order.to_json() for order in orders}
-
-        self.exchange.restore_tracking_states(tracking_states)
-
-        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
-        self.assertNotIn(self.client_order_id_prefix + "2", self.exchange.in_flight_orders)
-        self.assertNotIn(self.client_order_id_prefix + "3", self.exchange.in_flight_orders)
-        self.assertNotIn(self.client_order_id_prefix + "4", self.exchange.in_flight_orders)
 
     def get_asset_pairs_mock(self) -> Dict:
         asset_pairs = {
@@ -1156,7 +1082,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "result": {
                 order.exchange_order_id: {
                     "refid": "None",
-                    "userref": 0,
+                    "userref": order.client_order_id,
                     "status": "closed",
                     "opentm": 1688666559.8974,
                     "starttm": 0,
@@ -1182,7 +1108,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "result": {
                 order.exchange_order_id: {
                     "refid": "None",
-                    "userref": 0,
+                    "userref": order.client_order_id,
                     "status": "canceled",
                     "opentm": 1688666559.8974,
                     "starttm": 0,
@@ -1206,7 +1132,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return {
             order.exchange_order_id: {
                 "refid": "None",
-                "userref": 0,
+                "userref": order.client_order_id,
                 "status": "open",
                 "opentm": 1688666559.8974,
                 "starttm": 0,
@@ -1229,7 +1155,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return {
             order.exchange_order_id: {
                 "refid": "None",
-                "userref": 0,
+                "userref": order.client_order_id,
                 "status": "open",
                 "opentm": 1688666559.8974,
                 "starttm": 0,
