@@ -120,6 +120,14 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
+    @validator("time_limit", "stop_loss", "take_profit", pre=True, always=True)
+    def validate_target(cls, v):
+        if isinstance(v, str):
+            if v == "":
+                return None
+            return Decimal(v)
+        return v
+
     @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
