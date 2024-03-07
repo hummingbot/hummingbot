@@ -2,7 +2,7 @@ from typing import List
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
-from pydantic import Field
+from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
@@ -16,6 +16,18 @@ from hummingbot.smart_components.controllers.directional_trading_controller_base
 class BollingerV1ControllerConfig(DirectionalTradingControllerConfigBase):
     controller_name = "bollinger_v1"
     candles_config: List[CandlesConfig] = []
+    candles_connector: str = Field(
+        default=None,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ", )
+    )
+    candles_trading_pair: str = Field(
+        default=None,
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ", )
+    )
     interval: str = Field(
         default="3m",
         client_data=ClientFieldData(
@@ -42,6 +54,18 @@ class BollingerV1ControllerConfig(DirectionalTradingControllerConfigBase):
             prompt=lambda mi: "Enter the Bollinger Bands short threshold: ",
             prompt_on_new=True))
 
+    @validator("candles_connector", pre=True, always=True)
+    def set_candles_connector(cls, v, values):
+        if v is None or v == "":
+            return values.get("connector_name")
+        return v
+
+    @validator("candles_trading_pair", pre=True, always=True)
+    def set_candles_trading_pair(cls, v, values):
+        if v is None or v == "":
+            return values.get("trading_pair")
+        return v
+
 
 class BollingerV1Controller(DirectionalTradingControllerBase):
 
@@ -50,8 +74,8 @@ class BollingerV1Controller(DirectionalTradingControllerBase):
         self.max_records = self.config.bb_length
         if len(self.config.candles_config) == 0:
             self.config.candles_config = [CandlesConfig(
-                connector=config.connector_name,
-                trading_pair=config.trading_pair,
+                connector=config.candles_connector,
+                trading_pair=config.candles_trading_pair,
                 interval=config.interval,
                 max_records=self.max_records
             )]
@@ -61,8 +85,8 @@ class BollingerV1Controller(DirectionalTradingControllerBase):
         return self.get_processed_data()["signal"].iloc[-1]
 
     def get_processed_data(self) -> pd.DataFrame:
-        df = self.market_data_provider.get_candles_df(connector_name=self.config.connector_name,
-                                                      trading_pair=self.config.trading_pair,
+        df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
+                                                      trading_pair=self.config.candles_trading_pair,
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
         # Add indicators
