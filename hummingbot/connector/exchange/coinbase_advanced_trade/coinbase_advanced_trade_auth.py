@@ -268,7 +268,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
     def _secret_key_pem(self) -> str:
         # Remove any leading or trailing whitespace
-        private_key_base64 = self.secret_key.strip()
+        private_key_base64 = self.secret_key.strip().replace("\\n", "\n")
 
         if private_key_base64.startswith("-----"):
             # The key is already in PEM format
