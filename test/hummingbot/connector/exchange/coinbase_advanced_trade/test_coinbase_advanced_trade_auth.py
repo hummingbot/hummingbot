@@ -9,7 +9,7 @@ import aiohttp
 from aioresponses import aioresponses
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ec
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
@@ -20,10 +20,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
-# Generate a dummy private key
-private_key = rsa.generate_private_key(
-    public_exponent=65537,
-    key_size=2048,
+# This is the algorithm used by Coinbase Advanced Trade
+private_key = ec.generate_private_key(
+    ec.SECP256R1(),  # This is equivalent to ES256
     backend=default_backend()
 )
 
@@ -189,7 +188,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.auth.secret_key = pem_private_key_str
         mock_encode.return_value = 'test_jwt_token'
         result = self.auth._build_jwt(service='test_service', uri='test_uri')
-        self.assertEqual(result, 'test_jwt_token')
+        self.assertEqual('test_jwt_token', result, )
         mock_encode.assert_called_once()
 
     def test_build_jwt_invalid_secret_key(self):
