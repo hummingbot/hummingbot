@@ -12,7 +12,6 @@ from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source impo
 from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
-from hummingbot.connector.exchange.kraken.kraken_in_fight_order import KrakenInFlightOrder
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     build_rate_limits_by_tier,
     convert_from_exchange_symbol,
@@ -20,7 +19,7 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.connector.utils import get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -29,6 +28,7 @@ from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -59,8 +59,8 @@ class KrakenExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
         self._asset_pairs = {}
-        self._last_userref = 0
         self._client_config = client_config_map
+        self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
         self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
 
         super().__init__(client_config_map)
@@ -201,10 +201,6 @@ class KrakenExchange(ExchangePyBase):
         kwargs["method"] = RESTMethod.DELETE
         return await self._api_request_with_retry(*args, **kwargs)
 
-    def generate_userref(self):
-        self._last_userref += 1
-        return self._last_userref
-
     @staticmethod
     def is_cloudflare_exception(exception: Exception):
         """
@@ -238,21 +234,17 @@ class KrakenExchange(ExchangePyBase):
 
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = get_new_client_order_id(
-            is_buy=True,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=self.client_order_id_prefix,
-            max_id_len=self.client_order_id_max_length
-        )
-        userref = self.generate_userref()
+        order_id = str(get_new_numeric_client_order_id(
+            nonce_creator=self._client_order_id_nonce_provider,
+            max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
+        ))
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
             order_id=order_id,
             trading_pair=trading_pair,
             amount=amount,
             order_type=order_type,
-            price=price,
-            userref=userref))
+            price=price))
         return order_id
 
     def sell(self,
@@ -269,21 +261,17 @@ class KrakenExchange(ExchangePyBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        order_id = get_new_client_order_id(
-            is_buy=False,
-            trading_pair=trading_pair,
-            hbot_order_id_prefix=self.client_order_id_prefix,
-            max_id_len=self.client_order_id_max_length
-        )
-        userref = self.generate_userref()
+        order_id = str(get_new_numeric_client_order_id(
+            nonce_creator=self._client_order_id_nonce_provider,
+            max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
+        ))
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
             order_id=order_id,
             trading_pair=trading_pair,
             amount=amount,
             order_type=order_type,
-            price=price,
-            userref=userref))
+            price=price))
         return order_id
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
@@ -295,50 +283,6 @@ class KrakenExchange(ExchangePyBase):
                                  web_utils.is_exchange_information_valid(details)}
         return self._asset_pairs
 
-    def start_tracking_order(self,
-                             order_id: str,
-                             exchange_order_id: Optional[str],
-                             trading_pair: str,
-                             trade_type: TradeType,
-                             price: Decimal,
-                             amount: Decimal,
-                             order_type: OrderType,
-                             **kwargs):
-        """
-        Starts tracking an order by adding it to the order tracker.
-
-        :param order_id: the order identifier
-        :param exchange_order_id: the identifier for the order in the exchange
-        :param trading_pair: the token pair for the operation
-        :param trade_type: the type of order (buy or sell)
-        :param price: the price for the order
-        :param amount: the amount for the order
-        :param order_type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
-        """
-        userref = kwargs.get("userref", 0)
-        self._order_tracker.start_tracking_order(
-            KrakenInFlightOrder(
-                client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
-                trading_pair=trading_pair,
-                order_type=order_type,
-                trade_type=trade_type,
-                amount=amount,
-                price=price,
-                creation_timestamp=self.current_timestamp,
-                userref=userref,
-            )
-        )
-
-    def restore_tracking_states(self, saved_states: Dict[str, Any]):
-        for serialized_order in saved_states.values():
-            order = KrakenInFlightOrder.from_json(serialized_order)
-            if order.is_open:
-                self._order_tracker._in_flight_orders[order.client_order_id] = order
-            elif order.is_failure:
-                # If the order is marked as failed but is still in the tracking states, it was a lost order
-                self._order_tracker._lost_orders[order.client_order_id] = order
-            self._last_userref = max(int(order.userref), self._last_userref)
 
     async def _place_order(self,
                            order_id: str,
@@ -348,14 +292,13 @@ class KrakenExchange(ExchangePyBase):
                            order_type: OrderType,
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
-        userref = kwargs.get("userref", 0)
         trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         data = {
             "pair": trading_pair,
             "type": "buy" if trade_type is TradeType.BUY else "sell",
             "ordertype": "market" if order_type is OrderType.MARKET else "limit",
             "volume": str(amount),
-            "userref": userref,
+            "userref": order_id,
             "price": str(price)
         }
 
@@ -560,22 +503,11 @@ class KrakenExchange(ExchangePyBase):
             trade: Dict[str, str] = update[trade_id]
             trade["trade_id"] = trade_id
             exchange_order_id = trade.get("ordertxid")
-            _userref = trade.get("userref")
-            tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+            client_order_id = str(trade.get("userref",""))
+            tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
             if not tracked_order:
-                all_orders = self._order_tracker.all_fillable_orders
-                for k, v in all_orders.items():
-                    if v.userref == _userref:
-                        tracked_order = v
-                        break
-                if not tracked_order:
-                    self.logger().debug(f"Ignoring trade message with id {exchange_order_id}: not in in_flight_orders.")
-                else:
-                    trade_update = self._create_trade_update_with_order_fill_data(
-                        order_fill=trade,
-                        order=tracked_order)
-                    self._order_tracker.process_trade_update(trade_update)
+                self.logger().debug(f"Ignoring trade message with id {exchange_order_id}: not in in_flight_orders.")
             else:
                 trade_update = self._create_trade_update_with_order_fill_data(
                     order_fill=trade,
@@ -596,7 +528,8 @@ class KrakenExchange(ExchangePyBase):
         update = orders[0]
         for message in update:
             for exchange_order_id, order_msg in message.items():
-                tracked_order = self._order_tracker.all_updatable_orders_by_exchange_order_id.get(exchange_order_id)
+                client_order_id = str(order_msg.get("userref",""))
+                tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                 if not tracked_order:
                     self.logger().debug(
                         f"Ignoring order message with id {order_msg}: not in in_flight_orders.")
