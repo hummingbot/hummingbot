@@ -2,10 +2,12 @@ import hashlib
 import hmac
 import logging
 import secrets
+import textwrap
 from typing import Dict
 
 import coinbase.constants
 import jwt
+from coinbase import jwt_generator
 from cryptography.hazmat.primitives import serialization
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -113,12 +115,14 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         :returns: the authenticated request
         """
-        uri: str = f'{request.method} {request.url}'
+        endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
+        jwt_uri = jwt_generator.format_jwt_uri(request.method, endpoint)
 
         try:
+            token = self._build_jwt(coinbase.constants.REST_SERVICE, jwt_uri)
             headers: Dict = dict(request.headers or {}) | {
                 "content-type": 'application/json',
-                "Authorization": f"Bearer {self._build_jwt(coinbase.constants.REST_SERVICE, uri)}",
+                "Authorization": f"Bearer {token}",
                 "User-Agent": coinbase.constants.USER_AGENT,
             }
         except ValueError as e:
@@ -228,16 +232,16 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
     def _build_jwt(self, service, uri=None) -> str:
         """
-        THis is extracted from Coinbase SDK because it relies upon 'time' rather than the eim synchronizer
+        This is extracted from Coinbase SDK because it relies upon 'time' rather than the eim synchronizer
         """
         try:
-            private_key_bytes = self.secret_key.encode("utf-8")
+            private_key_bytes = self._secret_key_pem().encode("utf-8")
             private_key = serialization.load_pem_private_key(
                 private_key_bytes, password=None
             )
         except ValueError as e:
             # This handles errors like incorrect key format
-            self.logger().warning("The API key you provided does not seem to be an Coinbase Cloud API key.")
+            self.logger().warning("The API key you provided does not seem to be a Coinbase Cloud API key.")
             raise e
 
         time_: int = int(self.time_provider.time())
@@ -261,3 +265,20 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         self.logger().debug(f"JWT token: {jwt_token}")
 
         return jwt_token
+
+    def _secret_key_pem(self) -> str:
+        # Remove any leading or trailing whitespace
+        private_key_base64 = self.secret_key.strip()
+
+        if private_key_base64.startswith("-----"):
+            # The key is already in PEM format
+            return private_key_base64
+
+        # Wrap the base64-encoded key into lines of 64 characters
+        wrapped_key = textwrap.wrap(private_key_base64, width=64)
+
+        return (
+            "-----BEGIN" + " EC " + "PRIVATE" + " KEY-----\n"
+            + "\n".join(wrapped_key)
+            + "\n-----END EC PRIVATE KEY-----\n"
+        )
