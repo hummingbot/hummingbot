@@ -1,7 +1,12 @@
 import hashlib
 import hmac
 import logging
+import secrets
 from typing import Dict
+
+import coinbase.constants
+import jwt
+from cryptography.hazmat.primitives import serialization
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -48,6 +53,17 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
+        This method is intended to configure a REST request to be authenticated.
+        :param request: the request to be configured for authenticated interaction
+        """
+        try:
+            return await self.rest_jwt_authenticate(request)
+        except ValueError:
+            self.logger().warning("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
+            return await self.rest_legacy_authenticate(request)
+
+    async def rest_legacy_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
         Adds the server time and the signature to the request, required for authenticated interactions. It also adds
         the required parameter in the request header.
 
@@ -85,7 +101,46 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         return request
 
+    async def rest_jwt_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
+        Adds the JWT header to the rest request.
+
+        All JWT REST requests must contain the JWT Authorization in headers:
+
+        Example request:
+        curl https://api.coinbase.com/v2/user --header "Authorization: Bearer $JWT"
+
+        :param request: the request to be configured for authenticated interaction
+        :returns: the authenticated request
+        """
+        uri: str = f'{request.method} {request.url}'
+
+        try:
+            headers: Dict = dict(request.headers or {}) | {
+                "content-type": 'application/json',
+                "Authorization": f"Bearer {self._build_jwt(coinbase.constants.REST_SERVICE, uri)}",
+                "User-Agent": coinbase.constants.USER_AGENT,
+            }
+        except ValueError as e:
+            raise e
+
+        request.headers = headers
+
+        return request
+
     async def ws_authenticate(self, request: WSJSONRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated.
+        :param request: the request to be configured for authenticated interaction
+        """
+
+        try:
+            return await self.ws_jwt_authenticate(request)
+        except ValueError:
+            self.logger().warning("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
+            return await self.ws_legacy_authenticate(request)
+
+    async def ws_legacy_authenticate(self, request: WSJSONRequest) -> WSRequest:
         """
         This method is intended to configure a websocket request to be authenticated.
         :param request: the request to be configured for authenticated interaction
@@ -124,6 +179,43 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         return request
 
+    async def ws_jwt_authenticate(self, request: WSJSONRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated.
+        :param request: the request to be configured for authenticated interaction
+        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-overview
+        {
+            "type": "subscribe",
+            "product_ids": [
+                "ETH-USD",
+                "ETH-EUR"
+            ],
+            "channel": "level2",
+            "jwt": "exampleJWT",
+            "timestamp": 1660838876,
+        }
+        To subscribe to any channel, users must provide a channel name, api_key, timestamp, and signature:
+            channel name as a string. You can only subscribe to one channel at a time.
+            timestamp should be a string in UNIX format. Example: "1677527973".
+            signature should be created by:
+        Concatenating and comma-separating the timestamp, channel name, and product Ids, for example: 1660838876level2ETH-USD,ETH-EUR.
+        Signing the above message with the passphrase and base64-encoding the signature.
+        """
+        timestamp: int = int(self.time_provider.time())
+
+        try:
+            payload: Dict = dict(request.payload or {}) | {
+                "jwt": self._build_jwt(coinbase.constants.WS_SERVICE),
+                "timestamp": timestamp,
+            }
+            request.payload = payload
+        except ValueError as e:
+            raise e
+
+        self.logger().debug(f"ws_authenticate payload: {payload}")
+
+        return request
+
     def _generate_signature(self, *, message: str) -> str:
         """
         Generates an HMAC SHA256 signature from a message and the API secret key.
@@ -133,3 +225,39 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         digest: str = hmac.new(self.secret_key.encode("utf8"), message.encode("utf8"), hashlib.sha256).digest().hex()
         return digest
+
+    def _build_jwt(self, service, uri=None) -> str:
+        """
+        THis is extracted from Coinbase SDK because it relies upon 'time' rather than the eim synchronizer
+        """
+        try:
+            private_key_bytes = self.secret_key.encode("utf-8")
+            private_key = serialization.load_pem_private_key(
+                private_key_bytes, password=None
+            )
+        except ValueError as e:
+            # This handles errors like incorrect key format
+            self.logger().warning("The API key you provided does not seem to be an Coinbase Cloud API key.")
+            raise e
+
+        time_: int = int(self.time_provider.time())
+        jwt_data = {
+            "sub": self.api_key,
+            "iss": "coinbase-cloud",
+            "nbf": time_,
+            "exp": time_ + 120,
+            "aud": [service],
+        }
+
+        if uri:
+            jwt_data["uri"] = uri
+
+        jwt_token = jwt.encode(
+            jwt_data,
+            private_key,
+            algorithm="ES256",
+            headers={"kid": self.api_key, "nonce": secrets.token_hex()},
+        )
+        self.logger().debug(f"JWT token: {jwt_token}")
+
+        return jwt_token
