@@ -88,8 +88,8 @@ class PMMDynamicController(MarketMakingControllerBase):
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
-        candles = self.market_data_provider.get_candles_df(connector_name=self.config.connector_name,
-                                                           trading_pair=self.config.trading_pair,
+        candles = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
+                                                           trading_pair=self.config.candles_trading_pair,
                                                            interval=self.config.interval,
                                                            max_records=self.max_records)
         natr = ta.natr(candles["high"], candles["low"], candles["close"], length=self.config.natr_length) / 100
