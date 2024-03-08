@@ -217,3 +217,38 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual('ES256', kwargs['algorithm'], )
         self.assertEqual(self.auth.api_key, kwargs['headers']['kid'])
         self.assertTrue(isinstance(kwargs['headers']['nonce'], str))
+
+    def test_secret_key_pem_already_in_pem_format(self):
+        self.auth.secret_key = ("-----BEGIN EC PRIVATE "
+                                "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr"
+                                "\nivate_key_\n-----END EC PRIVATE"
+                                " KEY-----\n")
+        # The key is fake, it will fail the serialization attempt
+        with self.assertRaises(ValueError):
+            self.assertEqual(self.auth._secret_key_pem(), self.auth.secret_key.strip())
+
+    def test_secret_key_pem_in_base64_format(self):
+        self.auth.secret_key = "_private_key__private_key_private_key_private_key_private_key_private_key_"
+        expected_output = ("-----BEGIN EC PRIVATE "
+                           "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
+                           "-----END EC PRIVATE"
+                           " KEY-----")
+        # The key is fake, it will fail the serialization attempt
+        with self.assertRaises(ValueError):
+            self.assertEqual(self.auth._secret_key_pem(), expected_output)
+
+    def test_secret_key_pem_in_single_line_pem_format(self):
+        self.auth.secret_key = ("-----BEGIN EC PRIVATE "
+                                "KEY-----_private_key__private_key_private_key_private_key_private_key_private_key_"
+                                "-----END EC PRIVATE"
+                                " KEY-----")
+        expected_output = ("-----BEGIN EC PRIVATE "
+                           "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
+                           "-----END EC PRIVATE"
+                           " KEY-----")
+        with self.assertRaises(ValueError):
+            self.assertEqual(self.auth._secret_key_pem(), expected_output)
+
+    def test_valid_secret_key_pem_in_base64_format(self):
+        self.auth.secret_key = pem_private_key_str
+        self.auth._secret_key_pem()

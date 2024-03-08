@@ -1,3 +1,4 @@
+import binascii
 import hashlib
 import hmac
 import logging
@@ -8,6 +9,7 @@ from typing import Dict
 import coinbase.constants
 import jwt
 from coinbase import jwt_generator
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -267,18 +269,51 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         return jwt_token
 
     def _secret_key_pem(self) -> str:
-        # Remove any leading or trailing whitespace
+        """
+        Converts the secret key to PEM format.
+        Comprehends keys in PEM format, single-line PEM and base64-encoded keys.
+        """
+        # Remove any leading or trailing whitespace and replace \\n with \n
         private_key_base64 = self.secret_key.strip().replace("\\n", "\n")
 
-        if private_key_base64.startswith("-----"):
-            # The key is already in PEM format
+        # If the key is already in PEM format with \n, return it
+        if private_key_base64.startswith("-----") and "\n" in private_key_base64:
+            try:
+                # Try to load the key to validate its structure
+                serialization.load_pem_private_key(
+                    private_key_base64.encode(),
+                    password=None,
+                    backend=default_backend()
+                )
+            except ValueError:
+                raise ValueError("The secret key is not a valid PEM key.")
             return private_key_base64
+
+        # Remove the BEGIN and END lines
+        private_key_base64 = private_key_base64.replace("-----BEGIN EC PRIVATE" + " KEY-----", "").replace("-----END EC PRIVATE" + " KEY-----", "").strip()
+
+        # Verify that the key is a correct base64 string
+        try:
+            binascii.a2b_base64(private_key_base64)
+        except binascii.Error:
+            raise ValueError("The secret key is not a valid base64 string.")
 
         # Wrap the base64-encoded key into lines of 64 characters
         wrapped_key = textwrap.wrap(private_key_base64, width=64)
 
-        return (
+        private_key_base64 = (
             "-----BEGIN" + " EC " + "PRIVATE" + " KEY-----\n"
             + "\n".join(wrapped_key)
-            + "\n-----END EC PRIVATE KEY-----\n"
+            + "\n-----END" + " EC " + "PRIVATE" + " KEY-----"
         )
+
+        try:
+            # Try to load the key to validate its structure
+            serialization.load_pem_private_key(
+                private_key_base64.encode(),
+                password=None,
+                backend=default_backend()
+            )
+        except ValueError:
+            raise ValueError("The secret key is not a valid PEM key.")
+        return private_key_base64
