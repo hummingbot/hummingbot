@@ -58,7 +58,7 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             prompt=lambda mi: "Enter the Bollinger Bands short threshold: ",
             prompt_on_new=True))
     dca_spreads: List[Decimal] = Field(
-        default="0.001,0.004,0.018,0.15,0.25",
+        default="0.001,0.018,0.15,0.25",
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the spreads for each DCA level (comma-separated) if dynamic_spread=True this value "
                               "will multiply the Bollinger Bands width, e.g. if the Bollinger Bands width is 0.1 (10%)"
@@ -148,7 +148,7 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
 class DManV3Controller(DirectionalTradingControllerBase):
     """
     Mean reversion strategy with Grid execution making use of Bollinger Bands indicator to make spreads dynamic
-    and shift the mid price.
+    and shift the mid-price.
     """
     def __init__(self, config: DManV3ControllerConfig, *args, **kwargs):
         self.config = config
