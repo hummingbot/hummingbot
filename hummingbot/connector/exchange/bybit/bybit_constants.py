@@ -30,7 +30,9 @@ X_API_RECV_WINDOW = str(5000)
 DIFF_EVENT_TYPE = "diffDepth"
 TRADE_EVENT_TYPE = "trade"
 SNAPSHOT_EVENT_TYPE = "depth"
+# V5: https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
 ORDERBOOK_DIFF_EVENT_TYPE = "delta"
+ORDERBOOK_SNAPSHOT_EVENT_TYPE = "snapshot"
 
 # Public API endpoints
 LAST_TRADED_PRICE_PATH = "/v5/market/tickers"
