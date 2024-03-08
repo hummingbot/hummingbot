@@ -9,7 +9,7 @@ from hummingbot.smart_components.controllers.market_making_controller_base impor
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
 from hummingbot.smart_components.models.executor_actions import ExecutorAction, StopExecutorAction
 
 
@@ -122,3 +122,12 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertIn("binance_perpetual", updated_markets)
         self.assertIn("ETH-USDT", updated_markets["binance_perpetual"])
         self.assertIn("BTC-USDT", updated_markets["binance_perpetual"])
+
+    def test_validate_target(self):
+        self.assertEqual(None, self.mock_controller_config.validate_target(""))
+        self.assertEqual(Decimal("2.0"), self.mock_controller_config.validate_target("2.0"))
+
+    def test_parse_trailing_stop(self):
+        self.assertEqual(None, self.mock_controller_config.parse_trailing_stop(""))
+        trailing_stop = TrailingStop(activation_price=Decimal("2"), trailing_delta=Decimal(0.5))
+        self.assertEqual(trailing_stop, self.mock_controller_config.parse_trailing_stop(trailing_stop))
