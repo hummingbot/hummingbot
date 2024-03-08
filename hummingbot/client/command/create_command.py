@@ -90,7 +90,9 @@ class CreateCommand:
             if not config_class:
                 raise InvalidController(f"No configuration class found in the module {controller_name}.")
 
-            config_map = ClientConfigAdapter(config_class.construct())
+            config_class_instance = config_class.construct()
+            config_class_instance.id = config_class_instance.set_id(None)
+            config_map = ClientConfigAdapter(config_class_instance)
 
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
