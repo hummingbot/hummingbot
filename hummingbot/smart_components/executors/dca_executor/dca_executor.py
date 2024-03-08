@@ -43,8 +43,10 @@ class DCAExecutor(ExecutorBase):
         # validate amounts with exchange trading rules
         if self.is_any_amount_lower_than_min_order_size():
             self.close_execution_by(CloseType.FAILED)
-            self.logger().error("Please increase the amount of the order.")
-
+            trading_rules = self.get_trading_rules(connector_name=config.connector_name, trading_pair=config.trading_pair)
+            self.logger().error("Please increase the amount of the order:"
+                                f"- Current amounts quote: {config.amounts_quote} | Min notional size: {trading_rules.min_notional_size}"
+                                f"- Current amounts base: {[amount / price for amount, price in zip(config.amounts_quote, config.prices)]} | Min order size: {trading_rules.min_order_size}")
         # set default bounds
         self.n_levels = len(config.amounts_quote)
         if self.config.mode == DCAMode.TAKER and not self.config.activation_bounds:
