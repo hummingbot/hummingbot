@@ -6,13 +6,14 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorConfig,
     TripleBarrierConfig,
 )
-from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
+from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, StopExecutorAction
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
@@ -109,13 +110,14 @@ class PMMSingleLevel(StrategyV2Base):
         super().__init__(connectors, config)
         self.config = config  # Only for type checking
 
-    def on_tick(self):
-        self.set_position_mode_and_leverage()
-        self.update_executors_info()
-        if self.market_data_provider.ready:
-            actions: List[ExecutorAction] = self.determine_executor_actions()
-            if len(actions) > 0:
-                self.executor_orchestrator.execute_actions(actions)
+    def start(self, clock: Clock, timestamp: float) -> None:
+        """
+        Start the strategy.
+        :param clock: Clock to use.
+        :param timestamp: Current time.
+        """
+        self._last_timestamp = timestamp
+        self.apply_initial_setting()
 
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         """
@@ -202,7 +204,7 @@ class PMMSingleLevel(StrategyV2Base):
         """
         return []
 
-    def set_position_mode_and_leverage(self):
+    def apply_initial_setting(self):
         if not self.account_config_set:
             for connector_name, connector in self.connectors.items():
                 if self.is_perpetual(connector_name):
