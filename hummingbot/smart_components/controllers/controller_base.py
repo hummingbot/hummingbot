@@ -28,7 +28,7 @@ class ControllerConfigBase(BaseClientModel):
         candles_config (List[CandlesConfig]): A list of configurations for the candles data feed.
     """
     id: str = Field(
-        default=generate_unique_id(),
+        default=None,
         client_data=ClientFieldData(
             prompt_on_new=False,
             prompt=lambda mi: "Enter a unique identifier for the controller or leave empty to generate one."
