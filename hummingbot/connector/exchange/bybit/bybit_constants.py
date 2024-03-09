@@ -32,6 +32,8 @@ SPOT_ORDER_BOOK_DEPTH = 50
 # Websocket event types
 DIFF_EVENT_TYPE = "diffDepth"
 TRADE_EVENT_TYPE = "trade"
+# https://bybit-exchange.github.io/docs/v5/websocket/public/trade
+V5_TRADE_EVENT_TYPE = "snapshot"  # Weird but true in V5
 SNAPSHOT_EVENT_TYPE = "depth"
 # V5: https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
 ORDERBOOK_DIFF_EVENT_TYPE = "delta"

@@ -88,8 +88,11 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
-        for trades in raw_message["data"]:
+        data = raw_message["data"]
+        topic = raw_message["topic"]
+        symbol = topic.split('.')[1]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
+        for trades in data:
             trade_message: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
                 trades, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
@@ -170,15 +173,13 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                # trade_payload = {
-                #     "topic": "trade",
-                #     "event": "sub",
-                #     "symbol": symbol,
-                #     "params": {
-                #         "binary": False
-                #     }
-                # }
-                # subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
+
+                trade_topic = f"publicTrade.{symbol}"
+                trade_payload = {
+                    "op": "subscribe",
+                    "args": [trade_topic]
+                }
+                subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
                 orderbook_topic = f"orderbook.{self._depth}.{symbol}"
                 orderbook_payload = {
                     "op": "subscribe",
@@ -186,7 +187,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=orderbook_payload)
 
-                # await ws.send(subscribe_trade_request)
+                await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)
 
                 self.logger().info(f"Subscribed to public order book and trade channels of {trading_pair}...")
@@ -205,12 +206,13 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if data.get("msg") == "Success":
                 continue
             event_type = data.get("type")
+            topic = data.get("topic")
             if event_type == CONSTANTS.DIFF_EVENT_TYPE:
                 if data.get("f"):
                     self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
                 else:
                     self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
-            elif event_type == CONSTANTS.TRADE_EVENT_TYPE:
+            elif event_type == CONSTANTS.V5_TRADE_EVENT_TYPE and "publicTrade" in topic:
                 self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(data)
             elif event_type == CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE:
                 self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
