@@ -20,10 +20,9 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": ts,
+            "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
@@ -42,10 +41,9 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["ts"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": ts,
+            "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
@@ -64,10 +62,9 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
-            "update_id": ts,
+            "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
