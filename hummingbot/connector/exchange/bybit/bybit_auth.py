@@ -23,7 +23,7 @@ class BybitAuth(AuthBase):
         the required parameter in the request header.
         :param request: the request to be configured for authenticated interaction
         """
-        request = self.add_auth_headers(method=request.method, request=request)
+        return self.add_auth_headers(method=request.method, request=request)
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """

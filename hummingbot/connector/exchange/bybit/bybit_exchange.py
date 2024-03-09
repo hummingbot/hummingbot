@@ -297,16 +297,16 @@ class BybitExchange(ExchangePyBase):
             ]
         }
         """
-        trading_pair_rules = exchange_info_dict.get("result", [])
+        trading_pair_rules = exchange_info_dict.get("result", []).get("list", [])
         retval = []
         for rule in trading_pair_rules:
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("name"))
-
-                min_order_size = rule.get("minTradeQuantity")
-                min_price_increment = rule.get("minPricePrecision")
-                min_base_amount_increment = rule.get("basePrecision")
-                min_notional_size = rule.get("minTradeAmount")
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
+                lot_size_filter = rule.get("lotSizeFilter", {})
+                min_order_size = lot_size_filter.get("minOrderQty")
+                min_price_increment = lot_size_filter.get("quotePrecision")
+                min_base_amount_increment = lot_size_filter.get("basePrecision")
+                min_notional_size = lot_size_filter.get("minOrderAmt")
 
                 retval.append(
                     TradingRule(trading_pair,
@@ -441,9 +441,6 @@ class BybitExchange(ExchangePyBase):
         return order_update
 
     async def _update_balances(self):
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-
         # Update the first time it is called
         if self._account_type is None:
             await self._update_account_type()
@@ -457,18 +454,15 @@ class BybitExchange(ExchangePyBase):
             is_auth_required=True
         )
 
-        for balance_entry in balances["result"]["list"][0]:
-            asset_name = balance_entry["coin"]
-            free_balance = Decimal(balance_entry["availableToWithdraw"])
-            total_balance = Decimal(balance_entry["walletBalance"])
-            self._account_available_balances[asset_name] = free_balance
-            self._account_balances[asset_name] = total_balance
-            remote_asset_names.add(asset_name)
+        self._account_available_balances.clear()
+        self._account_balances.clear()
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        for coin in balances["result"]["list"][0]["coin"]:
+            name = coin["coin"]
+            free_balance = Decimal(coin["availableToWithdraw"])
+            balance = Decimal(coin["walletBalance"])
+            self._account_available_balances[name] = free_balance
+            self._account_balances[name] = Decimal(balance)
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
@@ -531,3 +525,18 @@ class BybitExchange(ExchangePyBase):
 
         # Failed even after the last retry
         raise last_exception
+
+    async def _make_trading_rules_request(self) -> Any:
+        exchange_info = await self._api_get(
+            path_url=self.trading_rules_request_path,
+            params={'category': 'spot'})
+        return exchange_info
+
+    async def _make_trading_pairs_request(self) -> Any:
+        exchange_info = await self._api_get(
+            path_url=self.trading_pairs_request_path,
+            params={
+                'category': self._category
+            }
+        )
+        return exchange_info

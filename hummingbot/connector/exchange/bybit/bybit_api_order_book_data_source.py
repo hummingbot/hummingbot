@@ -69,9 +69,11 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "limit": "1000"
         }
-        data = await self._connector._api_request(path_url=CONSTANTS.SNAPSHOT_PATH_URL,
-                                                  method=RESTMethod.GET,
-                                                  params=params)
+        data = await self._connector._api_request(
+            path_url=CONSTANTS.SNAPSHOT_PATH_URL,
+            method=RESTMethod.GET,
+            params=params
+        )
         return data['result']
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:

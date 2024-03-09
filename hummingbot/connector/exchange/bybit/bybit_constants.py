@@ -24,7 +24,7 @@ WSS_PRIVATE_URL = {"bybit_main": "wss://stream.bybit.com/v5/private",
 # unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
 # It is also used to prevent replay attacks.
 # https://bybit-exchange.github.io/docs/v5/guide#parameters-for-authenticated-endpoints
-X_API_RECV_WINDOW = str(5000)
+X_API_RECV_WINDOW = str(50000)
 
 # Websocket event types
 DIFF_EVENT_TYPE = "diffDepth"

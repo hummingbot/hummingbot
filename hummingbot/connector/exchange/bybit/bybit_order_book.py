@@ -42,12 +42,12 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["time"]
+        ts = msg["ts"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
             "update_id": ts,
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "bids": msg["b"],
+            "asks": msg["a"]
         }, timestamp=timestamp)
 
     @classmethod
