@@ -26,6 +26,9 @@ WSS_PRIVATE_URL = {"bybit_main": "wss://stream.bybit.com/v5/private",
 # https://bybit-exchange.github.io/docs/v5/guide#parameters-for-authenticated-endpoints
 X_API_RECV_WINDOW = str(50000)
 
+# https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
+SPOT_ORDER_BOOK_DEPTH = 50
+
 # Websocket event types
 DIFF_EVENT_TYPE = "diffDepth"
 TRADE_EVENT_TYPE = "trade"
