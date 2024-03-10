@@ -500,7 +500,7 @@ class GatewayCommand(GatewayChainApiManager):
                 df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "Allowance"])
                 df.sort_values(by=["Symbol"], inplace=True)
 
-                self.notify(f"\nConnector: {exchange}")
+                self.notify(f"\nConnector: {exchange_key}")
                 self.notify(f"Wallet_Address: {address}")
 
                 if df.empty:
