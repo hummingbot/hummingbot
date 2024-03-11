@@ -78,6 +78,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         self._subscription_lock: asyncio.Lock = asyncio.Lock()
         self._ws_assistant: Dict[str, WSAssistant | None] = {}
+        self._tasks: Dict[str, Task] = {}
 
     async def close(self):
         """
@@ -104,7 +105,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws_assistant
 
         self._ws_assistant: Dict[str, WSAssistant] = {
-            v: await self._api_factory.get_ws_assistant() for v in self._trading_pairs
+            p: await self._api_factory.get_ws_assistant() for p in self._trading_pairs
         }
         [
             await v.connect(
@@ -134,42 +135,56 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         :param output: the queue to use to store the received messages
         """
+        try:
+            # Create the listener for each trading pair that does not have one active
+            for pair in self._trading_pairs:
+                if self._tasks.get(pair) is None:
+                    self._tasks[pair] = asyncio.create_task(self._listen_for_user_stream(pair, output=output))
+            while True:
+                # Await for a task to complete
+                done, pending = await asyncio.wait(self._tasks.values(), return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    if task.cancelled():
+                        raise asyncio.CancelledError
+                    if pair := next(k for k, v in self._tasks.items() if v == task):
+                        self._tasks[pair] = asyncio.create_task(self._listen_for_user_stream(pair, output=output))
+        except asyncio.CancelledError:
+            raise
+        finally:
+            # Cancel all the sub-listeners
+            [task.cancel() for task in self._tasks.values() if task is not None]
+            await asyncio.gather(*self._tasks.values(), return_exceptions=True)
+
+    async def _listen_for_user_stream(self, pair: str, output: asyncio.Queue):
+        """
+        Connects to the user private channel in the exchange using a websocket connection. With the established
+        connection listens to all balance events and order updates provided by the exchange, and stores them in the
+        output queue
+
+        :param pair: The trading pair to subscribe to.
+        :param output: the queue to use to store the received messages
+        """
+        sleep_ = 0
         while True:
-            tasks: Dict[str, Task] = {}
             try:
-                for pair in self._trading_pairs:
-                    try:
-                        self._ws_assistant = await self._connected_websocket_assistant(pair)
-                        await self._subscribe_channel(websocket_assistant=self._ws_assistant[pair], pair=pair)
-                        await self._send_ping(
-                            websocket_assistant=self._ws_assistant[pair])  # to update last_recv_timestamp
-                        tasks[pair] = asyncio.create_task(
-                            self._process_websocket_messages(
-                                websocket_assistant=self._ws_assistant[pair],
-                                queue=output)
-                        )
-                    except ConnectionError as connection_exception:
-                        self.logger().warning(
-                            f"The websocket connection was closed for {pair} ({connection_exception})"
-                        )
-                        break
-
-                for task in asyncio.as_completed(list(tasks.values())):
-                    pair = next(k for k, v in tasks.items() if v == task)
-                    try:
-                        await task
-                    except Exception as e:
-                        self.logger().exception(
-                            f"Unexpected error while listening to user stream for {pair}. Retrying after 1 seconds..."
-                        )
-                        self.logger().debug(f"Exception: {e}")
-                        await self._sleep(1.0)
-                    finally:
-                        await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant[pair])
-                        self._ws_assistant[pair] = None
-
+                await self._connected_websocket_assistant(pair)
+                await self._subscribe_channels(websocket_assistant=self._ws_assistant[pair])
+                await self._send_ping(websocket_assistant=self._ws_assistant[pair])  # to update last_recv_timestamp
+                await self._process_websocket_messages(websocket_assistant=self._ws_assistant[pair], queue=output)
             except asyncio.CancelledError:
                 raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception as e:
+                self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                self.logger().debug(f"Exception: {e}")
+                sleep_ = 5
+            finally:
+                if pair in self._ws_assistant:
+                    if self._ws_assistant[pair] is not None:
+                        await self._ws_assistant[pair].disconnect()
+                    self._ws_assistant[pair] = None
+                await self._sleep(sleep_)
 
     async def _subscribe_channel(self, websocket_assistant: WSAssistant, pair) -> None:
         """
