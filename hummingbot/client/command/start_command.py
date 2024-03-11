@@ -244,7 +244,7 @@ class StartCommand(GatewayChainApiManager):
 
     @staticmethod
     def load_script_yaml_config(config_file_path: str) -> dict:
-        with open(settings.SCRIPT_STRATEGY_CONFIG_PATH / config_file_path, 'r') as file:
+        with open(settings.SCRIPT_STRATEGY_CONF_DIR_PATH / config_file_path, 'r') as file:
             return yaml.safe_load(file)
 
     def is_current_strategy_script_strategy(self) -> bool:

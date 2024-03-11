@@ -46,6 +46,7 @@ class CandlesBase(NetworkBase):
         super().__init__()
         async_throttler = AsyncThrottler(rate_limits=self.rate_limits)
         self._api_factory = WebAssistantsFactory(throttler=async_throttler)
+        self.max_records = max_records
         self._candles = deque(maxlen=max_records)
         self._listen_candles_task: Optional[asyncio.Task] = None
         self._trading_pair = trading_pair
@@ -73,7 +74,7 @@ class CandlesBase(NetworkBase):
             self._listen_candles_task = None
 
     @property
-    def is_ready(self):
+    def ready(self):
         """
         This property returns a boolean indicating whether the _candles deque has reached its maximum length.
         """

@@ -18,6 +18,7 @@ RUN conda env create -f /tmp/environment.yml && \
 COPY bin/ bin/
 COPY hummingbot/ hummingbot/
 COPY scripts/ scripts/
+COPY controllers/ controllers/
 COPY scripts/ scripts-copy/
 COPY setup.py .
 COPY LICENSE .
@@ -60,7 +61,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create mount points
-RUN mkdir -p /home/hummingbot/conf /home/hummingbot/conf/connectors /home/hummingbot/conf/strategies /home/hummingbot/conf/scripts /home/hummingbot/logs /home/hummingbot/data /home/hummingbot/certs /home/hummingbot/scripts
+RUN mkdir -p /home/hummingbot/conf /home/hummingbot/conf/connectors /home/hummingbot/conf/strategies /home/hummingbot/conf/controllers /home/hummingbot/conf/scripts /home/hummingbot/logs /home/hummingbot/data /home/hummingbot/certs /home/hummingbot/scripts /home/hummingbot/controllers
 
 WORKDIR /home/hummingbot
 
