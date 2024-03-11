@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from pydantic.class_validators import validator
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConfig
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions
 
 
@@ -18,7 +18,7 @@ class OrderLevel(BaseModel):
     spread_factor: Decimal = Decimal("0.0")
     order_refresh_time: int = 60
     cooldown_time: int = 0
-    triple_barrier_conf: TripleBarrierConf
+    triple_barrier_conf: TripleBarrierConfig
 
     @property
     def level_id(self):
@@ -67,7 +67,7 @@ class OrderLevelBuilder:
     def build_order_levels(self,
                            amounts: Union[Decimal, List[Decimal], Dict[str, Any]],
                            spreads: Union[Decimal, List[Decimal], Dict[str, Any]],
-                           triple_barrier_confs: Union[TripleBarrierConf, List[TripleBarrierConf]] = TripleBarrierConf(),
+                           triple_barrier_confs: Union[TripleBarrierConfig, List[TripleBarrierConfig]] = TripleBarrierConfig(),
                            order_refresh_time: Union[int, List[int], Dict[str, Any]] = 60 * 5,
                            cooldown_time: Union[int, List[int], Dict[str, Any]] = 0,
                            sides: Optional[List[TradeType]] = None) -> List[OrderLevel]:

@@ -95,7 +95,7 @@ class KucoinSpotCandles(CandlesBase):
     async def fill_historical_candles(self):
         max_request_needed = (self._candles.maxlen // 1500) + 1
         requests_executed = 0
-        while not self.is_ready:
+        while not self.ready:
             # missing_records = self._candles.maxlen - len(self._candles)
             try:
                 if requests_executed < max_request_needed:
