@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import math
 from decimal import Decimal
@@ -30,15 +31,22 @@ class DCAExecutor(ExecutorBase):
         return cls._logger
 
     def __init__(self, strategy: ScriptStrategyBase, config: DCAExecutorConfig, update_interval: float = 1.0,
-                 max_retries: int = 5):
+                 max_retries: int = 15):
         # validate amounts and prices
         if len(config.amounts_quote) != len(config.prices):
             raise ValueError("Amounts and prices lists must have the same length")
 
         # Initialize super class
-        super().__init__(strategy=strategy, connectors=[config.exchange], config=config, update_interval=update_interval)
+        super().__init__(strategy=strategy, connectors=[config.connector_name], config=config, update_interval=update_interval)
         self.config: DCAExecutorConfig = config
 
+        # validate amounts with exchange trading rules
+        if self.is_any_amount_lower_than_min_order_size():
+            self.close_execution_by(CloseType.FAILED)
+            trading_rules = self.get_trading_rules(connector_name=config.connector_name, trading_pair=config.trading_pair)
+            self.logger().error("Please increase the amount of the order:"
+                                f"- Current amounts quote: {config.amounts_quote} | Min notional size: {trading_rules.min_notional_size}"
+                                f"- Current amounts base: {[amount / price for amount, price in zip(config.amounts_quote, config.prices)]} | Min order size: {trading_rules.min_order_size}")
         # set default bounds
         self.n_levels = len(config.amounts_quote)
         if self.config.mode == DCAMode.TAKER and not self.config.activation_bounds:
@@ -110,6 +118,16 @@ class DCAExecutor(ExecutorBase):
         return self.max_amount_quote * distance_from_last_order_to_break_even
 
     @property
+    def end_time(self):
+        if not self.config.time_limit:
+            return None
+        return self.config.timestamp + self.config.time_limit
+
+    @property
+    def is_expired(self):
+        return self.end_time and self.end_time <= self._strategy.current_timestamp
+
+    @property
     def min_price(self) -> Decimal:
         return min(self.config.prices)
 
@@ -121,7 +139,8 @@ class DCAExecutor(ExecutorBase):
     def max_loss_quote(self) -> Decimal:
         # TODO: refactor the ExecutorBase class to handle max loss in pct and quote asset since some strategies like
         #  arbitrage and XEMM will need a more complex calculation
-        return self.max_amount_quote * self.config.stop_loss
+        sl = self.config.stop_loss if self.config.stop_loss else Decimal("0")
+        return self.max_amount_quote * sl
 
     @property
     def current_market_price(self):
@@ -129,7 +148,7 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for getting the current market price to be used as a reference for control barriers
         """
         price_type = PriceType.BestBid if self.config.side == TradeType.BUY else PriceType.BestAsk
-        return self.get_price(self.config.exchange, self.config.trading_pair, price_type=price_type)
+        return self.get_price(self.config.connector_name, self.config.trading_pair, price_type=price_type)
 
     @property
     def close_price(self):
@@ -173,6 +192,14 @@ class DCAExecutor(ExecutorBase):
         """
         return self.trade_pnl_pct * self.open_filled_amount_quote
 
+    def is_any_amount_lower_than_min_order_size(self):
+        """
+        This method is responsible for checking if any amount is lower than the minimum order size
+        """
+        notional_size_check = any([amount < self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_notional_size for amount in self.config.amounts_quote])
+        base_amount_size_check = any([amount / price < self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_order_size for amount, price in zip(self.config.amounts_quote, self.config.prices)])
+        return notional_size_check or base_amount_size_check
+
     def get_net_pnl_quote(self) -> Decimal:
         """
         This method is responsible for calculating the net pnl in quote asset
@@ -183,7 +210,7 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for calculating the net pnl percentage
         """
-        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote else Decimal("0")
+        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote > Decimal("0") else Decimal("0")
 
     def get_cum_fees_quote(self) -> Decimal:
         """
@@ -191,6 +218,11 @@ class DCAExecutor(ExecutorBase):
         """
         all_orders = self._open_orders + self._close_orders
         return sum([order.cum_fees_quote for order in all_orders])
+
+    def on_start(self):
+        super().on_start()
+        if self.is_expired:
+            self.close_execution_by(CloseType.EXPIRED)
 
     @property
     def all_open_orders_executed(self) -> bool:
@@ -207,7 +239,7 @@ class DCAExecutor(ExecutorBase):
         for amount_quote, price in zip(self.config.amounts_quote, self.config.prices):
             amount_base = amount_quote / price
             is_maker = self.config.mode == DCAMode.MAKER
-            if self.is_perpetual_connector(self.config.exchange):
+            if self.is_perpetual_connector(self.config.connector_name):
                 order_candidate = PerpetualOrderCandidate(
                     trading_pair=self.config.trading_pair,
                     is_maker=is_maker,
@@ -227,10 +259,9 @@ class DCAExecutor(ExecutorBase):
                     price=price,
                 )
             order_candidates.append(order_candidate)
-        adjusted_order_candidates = self.adjust_order_candidates(self.config.exchange, order_candidates)
+        adjusted_order_candidates = self.adjust_order_candidates(self.config.connector_name, order_candidates)
         if any([order_candidate.amount == Decimal("0") for order_candidate in adjusted_order_candidates]):
-            self.close_type = CloseType.INSUFFICIENT_BALANCE
-            self.stop()
+            self.close_execution_by(CloseType.INSUFFICIENT_BALANCE)
             self.logger().error("Not enough budget to create DCA.")
 
     async def control_task(self):
@@ -241,7 +272,7 @@ class DCAExecutor(ExecutorBase):
             self.control_open_order_process()
             self.control_barriers()
         elif self.status == SmartComponentStatus.SHUTTING_DOWN:
-            self.control_shutdown_process()
+            await self.control_shutdown_process()
         self.evaluate_max_retries()
 
     def control_open_order_process(self):
@@ -250,10 +281,10 @@ class DCAExecutor(ExecutorBase):
         """
         next_level = len(self._open_orders)
         if next_level < self.n_levels:
-            close_price = self.get_price(connector_name=self.config.exchange,
+            close_price = self.get_price(connector_name=self.config.connector_name,
                                          trading_pair=self.config.trading_pair)
             order_price = self.config.prices[next_level]
-            if self._is_within_activation_bounds(order_price, close_price):
+            if self._is_within_activation_bounds(order_price, close_price) and not self.is_expired:
                 self.create_dca_order(level=next_level)
 
     def create_dca_order(self, level: int):
@@ -262,7 +293,7 @@ class DCAExecutor(ExecutorBase):
         """
         price = self.config.prices[level]
         amount = self.config.amounts_quote[level] / price
-        order_id = self.place_order(connector_name=self.config.exchange,
+        order_id = self.place_order(connector_name=self.config.connector_name,
                                     trading_pair=self.config.trading_pair, order_type=self.open_order_type,
                                     side=self.config.side, amount=amount, price=price,
                                     position_action=PositionAction.OPEN)
@@ -276,6 +307,12 @@ class DCAExecutor(ExecutorBase):
         self.control_stop_loss()
         self.control_trailing_stop()
         self.control_take_profit()
+        self.control_time_limit()
+
+    def control_time_limit(self):
+        if self.is_expired:
+            self.close_type = CloseType.TIME_LIMIT
+            self.place_close_order_and_cancel_open_orders()
 
     def control_stop_loss(self):
         """
@@ -286,11 +323,13 @@ class DCAExecutor(ExecutorBase):
         """
         if self.config.stop_loss:
             if self.config.mode == DCAMode.MAKER:
-                if self.all_open_orders_executed and self.net_pnl_pct < self.config.stop_loss:
-                    self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
+                if self.all_open_orders_executed and self.net_pnl_pct <= -self.config.stop_loss:
+                    self.close_type = CloseType.STOP_LOSS
+                    self.place_close_order_and_cancel_open_orders()
             else:
-                if self.net_pnl_quote < self.max_loss_quote:
-                    self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
+                if self.net_pnl_quote <= -self.max_loss_quote:
+                    self.close_type = CloseType.STOP_LOSS
+                    self.place_close_order_and_cancel_open_orders()
 
     def control_trailing_stop(self):
         """
@@ -306,10 +345,11 @@ class DCAExecutor(ExecutorBase):
                 if net_pnl_pct > self.config.trailing_stop.activation_price:
                     self._trailing_stop_trigger_pct = net_pnl_pct - self.config.trailing_stop.trailing_delta
             else:
+                if net_pnl_pct < self._trailing_stop_trigger_pct:
+                    self.close_type = CloseType.TRAILING_STOP
+                    self.place_close_order_and_cancel_open_orders()
                 if net_pnl_pct - self.config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
                     self._trailing_stop_trigger_pct = net_pnl_pct - self.config.trailing_stop.trailing_delta
-                if net_pnl_pct < self._trailing_stop_trigger_pct:
-                    self.place_close_order_and_cancel_open_orders(close_type=CloseType.TRAILING_STOP)
 
     def control_take_profit(self):
         """
@@ -319,37 +359,50 @@ class DCAExecutor(ExecutorBase):
         """
         if self.config.take_profit:
             if self.net_pnl_pct > self.config.take_profit:
-                self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
+                self.close_type = CloseType.TAKE_PROFIT
+                self.place_close_order_and_cancel_open_orders()
 
     def early_stop(self):
         """
         This method allows strategy to stop the executor early.
         """
-        self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
+        self.close_type = CloseType.EARLY_STOP
+        self.place_close_order_and_cancel_open_orders()
 
-    def place_close_order_and_cancel_open_orders(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
+    def place_close_order_and_cancel_open_orders(self, price: Decimal = Decimal("NaN")):
         """
         This method is responsible for placing the close order
         """
-        for tracked_order in self._open_orders:
-            if tracked_order.order.is_open:
-                self._strategy.cancel(connector_name=self.config.exchange, trading_pair=self.config.trading_pair,
-                                      order_id=tracked_order.order_id)
-        delta_amount_to_close = abs(self.open_filled_amount - self.close_filled_amount)
-        if delta_amount_to_close > self.connectors[self.config.exchange].trading_rules[self.config.trading_pair].min_order_size:
+        self.cancel_open_orders()
+        self.place_close_order(price)
+        self._status = SmartComponentStatus.SHUTTING_DOWN
+        self.close_timestamp = self._strategy.current_timestamp
+
+    def close_execution_by(self, close_type):
+        self.close_type = close_type
+        self.close_timestamp = self._strategy.current_timestamp
+        self.stop()
+
+    def place_close_order(self, price):
+        delta_amount_to_close = self.open_filled_amount - self.close_filled_amount
+        min_order_size = self.connectors[self.config.connector_name].trading_rules[self.config.trading_pair].min_order_size
+        if delta_amount_to_close >= min_order_size:
             order_id = self.place_order(
-                connector_name=self.config.exchange,
+                connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
                 order_type=OrderType.MARKET,
-                amount=self.open_filled_amount,
+                amount=delta_amount_to_close,
                 price=price,
                 side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
                 position_action=PositionAction.CLOSE,
             )
             self._close_orders.append(TrackedOrder(order_id=order_id))
-        self.close_type = close_type
-        self.close_timestamp = self._strategy.current_timestamp
-        self._status = SmartComponentStatus.SHUTTING_DOWN
+
+    def cancel_open_orders(self):
+        for tracked_order in self._open_orders:
+            if tracked_order.order and tracked_order.order.is_open:
+                self._strategy.cancel(connector_name=self.config.connector_name, trading_pair=self.config.trading_pair,
+                                      order_id=tracked_order.order_id)
 
     def _is_within_activation_bounds(self, order_price: Decimal, close_price: Decimal) -> bool:
         """
@@ -375,23 +428,25 @@ class DCAExecutor(ExecutorBase):
                 max_price_to_sell = order_price * (1 + activation_bounds[0])
                 return min_price_to_sell < close_price < max_price_to_sell
 
-    def control_shutdown_process(self):
+    async def control_shutdown_process(self):
         """
         This method is responsible for shutting down the process, ensuring that all orders are completed.
         """
         if math.isclose(self.open_filled_amount, self.close_filled_amount):
-            self.stop()
+            self.close_execution_by(self.close_type)
+        elif len(self.active_close_orders) > 0:
+            self.logger().info(f"Waiting for close order {self.active_close_orders[0].order_id} to be filled | Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
         else:
-            self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
-            self.logger().info(f"Close orders: {self._close_orders}")
-            self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
+            self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}, Back up filled amount {self._total_executed_amount_backup}")
+            self.place_close_order_and_cancel_open_orders()
             self._current_retries += 1
+        await asyncio.sleep(1.0)
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         all_orders = self._open_orders + self._close_orders
         active_order = next((order for order in all_orders if order.order_id == order_id), None)
         if active_order:
-            in_flight_order = self.get_in_flight_order(self.config.exchange, order_id)
+            in_flight_order = self.get_in_flight_order(self.config.connector_name, order_id)
             if in_flight_order:
                 active_order.order = in_flight_order
 
@@ -426,10 +481,12 @@ class DCAExecutor(ExecutorBase):
             self._current_retries += 1
 
     def evaluate_max_retries(self):
+        """
+        This method is responsible for evaluating the max retries. If the max retries is reached, the executor will be
+        stopped.
+        """
         if self._current_retries >= self._max_retries:
-            self.close_type = CloseType.FAILED
-            self.close_timestamp = self._strategy.current_timestamp
-            self.stop()
+            self.close_execution_by(CloseType.FAILED)
             self.logger().error("Max retries reached. Stopping DCA executor.")
 
     def process_order_filled_event(self, event_tag: int, market: ConnectorBase, event: OrderFilledEvent):
@@ -438,7 +495,8 @@ class DCAExecutor(ExecutorBase):
         _total_executed_amount_backup, that can be used if the InFlightOrder
         is not available.
         """
-        self._total_executed_amount_backup += event.amount
+        if event.order_id in [order.order_id for order in self._open_orders]:
+            self._total_executed_amount_backup += event.amount
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def get_custom_info(self) -> Dict:
@@ -460,5 +518,6 @@ class DCAExecutor(ExecutorBase):
             "trailing_stop_trigger_pct": self._trailing_stop_trigger_pct,
             "total_executed_amount_backup": self._total_executed_amount_backup,
             "current_retries": self._current_retries,
-            "max_retries": self._max_retries
+            "max_retries": self._max_retries,
+            "level_id": self.config.level_id,
         }
