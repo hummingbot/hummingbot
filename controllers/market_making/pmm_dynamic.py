@@ -18,6 +18,18 @@ from hummingbot.smart_components.executors.position_executor.data_types import P
 class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):
     controller_name = "pmm_dynamic"
     candles_config: List[CandlesConfig] = []
+    buy_spreads: List[float] = Field(
+        default="1,2,4",
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'):"))
+    sell_spreads: List[float] = Field(
+        default="1,2,4",
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
     candles_connector: str = Field(
         default=None,
         client_data=ClientFieldData(
