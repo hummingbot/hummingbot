@@ -22,6 +22,7 @@ class ClientFieldData:
     prompt_on_new: bool = False
     is_secure: bool = False
     is_connect_key: bool = False
+    is_updatable: bool = False
 
 
 class BaseClientModel(BaseModel):

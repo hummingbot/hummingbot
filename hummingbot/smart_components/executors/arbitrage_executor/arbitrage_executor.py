@@ -61,7 +61,7 @@ class ArbitrageExecutor(ExecutorBase):
         if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
                                        pair2=config.selling_market.trading_pair):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
-        super().__init__(strategy=strategy, connectors=[config.buying_market.exchange, config.selling_market.exchange],
+        super().__init__(strategy=strategy, connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval)
         self.buying_market = config.buying_market
         self.selling_market = config.selling_market
@@ -155,7 +155,7 @@ class ArbitrageExecutor(ExecutorBase):
 
     def place_buy_arbitrage_order(self):
         self.buy_order.order_id = self.place_order(
-            connector_name=self.buying_market.exchange,
+            connector_name=self.buying_market.connector_name,
             trading_pair=self.buying_market.trading_pair,
             order_type=OrderType.MARKET,
             side=TradeType.BUY,
@@ -165,7 +165,7 @@ class ArbitrageExecutor(ExecutorBase):
 
     def place_sell_arbitrage_order(self):
         self.sell_order.order_id = self.place_order(
-            connector_name=self.selling_market.exchange,
+            connector_name=self.selling_market.connector_name,
             trading_pair=self.selling_market.trading_pair,
             order_type=OrderType.MARKET,
             side=TradeType.SELL,
@@ -178,14 +178,14 @@ class ArbitrageExecutor(ExecutorBase):
         # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
         base_without_wrapped = base[1:] if base.startswith("W") else base
         buy_fee = await self.get_tx_cost_in_asset(
-            exchange=self.buying_market.exchange,
+            exchange=self.buying_market.connector_name,
             trading_pair=self.buying_market.trading_pair,
             is_buy=True,
             order_amount=self.order_amount,
             asset=base_without_wrapped
         )
         sell_fee = await self.get_tx_cost_in_asset(
-            exchange=self.selling_market.exchange,
+            exchange=self.selling_market.connector_name,
             trading_pair=self.selling_market.trading_pair,
             is_buy=False,
             order_amount=self.order_amount,
@@ -195,12 +195,12 @@ class ArbitrageExecutor(ExecutorBase):
 
     async def get_buy_and_sell_prices(self):
         buy_price_task = asyncio.create_task(self.get_resulting_price_for_amount(
-            exchange=self.buying_market.exchange,
+            exchange=self.buying_market.connector_name,
             trading_pair=self.buying_market.trading_pair,
             is_buy=True,
             order_amount=self.order_amount))
         sell_price_task = asyncio.create_task(self.get_resulting_price_for_amount(
-            exchange=self.selling_market.exchange,
+            exchange=self.selling_market.connector_name,
             trading_pair=self.selling_market.trading_pair,
             is_buy=False,
             order_amount=self.order_amount))
@@ -241,11 +241,11 @@ class ArbitrageExecutor(ExecutorBase):
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         if self.buy_order.order_id == event.order_id:
-            self.buy_order.order = self.get_in_flight_order(self.buying_market.exchange, event.order_id)
+            self.buy_order.order = self.get_in_flight_order(self.buying_market.connector_name, event.order_id)
             self.logger().info("Buy Order Created")
         elif self.sell_order.order_id == event.order_id:
             self.logger().info("Sell Order Created")
-            self.sell_order.order = self.get_in_flight_order(self.selling_market.exchange, event.order_id)
+            self.sell_order.order = self.get_in_flight_order(self.selling_market.connector_name, event.order_id)
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         if self.buy_order.order_id == event.order_id:
@@ -263,7 +263,7 @@ class ArbitrageExecutor(ExecutorBase):
             base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
             lines.extend([f"""
     Arbitrage Status: {self.arbitrage_status}
-    - BUY: {self.buying_market.exchange}:{self.buying_market.trading_pair}  --> SELL: {self.selling_market.exchange}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
+    - BUY: {self.buying_market.connector_name}:{self.buying_market.trading_pair}  --> SELL: {self.selling_market.connector_name}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
     - Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
     -------------------------------------------------------------------------------
     """])
