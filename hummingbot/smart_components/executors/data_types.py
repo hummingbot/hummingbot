@@ -10,6 +10,7 @@ class ExecutorConfigBase(BaseModel):
     id: str = None  # Make ID optional
     type: str
     timestamp: float
+    controller_id: str = "main"
 
     @validator('id', pre=True, always=True)
     def set_id(cls, v, values):

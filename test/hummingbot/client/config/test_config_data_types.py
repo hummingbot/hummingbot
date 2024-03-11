@@ -73,6 +73,7 @@ class BaseClientModelTest(unittest.TestCase):
             "prompt_on_new": True,
             "is_secure": False,
             "is_connect_key": False,
+            "is_updatable": False,
         }
         self.assertEqual(expected, j["properties"]["some_attr"]["client_data"])
 
