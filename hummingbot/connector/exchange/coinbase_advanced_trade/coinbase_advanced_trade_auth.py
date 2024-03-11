@@ -63,7 +63,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         try:
             return await self.rest_jwt_authenticate(request)
         except ValueError:
-            self.logger().warning("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
+            self.logger().debug("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
             return await self.rest_legacy_authenticate(request)
 
     async def rest_legacy_authenticate(self, request: RESTRequest) -> RESTRequest:
@@ -143,7 +143,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         try:
             return await self.ws_jwt_authenticate(request)
         except ValueError:
-            self.logger().warning("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
+            self.logger().debug("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
             return await self.ws_legacy_authenticate(request)
 
     async def ws_legacy_authenticate(self, request: WSJSONRequest) -> WSRequest:
