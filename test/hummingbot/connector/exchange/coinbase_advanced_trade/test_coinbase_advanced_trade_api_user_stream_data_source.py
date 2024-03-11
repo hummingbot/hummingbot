@@ -1,7 +1,6 @@
 import asyncio
 import decimal
 import functools
-import random
 import unittest
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -195,58 +194,25 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
         await asyncio.sleep(0)
         return f"{s0}-{s1}"
 
-    async def test_connected_websocket_assistant_with_pair(self):
-        result = await self.data_source._connected_websocket_assistant("BTC-USD")
+    async def test_connected_websocket_assistant_without_pair(self):
+        self.api_factory.get_ws_assistant = AsyncMock(side_effect=[AsyncMock(), AsyncMock()])
 
-        self.api_factory.get_ws_assistant.assert_called_once()
-        self.assertIn("BTC-USD", result)
-        self.assertIn("BTC-USD", self.data_source._ws_assistant)
-        self.data_source._ws_assistant.get("BTC-USD").connect.assert_called_once()
-        self.data_source._ws_assistant.get("BTC-USD").connect.assert_called_with(
+        await self.data_source._connected_websocket_assistant()
+
+        self.api_factory.get_ws_assistant.call_count = 2
+        self.data_source._ws_assistant.connect.assert_called_once()
+        self.data_source._ws_assistant.connect.assert_called_with(
             ws_url=CONSTANTS.WSS_URL.format(domain=self.domain),
             ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
         )
 
-    async def test_connected_websocket_assistant_without_pair(self):
-        self.api_factory.get_ws_assistant = AsyncMock(side_effect=[AsyncMock(), AsyncMock()])
-
-        result = await self.data_source._connected_websocket_assistant()
-
-        self.api_factory.get_ws_assistant.call_count = 2
-        for pair in self.trading_pairs:
-            self.assertIn(pair, result)
-            self.assertIn(pair, self.data_source._ws_assistant)
-            self.data_source._ws_assistant.get(pair).connect.assert_called_once()
-            self.data_source._ws_assistant.get(pair).connect.assert_called_with(
-                ws_url=CONSTANTS.WSS_URL.format(domain=self.domain),
-                ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
-            )
-
-    async def test_close(self):
-        mock_ws_assistant = MockWebAssistant()
-        self.data_source._ws_assistant = {"BTC-USD": mock_ws_assistant}
-
-        await self.data_source.close()
-        self.assertEqual(1, mock_ws_assistant.disconnect_count)
-        self.assertTrue(self.data_source._ws_assistant["BTC-USD"] is None)
-
     async def test_last_recv_time(self):
-        self.data_source._ws_assistant = {"BTC-USD": MagicMock()}
-        self.data_source._ws_assistant["BTC-USD"].last_recv_time = 1234567890.0
+        self.data_source._ws_assistant = MagicMock()
+        self.data_source._ws_assistant.last_recv_time = 1234567890.0
 
         result = self.data_source.last_recv_time
 
         self.assertEqual(1234567890.0, result, )
-
-    async def test_last_recv_time_two_pairs(self):
-        self.data_source._ws_assistant = {pair: MagicMock() for pair in self.trading_pairs}
-        t1, t2 = random.random(), random.random()
-        self.data_source._ws_assistant["ETH-USD"].last_recv_time = t1
-        self.data_source._ws_assistant["BTC-USD"].last_recv_time = t2
-
-        result = self.data_source.last_recv_time
-
-        self.assertEqual(max(t1, t2), result)
 
     async def test_process_websocket_messages(self):
         queue = asyncio.Queue()
@@ -285,14 +251,14 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
         ws_assistant = MockWebAssistant()
         ws_assistant.iter_messages = functools.partial(ws_assistant.iter_messages, data=response)
 
-        self.data_source._ws_assistant["BTC-USD"] = ws_assistant
+        self.data_source._ws_assistant = ws_assistant
 
         with patch.object(
                 CoinbaseAdvancedTradeAPIUserStreamDataSource,
                 "_decipher_message"
         ) as mock_decipher_message:
             await self.data_source._process_websocket_messages(
-                self.data_source._ws_assistant["BTC-USD"],  # type: ignore
+                self.data_source._ws_assistant,  # type: ignore
                 queue
             )
 
@@ -301,7 +267,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
 
     async def test_decipher_message(self):
         self.data_source.logger = MagicMock()
-        self.data_source._sequence = {"user": 0}
         self.data_source._connector = MagicMock()
         self.data_source._connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="BTC-USD")
 
@@ -311,70 +276,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
             async for cumulative_order in self.data_source._decipher_message(self.event_message):
                 self.assertIsInstance(cumulative_order, CoinbaseAdvancedTradeCumulativeUpdate)
                 self.assertEqual(cumulative_order, self.cumulative_update)
-        self.assertEqual(self.data_source._sequence["user"], 1)
-
-    async def test_sequence_number_mismatch(self):
-        self.data_source.logger = MagicMock()
-        self.data_source._sequence = {"user": -1}
-        self.data_source._connector = MagicMock()
-        self.data_source._connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="BTC-USD")
-
-        with patch('hummingbot.connector.exchange.coinbase_advanced_trade'
-                   '.coinbase_advanced_trade_api_user_stream_data_source.get_timestamp_from_exchange_time',
-                   return_value=1678900000):
-            async for _ in self.data_source._decipher_message(self.event_message):
-                pass
-
-        self.data_source.logger().warning.assert_called_once()
-        self.assertEqual(self.data_source._sequence["user"], 1)
-
-    async def test_listen_for_user_stream_cancelled_error(self):
-        with patch.object(self.data_source, '_listen_for_user_stream', side_effect=asyncio.CancelledError):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.data_source.listen_for_user_stream(output=asyncio.Queue())
-
-    async def test__listen_for_user_stream(self):
-        with patch.object(self.data_source, '_subscribe_channels', new_callable=AsyncMock), \
-                patch.object(self.data_source, '_send_ping', new_callable=AsyncMock), \
-                patch.object(self.data_source, '_process_websocket_messages', new_callable=AsyncMock), \
-                patch.object(self.data_source, '_sleep', new_callable=AsyncMock):
-            self.data_source._sleep.side_effect = [asyncio.CancelledError]
-
-            with self.assertRaises(asyncio.CancelledError):
-                await self.data_source._listen_for_user_stream(pair='BTC-USD', output=asyncio.Queue())
-
-            self.api_factory.get_ws_assistant.assert_called_once()
-            self.data_source._subscribe_channels.assert_called_once()
-            self.data_source._send_ping.assert_called_once()
-            self.data_source._process_websocket_messages.assert_called_once()
-            self.assertIsNone(self.data_source._ws_assistant["BTC-USD"])
-            self.data_source._sleep.assert_called_once()
-
-    async def test__listen_for_user_stream_cancelled_error(self):
-        self.data_source._sleep = AsyncMock()
-        with patch.object(self.data_source, '_connected_websocket_assistant', side_effect=asyncio.CancelledError):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.data_source._listen_for_user_stream(pair='BTC-USD', output=asyncio.Queue())
-        # Execute finally block
-        self.data_source._sleep.assert_called_with(0)
-
-    async def test__listen_for_user_stream_connection_error(self):
-        self.data_source._sleep = AsyncMock()
-        with patch.object(self.data_source, '_connected_websocket_assistant', side_effect=[ConnectionError, asyncio.CancelledError]):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.data_source._listen_for_user_stream(pair='BTC-USD', output=asyncio.Queue())
-                self.data_source._connected_websocket_assistant.assert_called_once()
-        self.data_source._sleep.assert_called_with(0)
-        self.assertEqual(2, self.data_source._sleep.call_count)
-
-    async def test__listen_for_user_stream_generic_exception(self):
-        self.data_source._sleep = AsyncMock()
-        with patch.object(self.data_source, '_connected_websocket_assistant', side_effect=[Exception, asyncio.CancelledError]):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.data_source._listen_for_user_stream(pair='BTC-USD', output=asyncio.Queue())
-                self.data_source._connected_websocket_assistant.assert_called_once()
-        self.data_source._sleep.assert_called_with(5)
-        self.assertEqual(2, self.data_source._sleep.call_count)
 
 
 class TestMessageToCumulativeUpdate(IsolatedAsyncioWrapperTestCase):
