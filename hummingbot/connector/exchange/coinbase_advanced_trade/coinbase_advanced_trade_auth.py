@@ -255,7 +255,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
             "aud": [service],
         }
 
-        if uri:
+        if uri is not None:
             jwt_data["uri"] = uri
 
         jwt_token = jwt.encode(
