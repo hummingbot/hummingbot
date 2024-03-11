@@ -152,7 +152,6 @@ class ControllerBase(SmartComponentBase):
             await self.update_processed_data()
             executor_actions: List[ExecutorAction] = self.determine_executor_actions()
             await self.send_actions(executor_actions)
-            await self.executors_update_event.wait()
 
     async def send_actions(self, executor_actions: List[ExecutorAction]):
         if len(executor_actions) > 0:
