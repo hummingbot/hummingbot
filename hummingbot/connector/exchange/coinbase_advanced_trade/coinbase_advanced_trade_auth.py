@@ -243,7 +243,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
             )
         except ValueError as e:
             # This handles errors like incorrect key format
-            self.logger().warning("The API key you provided does not seem to be a Coinbase Cloud API key.")
+            self.logger().debug("The API key is not PEM format. Falling back to Legacy sign-in.")
             raise e
 
         time_: int = int(self.time_provider.time())
