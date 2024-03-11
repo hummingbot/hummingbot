@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 from pydantic import BaseModel
 
@@ -11,14 +11,13 @@ class ExecutorAction(BaseModel):
     """
     Base class for bot actions.
     """
-    pass
+    controller_id: Optional[str] = "main"
 
 
 class CreateExecutorAction(ExecutorAction):
     """
     Action to create an executor.
     """
-    controller_id: str
     executor_config: Union[PositionExecutorConfig, DCAExecutorConfig, ArbitrageExecutorConfig]
 
 
@@ -27,7 +26,6 @@ class StopExecutorAction(ExecutorAction):
     Action to stop an executor.
     """
     executor_id: str
-    controller_id: str
 
 
 class StoreExecutorAction(ExecutorAction):
@@ -35,4 +33,3 @@ class StoreExecutorAction(ExecutorAction):
     Action to store an executor.
     """
     executor_id: str
-    controller_id: str
