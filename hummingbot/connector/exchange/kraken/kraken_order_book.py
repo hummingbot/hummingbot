@@ -1,27 +1,11 @@
-import logging
-from typing import (
-    Dict,
-    Optional
-)
+from typing import Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType
-)
-from hummingbot.logger import HummingbotLogger
-
-_krob_logger = None
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
-cdef class KrakenOrderBook(OrderBook):
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        global _krob_logger
-        if _krob_logger is None:
-            _krob_logger = logging.getLogger(__name__)
-        return _krob_logger
+class KrakenOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -35,7 +19,7 @@ cdef class KrakenOrderBook(OrderBook):
             "update_id": msg["latest_update"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp * 1e-3)
+        }, timestamp=timestamp)
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -49,7 +33,7 @@ cdef class KrakenOrderBook(OrderBook):
             "update_id": msg["update_id"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp * 1e-3)
+        }, timestamp=timestamp)
 
     @classmethod
     def snapshot_ws_message_from_exchange(cls,
@@ -63,7 +47,7 @@ cdef class KrakenOrderBook(OrderBook):
             "update_id": msg["update_id"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp * 1e-3)
+        }, timestamp=timestamp)
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
@@ -77,7 +61,7 @@ cdef class KrakenOrderBook(OrderBook):
             "update_id": ts,
             "price": msg["trade"][0],
             "amount": msg["trade"][1]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts)
 
     @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":

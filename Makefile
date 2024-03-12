@@ -16,7 +16,6 @@ test:
  	--exclude-dir="test/mock" \
  	--exclude-dir="test/hummingbot/connector/gateway/amm" \
  	--exclude-dir="test/hummingbot/connector/exchange/coinbase_pro" \
- 	--exclude-dir="test/hummingbot/connector/exchange/kraken" \
  	--exclude-dir="test/hummingbot/connector/exchange/hitbtc" \
  	--exclude-dir="test/hummingbot/connector/exchange/foxbit" \
  	--exclude-dir="test/hummingbot/connector/gateway/clob_spot/data_sources/dexalot" \
