@@ -7,7 +7,7 @@ from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
 
 
 class ExchangePair(BaseModel):
-    exchange: str
+    connector_name: str
     trading_pair: str
 
 
