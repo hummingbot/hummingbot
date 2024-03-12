@@ -86,7 +86,7 @@ async def main() -> None:
     gas_price = 500000000
     gas_limit = sim_res.gas_info.gas_used + 20000
     gas_fee = "{:.18f}".format((gas_price * gas_limit) / pow(10, 18)).rstrip("0")
-    fee = [composer.Coin(
+    fee = [composer.coin(
         amount=gas_price * gas_limit,
         denom=NETWORK.fee_denom,
     )]
