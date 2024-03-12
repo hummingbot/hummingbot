@@ -21,8 +21,8 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         super().setUp()
         self.strategy = self.create_mock_strategy()
         self.arbitrage_config = MagicMock(spec=ArbitrageExecutorConfig)
-        self.arbitrage_config.buying_market = ExchangePair(exchange='binance', trading_pair='MATIC-USDT')
-        self.arbitrage_config.selling_market = ExchangePair(exchange='uniswap_polygon_mainnet', trading_pair='WMATIC-USDT')
+        self.arbitrage_config.buying_market = ExchangePair(connector_name='binance', trading_pair='MATIC-USDT')
+        self.arbitrage_config.selling_market = ExchangePair(connector_name='uniswap_polygon_mainnet', trading_pair='WMATIC-USDT')
         self.arbitrage_config.min_profitability = Decimal('0.01')
         self.arbitrage_config.order_amount = Decimal('1')
         self.arbitrage_config.max_retries = 3
@@ -72,7 +72,7 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_place_order.return_value = 'order_id'
         self.executor.place_buy_arbitrage_order()
         mock_place_order.assert_called_once_with(
-            connector_name=self.arbitrage_config.buying_market.exchange,
+            connector_name=self.arbitrage_config.buying_market.connector_name,
             trading_pair=self.arbitrage_config.buying_market.trading_pair,
             order_type=OrderType.MARKET,
             side=TradeType.BUY,
@@ -85,7 +85,7 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_place_order.return_value = 'order_id'
         self.executor.place_sell_arbitrage_order()
         mock_place_order.assert_called_once_with(
-            connector_name=self.arbitrage_config.selling_market.exchange,
+            connector_name=self.arbitrage_config.selling_market.connector_name,
             trading_pair=self.arbitrage_config.selling_market.trading_pair,
             order_type=OrderType.MARKET,
             side=TradeType.SELL,

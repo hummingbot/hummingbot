@@ -82,7 +82,7 @@ class OKXPerpetualCandles(CandlesBase):
     async def fill_historical_candles(self):
         max_request_needed = (self._candles.maxlen // CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) + 1
         requests_executed = 0
-        while not self.is_ready:
+        while not self.ready:
             missing_records = self._candles.maxlen - len(self._candles)
             end_timestamp = int(self._candles[0][0])
             try:
