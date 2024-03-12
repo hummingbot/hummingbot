@@ -1,0 +1,24 @@
+#########################################
+###   AMM V3 LP strategy config   ###
+#########################################
+
+template_version: 3
+strategy: null
+
+#The name of connector to use
+connector: null
+
+# The pair you provide liquidity to
+market: null
+
+# The pool you provide liquidity to
+fee_tier: null
+
+# The spread between lower price to the upper price
+price_spread: null
+
+# The amount of token (liquidity) provided to the pool
+amount: null
+
+# The minimum profit required before positions can be adjusted
+min_profitability: null

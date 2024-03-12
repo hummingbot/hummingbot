@@ -22,11 +22,14 @@ from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOr
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.logger import HummingbotLogger
@@ -59,6 +62,9 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         self._client = JsonRpcClient(self._base_url)
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
+        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.max_snapshots_update_interval = 15
+        self.min_snapshots_update_interval = 5
 
     @property
     def connector_name(self) -> str:
@@ -75,7 +81,7 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         await super().stop()
 
     def get_supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
         place_order_results = []
@@ -156,23 +162,56 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
         self._check_markets_initialized() or await self._update_markets()
 
-        result = await self._get_gateway_instance().get_balances(
-            chain=self.chain,
-            network=self._network,
-            address=self._account_id,
-            token_symbols=list(self._hb_to_exchange_tokens_map.values()),
-            connector=self.connector_name,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.BALANCE_REQUEST_LIMIT_ID):
+            result = await self._get_gateway_instance().get_balances(
+                chain=self.chain,
+                network=self._network,
+                address=self._account_id,
+                token_symbols=list(self._hb_to_exchange_tokens_map.values()),
+                connector=self.connector_name,
+            )
+
         balances = defaultdict(dict)
+
+        if result.get("balances") is None:
+            raise ValueError(f"Error fetching balances for {self._account_id}.")
 
         for token, value in result["balances"].items():
             client_token = self._hb_to_exchange_tokens_map.inverse[token]
-            balance_value = Decimal(value)
-            if balance_value != 0:
-                balances[client_token]["total_balance"] = balance_value
-                balances[client_token]["available_balance"] = balance_value
+            # balance_value = value["total_balance"]
+            if value.get("total_balance") is not None and value.get("available_balance") is not None:
+                balances[client_token]["total_balance"] = Decimal(value.get("total_balance", 0))
+                balances[client_token]["available_balance"] = Decimal(value.get("available_balance", 0))
 
         return balances
+
+    async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        async with self._throttler.execute_task(limit_id=CONSTANTS.ORDERBOOK_REQUEST_LIMIT_ID):
+            data = await self._get_gateway_instance().get_clob_orderbook_snapshot(
+                trading_pair=trading_pair, connector=self.connector_name, chain=self._chain, network=self._network
+            )
+
+        bids = [
+            (Decimal(bid["price"]), Decimal(bid["quantity"]))
+            for bid in data["buys"]
+            if Decimal(bid["quantity"]) != 0
+        ]
+        asks = [
+            (Decimal(ask["price"]), Decimal(ask["quantity"]))
+            for ask in data["sells"]
+            if Decimal(ask["quantity"]) != 0
+        ]
+        snapshot_msg = OrderBookMessage(
+            message_type=OrderBookMessageType.SNAPSHOT,
+            content={
+                "trading_pair": trading_pair,
+                "update_id": self._time() * 1e3,
+                "bids": bids,
+                "asks": asks,
+            },
+            timestamp=data["timestamp"],
+        )
+        return snapshot_msg
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
         await in_flight_order.get_creation_transaction_hash()
@@ -245,12 +284,13 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return trade_updates
 
     def _get_exchange_base_quote_tokens_from_market_info(self, market_info: Dict[str, Any]) -> Tuple[str, str]:
-        base = market_info["baseCurrency"]
-        quote = market_info["quoteCurrency"]
+        # get base and quote tokens from market info "marketId" field which has format "baseCurrency-quoteCurrency"
+        base, quote = market_info["marketId"].split("-")
         return base, quote
 
     def _get_exchange_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
-        exchange_trading_pair = f"{market_info['baseCurrency']}/{market_info['quoteCurrency']}"
+        base, quote = market_info["marketId"].split("-")
+        exchange_trading_pair = f"{base}/{quote}"
         return exchange_trading_pair
 
     def _get_maker_taker_exchange_fee_rates_from_market_info(
@@ -267,14 +307,12 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return maker_taker_exchange_fee_rates
 
     def _get_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
-        base = market_info["baseCurrency"].upper()
-        quote = market_info["quoteCurrency"].upper()
+        base, quote = market_info["marketId"].split("-")
         trading_pair = combine_to_hb_trading_pair(base=base, quote=quote)
         return trading_pair
 
     def _parse_trading_rule(self, trading_pair: str, market_info: Dict[str, Any]) -> TradingRule:
-        base = market_info["baseCurrency"].upper()
-        quote = market_info["quoteCurrency"].upper()
+        base, quote = market_info["marketId"].split("-")
         return TradingRule(
             trading_pair=combine_to_hb_trading_pair(base=base, quote=quote),
             min_order_size=Decimal(f"1e-{market_info['baseTickSize']}"),
@@ -337,12 +375,13 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return status_update
 
     async def _get_ticker_data(self, trading_pair: str) -> Dict[str, Any]:
-        ticker_data = await self._get_gateway_instance().get_clob_ticker(
-            connector=self.connector_name,
-            chain=self._chain,
-            network=self._network,
-            trading_pair=trading_pair,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.TICKER_REQUEST_LIMIT_ID):
+            ticker_data = await self._get_gateway_instance().get_clob_ticker(
+                connector=self.connector_name,
+                chain=self._chain,
+                network=self._network,
+                trading_pair=trading_pair,
+            )
 
         for market in ticker_data["markets"]:
             if market["marketId"] == trading_pair:
@@ -352,6 +391,8 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     def _get_last_trade_price_from_ticker_data(self, ticker_data: Dict[str, Any]) -> Decimal:
         # Get mid-price from order book for now since there is no easy way to get last trade price from ticker data
+        RateOracle.get_instance().set_price(pair=ticker_data["marketId"], price=Decimal(ticker_data["midprice"]))
+
         return ticker_data["midprice"]
 
     @staticmethod

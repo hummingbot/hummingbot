@@ -113,7 +113,7 @@ class MexcExchange(ExchangePyBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
+        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL, headers={"Content-Type": "application/json"})
         return pairs_prices
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -396,7 +396,8 @@ class MexcExchange(ExchangePyBase):
                 tasks.append(self._api_get(
                     path_url=CONSTANTS.MY_TRADES_PATH_URL,
                     params=params,
-                    is_auth_required=True))
+                    is_auth_required=True,
+                    headers={"Content-Type": "application/json"}))
 
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -473,7 +474,8 @@ class MexcExchange(ExchangePyBase):
                     "orderId": exchange_order_id
                 },
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL,
+                headers={"Content-Type": "application/json"})
 
             for trade in all_fills_response:
                 exchange_order_id = str(trade["orderId"])
@@ -505,7 +507,8 @@ class MexcExchange(ExchangePyBase):
             params={
                 "symbol": trading_pair,
                 "origClientOrderId": tracked_order.client_order_id},
-            is_auth_required=True)
+            is_auth_required=True,
+            headers={"Content-Type": "application/json"})
 
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
 
@@ -525,7 +528,8 @@ class MexcExchange(ExchangePyBase):
 
         account_info = await self._api_get(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            is_auth_required=True)
+            is_auth_required=True,
+            headers={"Content-Type": "application/json"})
 
         balances = account_info["balances"]
         for balance_entry in balances:
@@ -556,7 +560,19 @@ class MexcExchange(ExchangePyBase):
         resp_json = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-            params=params
+            params=params,
+            headers={"Content-Type": "application/json"}
         )
 
         return float(resp_json["lastPrice"])
+
+    async def _make_network_check_request(self):
+        await self._api_get(path_url=self.check_network_request_path, headers={"Content-Type": "application/json"})
+
+    async def _make_trading_rules_request(self) -> Any:
+        exchange_info = await self._api_get(path_url=self.trading_rules_request_path, headers={"Content-Type": "application/json"})
+        return exchange_info
+
+    async def _make_trading_pairs_request(self) -> Any:
+        exchange_info = await self._api_get(path_url=self.trading_pairs_request_path, headers={"Content-Type": "application/json"})
+        return exchange_info

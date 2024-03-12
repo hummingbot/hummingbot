@@ -13,15 +13,11 @@ omit =
         hummingbot/client/ui/layout.py
         hummingbot/client/tab/*
         hummingbot/client/ui/parser.py
-        hummingbot/connector/connector/balancer*
-        hummingbot/connector/connector/terra*
-        hummingbot/connector/connector/uniswap*
-        hummingbot/connector/connector/uniswap_v3*
-        hummingbot/connector/derivative/perpetual_finance*
         hummingbot/connector/derivative/position.py
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/coinbase_pro*
         hummingbot/connector/exchange/hitbtc*
+        hummingbot/connector/exchange/foxbit*
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/gateway/**
         hummingbot/connector/test_support/*
@@ -32,7 +28,6 @@ omit =
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/user/user_balances.py
-        hummingbot/smart_components/controllers/*
 dynamic_context = test_function
 branch = true
 

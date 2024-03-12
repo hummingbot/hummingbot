@@ -1,7 +1,7 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.smart_components.utils.distributions import Distributions
+from hummingbot.smart_components.order_level_distributions.distributions import Distributions
 
 
 class TestDistributions(unittest.TestCase):

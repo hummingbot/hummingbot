@@ -16,12 +16,12 @@ test:
  	--exclude-dir="test/mock" \
  	--exclude-dir="test/hummingbot/connector/gateway/amm" \
  	--exclude-dir="test/hummingbot/connector/exchange/coinbase_pro" \
- 	--exclude-dir="test/hummingbot/connector/exchange/kraken" \
  	--exclude-dir="test/hummingbot/connector/exchange/hitbtc" \
+ 	--exclude-dir="test/hummingbot/connector/exchange/foxbit" \
  	--exclude-dir="test/hummingbot/connector/gateway/clob_spot/data_sources/dexalot" \
  	--exclude-dir="test/hummingbot/strategy/amm_arb" \
  	--exclude-dir="test/hummingbot/core/gateway" \
- 	--exclude-dir="test/hummingbot/strategy/uniswap_v3_lp"
+ 	--exclude-dir="test/hummingbot/strategy/amm_v3_lp"
 
 run_coverage: test
 	coverage report

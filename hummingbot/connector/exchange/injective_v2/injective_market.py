@@ -1,20 +1,39 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict
+
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 
 
 @dataclass(frozen=True)
 class InjectiveToken:
-    denom: str
-    symbol: str
     unique_symbol: str
-    name: str
-    decimals: int
+    native_token: Token
+
+    @property
+    def denom(self) -> str:
+        return self.native_token.denom
+
+    @property
+    def symbol(self) -> str:
+        return self.native_token.symbol
+
+    @property
+    def name(self) -> str:
+        return self.native_token.name
+
+    @property
+    def decimals(self) -> int:
+        return self.native_token.decimals
 
     def value_from_chain_format(self, chain_value: Decimal) -> Decimal:
         scaler = Decimal(f"1e{-self.decimals}")
+        return chain_value * scaler
+
+    def value_from_special_chain_format(self, chain_value: Decimal) -> Decimal:
+        scaler = Decimal(f"1e{-self.decimals-18}")
         return chain_value * scaler
 
 
@@ -23,7 +42,7 @@ class InjectiveSpotMarket:
     market_id: str
     base_token: InjectiveToken
     quote_token: InjectiveToken
-    market_info: Dict[str, Any]
+    native_market: SpotMarket
 
     def trading_pair(self):
         return combine_to_hb_trading_pair(self.base_token.unique_symbol, self.quote_token.unique_symbol)
@@ -35,33 +54,39 @@ class InjectiveSpotMarket:
         scaler = Decimal(f"1e{self.base_token.decimals-self.quote_token.decimals}")
         return chain_price * scaler
 
+    def quantity_from_special_chain_format(self, chain_quantity: Decimal) -> Decimal:
+        quantity = chain_quantity / Decimal("1e18")
+        return self.quantity_from_chain_format(chain_quantity=quantity)
+
+    def price_from_special_chain_format(self, chain_price: Decimal) -> Decimal:
+        price = chain_price / Decimal("1e18")
+        return self.price_from_chain_format(chain_price=price)
+
     def min_price_tick_size(self) -> Decimal:
-        min_price_tick_size = Decimal(self.market_info["minPriceTickSize"])
-        return self.price_from_chain_format(chain_price=min_price_tick_size)
+        return self.price_from_chain_format(chain_price=self.native_market.min_price_tick_size)
 
     def min_quantity_tick_size(self) -> Decimal:
-        min_quantity_tick_size = Decimal(self.market_info["minQuantityTickSize"])
-        return self.quantity_from_chain_format(chain_quantity=min_quantity_tick_size)
+        return self.quantity_from_chain_format(chain_quantity=self.native_market.min_quantity_tick_size)
 
     def maker_fee_rate(self) -> Decimal:
-        return Decimal(self.market_info["makerFeeRate"])
+        return self.native_market.maker_fee_rate
 
     def taker_fee_rate(self) -> Decimal:
-        return Decimal(self.market_info["takerFeeRate"])
+        return self.native_market.taker_fee_rate
 
 
 @dataclass(frozen=True)
 class InjectiveDerivativeMarket:
     market_id: str
     quote_token: InjectiveToken
-    market_info: Dict[str, Any]
+    native_market: DerivativeMarket
 
     def base_token_symbol(self):
-        ticker_base, _ = self.market_info["ticker"].split("/")
+        ticker_base, _ = self.native_market.ticker.split("/")
         return ticker_base
 
     def trading_pair(self):
-        ticker_base, _ = self.market_info["ticker"].split("/")
+        ticker_base, _ = self.native_market.ticker.split("/")
         return combine_to_hb_trading_pair(ticker_base, self.quote_token.unique_symbol)
 
     def quantity_from_chain_format(self, chain_quantity: Decimal) -> Decimal:
@@ -71,28 +96,31 @@ class InjectiveDerivativeMarket:
         scaler = Decimal(f"1e{-self.quote_token.decimals}")
         return chain_price * scaler
 
+    def quantity_from_special_chain_format(self, chain_quantity: Decimal) -> Decimal:
+        quantity = chain_quantity / Decimal("1e18")
+        return self.quantity_from_chain_format(chain_quantity=quantity)
+
+    def price_from_special_chain_format(self, chain_price: Decimal) -> Decimal:
+        price = chain_price / Decimal("1e18")
+        return self.price_from_chain_format(chain_price=price)
+
     def min_price_tick_size(self) -> Decimal:
-        min_price_tick_size = Decimal(self.market_info["minPriceTickSize"])
-        return self.price_from_chain_format(chain_price=min_price_tick_size)
+        return self.price_from_chain_format(chain_price=self.native_market.min_price_tick_size)
 
     def min_quantity_tick_size(self) -> Decimal:
-        min_quantity_tick_size = Decimal(self.market_info["minQuantityTickSize"])
-        return self.quantity_from_chain_format(chain_quantity=min_quantity_tick_size)
+        return self.quantity_from_chain_format(chain_quantity=self.native_market.min_quantity_tick_size)
 
     def maker_fee_rate(self) -> Decimal:
-        return Decimal(self.market_info["makerFeeRate"])
+        return self.native_market.maker_fee_rate
 
     def taker_fee_rate(self) -> Decimal:
-        return Decimal(self.market_info["takerFeeRate"])
+        return self.native_market.taker_fee_rate
 
     def oracle_base(self) -> str:
-        return self.market_info["oracleBase"]
+        return self.native_market.oracle_base
 
     def oracle_quote(self) -> str:
-        return self.market_info["oracleQuote"]
+        return self.native_market.oracle_quote
 
     def oracle_type(self) -> str:
-        return self.market_info["oracleType"]
-
-    def next_funding_timestamp(self) -> int:
-        return int(self.market_info["perpetualMarketInfo"]["nextFundingTimestamp"])
+        return self.native_market.oracle_type

@@ -174,8 +174,14 @@ class XrplClientMock:
 
             return {
                 "balances": {
-                    base: base_balance,
-                    quote: quote_balance
+                    base: {
+                        "total_balance": base_balance,
+                        "available_balance": base_balance
+                    },
+                    quote: {
+                        "total_balance": quote_balance,
+                        "available_balance": quote_balance
+                    }
                 }
             }
 
