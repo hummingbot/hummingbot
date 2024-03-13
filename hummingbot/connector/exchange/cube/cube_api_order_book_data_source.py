@@ -10,7 +10,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSBinaryRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -64,8 +64,9 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + f"/book/{market_id}/snapshot",
-                                              domain=self._domain),
+                url=web_utils.public_rest_url(
+                    path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + f"/book/{market_id}/snapshot",
+                    domain=self._domain),
                 params=params,
                 method=RESTMethod.GET,
                 throttler_limit_id=CONSTANTS.SNAPSHOT_LM_ID,
@@ -116,7 +117,9 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "fill_quantity": trade.fill_quantity,
                 "transact_time": trade.transact_time,
                 "trade_id": trade.tradeId,
-                "trade_type": float(TradeType.SELL.value) if trade.aggressing_side == market_data_pb2.Side.ASK else float(TradeType.BUY.value)
+                "trade_type": float(
+                    TradeType.SELL.value) if trade.aggressing_side == market_data_pb2.Side.ASK else float(
+                    TradeType.BUY.value)
             }
 
             trade_message = CubeOrderBook.trade_message_from_exchange(msg)
@@ -162,24 +165,37 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             message_queue.put_nowait(order_book_message)
 
     async def _process_websocket_messages_for_pair(self, websocket_assistant: WSAssistant, trading_pair: str):
-        data: market_data_pb2.MdMessages
 
-        # TODO: Add heartbeat here
+        async def handle_heartbeat():
+            while True:
+                await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+                hb = market_data_pb2.Heartbeat(
+                    request_id=0,
+                    timestamp=time.time_ns(),
+                )
+                hb_request: WSBinaryRequest = WSBinaryRequest(
+                    payload=market_data_pb2.ClientMessage(heartbeat=hb).SerializeToString())
+                await websocket_assistant.send(hb_request)
 
-        async for ws_response in websocket_assistant.iter_messages():
-            data = market_data_pb2.MdMessages().FromString(ws_response.data)
-            if data is not None:  # data will be None when the websocket is disconnected
-                for md_msg in data.messages:
-                    field = md_msg.WhichOneof('inner')
-                    if field == CONSTANTS.DIFF_EVENT_TYPE:
-                        diff_data = md_msg.mbp_diff
-                        self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(
-                            {"trading_pair": trading_pair, "mbp_diff": diff_data})
-                    elif field == CONSTANTS.TRADE_EVENT_TYPE:
-                        trade_data = md_msg.trades
-                        trade_data["trading_pair"] = trading_pair
-                        self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
-                            {"trading_pair": trading_pair, "trades": trade_data})
+        async def handle_messages():
+            data: market_data_pb2.MdMessages
+            async for ws_response in websocket_assistant.iter_messages():
+                data = market_data_pb2.MdMessages().FromString(ws_response.data)
+                if data is not None:  # data will be None when the websocket is disconnected
+                    for md_msg in data.messages:
+                        field = md_msg.WhichOneof('inner')
+                        if field == CONSTANTS.DIFF_EVENT_TYPE:
+                            diff_data = md_msg.mbp_diff
+                            self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(
+                                {"trading_pair": trading_pair, "mbp_diff": diff_data})
+                        elif field == CONSTANTS.TRADE_EVENT_TYPE:
+                            trade_data = md_msg.trades
+                            trade_data["trading_pair"] = trading_pair
+                            self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
+                                {"trading_pair": trading_pair, "trades": trade_data})
+
+        tasks = [handle_heartbeat(), handle_messages()]
+        await safe_gather(*tasks)
 
     async def listen_for_subscriptions(self):
         """

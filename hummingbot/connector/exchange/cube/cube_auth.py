@@ -61,7 +61,6 @@ class CubeAuth(AuthBase):
         message.timestamp = timestamp
 
         serialized_message = message.SerializeToString()
-        # base64_encoded_message = base64.b64encode(serialized_message).decode('utf-8')
 
         return serialized_message
 
