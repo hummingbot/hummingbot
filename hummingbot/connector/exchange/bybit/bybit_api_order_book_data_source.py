@@ -137,7 +137,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_V5_PUBLIC_URL[self._domain])
+                await ws.connect(ws_url=CONSTANTS.WSS_PUBLIC_URL[self._domain])
                 await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
 
@@ -149,7 +149,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     except asyncio.TimeoutError:
                         ping_time = self._time()
                         payload = {
-                            "ping": int(ping_time * 1e3)
+                            "op": "ping"
                         }
                         ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
@@ -203,7 +203,12 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _process_ws_messages(self, ws: WSAssistant):
         async for ws_response in ws.iter_messages():
             data = ws_response.data
-            if data.get("msg") == "Success":
+            if data.get("op") == "subscribe":
+                if data.get("success") is False:
+                    self.logger().error(
+                        "Unexpected error occurred subscribing to order book trading and delta streams...",
+                        exc_info=True
+                    )
                 continue
             event_type = data.get("type")
             topic = data.get("topic")
@@ -218,6 +223,8 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
             elif event_type == CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE:
                 self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
+            # else:
+            #     self.logger().info(f"Other Event: {event_type} -> {ws_response}")
 
     async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
         message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]

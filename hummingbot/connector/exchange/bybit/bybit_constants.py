@@ -12,14 +12,20 @@ SIDE_SELL = "SELL"
 
 TIME_IN_FORCE_GTC = "GTC"
 # Base URL
-REST_URLS = {"bybit_main": "https://api.bybit.com",
-             "bybit_testnet": "https://api-testnet.bybit.com"}
+REST_URLS = {
+    "bybit_main": "https://api.bybit.com",
+    "bybit_testnet": "https://api-testnet.bybit.com"
+}
 
-WSS_V5_PUBLIC_URL = {"bybit_main": "wss://stream.bybit.com/v5/public/spot",
-                     "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/spot"}
+WSS_PUBLIC_URL = {
+    "bybit_main": "wss://stream.bybit.com/v5/public/spot",
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/spot"
+}
 
-WSS_PRIVATE_URL = {"bybit_main": "wss://stream.bybit.com/v5/private",
-                   "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private"}
+WSS_PRIVATE_URL = {
+    "bybit_main": "wss://stream.bybit.com/v5/private",
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private"
+}
 
 # unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
 # It is also used to prevent replay attacks.
@@ -62,7 +68,7 @@ ORDER_STATE = {
     "REJECTED": OrderState.FAILED,
 }
 
-WS_HEARTBEAT_TIME_INTERVAL = 30
+WS_HEARTBEAT_TIME_INTERVAL = 20
 
 # Rate Limit Type
 REQUEST_GET = "GET"

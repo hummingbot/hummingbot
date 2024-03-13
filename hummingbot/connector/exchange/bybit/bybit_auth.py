@@ -57,7 +57,8 @@ class BybitAuth(AuthBase):
         headers["X-BAPI-TIMESTAMP"] = str(ts)
         headers["X-BAPI-API-KEY"] = self.api_key
 
-        signature = self._generate_signature(timestamp=ts, method=method, payload=request.params)
+        signature = self._generate_rest_signature(
+            timestamp=ts, method=method, payload=request.params)
 
         headers["X-BAPI-SIGN"] = signature
         headers["X-BAPI-SIGN-TYPE"] = str(2)
@@ -66,22 +67,29 @@ class BybitAuth(AuthBase):
         request.headers = {**request.headers, **headers} if request.headers is not None else headers
         return request
 
-    def _generate_signature(self, timestamp, method: str, payload: Optional[Dict[str, Any]]) -> str:
+    def _generate_rest_signature(self, timestamp, method: str, payload: Optional[Dict[str, Any]]) -> str:
         if payload is None:
             payload = {}
 
         param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + urlencode(payload)
         return hmac.new(bytes(self.secret_key, "utf-8"), param_str.encode("utf-8"), hashlib.sha256).hexdigest()
 
-    def generate_ws_authentication_message(self):
+    def _generate_ws_signature(self, expires: int):
+        signature = str(hmac.new(
+            bytes(self.secret_key, "utf-8"),
+            bytes(f"GET/realtime{expires}", "utf-8"), digestmod="sha256"
+        ).hexdigest())
+        return signature
+
+    def generate_ws_auth_message(self):
         """
         Generates the authentication message to start receiving messages from
         the 3 private ws channels
         """
-        expires = int((self.time_provider.time() + 10) * 1e3)
-        _val = f'GET/realtime{expires}'
-        signature = hmac.new(self.secret_key.encode("utf8"),
-                             _val.encode("utf8"), hashlib.sha256).hexdigest()
+        # Generate expires.
+        # expires = int((self.time_provider.time() + 10) * 1e3)
+        expires = int((self._time() + 10000) * 1000)
+        signature = self._generate_ws_signature(expires)
         auth_message = {
             "op": "auth",
             "args": [self.api_key, expires, signature]

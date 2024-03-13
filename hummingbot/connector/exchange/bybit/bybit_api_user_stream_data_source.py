@@ -80,7 +80,8 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     except asyncio.TimeoutError:
                         ping_time = self._time()
                         payload = {
-                            "ping": int(ping_time * 1e3)
+                            "op": "ping",
+                            "args": int(ping_time * 1e3)
                         }
                         ping_request = WSJSONRequest(payload=payload)
                         await ws.send(request=ping_request)
@@ -99,20 +100,40 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Sends the authentication message.
         :param ws: the websocket assistant used to connect to the exchange
         """
-        auth_message: WSJSONRequest = WSJSONRequest(
-            payload=self._auth.generate_ws_authentication_message()
+        request: WSJSONRequest = WSJSONRequest(
+            payload=self._auth.generate_ws_auth_message()
         )
-        await ws.send(auth_message)
+        await ws.send(request)
 
     async def _process_ws_messages(self, ws: WSAssistant, output: asyncio.Queue):
         async for ws_response in ws.iter_messages():
             data = ws_response.data
-            if isinstance(data, list):
-                for message in data:
-                    if message["e"] in ["executionReport", "outboundAccountInfo"]:
-                        output.put_nowait(message)
-            elif data.get("auth") == "fail":
-                raise IOError("Private channel authentication failed.")
+            if "op" in data:
+                if data.get("op") == "auth":
+                    await self._process_ws_auth_msg(data, output)
+                elif data.get("op") == "pong":
+                    await self._process_ws_pingpong_msg(data, output)
+
+    async def _process_ws_auth_msg(self, data: dict, output: asyncio.Queue):
+        # {
+        #     "success": true,
+        #     "ret_msg": "",
+        #     "op": "auth",
+        #     "conn_id": "XXX"
+        # }
+        if data.get("success") is False:
+            raise IOError("Private channel authentication failed.")
+        else:
+            self.logger().info("Private channel authentication success.")
+
+    async def _process_ws_pingpong_msg(self, data: dict, output: asyncio.Queue):
+        # {
+        #     "success": true,
+        #     "ret_msg": "pong",
+        #     "conn_id": "XXXX",
+        #     "op": "ping"
+        # }
+        pass
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
