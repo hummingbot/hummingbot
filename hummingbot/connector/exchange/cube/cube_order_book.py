@@ -23,15 +23,6 @@ class CubeOrderBook(OrderBook):
             msg.update(metadata)
 
         levels = msg["result"]["levels"]
-        # bids = [{"price": level["price"], "amount": level["quantity"]} for level in levels if level["side"] == 0]
-        # asks = [{"price": level["price"], "amount": level["quantity"]} for level in levels if level["side"] == 1]
-        #
-        # content = {
-        #     "trading_pair": msg["trading_pair"],
-        #     "update_id": msg["result"]["lastTransactTime"],
-        #     "bids": bids,
-        #     "asks": asks
-        # }
 
         bids = [OrderBookRow(float(level["price"]), float(level["quantity"]), msg["result"]["lastTransactTime"]) for
                 level in levels if level["side"] == 0]

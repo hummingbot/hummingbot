@@ -207,14 +207,15 @@ class CubeExchange(ExchangePyBase):
         order_side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         market_id = await self.exchange_market_id_associated_to_pair(trading_pair=trading_pair)
         trading_rule: TradingRule = self._trading_rules[trading_pair]
-        exchange_price = price / trading_rule.min_price_increment
+        # exchange_price = price / trading_rule.min_price_increment
+        exchange_amount = amount / trading_rule.min_order_size
 
         api_params = {
             "clientOrderId": int(order_id),
             "requestId": int(order_id),
             "marketId": int(market_id),
-            "price": int(exchange_price),
-            "quantity": int(amount),
+            "price": int(price),
+            "quantity": int(exchange_amount),
             "side": order_side,
             "timeInForce": CONSTANTS.TIME_IN_FORCE_GTC,
             "orderType": int(cube_order_type),
@@ -223,8 +224,6 @@ class CubeExchange(ExchangePyBase):
             "postOnly": 0,
             "cancelOnDisconnect": False,
         }
-
-        auth_headers = self._auth.header_for_authentication()
 
         if order_type is OrderType.LIMIT_MAKER:
             api_params["postOnly"] = 1
@@ -240,10 +239,10 @@ class CubeExchange(ExchangePyBase):
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_IOC
             api_params["orderType"] = CONSTANTS.CUBE_ORDER_TYPE[OrderType.MARKET]
 
+        print(f"api_params: {api_params}")
+
         try:
-            resp = await self._api_post(
-                path_url=CONSTANTS.ORDER_PATH_URL, data=api_params, is_auth_required=True, headers=auth_headers
-            )
+            resp = await self._api_post(path_url=CONSTANTS.POST_ORDER_PATH_URL, data=api_params, is_auth_required=True)
 
             order_result = resp.get("result", {}).get("Ack", {})
 
@@ -279,7 +278,6 @@ class CubeExchange(ExchangePyBase):
         #     }
         # }
         market_id = await self.exchange_market_id_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        auth_headers = self._auth.header_for_authentication()
 
         api_params = {
             "marketId": int(market_id),
@@ -288,14 +286,19 @@ class CubeExchange(ExchangePyBase):
             "subaccountId": int(self.cube_subaccount_id),
         }
 
-        resp = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL, params=api_params, is_auth_required=True, headers=auth_headers
-        )
+        resp = await self._api_delete(path_url=CONSTANTS.POST_ORDER_PATH_URL, data=api_params, is_auth_required=True)
 
         cancel_result = resp.get("result", {}).get("Ack", {})
 
         if int(cancel_result.get("clientOrderId", 0)) == int(tracked_order.client_order_id):
             return True
+
+        cancel_reject = resp.get("result", {}).get("Rej", {})
+
+        # If the order is not found, the response will contain a reason code 2
+        if cancel_reject.get("reason") == 2:
+            return True
+
         return False
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
@@ -557,14 +560,12 @@ class CubeExchange(ExchangePyBase):
 
         if order.exchange_order_id is not None:
             exchange_order_id = int(order.exchange_order_id)
-            auth_headers = self._auth.header_for_authentication()
 
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.FILLS_PATH_URL,
                 params={"subaccountId": self.cube_subaccount_id, "orderIds": exchange_order_id},
                 is_auth_required=True,
                 limit_id=CONSTANTS.FILLS_PATH_URL,
-                headers=auth_headers,
             )
 
             fills_data = all_fills_response.get("result", {}).get("fills", [])
@@ -674,12 +675,13 @@ class CubeExchange(ExchangePyBase):
         #         ]
         #     }
         # }
-        auth_headers = self._auth.header_for_authentication()
         orders_rsp = await self._api_get(
             path_url=CONSTANTS.ORDER_PATH_URL,
-            params={"subaccountId": self.cube_subaccount_id, "createdBefore": tracked_order.creation_timestamp + 1000},
+            params={
+                "subaccountId": self.cube_subaccount_id,
+                "createdBefore": int(tracked_order.creation_timestamp + 1000),
+            },
             is_auth_required=True,
-            headers=auth_headers,
         )
 
         orders_data = orders_rsp.get("result", {}).get("orders", [])
@@ -736,13 +738,7 @@ class CubeExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        auth_headers = self._auth.header_for_authentication()
-
-        positions = await self._api_get(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            is_auth_required=True,
-            headers=auth_headers,
-        )
+        positions = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True)
         token_map = await self.token_id_map()
 
         balances = positions.get("result", {}).get(str(self.cube_subaccount_id), {}).get("inner", [])

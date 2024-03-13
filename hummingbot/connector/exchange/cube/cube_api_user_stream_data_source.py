@@ -1,8 +1,10 @@
 import asyncio
+import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.cube import cube_constants as CONSTANTS
 from hummingbot.connector.exchange.cube.cube_auth import CubeAuth
+from hummingbot.connector.exchange.cube.cube_ws_protobufs import trade_pb2
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSBinaryRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -42,15 +44,31 @@ class CubeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
-        try:
 
+        async def handle_heartbeat():
+            while True:
+                await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+                hb = trade_pb2.Heartbeat(
+                    request_id=0,
+                    timestamp=time.time_ns(),
+                )
+                hb_request: WSBinaryRequest = WSBinaryRequest(
+                    payload=trade_pb2.OrderRequest(heartbeat=hb).SerializeToString())
+                await websocket_assistant.send(hb_request)
+
+        # Create a separate task for handle_heartbeat
+        heartbeat_task = asyncio.create_task(handle_heartbeat())
+
+        try:
             credentials = self._auth.credential_message_for_authentication()
             credentials_request: WSBinaryRequest = WSBinaryRequest(payload=credentials)
             await websocket_assistant.send(credentials_request)
             self.logger().info("Subscribed to private order changes and balance updates channels...")
         except asyncio.CancelledError:
+            heartbeat_task.cancel()
             raise
         except Exception:
+            heartbeat_task.cancel()
             self.logger().exception("Unexpected error occurred subscribing to user streams...")
             raise
 
