@@ -29,8 +29,9 @@ TICKER_BOOK_PATH_URL = "/md/v0/parsed/tickers"
 ACCOUNTS_PATH_URL = "/ir/v0/users/positions"
 ORDER_PATH_URL = "/ir/v0/users/orders"
 FILLS_PATH_URL = "/ir/v0/users/fills"
+POST_ORDER_PATH_URL = "/os/v0/order"
 
-WS_HEARTBEAT_TIME_INTERVAL = 25
+WS_HEARTBEAT_TIME_INTERVAL = 20
 
 # Websocket channels
 TRADE_EVENT_TYPE = "trades"
@@ -52,7 +53,7 @@ ONE_MINUTE = 60
 ONE_SECOND = 1
 ONE_DAY = 86400
 
-MAX_REQUEST = 5000
+MAX_REQUEST = 300
 
 # Order States
 ORDER_STATE = {
@@ -108,6 +109,11 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 20),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
+                             LinkedLimitWeightPair(ORDERS, 1),
+                             LinkedLimitWeightPair(ORDERS_24HR, 1),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=POST_ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
                              LinkedLimitWeightPair(ORDERS, 1),
                              LinkedLimitWeightPair(ORDERS_24HR, 1),
