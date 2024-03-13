@@ -92,9 +92,9 @@ class CreateCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply("0")  # unacceptable order amount
         self.cli_mock_assistant.queue_prompt_reply("1")  # acceptable order amount
         self.cli_mock_assistant.queue_prompt_reply("No")  # ping pong feature
+        self.cli_mock_assistant.queue_prompt_reply(strategy_file_name)  # ping pong feature
 
-        self.async_run_with_timeout(self.app.prompt_for_configuration(strategy_file_name))
-        self.assertEqual(strategy_file_name, self.app.strategy_file_name)
+        self.async_run_with_timeout(self.app.prompt_for_configuration())
         self.assertEqual(base_strategy, self.app.strategy_name)
         self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="Value must be more than 0."))
 
@@ -130,9 +130,9 @@ class CreateCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply("30")  # order refresh time
         self.cli_mock_assistant.queue_prompt_reply("1")  # order amount
         self.cli_mock_assistant.queue_prompt_reply("No")  # ping pong feature
+        self.cli_mock_assistant.queue_prompt_reply(strategy_file_name)
 
-        self.async_run_with_timeout(self.app.prompt_for_configuration(strategy_file_name))
-        self.assertEqual(strategy_file_name, self.app.strategy_file_name)
+        self.async_run_with_timeout(self.app.prompt_for_configuration())
         self.assertEqual(base_strategy, self.app.strategy_name)
 
     def test_create_command_restores_config_map_after_config_stop(self):
@@ -145,7 +145,7 @@ class CreateCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply("binance")  # spot connector
         self.cli_mock_assistant.queue_prompt_to_stop_config()  # cancel on trading pair prompt
 
-        self.async_run_with_timeout(self.app.prompt_for_configuration(None))
+        self.async_run_with_timeout(self.app.prompt_for_configuration())
         strategy_config = get_strategy_config_map(base_strategy)
 
         self.assertEqual(original_exchange, strategy_config["exchange"].value)
@@ -166,7 +166,7 @@ class CreateCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply("No")  # ping pong feature
         self.cli_mock_assistant.queue_prompt_to_stop_config()  # cancel on new file prompt
 
-        self.async_run_with_timeout(self.app.prompt_for_configuration(None))
+        self.async_run_with_timeout(self.app.prompt_for_configuration())
         strategy_config = get_strategy_config_map(base_strategy)
 
         self.assertEqual(original_exchange, strategy_config["exchange"].value)
@@ -198,10 +198,11 @@ class CreateCommandTest(unittest.TestCase):
         self.cli_mock_assistant.queue_prompt_reply("30")  # order refresh time
         self.cli_mock_assistant.queue_prompt_reply("1")  # order amount
         self.cli_mock_assistant.queue_prompt_reply("No")  # ping pong feature
+        self.cli_mock_assistant.queue_prompt_reply(strategy_file_name)
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(
-                self.app.prompt_for_configuration(strategy_file_name)
+                self.app.prompt_for_configuration()
             )
         self.assertEqual(None, self.app.strategy_file_name)
         self.assertEqual(None, self.app.strategy_name)

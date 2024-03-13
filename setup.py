@@ -33,13 +33,12 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20231127"
+    version = "20240226"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
-    excluded_paths = ["hummingbot.connector.exchange.injective_v2",
-                      "hummingbot.connector.derivative.injective_v2_perpetual",
-                      "hummingbot.connector.gateway.clob_spot.data_sources.injective",
-                      "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual"
-                      ]
+    excluded_paths = [
+        "hummingbot.connector.gateway.clob_spot.data_sources.injective",
+        "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual"
+    ]
     packages = [pkg for pkg in all_packages if not any(fnmatch.fnmatch(pkg, pattern) for pattern in excluded_paths)]
     package_data = {
         "hummingbot": [
@@ -58,7 +57,6 @@ def main():
         "appnope",
         "async-timeout",
         "base58",
-        "gql",
         "cachetools",
         "certifi",
         "coincurve",
@@ -68,7 +66,6 @@ def main():
         "commlib-py",
         "docker",
         "diff-cover",
-        "dydx-v3-python",
         "eip712-structs",
         "eth-abi",
         "eth-account",
@@ -77,7 +74,6 @@ def main():
         "eth-typing",
         "eth-utils",
         "flake8",
-        "gql",
         "hexbytes",
         "importlib-metadata",
         "injective-py",
@@ -90,15 +86,12 @@ def main():
         "pre-commit",
         "prompt-toolkit",
         "protobuf",
-        "gql",
-        "grpcio",
-        "grpcio-tools",
         "psutil",
         "pydantic",
         "pyjwt",
         "pyperclip",
         "python-dateutil",
-        "python-telegram-bot",
+        "python-telegram-bot==12.8",
         "pyOpenSSL",
         "requests",
         "rsa",
@@ -114,7 +107,6 @@ def main():
         "web3",
         "websockets",
         "yarl",
-        "python-telegram-bot==12.8",
         "pandas_ta==0.3.14b",
     ]
 

@@ -1,4 +1,8 @@
+import importlib
+import inspect
+import os
 import re
+import sys
 from os import listdir
 from os.path import exists, isfile, join
 from typing import List
@@ -6,11 +10,14 @@ from typing import List
 from prompt_toolkit.completion import CompleteEvent, Completer, WordCompleter
 from prompt_toolkit.document import Document
 
+from hummingbot.client import settings
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     PMM_SCRIPTS_PATH,
     SCRIPT_STRATEGIES_PATH,
+    SCRIPT_STRATEGY_CONF_DIR_PATH,
     STRATEGIES,
     STRATEGIES_CONF_DIR_PATH,
     AllConnectorSettings,
@@ -20,6 +27,7 @@ from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES
 from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
 
 
 def file_name_list(path, file_extension):
@@ -71,11 +79,50 @@ class HummingbotCompleter(Completer):
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
+        self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONF_DIR_PATH), "yml"))
+        self._strategy_v2_create_config_completer = self.get_strategies_v2_with_config()
+        self._controller_completer = self.get_available_controllers()
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
         self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
         self._gateway_chains = []
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
+
+    def get_strategies_v2_with_config(self):
+        file_names = file_name_list(str(SCRIPT_STRATEGIES_PATH), "py")
+        strategies_with_config = []
+
+        for script_name in file_names:
+            try:
+                script_name = script_name.replace(".py", "")
+                module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_name}")
+                if module is not None:
+                    script_module = importlib.reload(module)
+                else:
+                    script_module = importlib.import_module(f".{script_name}",
+                                                            package=settings.SCRIPT_STRATEGIES_MODULE)
+                config_class = next((member for member_name, member in inspect.getmembers(script_module)
+                                     if inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
+                                     (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
+                if config_class:
+                    strategies_with_config.append(script_name)
+            except Exception:
+                pass
+        return WordCompleter(strategies_with_config, ignore_case=True)
+
+    def get_available_controllers(self):
+        controllers_path = settings.CONTROLLERS_PATH  # Ensure this points to the controllers directory
+        available_controllers = []
+
+        for root, dirs, files in os.walk(controllers_path):
+            for file in files:
+                if file.endswith(".py") and not file.startswith("__"):
+                    # Extract controller name from file path
+                    relative_path = os.path.relpath(os.path.join(root, file), controllers_path)
+                    controller_name = os.path.splitext(relative_path)[0].replace(os.path.sep, ".")
+                    available_controllers.append(controller_name)
+
+        return WordCompleter(available_controllers, ignore_case=True)
 
     def set_gateway_chains(self, gateway_chains):
         self._gateway_chains = gateway_chains
@@ -141,7 +188,7 @@ class HummingbotCompleter(Completer):
 
     def _complete_configs(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return "config" in text_before_cursor
+        return text_before_cursor.startswith("config")
 
     def _complete_options(self, document: Document) -> bool:
         return "(" in self.prompt_text and ")" in self.prompt_text and "/" in self.prompt_text
@@ -210,7 +257,19 @@ class HummingbotCompleter(Completer):
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("start --script ")
+        return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor
+
+    def _complete_script_strategy_config(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("start --script ") and "--conf" in text_before_cursor
+
+    def _complete_strategy_v2_files_with_config(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("create --script-config ")
+
+    def _complete_controllers_config(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("create --controller-config ")
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
@@ -262,6 +321,18 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_script_strategy_files(document):
             for c in self._script_strategy_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_script_strategy_config(document):
+            for c in self._scripts_config_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_strategy_v2_files_with_config(document):
+            for c in self._strategy_v2_create_config_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_controllers_config(document):
+            for c in self._controller_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_paths(document):

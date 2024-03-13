@@ -1,23 +1,23 @@
-from typing import Any, Dict, List, Optional, Tuple
+from decimal import Decimal
+from typing import List, Optional, Tuple
 
 from pydantic import Field, SecretStr
+from pydantic.class_validators import validator
 
 import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDC"
 
-DEFAULT_FEES = [0.16, 0.26]
-
-
-def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-    return tuple(convert_from_exchange_trading_pair(trading_pair).split("-"))
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.16"),
+    taker_percent_fee_decimal=Decimal("0.26"),
+)
 
 
 def convert_from_exchange_symbol(symbol: str) -> str:
@@ -37,7 +37,8 @@ def split_to_base_quote(exchange_trading_pair: str) -> Tuple[Optional[str], Opti
     return base, quote
 
 
-def convert_from_exchange_trading_pair(exchange_trading_pair: str, available_trading_pairs: Optional[Tuple] = None) -> Optional[str]:
+def convert_from_exchange_trading_pair(exchange_trading_pair: str, available_trading_pairs: Optional[Tuple] = None) -> \
+        Optional[str]:
     base, quote = "", ""
     if "-" in exchange_trading_pair:
         base, quote = split_to_base_quote(exchange_trading_pair)
@@ -46,7 +47,8 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str, available_tra
     elif len(available_trading_pairs) > 0:
         # If trading pair has no spaces (i.e. ETHUSDT). Then it will have to match with the existing pairs
         # Option 1: Using traditional naming convention
-        connector_trading_pair = {''.join(convert_from_exchange_trading_pair(tp).split('-')): tp for tp in available_trading_pairs}.get(
+        connector_trading_pair = {''.join(convert_from_exchange_trading_pair(tp).split('-')): tp for tp in
+                                  available_trading_pairs}.get(
             exchange_trading_pair)
         if not connector_trading_pair:
             # Option 2: Using kraken naming convention ( XXBT for Bitcoin, XXDG for Doge, ZUSD for USD, etc)
@@ -82,17 +84,6 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") 
 
     exchange_trading_pair = f"{base}{delimiter}{quote}"
     return exchange_trading_pair
-
-
-def is_dark_pool(trading_pair_details: Dict[str, Any]):
-    '''
-    Want to filter out dark pool trading pairs from the list of trading pairs
-    For more info, please check
-    https://support.kraken.com/hc/en-us/articles/360001391906-Introducing-the-Kraken-Dark-Pool
-    '''
-    if trading_pair_details.get('altname'):
-        return trading_pair_details.get('altname').endswith('.d')
-    return False
 
 
 def _build_private_rate_limits(tier: KrakenAPITier = KrakenAPITier.STARTER) -> List[RateLimit]:
@@ -136,6 +127,13 @@ def _build_private_rate_limits(tier: KrakenAPITier = KrakenAPITier.STARTER) -> L
             weight=2,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
         ),
+        RateLimit(
+            limit_id=CONSTANTS.QUERY_TRADES_PATH_URL,
+            limit=PRIVATE_ENDPOINT_LIMIT,
+            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+            weight=2,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+        ),
     ])
 
     # Matching Engine Limits
@@ -164,16 +162,6 @@ def build_rate_limits_by_tier(tier: KrakenAPITier = KrakenAPITier.STARTER) -> Li
     rate_limits.extend(_build_private_rate_limits(tier=tier))
 
     return rate_limits
-
-
-def _api_tier_validator(value: str) -> Optional[str]:
-    """
-    Determines if input value is a valid API tier
-    """
-    try:
-        KrakenAPITier(value.upper())
-    except ValueError:
-        return "No such Kraken API Tier."
 
 
 class KrakenConfigMap(BaseConnectorConfigMap):
@@ -208,10 +196,16 @@ class KrakenConfigMap(BaseConnectorConfigMap):
     class Config:
         title = "kraken"
 
+    @validator("kraken_api_tier", pre=True)
+    def _api_tier_validator(cls, value: str) -> Optional[str]:
+        """
+        Determines if input value is a valid API tier
+        """
+        try:
+            KrakenAPITier(value.upper())
+            return value
+        except ValueError:
+            raise ValueError("No such Kraken API Tier.")
+
 
 KEYS = KrakenConfigMap.construct()
-
-
-def build_api_factory(throttler: AsyncThrottler) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(throttler=throttler)
-    return api_factory

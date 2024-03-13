@@ -36,17 +36,6 @@ pip install objgraph
 
 pre-commit install
 
-# The following logic is required to replace the grpcio package installed from conda binaries in Mac Intel
-# for binaries from Pypi. We need to do this because the conda binaries fro Mac Intel are broken.
-# We can't use the Pypi binaries universally because they are broken for Mac ARM (M1 and M2).
-# This logic can be removed once the grpcio conda binaries for Mac Intel are fixed
-OS=`uname`
-ARCH=`uname -m`
-
-if [[ "$OS" = "Darwin" && "$ARCH" = "x86_64" ]]; then
-  pip install grpcio --ignore-installed
-fi
-
 # Check for build-essential (only relevant for Debian-based systems)
 if [ "$(uname)" = "Linux" ]; then
     if ! dpkg -s build-essential &> /dev/null; then

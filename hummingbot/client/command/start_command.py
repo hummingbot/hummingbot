@@ -8,11 +8,13 @@ import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 
 import pandas as pd
+import yaml
 
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.command.gateway_command import GatewayCommand
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
@@ -59,15 +61,17 @@ class StartCommand(GatewayChainApiManager):
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
               script: Optional[str] = None,
+              conf: Optional[str] = None,
               is_quickstart: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level, script)
             return
-        safe_ensure_future(self.start_check(log_level, script, is_quickstart), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, script, conf, is_quickstart), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           script: Optional[str] = None,
+                          conf: Optional[str] = None,
                           is_quickstart: Optional[bool] = False):
 
         if self._in_start_check or (self.strategy_task is not None and not self.strategy_task.done()):
@@ -98,8 +102,8 @@ class StartCommand(GatewayChainApiManager):
 
         if script:
             file_name = script.split(".")[0]
-            self.strategy_file_name = file_name
             self.strategy_name = file_name
+            self.strategy_file_name = conf if conf else file_name
         elif not await self.status_check_all(notify_success=False):
             self.notify("Status checks failed. Start aborted.")
             self._in_start_check = False
@@ -196,12 +200,15 @@ class StartCommand(GatewayChainApiManager):
             self._mqtt.patch_loggers()
 
     def start_script_strategy(self):
-        script_strategy = self.load_script_class()
+        script_strategy, config = self.load_script_class()
         markets_list = []
         for conn, pairs in script_strategy.markets.items():
             markets_list.append((conn, list(pairs)))
         self._initialize_markets(markets_list)
-        self.strategy = script_strategy(self.markets)
+        if config:
+            self.strategy = script_strategy(self.markets, config)
+        else:
+            self.strategy = script_strategy(self.markets)
 
     def load_script_class(self):
         """
@@ -209,7 +216,8 @@ class StartCommand(GatewayChainApiManager):
 
         :param script_name: name of the module where the script class is defined
         """
-        script_name = self.strategy_file_name
+        script_name = self.strategy_name
+        config = None
         module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_name}")
         if module is not None:
             script_module = importlib.reload(module)
@@ -222,10 +230,25 @@ class StartCommand(GatewayChainApiManager):
                                  member not in [ScriptStrategyBase, DirectionalStrategyBase]))
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
-        return script_class
+        if self.strategy_name != self.strategy_file_name:
+            try:
+                config_class = next((member for member_name, member in inspect.getmembers(script_module)
+                                    if inspect.isclass(member) and
+                                    issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
+                config = config_class(**self.load_script_yaml_config(config_file_path=self.strategy_file_name))
+                script_class.init_markets(config)
+            except StopIteration:
+                raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of BaseModel")
+
+        return script_class, config
+
+    @staticmethod
+    def load_script_yaml_config(config_file_path: str) -> dict:
+        with open(settings.SCRIPT_STRATEGY_CONF_DIR_PATH / config_file_path, 'r') as file:
+            return yaml.safe_load(file)
 
     def is_current_strategy_script_strategy(self) -> bool:
-        script_file_name = settings.SCRIPT_STRATEGIES_PATH / f"{self.strategy_file_name}.py"
+        script_file_name = settings.SCRIPT_STRATEGIES_PATH / f"{self.strategy_name}.py"
         return script_file_name.exists()
 
     async def start_market_making(self,  # type: HummingbotApplication

@@ -8,11 +8,11 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.smart_components.executors.arbitrage_executor.data_types import (
-    ArbitrageConfig,
+    ArbitrageExecutorConfig,
     ArbitrageExecutorStatus,
     ExchangePair,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import TrackedOrder
+from hummingbot.smart_components.models.executors import TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -20,9 +20,9 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self):
         super().setUp()
         self.strategy = self.create_mock_strategy()
-        self.arbitrage_config = MagicMock(spec=ArbitrageConfig)
-        self.arbitrage_config.buying_market = ExchangePair(exchange='binance', trading_pair='MATIC-USDT')
-        self.arbitrage_config.selling_market = ExchangePair(exchange='uniswap_polygon_mainnet', trading_pair='WMATIC-USDT')
+        self.arbitrage_config = MagicMock(spec=ArbitrageExecutorConfig)
+        self.arbitrage_config.buying_market = ExchangePair(connector_name='binance', trading_pair='MATIC-USDT')
+        self.arbitrage_config.selling_market = ExchangePair(connector_name='uniswap_polygon_mainnet', trading_pair='WMATIC-USDT')
         self.arbitrage_config.min_profitability = Decimal('0.01')
         self.arbitrage_config.order_amount = Decimal('1')
         self.arbitrage_config.max_retries = 3
@@ -54,7 +54,7 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'BTC-USDT'))
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
 
-    def test_net_pnl(self):
+    def test_net_pnl_quote(self):
         self.executor.arbitrage_status = ArbitrageExecutorStatus.COMPLETED
         self.executor._buy_order = Mock(spec=TrackedOrder)
         self.executor._sell_order = Mock(spec=TrackedOrder)
@@ -62,9 +62,9 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.executor._sell_order.order.executed_amount_base = Decimal('1')
         self.executor._buy_order.average_executed_price = Decimal('100')
         self.executor._sell_order.average_executed_price = Decimal('200')
-        self.executor._buy_order.cum_fees = Decimal('1')
-        self.executor._sell_order.cum_fees = Decimal('1')
-        self.assertEqual(self.executor.net_pnl, Decimal('98'))
+        self.executor._buy_order.cum_fees_quote = Decimal('1')
+        self.executor._sell_order.cum_fees_quote = Decimal('1')
+        self.assertEqual(self.executor.net_pnl_quote, Decimal('98'))
         self.assertEqual(self.executor.net_pnl_pct, Decimal('98'))
 
     @patch.object(ArbitrageExecutor, 'place_order')
@@ -72,7 +72,7 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_place_order.return_value = 'order_id'
         self.executor.place_buy_arbitrage_order()
         mock_place_order.assert_called_once_with(
-            connector_name=self.arbitrage_config.buying_market.exchange,
+            connector_name=self.arbitrage_config.buying_market.connector_name,
             trading_pair=self.arbitrage_config.buying_market.trading_pair,
             order_type=OrderType.MARKET,
             side=TradeType.BUY,
@@ -85,7 +85,7 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_place_order.return_value = 'order_id'
         self.executor.place_sell_arbitrage_order()
         mock_place_order.assert_called_once_with(
-            connector_name=self.arbitrage_config.selling_market.exchange,
+            connector_name=self.arbitrage_config.selling_market.connector_name,
             trading_pair=self.arbitrage_config.selling_market.trading_pair,
             order_type=OrderType.MARKET,
             side=TradeType.SELL,
