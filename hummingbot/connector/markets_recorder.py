@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os.path
 import threading
@@ -34,16 +35,17 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.executors import Executors
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_data import MarketData
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
-from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.model.range_position_collected_fees import RangePositionCollectedFees
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.smart_components.models.executors_info import ExecutorInfo
 
 
 class MarketsRecorder:
@@ -188,22 +190,30 @@ class MarketsRecorder:
         if self._market_data_collection_task is not None:
             self._market_data_collection_task.cancel()
 
-    def store_executor(self, executor: Dict):
+    def store_or_update_executor(self, executor):
         with self._sql_manager.get_new_session() as session:
-            with session.begin():
-                session.add(PositionExecutors(**executor))
+            existing_executor = session.query(Executors).filter(Executors.id == executor.config.id).one_or_none()
 
-    def get_position_executors(self,
-                               controller_name: str = None,
-                               exchange: str = None,
-                               trading_pair: str = None
-                               ):
+            if existing_executor:
+                # Update existing executor
+                for attr, value in vars(executor).items():
+                    setattr(existing_executor, attr, value)
+            else:
+                # Insert new executor
+                serialized_config = executor.executor_info.json()
+                new_executor = Executors(**json.loads(serialized_config))
+                session.add(new_executor)
+            session.commit()
+
+    def get_executors_by_ids(self, executor_ids: List[str]):
         with self._sql_manager.get_new_session() as session:
-            position_executors = PositionExecutors.get_position_executors(sql_session=session,
-                                                                          controller_name=controller_name,
-                                                                          exchange=exchange,
-                                                                          trading_pair=trading_pair)
-            return position_executors
+            executors = session.query(Executors).filter(Executors.id.in_(executor_ids)).all()
+            return executors
+
+    def get_executors_by_controller(self, controller_id: str = None) -> List[ExecutorInfo]:
+        with self._sql_manager.get_new_session() as session:
+            executors = session.query(Executors).filter(Executors.controller_id == controller_id).all()
+            return [executor.to_executor_info() for executor in executors]
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,

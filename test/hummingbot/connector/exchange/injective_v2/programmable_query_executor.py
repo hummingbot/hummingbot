@@ -1,5 +1,9 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
+from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
 
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import BaseInjectiveQueryExecutor
 
@@ -11,9 +15,10 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._spot_markets_responses = asyncio.Queue()
         self._derivative_market_responses = asyncio.Queue()
         self._derivative_markets_responses = asyncio.Queue()
+        self._tokens_responses = asyncio.Queue()
         self._spot_order_book_responses = asyncio.Queue()
         self._derivative_order_book_responses = asyncio.Queue()
-        self._transaction_by_hash_responses = asyncio.Queue()
+        self._get_tx_responses = asyncio.Queue()
         self._account_portfolio_responses = asyncio.Queue()
         self._simulate_transaction_responses = asyncio.Queue()
         self._send_transaction_responses = asyncio.Queue()
@@ -21,33 +26,28 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._derivative_trades_responses = asyncio.Queue()
         self._historical_spot_orders_responses = asyncio.Queue()
         self._historical_derivative_orders_responses = asyncio.Queue()
-        self._transaction_block_height_responses = asyncio.Queue()
         self._funding_rates_responses = asyncio.Queue()
         self._oracle_prices_responses = asyncio.Queue()
         self._funding_payments_responses = asyncio.Queue()
         self._derivative_positions_responses = asyncio.Queue()
 
-        self._spot_order_book_updates = asyncio.Queue()
-        self._public_spot_trade_updates = asyncio.Queue()
-        self._derivative_order_book_updates = asyncio.Queue()
-        self._public_derivative_trade_updates = asyncio.Queue()
-        self._oracle_prices_updates = asyncio.Queue()
-        self._subaccount_positions_events = asyncio.Queue()
-        self._subaccount_balance_events = asyncio.Queue()
-        self._historical_spot_order_events = asyncio.Queue()
-        self._historical_derivative_order_events = asyncio.Queue()
         self._transaction_events = asyncio.Queue()
+        self._chain_stream_events = asyncio.Queue()
 
     async def ping(self):
         response = await self._ping_responses.get()
         return response
 
-    async def spot_markets(self, status: str) -> Dict[str, Any]:
+    async def spot_markets(self) -> Dict[str, SpotMarket]:
         response = await self._spot_markets_responses.get()
         return response
 
-    async def derivative_markets(self, status: str) -> Dict[str, Any]:
+    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:
         response = await self._derivative_markets_responses.get()
+        return response
+
+    async def tokens(self) -> Dict[str, Token]:
+        response = await self._tokens_responses.get()
         return response
 
     async def derivative_market(self, market_id: str) -> Dict[str, Any]:
@@ -62,12 +62,8 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._derivative_order_book_responses.get()
         return response
 
-    async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:
-        response = await self._transaction_by_hash_responses.get()
-        return response
-
-    async def get_tx_block_height(self, tx_hash: str) -> int:
-        response = await self._transaction_block_height_responses.get()
+    async def get_tx(self, tx_hash: str) -> Dict[str, Any]:
+        response = await self._get_tx_responses.get()
         return response
 
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:
@@ -146,56 +142,32 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._oracle_prices_responses.get()
         return response
 
-    async def spot_order_book_updates_stream(self, market_ids: List[str]):
-        while True:
-            next_ob_update = await self._spot_order_book_updates.get()
-            yield next_ob_update
-
-    async def public_spot_trades_stream(self, market_ids: List[str]):
-        while True:
-            next_trade = await self._public_spot_trade_updates.get()
-            yield next_trade
-
-    async def derivative_order_book_updates_stream(self, market_ids: List[str]):
-        while True:
-            next_ob_update = await self._derivative_order_book_updates.get()
-            yield next_ob_update
-
-    async def public_derivative_trades_stream(self, market_ids: List[str]):
-        while True:
-            next_trade = await self._public_derivative_trade_updates.get()
-            yield next_trade
-
-    async def oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
-        while True:
-            next_update = await self._oracle_prices_updates.get()
-            yield next_update
-
-    async def subaccount_positions_stream(self, subaccount_id: str):
-        while True:
-            next_event = await self._subaccount_positions_events.get()
-            yield next_event
-
-    async def subaccount_balance_stream(self, subaccount_id: str):
-        while True:
-            next_event = await self._subaccount_balance_events.get()
-            yield next_event
-
-    async def subaccount_historical_spot_orders_stream(
-        self, market_id: str, subaccount_id: str
+    async def listen_transactions_updates(
+        self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
     ):
-        while True:
-            next_event = await self._historical_spot_order_events.get()
-            yield next_event
-
-    async def subaccount_historical_derivative_orders_stream(
-        self, market_id: str, subaccount_id: str
-    ):
-        while True:
-            next_event = await self._historical_derivative_order_events.get()
-            yield next_event
-
-    async def transactions_stream(self,):
         while True:
             next_event = await self._transaction_events.get()
-            yield next_event
+            await callback(next_event)
+
+    async def listen_chain_stream_updates(
+        self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
+        bank_balances_filter: Optional[chain_stream_query.BankBalancesFilter] = None,
+        subaccount_deposits_filter: Optional[chain_stream_query.SubaccountDepositsFilter] = None,
+        spot_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+        derivative_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+        spot_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+        derivative_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+        spot_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+        derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+        positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
+        oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+    ):
+        while True:
+            next_event = await self._chain_stream_events.get()
+            await callback(next_event)

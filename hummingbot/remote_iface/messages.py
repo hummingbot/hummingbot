@@ -45,6 +45,7 @@ class StartCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
         log_level: Optional[str] = None
         script: Optional[str] = None
+        conf: Optional[str] = None
         is_quickstart: Optional[bool] = False
         async_backend: Optional[bool] = True
 

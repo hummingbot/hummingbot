@@ -7,7 +7,7 @@ from hummingbot.connector.derivative.gate_io_perpetual import gate_io_perpetual_
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
-EXAMPLE_PAIR = "BTC_USDT"
+EXAMPLE_PAIR = "BTC-USDT"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.00015"),
     taker_percent_fee_decimal=Decimal("0.0005"),

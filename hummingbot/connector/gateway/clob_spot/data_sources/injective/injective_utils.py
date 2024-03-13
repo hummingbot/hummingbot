@@ -4,13 +4,13 @@ from math import floor
 from typing import List, Union
 
 from pyinjective.composer import Composer as InjectiveComposer
-from pyinjective.constant import Denom
 from pyinjective.core.network import Network
 from pyinjective.orderhash import OrderHashResponse, build_eip712_msg, hash_order
 from pyinjective.proto.injective.exchange.v1beta1 import (
     exchange_pb2 as injective_dot_exchange_dot_v1beta1_dot_exchange__pb2,
 )
 from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder, SpotOrder
+from pyinjective.utils.denom import Denom
 
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_constants import (
     ACC_NONCE_PATH_RATE_LIMIT_ID,

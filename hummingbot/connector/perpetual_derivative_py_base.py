@@ -378,13 +378,12 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         await self._update_all_funding_payments(fire_event_on_new=False)  # initialization of the timestamps
         while True:
             await self._funding_fee_poll_notifier.wait()
-            success = await self._update_all_funding_payments(fire_event_on_new=True)
-            if success:
-                # Only when all tasks are successful would the event notifier be reset
-                self._funding_fee_poll_notifier = asyncio.Event()
+            # There is a chance of race condition when the next await allows for a set() to occur before the clear()
+            # Maybe it is better to use a asyncio.Condition() instead of asyncio.Event()?
+            self._funding_fee_poll_notifier.clear()
+            await self._update_all_funding_payments(fire_event_on_new=True)
 
-    async def _update_all_funding_payments(self, fire_event_on_new: bool) -> bool:
-        success = False
+    async def _update_all_funding_payments(self, fire_event_on_new: bool):
         try:
             tasks = []
             for trading_pair in self.trading_pairs:
@@ -393,19 +392,9 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
                         self._update_funding_payment(trading_pair=trading_pair, fire_event_on_new=fire_event_on_new)
                     )
                 )
-            responses: List[bool] = await safe_gather(*tasks)
-            success = all(responses)
+            await safe_gather(*tasks)
         except asyncio.CancelledError:
             raise
-        except Exception:
-            self.logger().network(
-                "Unexpected error while retrieving funding payments.",
-                exc_info=True,
-                app_warning_msg=(
-                    f"Could not fetch funding fee updates for {self.name}. Check API key and network connection."
-                )
-            )
-        return success
 
     async def _update_funding_payment(self, trading_pair: str, fire_event_on_new: bool) -> bool:
         fetch_success = True

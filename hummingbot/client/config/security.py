@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -16,6 +17,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class Security:
@@ -23,6 +25,14 @@ class Security:
     secrets_manager: Optional[BaseSecretsManager] = None
     _secure_configs = {}
     _decryption_done = asyncio.Event()
+
+    _logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     @staticmethod
     def new_password_required() -> bool:

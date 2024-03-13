@@ -36,6 +36,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         super().setUpClass()
         cls.api_key = "someKey"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+        cls.use_vault = False  # noqa: mock
         cls.user_id = "someUserId"
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear
@@ -385,8 +386,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = HyperliquidPerpetualDerivative(
             client_config_map,
-            self.api_key,
             self.api_secret,
+            self.use_vault,
+            self.api_key,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -467,10 +469,16 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def configure_order_not_found_error_order_status_response(
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> List[str]:
-        # Implement the expected not found response when enabling
-        # test_lost_order_removed_if_not_found_during_order_status_update
-        raise NotImplementedError
+    ):
+        url_order_status = web_utils.public_rest_url(
+            CONSTANTS.ORDER_URL
+        )
+
+        regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
+
+        response = {"code": -2013, "msg": "order"}
+        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        return url_order_status
 
     def configure_completely_filled_order_status_response(
             self,
@@ -771,6 +779,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             client_config_map=client_config_map,
             hyperliquid_perpetual_api_key=self.api_key,
             hyperliquid_perpetual_api_secret=self.api_secret,
+            use_vault=self.use_vault,
             trading_pairs=[self.trading_pair],
         )
 
@@ -984,9 +993,48 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @aioresponses()
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during status update (check _is_order_not_found_during_status_update_error)
-        pass
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
+            self.async_run_with_timeout(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+            )
+
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+        if self.is_order_fill_http_update_included_in_status_update:
+            # This is done for completeness reasons (to have a response available for the trades request)
+            self.configure_erroneous_http_fill_trade_response(order=order, mock_api=mock_api)
+
+        self.configure_order_not_found_error_order_status_response(
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
+
+        self.async_run_with_timeout(self.exchange._update_lost_orders_status())
+        # Execute one more synchronization to ensure the async task that processes the update is finished
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertTrue(order.is_done)
+        self.assertTrue(order.is_failure)
+
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
+
+        self.assertFalse(
+            self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled.")
+        )
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {'status': 'ok', 'response': {'type': 'cancel', 'data': {'statuses': ['success']}}}
