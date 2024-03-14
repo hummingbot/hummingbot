@@ -7,7 +7,6 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.connector.connector_status import get_connector_status
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.user.user_balances import UserBalances
@@ -80,7 +79,7 @@ class ConnectCommand:
     async def connection_df(self  # type: HummingbotApplication
                             ):
         await Security.wait_til_decryption_done()
-        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Tier"]
+        columns = ["Exchange", "  Keys Added", "  Keys Confirmed"]
         data = []
         failed_msgs = {}
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
@@ -94,8 +93,6 @@ class ConnectCommand:
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = "No"
-            status = get_connector_status(option)
-
             api_keys = (
                 Security.api_keys(option).values()
                 if not UserBalances.instance().is_gateway_market(option)
@@ -108,7 +105,7 @@ class ConnectCommand:
                     failed_msgs[option] = err_msg
                 else:
                     keys_confirmed = "Yes"
-            data.append([option, keys_added, keys_confirmed, status])
+            data.append([option, keys_added, keys_confirmed])
         return pd.DataFrame(data=data, columns=columns), failed_msgs
 
     async def validate_n_connect_connector(
