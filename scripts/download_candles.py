@@ -47,13 +47,13 @@ class DownloadCandles(ScriptStrategyBase):
 
     def on_tick(self):
         for trading_pair, candles_info in self.candles.items():
-            if not candles_info["candles"].is_ready:
+            if not candles_info["candles"].ready:
                 self.logger().info(f"Candles not ready yet for {trading_pair}! Missing {candles_info['candles']._candles.maxlen - len(candles_info['candles']._candles)}")
                 pass
             else:
                 df = candles_info["candles"].candles_df
                 df.to_csv(candles_info["csv_path"], index=False)
-        if all(candles_info["candles"].is_ready for candles_info in self.candles.values()):
+        if all(candles_info["candles"].ready for candles_info in self.candles.values()):
             HummingbotApplication.main_application().stop()
 
     def on_stop(self):

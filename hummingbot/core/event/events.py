@@ -65,6 +65,10 @@ class AccountEvent(Enum):
     LiquidationEvent = 405
 
 
+class ExecutorEvent(Enum):
+    EXECUTOR_INFO_UPDATE = 500
+
+
 class MarketTransactionFailureEvent(NamedTuple):
     timestamp: float
     order_id: str

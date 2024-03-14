@@ -9,9 +9,13 @@ services:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors
       - ./conf/strategies:/home/hummingbot/conf/strategies
+      - ./conf/controllers:/home/hummingbot/conf/controllers
+      - ./conf/scripts:/home/hummingbot/conf/scripts
       - ./logs:/home/hummingbot/logs
       - ./data:/home/hummingbot/data
+      - ./certs:/home/hummingbot/certs
       - ./scripts:/home/hummingbot/scripts
+      - ./controllers:/home/hummingbot/controllers
     logging:
       driver: "json-file"
       options:
@@ -24,24 +28,24 @@ services:
     #    - CONFIG_PASSWORD=a
     #    - CONFIG_FILE_NAME=simple_pmm_example.py
 
-  # dashboard:
-  #   container_name: dashboard
-  #   image: hummingbot/dashboard:latest
-  #   volumes:
-  #     - ./data:/home/dashboard/data
-  #   ports:
-  #     - "8501:8501"
+  dashboard:
+   container_name: dashboard
+   image: hummingbot/dashboard:latest
+   volumes:
+     - ./data:/home/dashboard/data
+   ports:
+     - "8501:8501"
 
-  # gateway:
-  #   container_name: gateway
-  #   image: hummingbot/gateway:latest
-  #   ports:
-  #     - "15888:15888"
-  #     - "8080:8080"
-  #   volumes:
-  #     - "./gateway_files/conf:/home/gateway/conf"
-  #     - "./gateway_files/logs:/home/gateway/logs"
-  #     - "./gateway_files/db:/home/gateway/db"
-  #     - "./certs:/home/gateway/certs"
-  #   environment:
-  #     - GATEWAY_PASSPHRASE=a
+  gateway:
+   container_name: gateway
+   image: hummingbot/gateway:latest
+   ports:
+     - "15888:15888"
+     - "8080:8080"
+   volumes:
+     - "./gateway_files/conf:/home/gateway/conf"
+     - "./gateway_files/logs:/home/gateway/logs"
+     - "./gateway_files/db:/home/gateway/db"
+     - "./certs:/home/gateway/certs"
+   environment:
+     - GATEWAY_PASSPHRASE=a
