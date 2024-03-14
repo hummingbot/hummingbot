@@ -31,7 +31,7 @@ class CubeOrderBook(OrderBook):
 
         content = {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["result"]["lastTransactTime"],
+            "update_id": timestamp,
             "bids": bids,
             "asks": asks
         }
