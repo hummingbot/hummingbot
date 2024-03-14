@@ -4,6 +4,8 @@ import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as constants
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils as web_utils
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -11,12 +13,12 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
-from . import coinbase_advanced_trade_constants as constants, coinbase_advanced_trade_web_utils as web_utils
-
 if TYPE_CHECKING:
-    from .coinbase_advanced_trade_exchange import CoinbaseAdvancedTradeExchange
+    from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import CoinbaseAdvancedTradeExchange
 
-from .coinbase_advanced_trade_order_book import CoinbaseAdvancedTradeOrderBook
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_order_book import (
+    CoinbaseAdvancedTradeOrderBook,
+)
 
 
 class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -188,11 +190,13 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise Exception(f"Error received from websocket: {ws_response}")
 
             if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
+                if data["channel"] == "market_trades":
+                    self.logger().debug(f"Received message from Coinbase Advanced Trade: {data}")
                 if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse:
                     await self._message_queue[data["channel"]].put(data)
-                # else:
-                #     self.logger().warning(
-                #         f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
+                else:
+                    self.logger().debug(
+                        f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
             else:
                 self.logger().warning(f"Unrecognized websocket message received from Coinbase Advanced Trade: {data}")
 

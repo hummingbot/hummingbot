@@ -12,12 +12,11 @@ from coinbase import jwt_generator
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import endpoint_from_url
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
 from hummingbot.logger import HummingbotLogger
-
-from .coinbase_advanced_trade_web_utils import endpoint_from_url
 
 
 class CoinbaseAdvancedTradeAuth(AuthBase):

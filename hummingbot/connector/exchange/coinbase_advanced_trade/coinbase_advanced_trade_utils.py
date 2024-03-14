@@ -3,11 +3,10 @@ from decimal import Decimal
 
 from pydantic import Field, SecretStr
 
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as constants
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest
-
-from . import coinbase_advanced_trade_constants as constants
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
