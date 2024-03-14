@@ -181,7 +181,6 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
-        # self.logger().debug("Processing websocket messages...")
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
 
@@ -205,7 +204,6 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
-        # self.logger().debug(f"Requesting order book snapshot for {trading_pair}...")
         rest_assistant = await self._api_factory.get_rest_assistant()
         snapshot: Dict[str, Any] = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=constants.SNAPSHOT_EP, domain=self._domain),
@@ -214,7 +212,6 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             is_auth_required=True,
             throttler_limit_id=constants.SNAPSHOT_EP,
         )
-        # self.logger().debug(f"   '-> {snapshot}..."[:50])
 
         snapshot_timestamp: float = self._connector._time_synchronizer.time() * 1e3
 

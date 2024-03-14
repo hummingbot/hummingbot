@@ -291,8 +291,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             order_type = OrderType.LIMIT
                         elif order["order_type"] == "Market":
                             order_type = OrderType.MARKET
-                        # elif order["order_type"] == "Stop Limit":
-                        #     order_type = OrderType.STOP_LIMIT
 
                         cumulative_order: CoinbaseAdvancedTradeCumulativeUpdate = CoinbaseAdvancedTradeCumulativeUpdate(
                             exchange_order_id=order["order_id"],

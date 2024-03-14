@@ -108,14 +108,10 @@ async def get_current_server_time_s(
         throttler_limit_id=constants.SERVER_TIME_EP,
     )
     server_time: float = float(get_timestamp_from_exchange_time(response["iso"], "s"))
-    # We could implement:
-    # server_time = float(response["epochSeconds"])
-    # server_time = float(response["epochMillis"]) / 1000
 
     return server_time
 
 
-# Ok, forgot HB does not like units on time ...
 async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = constants.DEFAULT_DOMAIN,
