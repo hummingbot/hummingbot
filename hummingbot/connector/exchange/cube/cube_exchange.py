@@ -239,8 +239,6 @@ class CubeExchange(ExchangePyBase):
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_IOC
             api_params["orderType"] = CONSTANTS.CUBE_ORDER_TYPE[OrderType.MARKET]
 
-        print(f"api_params: {api_params}")
-
         try:
             resp = await self._api_post(path_url=CONSTANTS.POST_ORDER_PATH_URL, data=api_params, is_auth_required=True)
 
@@ -427,21 +425,15 @@ class CubeExchange(ExchangePyBase):
         The events received are balance updates, order updates and trade events.
         """
         async for event_message in self._iter_user_event_queue():
-            # self.logger().debug(f"Received user event message: {event_message}")
-            print(f"status_dict: {self.status_dict}")
             try:
                 if self._is_bootstrap_completed is False:
                     msg: trade_pb2.Bootstrap = trade_pb2.Bootstrap().FromString(event_message)
-
-                    # Debug print
-                    print(f"Received Bootstrap message: {msg}")
 
                     if msg.HasField("done"):
                         self._is_bootstrap_completed = msg.done.read_only
 
                     if msg.HasField("position"):
                         for position in msg.position.positions:
-                            print(f"Position: {position}")
                             if position.subaccount_id == self.cube_subaccount_id:
                                 token_id_map = await self.token_id_map()
                                 token_symbol = token_id_map[position.asset_id]
