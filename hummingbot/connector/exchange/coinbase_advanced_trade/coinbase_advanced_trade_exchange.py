@@ -8,7 +8,26 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterable, Dict, Iter
 from async_timeout import timeout
 from bidict import bidict
 
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as constants
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils as web_utils
 from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_order_book_data_source import (
+    CoinbaseAdvancedTradeAPIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_user_stream_data_source import (
+    CoinbaseAdvancedTradeAPIUserStreamDataSource,
+    CoinbaseAdvancedTradeCumulativeUpdate,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_order_book import (
+    CoinbaseAdvancedTradeOrderBook,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import DEFAULT_FEES
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
+    get_timestamp_from_exchange_time,
+    retry_async_api_call,
+    set_exchange_time_from_timestamp,
+)
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
@@ -25,21 +44,6 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
-
-from . import coinbase_advanced_trade_constants as constants, coinbase_advanced_trade_web_utils as web_utils
-from .coinbase_advanced_trade_api_order_book_data_source import CoinbaseAdvancedTradeAPIOrderBookDataSource
-from .coinbase_advanced_trade_api_user_stream_data_source import (
-    CoinbaseAdvancedTradeAPIUserStreamDataSource,
-    CoinbaseAdvancedTradeCumulativeUpdate,
-)
-from .coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
-from .coinbase_advanced_trade_order_book import CoinbaseAdvancedTradeOrderBook
-from .coinbase_advanced_trade_utils import DEFAULT_FEES
-from .coinbase_advanced_trade_web_utils import (
-    get_timestamp_from_exchange_time,
-    retry_async_api_call,
-    set_exchange_time_from_timestamp,
-)
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
