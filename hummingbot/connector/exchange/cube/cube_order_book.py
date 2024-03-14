@@ -11,12 +11,16 @@ class CubeOrderBook(OrderBook):
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, any],
                                        timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                       metadata: Optional[Dict] = None,
+                                       price_scaler: float = 1,
+                                       quantity_scaler: float = 1) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
         :param timestamp: the snapshot timestamp
         :param metadata: a dictionary with extra information to add to the snapshot data
+        :param price_scaler: the price scaler to apply to the price levels
+        :param quantity_scaler: the quantity scaler to apply to the quantity levels
         :return: a snapshot message with the snapshot information received from the exchange
         """
         if metadata:
@@ -24,9 +28,16 @@ class CubeOrderBook(OrderBook):
 
         levels = msg["result"]["levels"]
 
-        bids = [OrderBookRow(float(level["price"]), float(level["quantity"]), msg["result"]["lastTransactTime"]) for
+        # bids = [OrderBookRow(float(level["price"]), float(level["quantity"]), msg["result"]["lastTransactTime"]) for
+        #         level in levels if level["side"] == 0]
+        # asks = [OrderBookRow(float(level["price"]), float(level["quantity"]), msg["result"]["lastTransactTime"]) for
+        #         level in levels if level["side"] == 1]
+
+        bids = [OrderBookRow(float(level["price"]) * price_scaler, float(level["quantity"]) * quantity_scaler,
+                             msg["result"]["lastTransactTime"]) for
                 level in levels if level["side"] == 0]
-        asks = [OrderBookRow(float(level["price"]), float(level["quantity"]), msg["result"]["lastTransactTime"]) for
+        asks = [OrderBookRow(float(level["price"]) * price_scaler, float(level["quantity"]) * quantity_scaler,
+                             msg["result"]["lastTransactTime"]) for
                 level in levels if level["side"] == 1]
 
         content = {
