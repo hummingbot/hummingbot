@@ -25,7 +25,6 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import DEFAULT_FEES
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_timestamp_from_exchange_time,
-    retry_async_api_call,
     set_exchange_time_from_timestamp,
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
@@ -1086,11 +1085,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         return trade_updates
 
-    @retry_async_api_call()
     async def _api_post(self, *args, **kwargs):
         return await super()._api_post(*args, **kwargs)
 
-    @retry_async_api_call()
     async def _api_get(self, *args, **kwargs):
         return await super()._api_get(*args, **kwargs)
 
