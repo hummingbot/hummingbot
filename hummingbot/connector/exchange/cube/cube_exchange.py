@@ -34,14 +34,14 @@ class CubeExchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        cube_api_key: str,
-        cube_api_secret: str,
-        cube_subaccount_id: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            self,
+            client_config_map: "ClientConfigAdapter",
+            cube_api_key: str,
+            cube_api_secret: str,
+            cube_subaccount_id: str,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self.api_key = cube_api_key
         self.secret_key = cube_api_secret
@@ -54,7 +54,7 @@ class CubeExchange(ExchangePyBase):
         self._trading_pair_symbol_map: Optional[Mapping[str, str]] = None
         self._trading_pair_market_id_map: Optional[Mapping[int, str]] = None
         self._token_id_map: Optional[Mapping[int, str]] = None
-        self._token_info: Dict[str, Any] = {}
+        self._token_info: Dict[int, Any] = {}
         self._is_bootstrap_completed = False
         self._nonce_creator = NonceCreator.for_milliseconds()
         self._mapping_initialization_lock = asyncio.Lock()
@@ -162,27 +162,27 @@ class CubeExchange(ExchangePyBase):
         )
 
     def _get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
+            self,
+            base_currency: str,
+            quote_currency: str,
+            order_type: OrderType,
+            order_side: TradeType,
+            amount: Decimal,
+            price: Decimal = s_decimal_NaN,
+            is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        **kwargs,
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            **kwargs,
     ) -> Tuple[str, float]:
         # Response Example:
         # {
@@ -206,16 +206,20 @@ class CubeExchange(ExchangePyBase):
         cube_order_type = CubeExchange.cube_order_type(order_type)
         order_side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         market_id = await self.exchange_market_id_associated_to_pair(trading_pair=trading_pair)
-        trading_rule: TradingRule = self._trading_rules[trading_pair]
-        # exchange_price = price / trading_rule.min_price_increment
-        exchange_amount = amount / trading_rule.min_order_size
+        # trading_rule: TradingRule = self._trading_rules[trading_pair]
+
+        price_scaler = Decimal(await self.get_price_scaler(trading_pair))
+        quantity_scaler = Decimal(await self.get_quantity_scaler(trading_pair))
+
+        exchange_price = price / price_scaler
+        exchange_amount = amount / quantity_scaler
 
         api_params = {
             "clientOrderId": int(order_id),
             "requestId": int(order_id),
             "marketId": int(market_id),
-            "price": int(price),
-            "quantity": int(exchange_amount),
+            "price": int(round(exchange_price)),
+            "quantity": int(round(exchange_amount)),
             "side": order_side,
             "timeInForce": CONSTANTS.TIME_IN_FORCE_GTC,
             "orderType": int(cube_order_type),
@@ -437,8 +441,14 @@ class CubeExchange(ExchangePyBase):
                             if position.subaccount_id == self.cube_subaccount_id:
                                 token_id_map = await self.token_id_map()
                                 token_symbol = token_id_map[position.asset_id]
-                                self._account_balances[token_symbol] = raw_units_to_number(position.total)
-                                self._account_available_balances[token_symbol] = raw_units_to_number(position.available)
+
+                                token_info = await self.token_info()
+                                decimals = token_info.get(position.asset_id, {}).get("decimals", 1)
+
+                                self._account_balances[token_symbol] = Decimal(raw_units_to_number(position.total) / (
+                                    10 ** decimals))
+                                self._account_available_balances[token_symbol] = Decimal(raw_units_to_number(
+                                    position.available) / (10 ** decimals))
 
                 else:
                     msg: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(event_message)
@@ -480,8 +490,12 @@ class CubeExchange(ExchangePyBase):
                             # token_symbol = self.token_id_to_token_symbol(msg.position.asset_id)
                             token_id_map = await self.token_id_map()
                             token_symbol = token_id_map[msg.position.asset_id]
-                            self._account_balances[token_symbol] = raw_units_to_number(msg.position.total)
-                            self._account_available_balances[token_symbol] = raw_units_to_number(msg.position.available)
+                            token_info = await self.token_info()
+                            decimals = token_info.get(msg.position.asset_id, {}).get("decimals", 1)
+                            self._account_balances[token_symbol] = Decimal(raw_units_to_number(msg.position.total) / (
+                                10 ** decimals))
+                            self._account_available_balances[token_symbol] = Decimal(raw_units_to_number(
+                                msg.position.available) / (10 ** decimals))
 
                     if msg.HasField("fill"):
                         client_order_id = str(msg.fill.client_order_id)
@@ -498,7 +512,7 @@ class CubeExchange(ExchangePyBase):
                             quote_token_info = self._token_info[
                                 await self.token_symbol_to_token_id(tracked_order.quote_asset)
                             ]
-                            fee_amount = msg.fill.fee_ratio.mantissa * (10**msg.fill.fee_ratio.exponent)
+                            fee_amount = msg.fill.fee_ratio.mantissa * (10 ** msg.fill.fee_ratio.exponent)
 
                             fill_base_amount = Decimal(msg.fill.fill_quantity) / (10 ** base_token_info.get("decimals"))
                             fill_quote_amount = (Decimal(msg.fill.fill_quantity) * Decimal(msg.fill.fill_price)) / (
@@ -732,11 +746,13 @@ class CubeExchange(ExchangePyBase):
 
         positions = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True)
         token_map = await self.token_id_map()
+        token_info = await self.token_info()
 
         balances = positions.get("result", {}).get(str(self.cube_subaccount_id), {}).get("inner", [])
         for balance_entry in balances:
             asset_name = token_map.get(balance_entry["assetId"], "UNKNOWN")
-            total_balance = Decimal(balance_entry.get("amount", "0"))
+            decimals = token_info.get(balance_entry["assetId"], {}).get("decimals", 1)
+            total_balance = Decimal(balance_entry.get("amount", "0")) / (10 ** decimals)
             # If _account_available_balances exists, use existing value, otherwise use 0
             self._account_available_balances[asset_name] = self._account_available_balances.get(
                 asset_name, Decimal("0")
@@ -827,6 +843,14 @@ class CubeExchange(ExchangePyBase):
 
         return symbol_map_ready and market_id_map_ready and token_info_ready and token_id_map_read
 
+    def trading_rule_ready(self):
+        trading_rules_ready = False
+
+        if self._trading_rules is not None and len(self._trading_rules) > 0:
+            trading_rules_ready = True
+
+        return trading_rules_ready
+
     async def exchange_market_id_associated_to_pair(self, trading_pair: str) -> str:
         """
         Used to translate a trading pair from the client notation to the exchange market id
@@ -847,7 +871,7 @@ class CubeExchange(ExchangePyBase):
         current_map = self._trading_pair_market_id_map or bidict()
         return current_map
 
-    async def token_symbol_to_token_id(self, token_symbol: str) -> str:
+    async def token_symbol_to_token_id(self, token_symbol: str) -> int:
         """
         Used to translate a token symbol from the client notation to the exchange token id
 
@@ -864,6 +888,14 @@ class CubeExchange(ExchangePyBase):
                 if not self.trading_pair_symbol_map_ready():
                     await self._initialize_trading_pair_symbol_map()
         current_map = self._token_id_map or bidict()
+        return current_map
+
+    async def token_info(self):
+        if not self.trading_pair_symbol_map_ready():
+            async with self._mapping_initialization_lock:
+                if not self.trading_pair_symbol_map_ready():
+                    await self._initialize_trading_pair_symbol_map()
+        current_map = self._token_info or {}
         return current_map
 
     async def exchange_symbol_associated_to_pair(self, trading_pair: str) -> str:
@@ -902,7 +934,8 @@ class CubeExchange(ExchangePyBase):
         return float(ticker["last_price"])
 
     def buy(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
+            self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN,
+            **kwargs
     ) -> str:
         """
         Creates a promise to create a buy order using the parameters
@@ -933,12 +966,12 @@ class CubeExchange(ExchangePyBase):
         return numeric_order_id
 
     def sell(
-        self,
-        trading_pair: str,
-        amount: Decimal,
-        order_type: OrderType = OrderType.LIMIT,
-        price: Decimal = s_decimal_NaN,
-        **kwargs,
+            self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type: OrderType = OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs,
     ) -> str:
         """
         Creates a promise to create a sell order using the parameters.
@@ -965,3 +998,27 @@ class CubeExchange(ExchangePyBase):
             )
         )
         return numeric_order_id
+
+    async def get_price_scaler(self, trading_pair: str) -> float:
+        """
+        Returns the price scaler for a trading pair
+        :param trading_pair: the trading pair to get the price scaler
+        :return: the price scaler
+        """
+        while not self.trading_rule_ready():
+            await asyncio.sleep(0.1)
+
+        trading_rule: TradingRule = self._trading_rules.get(trading_pair)
+        return float(trading_rule.min_price_increment)
+
+    async def get_quantity_scaler(self, trading_pair: str) -> float:
+        """
+        Returns the quantity scaler for a trading pair
+        :param trading_pair: the trading pair to get the quantity scaler
+        :return: the quantity scaler
+        """
+        while not self.trading_rule_ready():
+            await asyncio.sleep(0.1)
+
+        trading_rule: TradingRule = self._trading_rules.get(trading_pair)
+        return float(trading_rule.min_order_size)

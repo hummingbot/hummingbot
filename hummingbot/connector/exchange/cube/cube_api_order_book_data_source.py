@@ -96,10 +96,16 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
+
+        price_scaler = await self._connector.get_price_scaler(trading_pair)
+        quantity_scaler = await self._connector.get_quantity_scaler(trading_pair)
+
         snapshot_msg: OrderBookMessage = CubeOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+            msg=snapshot,
+            timestamp=snapshot_timestamp,
+            metadata={"trading_pair": trading_pair},
+            price_scaler=price_scaler,
+            quantity_scaler=quantity_scaler,
         )
         return snapshot_msg
 
@@ -110,11 +116,14 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # ParseDict(trades_msg, trades)
         trade: market_data_pb2.Trades.Trade
 
+        price_scaler = await self._connector.get_price_scaler(trading_pair)
+        quantity_scaler = await self._connector.get_quantity_scaler(trading_pair)
+
         for trade in trades.trades:
             msg = {
                 "trading_pair": trading_pair,
-                "price": trade.price,
-                "fill_quantity": trade.fill_quantity,
+                "price": price_scaler * trade.price,
+                "fill_quantity": quantity_scaler * trade.fill_quantity,
                 "transact_time": trade.transact_time,
                 "trade_id": trade.tradeId,
                 "trade_type": float(
@@ -132,6 +141,9 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # ParseDict(diff_msg, mbp_diff)
         diff: market_data_pb2.MarketByPriceDiff.Diff
 
+        price_scaler = await self._connector.get_price_scaler(trading_pair)
+        quantity_scaler = await self._connector.get_quantity_scaler(trading_pair)
+
         # Catch if diffs is not iterable
         if not hasattr(diff_msg, 'diffs'):
             self.logger().warning(f"Diff message does not contain diffs: {diff_msg}")
@@ -140,8 +152,8 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for diff in diff_msg.diffs:
             asks: List[OrderBookRow] = [OrderBookRow(0, 0, 0) for _ in range(0)]
             bids: List[OrderBookRow] = [OrderBookRow(0, 0, 0) for _ in range(0)]
-            price = diff.price
-            qty = diff.quantity
+            price = diff.price * price_scaler
+            qty = diff.quantity * quantity_scaler
             update_id = int(time.time())
 
             match diff.op:
