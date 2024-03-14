@@ -142,7 +142,8 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             bids: List[OrderBookRow] = [OrderBookRow(0, 0, 0) for _ in range(0)]
             price = diff.price
             qty = diff.quantity
-            update_id = time.time()
+            update_id = int(time.time())
+
             match diff.op:
                 case market_data_pb2.MarketByPriceDiff.REMOVE:
                     if diff.side == market_data_pb2.ASK:
@@ -158,7 +159,7 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     else:
                         row = OrderBookRow(price, qty, update_id)
                         bids.append(row)
-            msg = {"trading_pair": trading_pair, "update_id": time.time(), "bids": bids, "asks": asks}
+            msg = {"trading_pair": trading_pair, "update_id": update_id, "bids": bids, "asks": asks}
 
             order_book_message: OrderBookMessage = CubeOrderBook.diff_message_from_exchange(
                 msg, time.time())
@@ -220,6 +221,7 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                     await self._sleep(1.0)
                 finally:
+                    print("Closing websocket connection")
                     await self._on_order_stream_interruption(websocket_assistant=ws)
 
         tasks = [handle_subscription(trading_pair) for trading_pair in self._trading_pairs]
