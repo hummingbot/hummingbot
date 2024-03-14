@@ -266,7 +266,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         raise NotImplementedError
 
     def _uses_default_portfolio_subaccount(self) -> bool:
-        raise NotImplementedError
+        return True
 
     async def _order_creation_messages(
             self,
@@ -301,29 +301,6 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
             market_info = await self._query_executor.derivative_market(market_id=market_id)
 
         return market_info
-
-    def _token_from_market_info(
-            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
-    ) -> InjectiveToken:
-        token = self._tokens_map.get(denom)
-        if token is None:
-            unique_symbol = token_meta["symbol"]
-            if unique_symbol in self._token_symbol_and_denom_map:
-                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_and_denom_map:
-                    unique_symbol = candidate_symbol
-                else:
-                    unique_symbol = token_meta["name"]
-            token = InjectiveToken(
-                denom=denom,
-                symbol=token_meta["symbol"],
-                unique_symbol=unique_symbol,
-                name=token_meta["name"],
-                decimals=token_meta["decimals"]
-            )
-            self._tokens_map[denom] = token
-            self._token_symbol_and_denom_map[unique_symbol] = denom
-
-        return token
 
     async def _process_chain_stream_update(
             self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
