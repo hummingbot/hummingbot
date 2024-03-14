@@ -79,16 +79,6 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             cls.logger().warning(f"Unexpected message 'channel' from Coinbase Advanced Trade: {channel}")
             return None
 
-        # expected_sequence_num = cls._sequence_nums[channel]
-
-        # The sequence is for a websocket connection, so there is no way to assert that the sequence is correct
-        # when using one connection for several subscriptions. The better way is to have one connection per
-        # subscription, but that is not possible with the current implementation.
-        # if msg["sequence_num"] != expected_sequence_num:
-        #     cls.logger().warning(f"Received out of order message from {channel}, this indicates a missed message"
-        #                          f"\nExpected:{expected_sequence_num} - "
-        #                          f"Got:{msg['sequence_num']}")
-
         cls._sequence_nums[channel] = msg["sequence_num"] + 1
 
         if channel == "l2_data":

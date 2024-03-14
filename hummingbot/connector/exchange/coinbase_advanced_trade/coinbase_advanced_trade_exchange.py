@@ -95,7 +95,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             return "LIMIT"
         if order_type is OrderType.MARKET:
             return "MARKET"
-        # return order_type.name.upper()
 
     @staticmethod
     def to_hb_order_type(coinbase_advanced_trade_type: str) -> OrderType:
@@ -493,7 +492,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                   f"valid exchange_id: {tracked_order.exchange_order_id} in tracked_order:\n"
                                   f"{tracked_order}")
             return False
-            # raise ValueError(f"This request is Invalid: _place_cancel with {order_id} {tracked_order.exchange_order_id}")
 
         result = await self._place_cancels(order_ids=[tracked_order.exchange_order_id])
 
@@ -660,11 +658,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             self.trading_rules[trading_pair] = trading_rule
 
             trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
-        # self.logger().debug(f"Setting trading pair symbol map to {list(trading_pair_symbol_map.items())[:5]}...")
         self._set_trading_pair_symbol_map(trading_pair_symbol_map)
 
     async def _initialize_trading_pair_symbol_map(self):
-        # if not self._pair_symbol_map_initialized:
         await self._update_trading_rules()
         self._pair_symbol_map_initialized: bool = True
 
@@ -673,11 +669,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         Fetch the list of trading pairs from the exchange and map them
         """
         try:
-            params: Dict[str, Any] = {
-                # "limit": 1,
-                # "offset": 0,
-                # "product_type": "SPOT",
-            }
+            params: Dict[str, Any] = {}
             products: Dict[str, Any] = await self._api_get(
                 path_url=constants.ALL_PAIRS_EP,
                 params=params,
@@ -906,22 +898,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     exchange_order_id=event_message.exchange_order_id,
                 )
                 self._order_tracker.process_order_update(order_update)
-
-            # elif event_message.client_order_id.startswith(self.client_order_id_prefix):
-            #     self.logger().debug(f"Restoring exchange order: {event_message.client_order_id}")
-            #     self._order_tracker.start_tracking_order(
-            #         InFlightOrder(
-            #             client_order_id=event_message.client_order_id,
-            #             trading_pair=event_message.trading_pair,
-            #             order_type=event_message.order_type,
-            #             trade_type=event_message.trade_type,
-            #             amount=event_message.remainder_base_amount,
-            #             creation_timestamp=event_message.creation_timestamp_s,
-            #             price=event_message.average_price,
-            #             exchange_order_id=event_message.exchange_order_id,
-            #             initial_state=new_state,
-            #         )
-            #     )
             else:
                 self.logger().debug(f"Skipping order: {event_message.client_order_id}")
 
@@ -963,8 +939,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     path_url=constants.FILLS_EP,
                     params=params,
                     is_auth_required=True))
-
-            # self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
 
             results = await safe_gather(*tasks, return_exceptions=True)
 
@@ -1040,7 +1014,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         """
         trade_updates = []
         if order.exchange_order_id is not None:
-            # self.logger().debug(f"Fetching all trades for order {order.client_order_id}/{order.exchange_order_id}")
             order_id: str = order.exchange_order_id
             product_id: str = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             params = {
