@@ -1,6 +1,6 @@
 import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import ANY, AsyncMock, MagicMock, Mock, call, patch
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
@@ -13,7 +13,6 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
     get_timestamp_from_exchange_time,
     private_rest_url,
     public_rest_url,
-    retry_async_api_call,
     set_exchange_time_from_timestamp,
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -185,158 +184,6 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         # Test with a variety of timestamps and units
         self.assertEqual(set_exchange_time_from_timestamp(1683808496.789012, "s"), '2023-05-11T12:34:56.789012Z')
         self.assertEqual(set_exchange_time_from_timestamp(1683808496789.012, "ms"), '2023-05-11T12:34:56.789012Z')
-
-
-class TestRetryDecorator(IsolatedAsyncioWrapperTestCase):
-    async def test_retry_on_server_raises_400(self):
-        mock_logger = MagicMock()
-        mock_logger.error = MagicMock()
-
-        @retry_async_api_call(max_retries=2)
-        async def api_post(*args, **kwargs):
-            response = {
-                "error": "string",
-                "code": "400",
-                "message": "Missing parameter",
-                "details": {
-                    "type_url": "string",
-                    "value": "string"
-                }
-            }
-            raise OSError(f"Error executing request GET {kwargs.get('url')}. HTTP status is 400. "
-                          f"Error: {response}")
-
-        class MockClass:
-            def logger(self):
-                return mock_logger
-
-        mock_instance = MockClass()
-
-        with self.assertRaises(OSError):
-            _ = await api_post(mock_instance)
-
-        mock_logger.exception.assert_has_calls([
-            call("Error executing request GET None. HTTP status is 400. Error: {'error': 'string', 'code': '400', "
-                 "'message': 'Missing parameter', 'details': {'type_url': 'string', 'value': 'string'}}")])
-
-    async def test_retry_on_server_issue_max_retries_401(self):
-        mock_logger = MagicMock()
-        mock_logger.error = MagicMock()
-
-        @retry_async_api_call(max_retries=2)
-        async def api_post_2(*args, **kwargs):
-            response = {
-                "error": "string",
-                "code": "401",
-                "message": "Missing parameter",
-                "details": {
-                    "type_url": "string",
-                    "value": "string"
-                }
-            }
-            raise OSError(f"Error executing request GET {kwargs.get('url')}. HTTP status is 401. "
-                          f"Error: {response}")
-
-        @retry_async_api_call(max_retries=3)
-        async def api_post_3(*args, **kwargs):
-            response = {
-                "error": "string",
-                "code": "401",
-                "message": "Missing parameter",
-                "details": {
-                    "type_url": "string",
-                    "value": "string"
-                }
-            }
-            raise OSError(f"Error executing request GET {kwargs.get('url')}. HTTP status is 401. "
-                          f"Error: {response}")
-
-        class MockClass:
-            def logger(self):
-                return mock_logger
-
-        mock_instance = MockClass()
-
-        result = await api_post_2(mock_instance, path_url="authorized_url")
-        mock_logger.info.assert_has_calls([call('Retrying REST call in 0.25 seconds.')])
-        mock_logger.warning.assert_has_calls([
-            call('Unauthorized. This could be temporary.')])
-        mock_logger.exception.assert_has_calls([call('Max retries reached for authorized_url.')])
-        self.assertEqual(result, [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}])
-
-        result = await api_post_3(mock_instance, path_url="authorized_url")
-        mock_logger.info.assert_has_calls([
-            call('Retrying REST call in 0.25 seconds.'),
-            call('Retrying REST call in 0.5 seconds.')])
-        mock_logger.warning.assert_has_calls([
-            call('Unauthorized. This could be temporary.')])
-        mock_logger.exception.assert_has_calls([call('Max retries reached for authorized_url.')])
-        self.assertEqual(result, [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}])
-
-    async def test_retry_on_server_issue_max_retries_429(self):
-        mock_logger = MagicMock()
-        mock_logger.error = MagicMock()
-
-        @retry_async_api_call(max_retries=2)
-        async def api_post(*args, **kwargs):
-            response = {
-                "error": "string",
-                "code": "429",
-                "message": "Missing parameter",
-                "details": {
-                    "type_url": "string",
-                    "value": "string"
-                }
-            }
-            raise OSError(f"Error executing request GET {kwargs.get('url')}. HTTP status is 429. "
-                          f"Error: {response}")
-
-        class MockClass:
-            def logger(self):
-                return mock_logger
-
-        mock_instance = MockClass()
-
-        result = await api_post(mock_instance, path_url="authorized_url")
-        mock_logger.info.assert_has_calls([call('Retrying REST call in 0.25 seconds.')])
-        mock_logger.warning.assert_has_calls([
-            call('API call rate limited. Notify hummingbot Foundation if this happens frequently.')])
-        mock_logger.exception.assert_has_calls([call('Max retries reached for authorized_url.')])
-        self.assertEqual(result, [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}])
-
-    async def test_no_retry_on_success(self):
-        mock_logger = MagicMock()
-        mock_logger.error = MagicMock()
-
-        @retry_async_api_call(max_retries=2)
-        async def api_post(*args, **kwargs):
-            return {"status": 200}
-
-        class MockClass:
-            def logger(self):
-                return mock_logger
-
-        mock_instance = MockClass()
-
-        result = await api_post(mock_instance)
-        self.assertEqual(result, {"status": 200})
-        mock_logger.exception.assert_not_called()
-
-    async def test_invalid_function_name(self):
-        mock_logger = MagicMock()
-        mock_logger.error = MagicMock()
-        with self.assertRaises(AssertionError):
-            @retry_async_api_call(max_retries=2)
-            async def not_an_api_call(*args, **kwargs):
-                return {"status": 200}
-
-            class MockClass:
-                def logger(self):
-                    return mock_logger
-
-            mock_instance = MockClass()
-
-            await not_an_api_call(mock_instance)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,3 @@
-import asyncio
-import functools
-import logging
 import re
 from typing import Callable, Dict, NamedTuple, Optional, Tuple
 
@@ -200,53 +197,3 @@ class CoinbaseAdvancedTradeServerIssueException(Exception):
     Exception raised when the Coinbase Advanced Trade server returns an error
     """
     pass
-
-
-def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
-    def decorator(f):
-        @functools.wraps(f)
-        async def wrapper(*args, **kwargs):
-            assert any(p in f.__name__ for p in ['api_post', 'api_get']), f"{f.__name__} is not an API call"
-            retries: int = 0
-            sleep_time: float = initial_sleep
-            response: Dict = {}
-            logger: logging.Logger = args[0].logger()
-            url: str | None = kwargs.get("path_url")
-
-            while retries < max_retries:
-                try:
-                    logger.debug(f"   Calling {f.__name__} request with {url}: {retries}/{max_retries}.")
-                    response = await f(*args, **kwargs)
-                    break
-
-                except IOError as e:
-                    if any(f"HTTP status is {c}" in str(e) for c in ("400", "403", "500", "501", "502", "503", "504")):
-                        logger.exception(str(e))
-                        raise e
-
-                    retries += 1
-                    if retries >= max_retries:
-                        logger.exception(f"Max retries reached for {url}.")
-                        logger.exception(f"    Exception: {e}.")
-                        return [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}]
-
-                    if "HTTP status is 401" in str(e):
-                        logger.warning("Unauthorized. This could be temporary.")
-
-                    if "HTTP status is 429" in str(e):
-                        logger.warning("API call rate limited. Notify hummingbot Foundation if this happens frequently.")
-                        # sleep_time = 1 / constants.MAX_REST_REQUESTS_S
-
-                    logger.info(f"Retrying REST call in {sleep_time} seconds.")
-                    await asyncio.sleep(sleep_time)
-                    sleep_time = min(sleep_time * 2, max_sleep)  # Exponential backoff, capped at max_sleep
-
-                except Exception as e:
-                    logger.exception(f"Unexpected error in function {f.__name__}.")
-                    raise CoinbaseAdvancedTradeServerIssueException from e
-
-            return response
-
-        return wrapper
-
-    return decorator
