@@ -233,7 +233,6 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                     await self._sleep(1.0)
                 finally:
-                    print("Closing websocket connection")
                     await self._on_order_stream_interruption(websocket_assistant=ws)
 
         tasks = [handle_subscription(trading_pair) for trading_pair in self._trading_pairs]

@@ -453,7 +453,7 @@ class CubeExchange(ExchangePyBase):
                 else:
                     msg: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(event_message)
                     # Debug print
-                    print(f"Received OrderResponse message: {msg}")
+                    # print(f"Received OrderResponse message: {msg}")
 
                     if msg.HasField("new_ack"):
                         tracked_order = self._order_tracker.all_updatable_orders.get(str(msg.new_ack.client_order_id))
@@ -506,20 +506,22 @@ class CubeExchange(ExchangePyBase):
                                 if tracked_order.trade_type is TradeType.BUY
                                 else tracked_order.quote_asset
                             )
-                            base_token_info = self._token_info[
-                                await self.token_symbol_to_token_id(tracked_order.base_asset)
-                            ]
-                            quote_token_info = self._token_info[
-                                await self.token_symbol_to_token_id(tracked_order.quote_asset)
-                            ]
-                            fee_amount = msg.fill.fee_ratio.mantissa * (10 ** msg.fill.fee_ratio.exponent)
 
-                            fill_base_amount = Decimal(msg.fill.fill_quantity) / (10 ** base_token_info.get("decimals"))
-                            fill_quote_amount = (Decimal(msg.fill.fill_quantity) * Decimal(msg.fill.fill_price)) / (
-                                10 ** quote_token_info.get("decimals")
-                            )
+                            price_scaler = Decimal(await self.get_price_scaler(tracked_order.trading_pair))
+                            quantity_scaler = Decimal(await self.get_quantity_scaler(tracked_order.trading_pair))
 
-                            fill_price = Decimal(msg.fill.fill_price) / (10 ** quote_token_info.get("decimals"))
+                            fill_price = Decimal(msg.fill.fill_price) * price_scaler
+                            fill_base_amount = Decimal(msg.fill.fill_quantity) * quantity_scaler
+                            fill_quote_amount = fill_base_amount * fill_price
+
+                            # If trade is buy, fee is deducted from base token
+                            # If trade is sell, fee is deducted from quote token
+                            if tracked_order.trade_type is TradeType.BUY:
+                                fee_amount = fill_base_amount * Decimal(msg.fill.fee_ratio.mantissa * (
+                                    10 ** msg.fill.fee_ratio.exponent))
+                            else:
+                                fee_amount = fill_quote_amount * Decimal(msg.fill.fee_ratio.mantissa * (
+                                    10 ** msg.fill.fee_ratio.exponent))
 
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
@@ -579,14 +581,27 @@ class CubeExchange(ExchangePyBase):
             for fill in fills_data:
                 exchange_order_id = str(fill.get("orderId"))
                 fee_token = self._token_info[fill["feeAssetId"]]
-                fee_amount = fill.get("feeAmount", 0) / (10 ** fee_token.get("decimals"))
+
+                fee_lot_size = fee_token.get("decimals") - fee_token.get("displayDecimals")
+                fee_amount = Decimal(fill.get("feeAmount", 0)) / (10 ** fee_lot_size)
+
+                # print(f"fee_amount_original: {fill.get('feeAmount')}")
+                # print(f"fee_token: {fee_token}")
+                # print(f"fee_decimals: {fee_token.get('decimals')}")
+                # print(f"fee_display_decimals: {fee_token.get('displayDecimals')}")
+                # print(f"fee_lot_size: {fee_lot_size}")
+                # print(f"fee_amount: {fee_amount}")
 
                 base_token_info = self._token_info[await self.token_symbol_to_token_id(order.base_asset)]
                 quote_token_info = self._token_info[await self.token_symbol_to_token_id(order.quote_asset)]
 
-                fill_base_amount = Decimal(fill["baseAmount"]) / (10 ** base_token_info.get("decimals"))
-                fill_quote_amount = Decimal(fill["quoteAmount"]) / (10 ** quote_token_info.get("decimals"))
-                price = Decimal(fill["price"]) / (10 ** quote_token_info.get("decimals"))
+                base_lot_size = base_token_info.get("decimals") - base_token_info.get("displayDecimals")
+                quote_lot_size = quote_token_info.get("decimals") - quote_token_info.get("displayDecimals")
+
+                fill_base_amount = Decimal(fill["baseAmount"]) / (10 ** base_lot_size)
+                fill_quote_amount = Decimal(fill["quoteAmount"]) / (10 ** quote_lot_size)
+                # price = Decimal(fill["price"]) / (10 ** quote_token_info.get("decimals"))
+                price = Decimal(fill_quote_amount) / Decimal(fill_base_amount)
 
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
@@ -696,6 +711,16 @@ class CubeExchange(ExchangePyBase):
         updated_order_data = next(
             (order for order in orders_data if order["clientOrderId"] == tracked_order.client_order_id), None
         )
+
+        if updated_order_data is None:
+            # If the order is not found in the response, return an OrderUpdate with the same status as before
+            return OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=tracked_order.exchange_order_id,
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self._time_synchronizer.time(),
+                new_state=tracked_order.current_state,
+            )
 
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"].toLowerCase()]
 
