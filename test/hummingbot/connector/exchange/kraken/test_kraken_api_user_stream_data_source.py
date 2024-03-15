@@ -2,21 +2,27 @@ import asyncio
 import json
 import re
 import unittest
-from typing import Awaitable, Dict, List
-from unittest.mock import AsyncMock, patch
+from typing import Awaitable, Dict, List, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
+from bidict import bidict
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
+    level = 0
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -24,17 +30,54 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
+        cls.ws_ex_trading_pair = cls.base_asset + "/" + cls.quote_asset
         cls.api_tier = KrakenAPITier.STARTER
 
     def setUp(self) -> None:
         super().setUp()
+        self.log_records = []
+        self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
-        self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
-        not_a_real_secret = "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
-        kraken_auth = KrakenAuth(api_key="someKey", secret_key=not_a_real_secret)
-        self.data_source = KrakenAPIUserStreamDataSource(self.throttler, kraken_auth)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
+        self.mock_time_provider = MagicMock()
+
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = KrakenExchange(
+            client_config_map=client_config_map,
+            kraken_api_key="",
+            kraken_secret_key="",
+            trading_pairs=[self.trading_pair],
+            trading_required=False)
+
+        not_a_real_secret = "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
+        self.auth = KrakenAuth(api_key="someKey", secret_key=not_a_real_secret, time_provider=self.mock_time_provider)
+
+        self.connector._web_assistants_factory._auth = self.auth
+        self.data_source = KrakenAPIUserStreamDataSource(self.connector,
+                                                         api_factory=self.connector._web_assistants_factory,
+                                                         )
+
+        self.data_source.logger().setLevel(1)
+        self.data_source.logger().addHandler(self)
+
+        self.resume_test_event = asyncio.Event()
+
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+
+    def tearDown(self) -> None:
+        self.listening_task and self.listening_task.cancel()
+        super().tearDown()
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
@@ -116,7 +159,6 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_auth_response_mock()
         mocked_api.post(regex_url, body=json.dumps(resp))
-
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         output_queue = asyncio.Queue()
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(output_queue))
