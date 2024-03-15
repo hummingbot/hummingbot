@@ -24,7 +24,6 @@ from hummingbot.client.settings import (
     gateway_connector_trading_pairs,
 )
 from hummingbot.client.ui.completer import load_completer
-from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
@@ -33,7 +32,6 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
-    build_list_display,
     build_wallet_display,
     flatten,
     native_tokens,
@@ -100,10 +98,6 @@ class GatewayCommand(GatewayChainApiManager):
     @ensure_gateway_online
     def test_connection(self):
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
-
-    @ensure_gateway_online
-    def gateway_list(self):
-        safe_ensure_future(self._gateway_list(), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_config(self,
@@ -680,23 +674,6 @@ class GatewayCommand(GatewayChainApiManager):
                 chain_network, new_tokens)
             self.notify(
                 f"The 'gateway balance' command will now report token balances {new_tokens} for '{chain_network}'.")
-
-    async def _gateway_list(
-        self           # type: HummingbotApplication
-    ):
-        connector_list: List[Dict[str, Any]] = await self._get_gateway_instance().get_connectors()
-        connectors_tiers: List[Dict[str, Any]] = []
-        for connector in connector_list["connectors"]:
-            available_networks: List[Dict[str, Any]
-                                     ] = connector["available_networks"]
-            chains: List[str] = [d['chain'] for d in available_networks]
-            connector['chains'] = chains
-            connectors_tiers.append(connector)
-        connectors_df: pd.DataFrame = build_list_display(connectors_tiers)
-        lines = ["    " + line for line in format_df_for_printout(
-            connectors_df,
-            table_format=self.client_config_map.tables_format).split("\n")]
-        self.notify("\n".join(lines))
 
     async def _update_gateway_approve_tokens(
             self,           # type: HummingbotApplication

@@ -72,24 +72,6 @@ def build_connector_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     return pd.DataFrame(data=data, columns=columns)
 
 
-def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
-    """
-    Display connector information as a table
-    """
-    columns = ["Exchange", "Chains", "Tier"]
-    data = []
-    for connector_spec in connectors:
-        data.extend([
-            [
-                connector_spec["name"],
-                ', '.join(connector_spec['chains']),
-                connector_spec["tier"],
-            ]
-        ])
-
-    return pd.DataFrame(data=data, columns=columns)
-
-
 def build_connector_tokens_display(chain_networks: Dict[str, List[str]]) -> pd.DataFrame:
     """
     Display connector and the tokens the balance command will report on

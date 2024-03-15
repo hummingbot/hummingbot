@@ -120,9 +120,6 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
 
-    gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors and chains and tiers")
-    gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
-
     gateway_test_parser = gateway_subparsers.add_parser("test-connection", help="Ping gateway api server")
     gateway_test_parser.set_defaults(func=hummingbot.test_connection)
 
