@@ -582,24 +582,17 @@ class CubeExchange(ExchangePyBase):
                 exchange_order_id = str(fill.get("orderId"))
                 fee_token = self._token_info[fill["feeAssetId"]]
 
-                fee_lot_size = fee_token.get("decimals") - fee_token.get("displayDecimals")
-                fee_amount = Decimal(fill.get("feeAmount", 0)) / (10 ** fee_lot_size)
-
-                # print(f"fee_amount_original: {fill.get('feeAmount')}")
-                # print(f"fee_token: {fee_token}")
-                # print(f"fee_decimals: {fee_token.get('decimals')}")
-                # print(f"fee_display_decimals: {fee_token.get('displayDecimals')}")
-                # print(f"fee_lot_size: {fee_lot_size}")
-                # print(f"fee_amount: {fee_amount}")
+                fee_decimals = fee_token.get("decimals")
+                fee_amount = Decimal(fill.get("feeAmount", 0)) / (10 ** fee_decimals)
 
                 base_token_info = self._token_info[await self.token_symbol_to_token_id(order.base_asset)]
                 quote_token_info = self._token_info[await self.token_symbol_to_token_id(order.quote_asset)]
 
-                base_lot_size = base_token_info.get("decimals") - base_token_info.get("displayDecimals")
-                quote_lot_size = quote_token_info.get("decimals") - quote_token_info.get("displayDecimals")
+                base_decimals = base_token_info.get("decimals")
+                quote_decimals = quote_token_info.get("decimals")
 
-                fill_base_amount = Decimal(fill["baseAmount"]) / (10 ** base_lot_size)
-                fill_quote_amount = Decimal(fill["quoteAmount"]) / (10 ** quote_lot_size)
+                fill_base_amount = Decimal(fill["baseAmount"]) / (10 ** base_decimals)
+                fill_quote_amount = Decimal(fill["quoteAmount"]) / (10 ** quote_decimals)
                 # price = Decimal(fill["price"]) / (10 ** quote_token_info.get("decimals"))
                 price = Decimal(fill_quote_amount) / Decimal(fill_base_amount)
 
