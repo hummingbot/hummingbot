@@ -21,7 +21,7 @@ WSS_MARKET_DATA_URL = {"live": "wss://api.cube.exchange/md",
                        "staging": "wss://staging.cube.exchange/md"}
 
 WSS_TRADE_URL = {"live": "wss://api.cube.exchange/os",
-                 "staging": "wss://api.cube.exchange/os"}
+                 "staging": "wss://staging.cube.exchange/os"}
 
 EXCHANGE_INFO_PATH_URL = "/ir/v0/markets"
 PING_PATH_URL = "/md/v0/parsed/tickers"
