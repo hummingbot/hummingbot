@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import validator
 
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
 
 
@@ -25,11 +25,10 @@ class TWAPExecutorConfig(ExecutorConfigBase):
     mode: TWAPMode
 
     # MAKER mode specific parameters
-    limit_order_buffer: Optional[Decimal] = None
-    order_resubmission_time: Optional[int] = None
-    redistribute_unfilled: Optional[bool] = None
+    limit_order_buffer: Optional[Decimal] = Decimal("0.0005")
+    order_resubmission_time: Optional[int] = Decimal("20")
 
-    @validator('limit_order_buffer', 'order_resubmission_time', 'redistribute_unfilled', always=True)
+    @validator('limit_order_buffer', 'order_resubmission_time', always=True)
     def validate_maker_params(cls, v, values):
         if values.get('mode') != TWAPMode.MAKER:
             return None
@@ -41,8 +40,12 @@ class TWAPExecutorConfig(ExecutorConfigBase):
 
     @property
     def number_of_orders(self) -> int:
-        return self.total_duration // self.order_interval
+        return (self.total_duration // self.order_interval) + 1
 
     @property
-    def order_size(self) -> Decimal:
+    def order_amount_quote(self) -> Decimal:
         return self.total_amount_quote / self.number_of_orders
+
+    @property
+    def order_type(self) -> OrderType:
+        return OrderType.LIMIT if self.is_maker else OrderType.MARKET
