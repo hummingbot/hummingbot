@@ -58,7 +58,8 @@ class CubeRateSource(RateSourceBase):
         results = {}
         for pair_price in pairs_prices:
             try:
-                trading_pair = await exchange.trading_pair_associated_to_exchange_symbol(symbol=pair_price["ticker_id"])
+                trading_pair = await exchange.trading_pair_associated_to_exchange_symbol(
+                    symbol=pair_price["ticker_id"].upper())
             except KeyError:
                 continue  # skip pairs that we don't track
             if quote_token is not None:
