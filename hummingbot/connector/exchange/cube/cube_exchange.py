@@ -389,7 +389,7 @@ class CubeExchange(ExchangePyBase):
         retval = []
         for market in filter(cube_utils.is_exchange_information_valid, markets):
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market.get("symbol"))
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market.get("symbol").upper())
                 base_asset = assets[market.get("baseAssetId")]
                 quote_asset = assets[market.get("quoteAssetId")]
 
@@ -599,8 +599,8 @@ class CubeExchange(ExchangePyBase):
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    percent_token=fee_token.get("symbol"),
-                    flat_fees=[TokenAmount(amount=Decimal(fee_amount), token=fee_token.get("symbol"))],
+                    percent_token=fee_token.get("symbol").upper(),
+                    flat_fees=[TokenAmount(amount=Decimal(fee_amount), token=fee_token.get("symbol").upper())],
                 )
                 trade_update = TradeUpdate(
                     trade_id=str(fill.get("tradeId")),
@@ -794,7 +794,7 @@ class CubeExchange(ExchangePyBase):
         mapping_market_id = bidict()
 
         for asset in assets.values():
-            mapping_token_id[asset["assetId"]] = asset["symbol"]
+            mapping_token_id[asset["assetId"]] = asset["symbol"].upper()
 
         self.logger().debug(f"markets: {markets}")
 
@@ -802,11 +802,11 @@ class CubeExchange(ExchangePyBase):
             self.logger().debug(f"Processing market {market}")
             base_asset = assets[market.get("baseAssetId")]
             quote_asset = assets[market.get("quoteAssetId")]
-            mapping_symbol[market["symbol"]] = combine_to_hb_trading_pair(
-                base=base_asset["symbol"], quote=quote_asset["symbol"]
+            mapping_symbol[market["symbol"].upper()] = combine_to_hb_trading_pair(
+                base=base_asset["symbol"].upper(), quote=quote_asset["symbol"].upper()
             )
             mapping_market_id[market.get("marketId")] = combine_to_hb_trading_pair(
-                base=base_asset["symbol"], quote=quote_asset["symbol"]
+                base=base_asset["symbol"].upper(), quote=quote_asset["symbol"].upper()
             )
         self._set_trading_pair_symbol_map(mapping_symbol)
         self._set_trading_pair_market_id_map(mapping_market_id)
@@ -945,7 +945,7 @@ class CubeExchange(ExchangePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
         # Filter tickers that match the trading pair
-        tickers = [ticker for ticker in tickers if ticker["ticker_id"] == symbol]
+        tickers = [ticker for ticker in tickers if ticker["ticker_id"].upper() == symbol]
         # Get the first item
         ticker = tickers[0]
 
