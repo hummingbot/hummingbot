@@ -178,9 +178,9 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             message_queue.put_nowait(order_book_message)
 
     async def _process_websocket_messages_for_pair(self, websocket_assistant: WSAssistant, trading_pair: str):
-
         async def handle_heartbeat():
-            while True:
+            send_hb = True
+            while send_hb:
                 await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
                 hb = market_data_pb2.Heartbeat(
                     request_id=0,
@@ -188,7 +188,12 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 hb_request: WSBinaryRequest = WSBinaryRequest(
                     payload=market_data_pb2.ClientMessage(heartbeat=hb).SerializeToString())
-                await websocket_assistant.send(hb_request)
+                try:
+                    await websocket_assistant.send(hb_request)
+                except asyncio.CancelledError:
+                    send_hb = False
+                except ConnectionError:
+                    send_hb = False
 
         async def handle_messages():
             data: market_data_pb2.MdMessages

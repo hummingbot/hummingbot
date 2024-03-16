@@ -46,7 +46,8 @@ class CubeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         async def handle_heartbeat():
-            while True:
+            send_hb = True
+            while send_hb:
                 await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
                 hb = trade_pb2.Heartbeat(
                     request_id=0,
@@ -54,7 +55,12 @@ class CubeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 )
                 hb_request: WSBinaryRequest = WSBinaryRequest(
                     payload=trade_pb2.OrderRequest(heartbeat=hb).SerializeToString())
-                await websocket_assistant.send(hb_request)
+                try:
+                    await websocket_assistant.send(hb_request)
+                except asyncio.CancelledError:
+                    send_hb = False
+                except ConnectionError:
+                    send_hb = False
 
         # Create a separate task for handle_heartbeat
         heartbeat_task = asyncio.create_task(handle_heartbeat())
