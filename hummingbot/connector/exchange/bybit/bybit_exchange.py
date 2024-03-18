@@ -51,7 +51,10 @@ class BybitExchange(ExchangePyBase):
 
     @staticmethod
     def bybit_order_type(order_type: OrderType) -> str:
-        return order_type.name.upper()
+        if order_type.is_limit_type():
+            return "Limit"
+        else:
+            return "Market"
 
     @staticmethod
     def to_hb_order_type(bybit_type: str) -> OrderType:
@@ -213,29 +216,37 @@ class BybitExchange(ExchangePyBase):
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        for tp, tpr in self._trading_rules.items():
+            if tp == trading_pair:
+                precision = f"{tpr.min_base_amount_increment}"[::-1].find('.')
+                _price = round(price, precision)
+
         api_params = {
             "category": self._category,
             "symbol": symbol,
             "side": side_str,
             "orderType": type_str,
             "qty": amount_str,
+            "price": f"{_price:f}",
             "orderLinkId": order_id
         }
-        if order_type != OrderType.MARKET:
-            api_params["price"] = f"{price:f}"
+        # sort params required for V5
+        api_params = dict(sorted(api_params.items()))
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
-        order_result = await self._api_post(
+        response = await self._api_post(
             path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
-            params=api_params,
+            data=api_params,
             is_auth_required=True,
             trading_pair=trading_pair,
             headers={"referer": CONSTANTS.HBOT_BROKER_ID},
         )
-
-        o_id = str(order_result["result"]["orderId"])
-        transact_time = int(order_result["result"]["transactTime"]) * 1e-3
+        order_result = response.get("result", {})
+        o_id = str(order_result["orderId"])
+        # transact_time = int(response["time"]) * 1e-3
+        transact_time = int(response['time'])
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -247,10 +258,12 @@ class BybitExchange(ExchangePyBase):
             api_params["orderId"] = tracked_order.exchange_order_id
         else:
             api_params["orderLinkId"] = tracked_order.client_order_id
-        cancel_result = await self._api_delete(
+        api_params = dict(sorted(api_params.items()))
+        cancel_result = await self._api_post(
             path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
-            params=api_params,
-            is_auth_required=True
+            data=api_params,
+            is_auth_required=True,
+            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
         )
 
         if isinstance(cancel_result, dict) and "orderLinkId" in cancel_result["result"]:
@@ -351,15 +364,17 @@ class BybitExchange(ExchangePyBase):
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
+                    "category": self._category,
                     "symbol": trading_pair,
                     "orderId": exchange_order_id
                 },
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
-            fills_data = all_fills_response.get("result", [])
-            if fills_data is not None:
-                for trade in fills_data:
-                    exchange_order_id = str(trade["orderId"])
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL
+            )
+            result = all_fills_response.get("result", [])
+            if result not in (None, {}):
+                for trade in result["list"]:
+                    exchange_order_id = trade["orderId"]
                     fee = TradeFeeBase.new_spot_fee(
                         fee_schema=self.trade_fee_schema(),
                         trade_type=order.trade_type,
@@ -383,12 +398,12 @@ class BybitExchange(ExchangePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         updated_order_data = await self._api_get(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.MY_TRADES_PATH_URL,
             params={
                 "orderLinkId": tracked_order.client_order_id},
             is_auth_required=True)
 
-        new_state = CONSTANTS.ORDER_STATE[updated_order_data["result"]["status"]]
+        new_state = CONSTANTS.ORDER_STATE[updated_order_data["result"]["orderStatus"]]
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
@@ -419,7 +434,7 @@ class BybitExchange(ExchangePyBase):
 
         for coin in balances["result"]["list"][0]["coin"]:
             name = coin["coin"]
-            free_balance = Decimal(coin["availableToWithdraw"])
+            free_balance = Decimal(coin["free"])
             balance = Decimal(coin["walletBalance"])
             self._account_available_balances[name] = free_balance
             self._account_balances[name] = Decimal(balance)
@@ -454,15 +469,15 @@ class BybitExchange(ExchangePyBase):
                            is_auth_required: bool = False,
                            return_err: bool = False,
                            limit_id: Optional[str] = None,
-                           trading_pair: Optional[str] = None,
+                           headers: Optional[Dict[str, Any]] = None,
                            **kwargs) -> Dict[str, Any]:
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
-        local_headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        for _ in range(2):
+        params = dict(sorted(params.items())) if isinstance(params, dict) else params
+        data = dict(sorted(data.items())) if isinstance(data, dict) else data
+
+        for _ in range(CONSTANTS.API_REQUEST_RETRY):
             try:
                 request_result = await rest_assistant.execute_request(
                     url=url,
@@ -471,7 +486,7 @@ class BybitExchange(ExchangePyBase):
                     method=method,
                     is_auth_required=is_auth_required,
                     return_err=return_err,
-                    headers=local_headers,
+                    headers=headers,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
                 return request_result
@@ -482,7 +497,6 @@ class BybitExchange(ExchangePyBase):
                     await self._update_time_synchronizer()
                 else:
                     raise
-
         # Failed even after the last retry
         raise last_exception
 

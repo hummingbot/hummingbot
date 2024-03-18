@@ -95,6 +95,16 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws and await ws.disconnect()
                 await self._sleep(5)
 
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+
+        ByBit does not require any channel subscription.
+
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
+        """
+        pass
+
     async def _authenticate_connection(self, ws: WSAssistant):
         """
         Sends the authentication message.
@@ -142,3 +152,12 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def _time(self):
         return time.time()
+
+    async def _connected_websocket_assistant(self, domain: str = "bybit_main") -> WSAssistant:
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTIONS_RATE_LIMIT):
+            await ws.connect(
+                ws_url=CONSTANTS.WSS_PUBLIC_URL[domain],
+                ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+            )
+        return ws

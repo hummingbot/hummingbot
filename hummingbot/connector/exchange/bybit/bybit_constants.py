@@ -56,6 +56,8 @@ ACCOUNT_INFO_PATH_URL = "/v5/account/info"
 BALANCE_PATH_URL = "/v5/account/wallet-balance"
 ORDER_PLACE_PATH_URL = "/v5/order/create"
 ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
+MY_TRADES_PATH_URL = "/v5/order/realtime"
+
 
 # Order States
 ORDER_STATE = {
@@ -92,6 +94,9 @@ ONE_SECOND = 1
 SIX_SECONDS = 6
 ONE_DAY = 86400
 
+# klpanagi additions
+API_REQUEST_RETRY = 2
+
 RATE_LIMITS = {
     # General
     RateLimit(limit_id=REQUEST_GET, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES),
@@ -114,6 +119,12 @@ RATE_LIMITS = {
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
     RateLimit(limit_id=ORDER_PLACE_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
+    RateLimit(limit_id=ORDER_CANCEL_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
+    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
     RateLimit(limit_id=ACCOUNT_INFO_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,

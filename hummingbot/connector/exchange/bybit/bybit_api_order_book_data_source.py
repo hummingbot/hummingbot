@@ -165,6 +165,12 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 ws and await ws.disconnect()
 
+    def _get_trade_topic_from_symbol(self, symbol: str) -> str:
+        return f"publicTrade.{symbol}"
+
+    def _get_ob_topic_from_symbol(self, symbol: str, depth: int) -> str:
+        return f"orderbook.{depth}.{symbol}"
+
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
@@ -173,14 +179,13 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-
-                trade_topic = f"publicTrade.{symbol}"
+                trade_topic = self._get_trade_topic_from_symbol(symbol)
                 trade_payload = {
                     "op": "subscribe",
                     "args": [trade_topic]
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
-                orderbook_topic = f"orderbook.{self._depth}.{symbol}"
+                orderbook_topic = self._get_ob_topic_from_symbol(symbol, self._depth)
                 orderbook_payload = {
                     "op": "subscribe",
                     "args": [orderbook_topic]

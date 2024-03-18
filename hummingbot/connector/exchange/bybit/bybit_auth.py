@@ -1,4 +1,3 @@
-import hashlib
 import hmac
 import time
 from typing import Any, Dict, Optional
@@ -57,27 +56,38 @@ class BybitAuth(AuthBase):
         headers["X-BAPI-TIMESTAMP"] = str(ts)
         headers["X-BAPI-API-KEY"] = self.api_key
 
-        signature = self._generate_rest_signature(
-            timestamp=ts, method=method, payload=request.params)
+        if method.value == "POST":
+            signature = self._generate_rest_signature(
+                timestamp=ts, method=method, payload=request.data)
+        else:
+            signature = self._generate_rest_signature(
+                timestamp=ts, method=method, payload=request.params)
 
         headers["X-BAPI-SIGN"] = signature
         headers["X-BAPI-SIGN-TYPE"] = str(2)
         headers["X-BAPI-RECV-WINDOW"] = str(CONSTANTS.X_API_RECV_WINDOW)
-        headers["Content-Type"] = 'application/json'
         request.headers = {**request.headers, **headers} if request.headers is not None else headers
         return request
 
     def _generate_rest_signature(self, timestamp, method: str, payload: Optional[Dict[str, Any]]) -> str:
         if payload is None:
             payload = {}
-
-        param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + urlencode(payload)
-        return hmac.new(bytes(self.secret_key, "utf-8"), param_str.encode("utf-8"), hashlib.sha256).hexdigest()
+        if method.value == "GET":
+            param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + urlencode(payload)
+        elif method.value == "POST":
+            param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + f"{payload}"
+        signature = hmac.new(
+            bytes(self.secret_key, "utf-8"),
+            param_str.encode("utf-8"),
+            digestmod="sha256"
+        ).hexdigest()
+        return signature
 
     def _generate_ws_signature(self, expires: int):
         signature = str(hmac.new(
             bytes(self.secret_key, "utf-8"),
-            bytes(f"GET/realtime{expires}", "utf-8"), digestmod="sha256"
+            bytes(f"GET/realtime{expires}", "utf-8"),
+            digestmod="sha256"
         ).hexdigest())
         return signature
 
