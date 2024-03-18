@@ -83,7 +83,6 @@ def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
             [
                 connector_spec["name"],
                 ', '.join(connector_spec['chains']),
-                connector_spec["tier"],
             ]
         ])
 
