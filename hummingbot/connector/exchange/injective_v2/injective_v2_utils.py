@@ -59,6 +59,10 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
         const=True,
         client_data=ClientFieldData(),
     )
+    gas_limit_adjustment_multiplier: float = Field(
+        default=None,
+        client_data=ClientFieldData(),
+    )
 
     class Config:
         title = "simulated_transaction_fee_calculator"
@@ -70,6 +74,8 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
             gas_price: Optional[int] = None,
             gas_limit_adjustment_multiplier: Optional[Decimal] = None,
     ) -> TransactionFeeCalculator:
+        if gas_limit_adjustment_multiplier is None and self.gas_limit_adjustment_multiplier is not None:
+            gas_limit_adjustment_multiplier = Decimal(self.gas_limit_adjustment_multiplier)
         return SimulatedTransactionFeeCalculator(
             client=client,
             composer=composer,
@@ -84,6 +90,10 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
         const=True,
         client_data=ClientFieldData(),
     )
+    gas_limit_adjustment_multiplier: float = Field(
+        default=None,
+        client_data=ClientFieldData(),
+    )
 
     class Config:
         title = "message_based_transaction_fee_calculator"
@@ -95,6 +105,8 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
             gas_price: Optional[int] = None,
             gas_limit_adjustment_multiplier: Optional[Decimal] = None,
     ) -> TransactionFeeCalculator:
+        if gas_limit_adjustment_multiplier is None and self.gas_limit_adjustment_multiplier is not None:
+            gas_limit_adjustment_multiplier = Decimal(self.gas_limit_adjustment_multiplier)
         return MessageBasedTransactionFeeCalculator(
             client=client,
             composer=composer,
