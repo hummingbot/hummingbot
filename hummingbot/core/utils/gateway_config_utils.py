@@ -76,7 +76,7 @@ def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     """
     Display connector information as a table
     """
-    columns = ["Exchange", "Chains", "Tier"]
+    columns = ["Exchange", "Chains"]
     data = []
     for connector_spec in connectors:
         data.extend([
