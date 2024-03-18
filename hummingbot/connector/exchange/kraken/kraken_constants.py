@@ -1,9 +1,14 @@
 from enum import Enum
-from typing import (
-    Dict,
-    Tuple,
-)
-from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
+from typing import Dict, Tuple
+
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
+
+DEFAULT_DOMAIN = "kraken"
+MAX_ORDER_ID_LEN = 32
+HBOT_ORDER_ID_PREFIX = "HBOT"
+
+MAX_ID_BIT_COUNT = 31
 
 
 class KrakenAPITier(Enum):
@@ -48,9 +53,28 @@ CANCEL_ORDER_PATH_URL = "/0/private/CancelOrder"
 BALANCE_PATH_URL = "/0/private/Balance"
 OPEN_ORDERS_PATH_URL = "/0/private/OpenOrders"
 QUERY_ORDERS_PATH_URL = "/0/private/QueryOrders"
+QUERY_TRADES_PATH_URL = "/0/private/QueryTrades"
+
+
+UNKNOWN_ORDER_MESSAGE = "Unknown order"
+# Order States
+ORDER_STATE = {
+    "pending": OrderState.OPEN,
+    "open": OrderState.OPEN,
+    "closed": OrderState.FILLED,
+    "canceled": OrderState.CANCELED,
+    "expired": OrderState.FAILED,
+}
+ORDER_NOT_EXIST_ERROR_CODE = "Error fetching status update for the order"
 
 WS_URL = "wss://ws.kraken.com"
 WS_AUTH_URL = "wss://ws-auth.kraken.com/"
+
+DIFF_EVENT_TYPE = "book"
+TRADE_EVENT_TYPE = "trade"
+PING_TIMEOUT = 10
+USER_TRADES_ENDPOINT_NAME = "ownTrades"
+USER_ORDERS_ENDPOINT_NAME = "openOrders"
 
 PUBLIC_ENDPOINT_LIMIT_ID = "PublicEndpointLimitID"
 PUBLIC_ENDPOINT_LIMIT = 1

@@ -19,7 +19,6 @@ from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -135,8 +134,6 @@ class StartCommand(GatewayChainApiManager):
 
         for exchange in settings.required_exchanges:
             connector: str = str(exchange)
-            status: str = get_connector_status(connector)
-            warning_msg: Optional[str] = warning_messages.get(connector, None)
 
             # confirm gateway connection
             conn_setting: settings.ConnectorSetting = settings.AllConnectorSettings.get_connector_settings()[connector]
@@ -178,16 +175,6 @@ class StartCommand(GatewayChainApiManager):
                             self.notify("Invalid input. Please execute the `start` command again.")
                             self._in_start_check = False
                             return
-
-            # Display custom warning message for specific connectors
-            elif warning_msg is not None:
-                self.notify(f"\nConnector status: {status}\n"
-                            f"{warning_msg}")
-
-            # Display warning message if the exchange connector has outstanding issues or not working
-            elif status.endswith("UNKNOWN"):
-                self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
-                            "Refer to our Github page for more info: https://github.com/hummingbot/hummingbot")
 
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making()
@@ -244,7 +231,7 @@ class StartCommand(GatewayChainApiManager):
 
     @staticmethod
     def load_script_yaml_config(config_file_path: str) -> dict:
-        with open(settings.SCRIPT_STRATEGY_CONFIG_PATH / config_file_path, 'r') as file:
+        with open(settings.SCRIPT_STRATEGY_CONF_DIR_PATH / config_file_path, 'r') as file:
             return yaml.safe_load(file)
 
     def is_current_strategy_script_strategy(self) -> bool:

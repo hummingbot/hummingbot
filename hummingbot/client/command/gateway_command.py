@@ -25,7 +25,6 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.connector.connector_status import get_connector_status
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
@@ -688,7 +687,6 @@ class GatewayCommand(GatewayChainApiManager):
         connector_list: List[Dict[str, Any]] = await self._get_gateway_instance().get_connectors()
         connectors_tiers: List[Dict[str, Any]] = []
         for connector in connector_list["connectors"]:
-            connector['tier'] = get_connector_status(connector['name'])
             available_networks: List[Dict[str, Any]
                                      ] = connector["available_networks"]
             chains: List[str] = [d['chain'] for d in available_networks]
