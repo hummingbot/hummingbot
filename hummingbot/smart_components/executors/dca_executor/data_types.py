@@ -14,7 +14,7 @@ class DCAMode(Enum):
 
 class DCAExecutorConfig(ExecutorConfigBase):
     type = "dca_executor"
-    exchange: str
+    connector_name: str
     trading_pair: str
     side: TradeType
     leverage: int = 1
@@ -26,3 +26,4 @@ class DCAExecutorConfig(ExecutorConfigBase):
     time_limit: Optional[int] = None
     mode: DCAMode = DCAMode.MAKER
     activation_bounds: Optional[List[Decimal]] = None
+    level_id: Optional[str] = None
