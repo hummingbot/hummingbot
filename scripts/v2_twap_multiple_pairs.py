@@ -92,11 +92,9 @@ class TWAPMultiplePairs(StrategyV2Base):
         for connector in self.connectors.values():
             if self.is_perpetual(connector.name):
                 connector.set_position_mode(self.config.position_mode)
-                connector.set_position_mode(self.config.position_mode)
         for config in self.config.twap_configs:
             if self.is_perpetual(config.connector_name):
-                connector = self.connectors[config.connector_name]
-                connector.set_leverage(config.trading_pair, config.leverage)
+                self.connectors[config.connector_name].set_leverage(config.trading_pair, config.leverage)
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         executor_actions = []
