@@ -60,14 +60,15 @@ MY_TRADES_PATH_URL = "/v5/order/realtime"
 
 
 # Order States
+# https://bybit-exchange.github.io/docs/v5/enum#orderstatus
 ORDER_STATE = {
-    "PENDING": OrderState.PENDING_CREATE,
-    "NEW": OrderState.OPEN,
-    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
-    "FILLED": OrderState.FILLED,
-    "PENDING_CANCEL": OrderState.PENDING_CANCEL,
-    "CANCELED": OrderState.CANCELED,
-    "REJECTED": OrderState.FAILED,
+    "PENDING": OrderState.PENDING_CREATE,  # Not provided from ByBit API V5
+    "New": OrderState.OPEN,
+    "PartiallyFilled": OrderState.PARTIALLY_FILLED,
+    "Filled": OrderState.FILLED,
+    "PENDING_CANCEL": OrderState.PENDING_CANCEL,  # Not provided from ByBit API V5
+    "Cancelled": OrderState.CANCELED,
+    "Rejected": OrderState.FAILED,
 }
 
 WS_HEARTBEAT_TIME_INTERVAL = 20
