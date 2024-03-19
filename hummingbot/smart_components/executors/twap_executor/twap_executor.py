@@ -119,7 +119,10 @@ class TWAPExecutor(ExecutorBase):
 
     def create_order(self, timestamp):
         price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
-        amount = self.config.order_amount_quote / price
+        total_executed_amount = self.get_total_executed_amount_quote()
+        orders_amount_quote_left = self.config.total_amount_quote - total_executed_amount
+        number_or_orders_left = self.config.number_of_orders - len([order for order in self._order_plan.values() if order])
+        amount = (orders_amount_quote_left / number_or_orders_left) / price
         if self.config.is_maker:
             order_price = price * (1 + self.config.limit_order_buffer) if self.config.side == TradeType.SELL else price * (1 - self.config.limit_order_buffer)
         else:
