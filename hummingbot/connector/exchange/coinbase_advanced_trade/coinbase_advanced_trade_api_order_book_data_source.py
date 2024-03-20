@@ -193,6 +193,8 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().debug(f"Received message from Coinbase Advanced Trade: {data}")
                 if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse:
                     await self._message_queue[data["channel"]].put(data)
+                elif data["channel"] in ["subscriptions", "heartbeat"]:
+                    self.logger().debug(f"Ignoring message from Coinbase Advanced Trade: {data}")
                 else:
                     self.logger().debug(
                         f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
