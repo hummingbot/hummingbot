@@ -267,7 +267,9 @@ class PositionExecutor(ExecutorBase):
 
         :return: True if the open orders are completed, False otherwise.
         """
-        return (self._open_order and self._open_order.is_done) and (self._take_profit_limit_order and self._take_profit_limit_order.is_done)
+        open_order_condition = not self._open_order or self._open_order.is_done
+        take_profit_condition = not self._take_profit_limit_order or self._take_profit_limit_order.is_done
+        return open_order_condition and take_profit_condition
 
     async def control_shutdown_process(self):
         """
