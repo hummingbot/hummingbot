@@ -64,12 +64,32 @@ class CubeAuth(AuthBase):
 
         return serialized_message
 
-    def _generate_signature(self) -> Tuple[str, int]:
-        # Get the current Unix timestamp in seconds
-        timestamp = int(time.time())
+    def verify_signature(self, signature: str, timestamp: int) -> bool:
+        """
+        Verifies the signature generation.
+        :param signature: the signature to be verified
+        :param timestamp: the timestamp of the request
+        :return: True if the signature is valid, False otherwise
+        """
+
+        # Generate the signature
+        generated_signature, _ = self._generate_signature(timestamp)
+
+        # Generate signature with different timestamp
+        generated_signature_diff_timestamp, _ = self._generate_signature(timestamp + 1)
+
+        # Compare the generated signatures with the provided signature
+        return signature == generated_signature and signature != generated_signature_diff_timestamp
+
+    def _generate_signature(self, timestamp: int = None) -> Tuple[str, int]:
+        # Get timestamp
+        if timestamp is None:
+            input_timestamp = int(time.time())
+        else:
+            input_timestamp = timestamp
 
         # Convert the timestamp to an 8-byte little-endian array
-        timestamp_bytes = struct.pack('<Q', timestamp)
+        timestamp_bytes = struct.pack('<Q', input_timestamp)
 
         # The fixed byte string
         fixed_string = b'cube.xyz'
@@ -86,4 +106,4 @@ class CubeAuth(AuthBase):
         # Encode the signature in base64
         signature_b64 = base64.b64encode(signature)
 
-        return signature_b64.decode(), timestamp
+        return signature_b64.decode(), input_timestamp

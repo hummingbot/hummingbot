@@ -58,11 +58,9 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "levels": 1000
         }
 
-        market_id = await self._connector.exchange_market_id_associated_to_pair(trading_pair=trading_pair)
-
-        rest_assistant = await self._api_factory.get_rest_assistant()
-
         try:
+            market_id = await self._connector.exchange_market_id_associated_to_pair(trading_pair=trading_pair)
+            rest_assistant = await self._api_factory.get_rest_assistant()
             data = await rest_assistant.execute_request(
                 url=web_utils.public_rest_url(
                     path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + f"/book/{market_id}/snapshot",
@@ -88,14 +86,17 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         market_id = await self._connector.exchange_market_id_associated_to_pair(trading_pair=trading_pair)
 
-        await ws.connect(ws_url=f"{CONSTANTS.WSS_MARKET_DATA_URL.get(self._domain)}/book/{market_id}?mbp=true",
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(
+            ws_url=f"{CONSTANTS.WSS_MARKET_DATA_URL.get(self._domain)}/book/{market_id}?mbp=true&trades=true",
+            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+
+        self.logger().info(f"Subscribed to public order book for {trading_pair} and trade channels...")
 
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        snapshot_timestamp: float = time.time()
+        snapshot_timestamp: float = snapshot["result"]["lastTransactTime"]
 
         price_scaler = await self._connector.get_price_scaler(trading_pair)
         quantity_scaler = await self._connector.get_quantity_scaler(trading_pair)
@@ -111,9 +112,7 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = raw_message["trading_pair"]
-        trades_msg = raw_message["trades"]
-        trades = market_data_pb2.Trades().FromString(trades_msg)
-        # ParseDict(trades_msg, trades)
+        trades: market_data_pb2.Trades = raw_message["trades"]
         trade: market_data_pb2.Trades.Trade
 
         price_scaler = await self._connector.get_price_scaler(trading_pair)
@@ -208,7 +207,6 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 {"trading_pair": trading_pair, "mbp_diff": diff_data})
                         elif field == CONSTANTS.TRADE_EVENT_TYPE:
                             trade_data = md_msg.trades
-                            trade_data["trading_pair"] = trading_pair
                             self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
                                 {"trading_pair": trading_pair, "trades": trade_data})
 
