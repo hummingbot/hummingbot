@@ -87,6 +87,10 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         elif channel == "market_trades":
             return await cls._market_trades_order_book_message(msg, symbol_to_pair)
 
+        elif channel in ["subscriptions", "heartbeat"]:
+            cls.logger().debug(f"Ignoring message from Coinbase Advanced Trade: {msg}")
+            return None
+
         cls.logger().error(f"Unexpected message 'channel' from Coinbase Advanced Trade: {channel}")
         raise ValueError(f"Unexpected channel: {channel}")
 
