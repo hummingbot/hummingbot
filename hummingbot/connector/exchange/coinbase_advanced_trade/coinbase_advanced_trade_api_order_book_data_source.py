@@ -122,7 +122,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().exception("Unexpected error when processing public trade updates from exchange")
 
-    def _get_messages_queue_keys(self) -> Tuple[str]:
+    def _get_messages_queue_keys(self) -> Tuple[str, ...]:
         return tuple(constants.WS_ORDER_SUBSCRIPTION_KEYS)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
