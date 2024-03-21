@@ -832,12 +832,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     )
                 continue
 
+            self.logger().debug(f"_user_stream_event_listener: {event_message.client_order_id} {event_message.status}")
+
             fillable_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(event_message.client_order_id)
             updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
                 event_message.client_order_id)
-
-            self.logger().debug(f"Received: {event_message.client_order_id} {event_message.status} "
-                                f"fillable: {fillable_order} updatable: {updatable_order}")
 
             new_state: OrderState = constants.ORDER_STATE[event_message.status]
             partially: bool = all((event_message.cumulative_base_amount > Decimal("0"),
@@ -851,7 +850,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     new_state == OrderState.FILLED,
             )):
                 self.logger().debug(
-                    f"Received: {event_message.client_order_id} {event_message.status} fillable: {fillable_order} updatable: {updatable_order}")
+                    f" '-> Fillable: {event_message.client_order_id} {event_message.status} fillable: {fillable_order} updatable: {updatable_order}")
                 transaction_fee: Decimal = Decimal(event_message.cumulative_fee) - fillable_order.cumulative_fee_paid(
                     "USD")
                 fee = TradeFeeBase.new_spot_fee(
@@ -887,9 +886,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     fill_price=fill_price,
                     fill_timestamp=event_message.fill_timestamp_s,
                 )
+                self.logger().debug(f" '-> Trade Updater: {trade_update}")
                 self._order_tracker.process_trade_update(trade_update)
 
             if updatable_order is not None:
+                self.logger().debug(f" '-> Updatable order: {event_message.client_order_id}")
                 order_update = OrderUpdate(
                     trading_pair=updatable_order.trading_pair,
                     update_timestamp=event_message.fill_timestamp_s,
@@ -899,7 +900,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                 )
                 self._order_tracker.process_order_update(order_update)
             else:
-                self.logger().debug(f"Skipping order: {event_message.client_order_id}")
+                self.logger().debug(f"Skipping non-updatable order: {event_message.client_order_id}")
 
     async def _update_order_fills_from_trades(self):
         """

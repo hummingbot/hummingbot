@@ -74,8 +74,19 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._connector = connector
 
         self._ws_assistant: WSAssistant | None = None
+        self._reset_recv_time: bool = False
 
-    # Implemented methods
+    @property
+    def last_recv_time(self) -> float:
+        """
+        Returns the time of the last received message
+
+        :return: the timestamp of the last received message in seconds
+        """
+        if self._ws_assistant and not self._reset_recv_time:
+            return self._ws_assistant.last_recv_time
+        return 0
+
     async def _connected_websocket_assistant(self, pair=None) -> WSAssistant:
         """
         Create and connect the WebSocket assistant.
@@ -166,11 +177,17 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param queue: The queue to put the order into.
         """
         try:
+            CoinbaseAdvancedTradeAPIUserStreamDataSource.logger().debug(f"Putting order into queue (no wait): {item}")
             queue.put_nowait(item)
+            await asyncio.sleep(0)
         except asyncio.QueueFull:
             try:
+                CoinbaseAdvancedTradeAPIUserStreamDataSource.logger().debug(
+                    f"Putting order into queue (async): {item}")
                 await asyncio.wait_for(queue.put(item), timeout=1.0)
             except asyncio.TimeoutError:
+                CoinbaseAdvancedTradeAPIUserStreamDataSource.logger().debug(
+                    f"Queueing Failed for : {item}")
                 raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
@@ -190,6 +207,8 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     await self._subscribe_channels(self._ws_assistant)
                 else:
                     self.logger().error(f"Received error message: {data}")
+                # Reset last received time
+                self._reset_recv_time = True
                 return
 
             self._process_sequence_number(data)
@@ -197,8 +216,11 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             channel: str = data["channel"]
             if channel == 'user':
                 async for order in self._decipher_message(event_message=data):
+                    self.logger().debug(f"Queueing order: {order}")
                     try:
+                        # queue.put_nowait(order)
                         await self._try_except_queue_put(item=order, queue=queue)
+                        self.logger().debug(f"Queued order: {order}")
                     except asyncio.QueueFull:
                         self.logger().exception("Timeout while waiting to put message into raw queue. Message dropped.")
                         raise
@@ -300,7 +322,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             trade_type=TradeType.BUY if order["order_side"] == "BUY" else TradeType.SELL,
                             creation_timestamp_s=get_timestamp_from_exchange_time(order["creation_time"], "s"),
                         )
-                        self.logger().debug(f"Received order: {cumulative_order}")
+                        self.logger().debug(f"Yielding order: {cumulative_order}")
                         yield cumulative_order
 
                 except Exception as e:

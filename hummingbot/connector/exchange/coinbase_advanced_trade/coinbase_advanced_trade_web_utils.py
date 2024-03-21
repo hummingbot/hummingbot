@@ -135,6 +135,8 @@ def get_timestamp_from_exchange_time(exchange_time: str, unit: str) -> float:
 
     dt = parser.parse(timestr=exchange_time)
     t_s: float = dt.timestamp()
+    if not isinstance(t_s, float):
+        raise ValueError(f"Failed to parse exchange time {exchange_time}:{t_s}")
     if unit in {"s", "second", "seconds"}:
         return t_s
     elif unit in {"ms", "millisecond", "milliseconds"}:
