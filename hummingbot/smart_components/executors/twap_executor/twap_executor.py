@@ -104,7 +104,7 @@ class TWAPExecutor(ExecutorBase):
         if self.config.is_maker:
             for timestamp, tracked_order in self._order_plan.items():
                 if self.refresh_order_condition(tracked_order):
-                    self._strategy.cancel(self.config.connector_name, tracked_order.order.order_id)
+                    self._strategy.cancel(self.config.connector_name, tracked_order.order_id)
                     self._refreshed_orders.append(tracked_order)
                     self.create_order(timestamp)
 
