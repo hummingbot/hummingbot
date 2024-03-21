@@ -83,6 +83,25 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         self._market_assets_initialized = False
         self._market_assets: List[Dict[str, Any]] = []
 
+        # Update the time synchronizer logger to the current class logger
+        self._time_synchronizer.logger = self.logger
+        self.logger().debug(f"{self.name} instance created {self}.")
+
+    def __repr__(self) -> str:
+        rep: str = (
+            f"CoinbaseAdvancedTradeExchange({self._domain})\n"
+            f"  - trading_pairs: {self._trading_pairs}\n"
+            f"  - trading_required: {self._trading_required}\n"
+            f"  - asset_uuid_map: {self._asset_uuid_map}\n"
+            f"  - market_assets_initialized: {self._market_assets_initialized}\n"
+            f"  - pair_symbol_map_initialized: {self._market_assets}\n"
+            f"  - time_synchronizer: {self._time_synchronizer}\n"
+            f"  - last_poll_timestamp: {self._last_poll_timestamp}\n"
+            f"  - in_flight_orders: {self._order_tracker.active_orders}\n"
+            f"  - status_dict: {self.status_dict}\n"
+        )
+        return rep
+
     @property
     def asset_uuid_map(self) -> Dict[str, str]:
         return self._asset_uuid_map
@@ -179,7 +198,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             f"\n   symbols_mapping_initialized: {self.trading_pair_symbol_map_ready()}\n"
             f"   order_books_initialized: {self.order_book_tracker.ready}\n"
             f"   account_balance: {len(self._account_balances) > 0}\n"
-            f"   trading_required: {not self.is_trading_required}\n"
+            f"   trading_required: {self.is_trading_required}\n"
             f"   trading_rule_initialized: {len(self._trading_rules) > 0 if self.is_trading_required else True}\n"
             f"   user_stream_initialized: {self._is_user_stream_initialized()}\n"
         )
@@ -483,15 +502,18 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         :return: bool
         """
         # Requesting to cancel an empty order seems to hang the request
-        if (
-                tracked_order.exchange_order_id is None or
-                tracked_order.exchange_order_id == "" or
-                tracked_order.exchange_order_id == "UNKNOWN"
-        ):
-            self.logger().warning(f"Failed to cancel order {order_id} without a "
-                                  f"valid exchange_id: {tracked_order.exchange_order_id} in tracked_order:\n"
-                                  f"{tracked_order}")
+        if tracked_order.exchange_order_id is None:
+            self.logger().warning(f"Failed to cancel order {order_id} with exchange_id: None")
+            self.logger().debug(f"tracked_order: {tracked_order.attributes}")
             return False
+        if tracked_order.exchange_order_id == "":
+            self.logger().warning(f"Failed to cancel order {order_id} with an empty exchange_id in tracked_order")
+            self.logger().debug(f"tracked_order: {tracked_order.attributes}")
+            return False
+        if tracked_order.exchange_order_id == "UNKNOWN":
+            self.logger().error(f"Failed to cancel order {order_id} without exchange_id: UNKNOWN"
+                                "File a bug report with the Hummingbot team.")
+            raise ValueError(f"Failed to cancel order {order_id} with exchange_id: UNKNOWN")
 
         result = await self._place_cancels(order_ids=[tracked_order.exchange_order_id])
 
@@ -702,8 +724,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        self.logger().debug(f"{local_asset_names} {remote_asset_names}")
-
         self.logger().debug(f"Updating balances from {self.name}...")
 
         async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
@@ -721,6 +741,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         # Request removal of non-valid assets
         self.remove_balances(local_asset_names.difference(remote_asset_names))
+        self.logger().debug(f" '-> Balance updated: {self._account_balances}")
 
     async def _list_one_page_of_accounts(self, cursor: str) -> Dict[str, Any]:
         """
