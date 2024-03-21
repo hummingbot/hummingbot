@@ -22,7 +22,7 @@ class TWAPExecutorConfig(ExecutorConfigBase):
     total_amount_quote: Decimal
     total_duration: int
     order_interval: int
-    mode: TWAPMode
+    mode: TWAPMode = TWAPMode.TAKER
 
     # MAKER mode specific parameters
     limit_order_buffer: Optional[Decimal] = Decimal("0.0005")
