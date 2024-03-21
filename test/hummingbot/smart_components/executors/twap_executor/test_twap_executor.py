@@ -7,9 +7,11 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
 from hummingbot.smart_components.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -107,3 +109,43 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._order_plan[1].order = self.in_flight_order_maker
         await executor.control_task()
         self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-3")
+
+    @patch.object(TWAPExecutor, 'get_trading_rules')
+    @patch.object(TWAPExecutor, 'adjust_order_candidates')
+    def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+        # Mock trading rules
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
+                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+        executor = TWAPExecutor(self.strategy, self.twap_config_long_taker)
+        # Mock order candidate
+        order_candidate = OrderCandidate(
+            trading_pair="ETH-USDT",
+            is_maker=True,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100")
+        )
+        # Test for sufficient balance
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        executor.validate_sufficient_balance()
+        self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+
+        # Test for insufficient balance
+        order_candidate.amount = Decimal("0")
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        executor.validate_sufficient_balance()
+        self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertEqual(executor.status, SmartComponentStatus.TERMINATED)
+
+    async def test_evaluate_all_orders_closed(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        await executor.evaluate_all_orders_closed()
+        self.assertEqual(executor.status, SmartComponentStatus.TERMINATED)
+
+    async def test_early_stop(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._status = SmartComponentStatus.RUNNING
+        executor.early_stop()
+        self.assertEqual(executor.status, SmartComponentStatus.SHUTTING_DOWN)
