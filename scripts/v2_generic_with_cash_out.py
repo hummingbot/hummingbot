@@ -74,6 +74,10 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
             if controller.config.manual_kill_switch and controller.status == SmartComponentStatus.RUNNING:
                 self.logger().info(f"Manual cash out for controller {controller_id}.")
                 controller.stop()
+                executors_to_stop = self.get_executors_by_controller(controller_id)
+                self.executor_orchestrator.execute_actions(
+                    [StopExecutorAction(executor_id=executor.id,
+                                        controller_id=executor.controller_id) for executor in executors_to_stop])
             if not controller.config.manual_kill_switch and controller.status == SmartComponentStatus.TERMINATED:
                 self.logger().info(f"Restarting controller {controller_id}.")
                 controller.start()
