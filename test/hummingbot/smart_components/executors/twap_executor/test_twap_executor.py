@@ -8,10 +8,11 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent
 from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
 from hummingbot.smart_components.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType
+from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -87,6 +88,20 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             initial_state=OrderState.OPEN
         )
 
+    @property
+    def in_flight_order_taker(self):
+        return InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair=self.twap_config_long_taker.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("120"),
+            creation_timestamp=1,
+            initial_state=OrderState.OPEN
+        )
+
     @patch.object(TWAPExecutor, "get_price", MagicMock(return_value=Decimal("120")))
     async def test_control_task_create_order_taker(self):
         executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
@@ -149,3 +164,30 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._status = SmartComponentStatus.RUNNING
         executor.early_stop()
         self.assertEqual(executor.status, SmartComponentStatus.SHUTTING_DOWN)
+
+    @patch.object(TWAPExecutor, "get_in_flight_order")
+    def test_process_order_created_event(self, mock_get_in_flight_order):
+        mock_get_in_flight_order.return_value = self.in_flight_order_taker
+        event = BuyOrderCreatedEvent(
+            timestamp=1,
+            type=OrderType.MARKET,
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            order_id="OID-BUY-1",
+            creation_timestamp=1
+        )
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._status = SmartComponentStatus.RUNNING
+        executor._order_plan[1] = TrackedOrder("OID-BUY-1")
+        executor.process_order_created_event(1, self.strategy.connectors["binance"], event)
+        self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-1")
+        self.assertEqual(executor._order_plan[1].order, self.in_flight_order_taker)
+
+    def test_process_order_failed_event(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        event = MarketOrderFailureEvent(timestamp=1, order_id="OID-BUY-1", order_type=OrderType.MARKET)
+        executor._status = SmartComponentStatus.RUNNING
+        executor._order_plan[1] = TrackedOrder("OID-BUY-1")
+        executor.process_order_failed_event(1, self.strategy.connectors["binance"], event)
+        self.assertEqual(executor._order_plan[1], None)
