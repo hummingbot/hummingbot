@@ -35,6 +35,7 @@ class ControllerConfigBase(BaseClientModel):
         ))
     controller_name: str
     controller_type: str = "generic"
+    manual_kill_switch: bool = False
     candles_config: List[CandlesConfig] = Field(
         default="binance_perpetual.WLD-USDT.1m.500",
         client_data=ClientFieldData(
@@ -120,7 +121,6 @@ class ControllerBase(SmartComponentBase):
         self.market_data_provider: MarketDataProvider = market_data_provider
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
-        self.initialize_candles()
         self.executors_update_event = asyncio.Event()
         self.executors_update_listener = SourceInfoEventForwarder(to_function=self.handle_executor_update)
 
@@ -132,6 +132,10 @@ class ControllerBase(SmartComponentBase):
         self.logger().debug(f"Received executors update: {executors_info}, event_tag: {event_tag}, event_caller: {event_caller}")
         self.executors_info = executors_info.get(self.config.id, [])
         self.executors_update_event.set()
+
+    def start(self):
+        super().start()
+        self.initialize_candles()
 
     def initialize_candles(self):
         for candles_config in self.config.candles_config:
