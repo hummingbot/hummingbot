@@ -35,7 +35,7 @@ class ControllerConfigBase(BaseClientModel):
         ))
     controller_name: str
     controller_type: str = "generic"
-    manual_kill_switch: bool = False
+    manual_kill_switch: bool = Field(default=None, client_data=ClientFieldData(is_updatable=True, prompt_on_new=False))
     candles_config: List[CandlesConfig] = Field(
         default="binance_perpetual.WLD-USDT.1m.500",
         client_data=ClientFieldData(
