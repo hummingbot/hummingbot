@@ -78,14 +78,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         await asyncio.wait_for(
                             self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
-                        ping_time = self._time()
-                        payload = {
-                            "op": "ping",
-                            "args": int(ping_time * 1e3)
-                        }
-                        ping_request = WSJSONRequest(payload=payload)
-                        await ws.send(request=ping_request)
-                        self._last_ws_message_sent_timestamp = ping_time
+                        await self._ping_server(ws)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -94,6 +87,16 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 # Make sure no background task is leaked.
                 ws and await ws.disconnect()
                 await self._sleep(5)
+
+    async def _ping_server(self, ws: WSAssistant):
+        ping_time = self._time()
+        payload = {
+            "op": "ping",
+            "args": int(ping_time * 1e3)
+        }
+        ping_request = WSJSONRequest(payload=payload)
+        await ws.send(request=ping_request)
+        self._last_ws_message_sent_timestamp = ping_time
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
@@ -150,9 +153,6 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
-    def _time(self):
-        return time.time()
-
     async def _connected_websocket_assistant(self, domain: str = "bybit_main") -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTIONS_RATE_LIMIT):
@@ -161,3 +161,9 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
             )
         return ws
+
+    def _get_server_timestamp(self):
+        return web_utils.get_current_server_time()
+
+    def _time(self):
+        return time.time()

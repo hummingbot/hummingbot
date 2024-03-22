@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
 class BybitAuth(AuthBase):
@@ -72,9 +72,9 @@ class BybitAuth(AuthBase):
     def _generate_rest_signature(self, timestamp, method: str, payload: Optional[Dict[str, Any]]) -> str:
         if payload is None:
             payload = {}
-        if method.value == "GET":
+        if method == RESTMethod.GET:
             param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + urlencode(payload)
-        elif method.value == "POST":
+        elif method == RESTMethod.POST:
             param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + f"{payload}"
         signature = hmac.new(
             bytes(self.secret_key, "utf-8"),
