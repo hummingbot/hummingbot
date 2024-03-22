@@ -39,6 +39,8 @@ class TWAPExecutor(ExecutorBase):
             self.close_execution_by(CloseType.FAILED)
             self.logger().error("Please increase the total amount or the interval between orders. The current"
                                 f"amount {self.config.order_amount_quote} is less than the minimum order {trading_rules.min_order_size}")
+        if self.config.is_maker:
+            self.logger().warning("Maker mode is in beta. Please use with caution.")
         self._max_retries = max_retries
         self._current_retries = 0
         self._start_timestamp = self._strategy.current_timestamp
@@ -104,14 +106,17 @@ class TWAPExecutor(ExecutorBase):
         if self.config.is_maker:
             for timestamp, tracked_order in self._order_plan.items():
                 if self.refresh_order_condition(tracked_order):
-                    self._strategy.cancel(self.config.connector_name, tracked_order.order_id)
+                    self._strategy.cancel(self.config.connector_name, self.config.trading_pair, tracked_order.order_id)
                     self._refreshed_orders.append(tracked_order)
                     self.create_order(timestamp)
 
     def refresh_order_condition(self, tracked_order: TrackedOrder):
-        return tracked_order and tracked_order.order and tracked_order.order.is_open \
-            and tracked_order.order.creation_timestamp \
-            < self._strategy.current_timestamp - self.config.order_resubmission_time
+        if self.config.order_resubmission_time:
+            return tracked_order and tracked_order.order and tracked_order.order.is_open \
+                and tracked_order.order.creation_timestamp \
+                < self._strategy.current_timestamp - self.config.order_resubmission_time
+        else:
+            return False
 
     def evaluate_max_retries(self):
         if self._current_retries > self._max_retries:
@@ -120,7 +125,8 @@ class TWAPExecutor(ExecutorBase):
     def create_order(self, timestamp):
         price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
         total_executed_amount = self.get_total_executed_amount_quote()
-        orders_amount_quote_left = self.config.total_amount_quote - total_executed_amount
+        open_orders_open_amount = sum([order.order.amount * order.order.price for order in self._order_plan.values() if order and order.order and order.order.is_open])
+        orders_amount_quote_left = self.config.total_amount_quote - total_executed_amount - open_orders_open_amount
         number_or_orders_left = self.config.number_of_orders - len([order for order in self._order_plan.values() if order])
         amount = (orders_amount_quote_left / number_or_orders_left) / price
         if self.config.is_maker:
@@ -193,8 +199,8 @@ class TWAPExecutor(ExecutorBase):
         return all([order for order in self._order_plan.values()])
 
     async def evaluate_all_orders_closed(self):
-        refreshed_orders_done = all([order.order.is_done for order in self._refreshed_orders])
-        failed_orders_done = all([order.order.is_done for order in self._failed_orders])
+        refreshed_orders_done = all([order.is_done for order in self._refreshed_orders])
+        failed_orders_done = all([order.is_done for order in self._failed_orders])
         if refreshed_orders_done and failed_orders_done:
             self.close_execution_by(CloseType.COMPLETED)
             self._status = SmartComponentStatus.TERMINATED
@@ -205,7 +211,7 @@ class TWAPExecutor(ExecutorBase):
     def cancel_open_orders(self):
         for order in self._order_plan.values():
             if order and order.order and order.order.is_open:
-                self._strategy.cancel(self.config.connector_name, order.order_id)
+                self._strategy.cancel(self.config.connector_name, self.config.trading_pair, order.order_id)
 
     def early_stop(self):
         self.close_execution_by(CloseType.EARLY_STOP)

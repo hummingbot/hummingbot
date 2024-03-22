@@ -25,13 +25,13 @@ class TWAPExecutorConfig(ExecutorConfigBase):
     mode: TWAPMode = TWAPMode.TAKER
 
     # MAKER mode specific parameters
-    limit_order_buffer: Optional[Decimal] = Decimal("0.0005")
-    order_resubmission_time: Optional[int] = Decimal("20")
+    limit_order_buffer: Optional[Decimal] = None
+    order_resubmission_time: Optional[int] = None
 
-    @validator('limit_order_buffer', 'order_resubmission_time', always=True)
-    def validate_maker_params(cls, v, values):
-        if values.get('mode') != TWAPMode.MAKER:
-            return None
+    @validator('limit_order_buffer')
+    def validate_limit_order_buffer(cls, v):
+        if v is None:
+            raise ValueError("limit_order_buffer is required for MAKER mode")
         return v
 
     @property
