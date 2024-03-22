@@ -9,8 +9,10 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
+from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executor_actions import ExecutorAction
 from hummingbot.smart_components.models.executors_info import ExecutorInfo
 from hummingbot.smart_components.smart_component_base import SmartComponentBase
@@ -134,7 +136,13 @@ class ControllerBase(SmartComponentBase):
         self.executors_update_event.set()
 
     def start(self):
-        super().start()
+        """
+        Allow controllers to be restarted after being stopped.=
+        """
+        if self._status != SmartComponentStatus.RUNNING:
+            self.terminated.clear()
+            self._status = SmartComponentStatus.RUNNING
+            safe_ensure_future(self.control_loop())
         self.initialize_candles()
 
     def initialize_candles(self):
