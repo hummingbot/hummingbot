@@ -153,11 +153,11 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
-    async def _connected_websocket_assistant(self, domain: str = "bybit_main") -> WSAssistant:
+    async def _connected_websocket_assistant(self, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTIONS_RATE_LIMIT):
             await ws.connect(
-                ws_url=CONSTANTS.WSS_PUBLIC_URL[domain],
+                ws_url=CONSTANTS.WSS_PRIVATE_URL[domain],
                 ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
             )
         return ws

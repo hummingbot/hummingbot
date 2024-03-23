@@ -493,7 +493,10 @@ class BybitExchange(ExchangePyBase):
     async def _make_trading_rules_request(self) -> Any:
         exchange_info = await self._api_get(
             path_url=self.trading_rules_request_path,
-            params={'category': 'spot'})
+            params={
+                'category': self._category
+            }
+        )
         return exchange_info
 
     async def _make_trading_pairs_request(self) -> Any:
