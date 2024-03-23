@@ -19,7 +19,6 @@ from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -52,14 +51,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
 
-        self.bybit_perpetual_api_key = bybit_perpetual_api_key
-        self.bybit_perpetual_secret_key = bybit_perpetual_secret_key
+        self.api_key = bybit_perpetual_api_key
+        self.secret_key = bybit_perpetual_secret_key
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._last_trade_history_timestamp = None
-
+        self._account_type = None  # To be update on firtst call to balances
         super().__init__(client_config_map)
+        for tp in self._trading_pairs:
+            self.get_trading_pair_category(tp)
 
     @property
     def name(self) -> str:
@@ -67,11 +68,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> BybitPerpetualAuth:
-        return BybitPerpetualAuth(self.bybit_perpetual_api_key, self.bybit_perpetual_secret_key)
+        return BybitPerpetualAuth(self.api_key, self.secret_key)
 
     @property
-    def rate_limits_rules(self) -> List[RateLimit]:
-        return web_utils.build_rate_limits(self.trading_pairs)
+    def rate_limits_rules(self):
+        return CONSTANTS.RATE_LIMITS
 
     @property
     def domain(self) -> str:
@@ -82,16 +83,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return CONSTANTS.MAX_ID_LEN
 
     @property
-    def client_order_id_prefix(self) -> str:
-        return CONSTANTS.HBOT_BROKER_ID
+    def client_order_id_prefix(self):
+        return CONSTANTS.HBOT_ORDER_ID_PREFIX
 
     @property
-    def trading_rules_request_path(self) -> str:
-        return CONSTANTS.QUERY_SYMBOL_ENDPOINT
+    def trading_rules_request_path(self):
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
 
     @property
-    def trading_pairs_request_path(self) -> str:
-        return CONSTANTS.QUERY_SYMBOL_ENDPOINT
+    def trading_pairs_request_path(self):
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
 
     @property
     def check_network_request_path(self) -> str:
@@ -112,6 +113,12 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def funding_fee_poll_interval(self) -> int:
         return 120
+
+    def get_trading_pair_category(self, trading_pair):
+        if bybit_utils.is_linear_perpetual(trading_pair):
+            return "linear"
+        else:  # non-linear
+            return "inverse"
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -317,17 +324,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         for trading_pair in self._trading_pairs:
             exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-            body_params = {
+            params = {
                 "symbol": exchange_symbol,
                 "limit": 200,
             }
             if self._last_trade_history_timestamp:
-                body_params["start_time"] = int(int(self._last_trade_history_timestamp) * 1e3)
-
+                params["start_time"] = int(int(self._last_trade_history_timestamp) * 1e3)
             trade_history_tasks.append(
                 asyncio.create_task(self._api_get(
                     path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
-                    params=body_params,
+                    params=params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
                 ))
@@ -383,26 +389,49 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         for order_status in parsed_status_responses:
             self._process_order_event_message(order_status)
 
-    async def _update_balances(self):
-        """
-        Calls REST API to update total and available balances
-        """
-        wallet_balance: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
+    async def _get_account_info(self):
+        account_info = await self._api_get(
+            path_url=CONSTANTS.ACCOUNT_INFO_PATH_URL,
+            params=None,
             is_auth_required=True,
+            headers={
+                "referer": CONSTANTS.HBOT_BROKER_ID
+            },
         )
+        return account_info
 
-        if wallet_balance["ret_code"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(wallet_balance['ret_code'])
-            raise IOError(f"{formatted_ret_code} - {wallet_balance['ret_msg']}")
+    async def _get_account_type(self):
+        account_info = await self._get_account_info()
+        if account_info["retCode"] != 0:
+            raise ValueError(f"{account_info['retMsg']}")
+        account_type = 'CONTRACT' if account_info["result"]["unifiedMarginStatus"] \
+            else 'UNIFIED'
+        return account_type
 
+    async def _update_account_type(self):
+        self._account_type = await self._get_account_type()
+
+    async def _update_balances(self):
+        # Update the first time it is called
+        if self._account_type is None:
+            await self._update_account_type()
+
+        balances = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.WALLET_BALANCE_PATH_URL,
+            params={
+                'accountType': self._account_type
+            },
+            is_auth_required=True
+        )
         self._account_available_balances.clear()
         self._account_balances.clear()
-
-        if wallet_balance["result"] is not None:
-            for asset_name, balance_json in wallet_balance["result"].items():
-                self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
-                self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
+        for coin in balances["result"]["list"][0]["coin"]:
+            name = coin["coin"]
+            free_balance = Decimal(coin["availableToWithdraw"])
+            balance = Decimal(coin["walletBalance"])
+            self._account_available_balances[name] = free_balance
+            self._account_balances[name] = Decimal(balance)
 
     async def _update_positions(self):
         """
@@ -412,11 +441,13 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         for trading_pair in self._trading_pairs:
             ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
-            body_params = {"symbol": ex_trading_pair}
+            params = {
+                "symbol": ex_trading_pair
+            }
             position_tasks.append(
                 asyncio.create_task(self._api_get(
                     path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
-                    params=body_params,
+                    params=params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
                 ))
@@ -496,14 +527,14 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         try:
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
             order_msg = order_status_data["result"]
-            client_order_id = str(order_msg["order_link_id"])
+            client_order_id = str(order_msg["orderLinkId"])
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.ORDER_STATE[order_msg["order_status"]],
+                new_state=CONSTANTS.ORDER_STATE[order_msg["orderStatus"]],
                 client_order_id=client_order_id,
-                exchange_order_id=order_msg["order_id"],
+                exchange_order_id=order_msg["orderId"],
             )
 
             return order_update
@@ -685,41 +716,38 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances[symbol] = Decimal(str(wallet_msg["wallet_balance"]))
         self._account_available_balances[symbol] = Decimal(str(wallet_msg["available_balance"]))
 
-    async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        """
-        Converts JSON API response into a local dictionary of trading rules.
-        :param instrument_info_dict: The JSON API response.
-        :returns: A dictionary of trading pair to its respective TradingRule.
-        """
-        trading_rules = {}
-        symbol_map = await self.trading_pair_symbol_map()
-        for instrument in instrument_info_dict["result"]:
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        trading_pair_rules = exchange_info_dict.get("result", []).get("list", [])
+        retval = []
+        for rule in trading_pair_rules:
             try:
-                exchange_symbol = instrument["name"]
-                if exchange_symbol in symbol_map:
-                    trading_pair = combine_to_hb_trading_pair(instrument['base_currency'], instrument['quote_currency'])
-                    is_linear = bybit_utils.is_linear_perpetual(trading_pair)
-                    collateral_token = instrument["quote_currency"] if is_linear else instrument["base_currency"]
-                    trading_rules[trading_pair] = TradingRule(
-                        trading_pair=trading_pair,
-                        min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
-                        max_order_size=Decimal(str(instrument["lot_size_filter"]["max_trading_qty"])),
-                        min_price_increment=Decimal(str(instrument["price_filter"]["tick_size"])),
-                        min_base_amount_increment=Decimal(str(instrument["lot_size_filter"]["qty_step"])),
-                        buy_order_collateral_token=collateral_token,
-                        sell_order_collateral_token=collateral_token,
-                    )
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
+                lot_size_filter = rule.get("lotSizeFilter", {})
+                min_order_size = lot_size_filter.get("minOrderQty")
+                min_price_increment = lot_size_filter.get("quotePrecision")
+                min_base_amount_increment = lot_size_filter.get("basePrecision")
+                min_notional_size = lot_size_filter.get("minOrderAmt")
+
+                retval.append(
+                    TradingRule(trading_pair,
+                                min_order_size=Decimal(min_order_size),
+                                min_price_increment=Decimal(min_price_increment),
+                                min_base_amount_increment=Decimal(min_base_amount_increment),
+                                min_notional_size=Decimal(min_notional_size)))
+
             except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule: {instrument}. Skipping...")
-        return list(trading_rules.values())
+                self.logger().exception(f"Error parsing the trading pair rule {rule.get('name')}. Skipping.")
+        return retval
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        _info = exchange_info["result"]["list"]
         mapping = bidict()
-        for symbol_data in filter(bybit_utils.is_exchange_information_valid, exchange_info["result"]):
-            exchange_symbol = symbol_data["name"]
-            base = symbol_data["base_currency"]
-            quote = symbol_data["quote_currency"]
+        for symbol_data in filter(bybit_utils.is_exchange_information_valid, _info):
+            exchange_symbol = symbol_data["symbol"]
+            base = symbol_data["baseCoin"]
+            quote = symbol_data["quoteCoin"]
             trading_pair = combine_to_hb_trading_pair(base, quote)
+
             if trading_pair in mapping.inverse:
                 self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
             else:
@@ -746,7 +774,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {"symbol": exchange_symbol}
+        params = {
+            "symbol": exchange_symbol
+        }
 
         resp_json = await self._api_get(
             path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
@@ -819,13 +849,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+        # https://bybit-exchange.github.io/docs/v5/market/history-fund-rate
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
         params = {
-            "symbol": exchange_symbol
+            "category": self.get_trading_pair_category(trading_pair),
+            "symbol": exchange_symbol,
+            "limit": 1  # Get last
         }
         raw_response: Dict[str, Any] = await self._api_get(
-            path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+            path_url=CONSTANTS.FUNDING_RATE_PATH_URL,
             params=params,
             is_auth_required=True,
             trading_pair=trading_pair,
@@ -854,28 +887,91 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                            is_auth_required: bool = False,
                            return_err: bool = False,
                            limit_id: Optional[str] = None,
-                           trading_pair: Optional[str] = None,
+                           headers: Optional[Dict[str, Any]] = None,
                            **kwargs) -> Dict[str, Any]:
-
+        last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        if limit_id is None:
-            limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
-                endpoint=path_url,
-                trading_pair=trading_pair,
-            )
-        url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, trading_pair=trading_pair, domain=self._domain)
+        url = web_utils.rest_url(path_url, domain=self.domain)
+        params = dict(sorted(params.items())) if isinstance(params, dict) else params
+        data = dict(sorted(data.items())) if isinstance(data, dict) else data
 
-        resp = await rest_assistant.execute_request(
-            url=url,
-            params=params,
-            data=data,
-            method=method,
-            is_auth_required=is_auth_required,
-            return_err=return_err,
-            throttler_limit_id=limit_id if limit_id else path_url,
-        )
-        return resp
+        for _ in range(CONSTANTS.API_REQUEST_RETRY):
+            try:
+                request_result = await rest_assistant.execute_request(
+                    url=url,
+                    params=params,
+                    data=data,
+                    method=method,
+                    is_auth_required=is_auth_required,
+                    return_err=return_err,
+                    headers=headers,
+                    throttler_limit_id=limit_id if limit_id else path_url,
+                )
+                return request_result
+            except IOError as request_exception:
+                last_exception = request_exception
+                if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
+                    self._time_synchronizer.clear_time_offset_ms_samples()
+                    await self._update_time_synchronizer()
+                else:
+                    raise
+        # Failed even after the last retry
+        raise last_exception
 
     @staticmethod
     def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:
         return f"ret_code <{ret_code}>"
+
+    async def _make_trading_rules_request(self) -> Any:
+        exch_info_linear = await self._api_get(
+            path_url=self.trading_rules_request_path,
+            params={
+                'category': "linear"
+            }
+        )
+        if exch_info_linear["retCode"] != 0:
+            self.logger().error(exch_info_linear["retMsg"])
+
+        exch_info_inverse = await self._api_get(
+            path_url=self.trading_rules_request_path,
+            params={
+                'category': "inverse"
+            }
+        )
+        if exch_info_inverse["retCode"] != 0:
+            self.logger().error(exch_info_inverse["retMsg"])
+        merged_list = await self._merge_linear_inverse_exchange_info(exch_info_linear["result"],
+                                                                     exch_info_inverse["result"])
+        exch_info_linear["result"]["list"] = merged_list
+        return exch_info_linear
+
+    async def _make_trading_pairs_request(self) -> Any:
+        exch_info_linear = await self._api_get(
+            path_url=self.trading_pairs_request_path,
+            params={
+                'category': "linear"
+            }
+        )
+        if exch_info_linear["retCode"] != 0:
+            self.logger().error(exch_info_linear["retMsg"])
+
+        exch_info_inverse = await self._api_get(
+            path_url=self.trading_pairs_request_path,
+            params={
+                'category': "inverse"
+            }
+        )
+        if exch_info_inverse["retCode"] != 0:
+            self.logger().error(exch_info_inverse["retMsg"])
+
+        merged_list = await self._merge_linear_inverse_exchange_info(
+            exch_info_linear["result"],
+            exch_info_inverse["result"]
+        )
+        exch_info_linear["result"]["list"] = merged_list
+        return exch_info_linear
+
+    async def _merge_linear_inverse_exchange_info(self, linear, inverse):
+        l1 = linear["list"]
+        l2 = inverse["list"]
+        return l1 + l2

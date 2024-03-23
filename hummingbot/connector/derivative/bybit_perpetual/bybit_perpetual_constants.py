@@ -1,3 +1,4 @@
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionMode
 from hummingbot.core.data_type.in_flight_order import OrderState
 
@@ -5,21 +6,51 @@ EXCHANGE_NAME = "bybit_perpetual"
 
 DEFAULT_DOMAIN = "bybit_perpetual_main"
 
-DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
+HBOT_ORDER_ID_PREFIX = "BYBIT-"
 
-REST_URLS = {"bybit_perpetual_main": "https://api.bybit.com/",
-             "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"}
-WSS_NON_LINEAR_PUBLIC_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime",
-                              "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime"}
-WSS_NON_LINEAR_PRIVATE_URLS = WSS_NON_LINEAR_PUBLIC_URLS
-WSS_LINEAR_PUBLIC_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime_public",
-                          "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_public"}
-WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime_private",
-                           "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_private"}
-
-REST_API_VERSION = "v2"
+REST_API_VERSION = "v5"
 
 HBOT_BROKER_ID = "Hummingbot"
+
+DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
+
+REST_URLS = {
+    "bybit_perpetual_main": "https://api.bybit.com/",
+    "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"
+}
+
+WSS_NON_LINEAR_PUBLIC_URLS = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/realtime",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime"
+}
+
+WSS_NON_LINEAR_PRIVATE_URLS = WSS_NON_LINEAR_PUBLIC_URLS
+
+WSS_LINEAR_PUBLIC_URLS = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/realtime_public",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_public"
+}
+
+WSS_LINEAR_PRIVATE_URLS = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/realtime_private",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_private"
+}
+
+WSS_PUBLIC_URL = {
+    "bybit_main": "wss://stream.bybit.com/v5/public/linear",
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"
+}
+
+WSS_PRIVATE_URL = {
+    "bybit_main": "wss://stream.bybit.com/v5/private",
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private"
+}
+
+
+# unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
+# It is also used to prevent replay attacks.
+# https://bybit-exchange.github.io/docs/v5/guide#parameters-for-authenticated-endpoints
+X_API_RECV_WINDOW = str(50000)
 
 MAX_ID_LEN = 36
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30
@@ -52,18 +83,11 @@ QUERY_SYMBOL_ENDPOINT = {
 ORDER_BOOK_ENDPOINT = {
     LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2"}
-SERVER_TIME_PATH_URL = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/time",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/time"
-}
 
 # REST API Private Endpoints
 SET_LEVERAGE_PATH_URL = {
     LINEAR_MARKET: "private/linear/position/set-leverage",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/leverage/save"}
-GET_LAST_FUNDING_RATE_PATH_URL = {
-    LINEAR_MARKET: "private/linear/funding/prev-funding",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/prev-funding"}
 GET_PREDICTED_FUNDING_RATE_PATH_URL = {
     LINEAR_MARKET: "/private/linear/funding/predicted-funding",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/predicted-funding"
@@ -86,11 +110,20 @@ QUERY_ACTIVE_ORDER_PATH_URL = {
 USER_TRADE_RECORDS_PATH_URL = {
     LINEAR_MARKET: "private/linear/trade/execution/list",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/execution/list"}
-GET_WALLET_BALANCE_PATH_URL = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance"}
-SET_POSITION_MODE_URL = {
-    LINEAR_MARKET: "private/linear/position/switch-mode"}
+
+# Public API endpoints
+LAST_TRADED_PRICE_PATH = "/v5/market/tickers"
+EXCHANGE_INFO_PATH_URL = "/v5/market/instruments-info"
+SNAPSHOT_PATH_URL = "/v5/market/orderbook"
+SERVER_TIME_PATH_URL = "/v5/market/time"
+FUNDING_RATE_PATH_URL = "/v5/market/funding/history"
+
+# Private API endpoints
+ACCOUNT_INFO_PATH_URL = "/v5/account/info"
+WALLET_BALANCE_PATH_URL = "/v5/account/wallet-balance"
+ORDER_PLACE_PATH_URL = "/v5/order/create"
+ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
+MY_TRADES_PATH_URL = "/v5/order/realtime"
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
@@ -106,16 +139,17 @@ WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
 WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
 WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME = "wallet"
 
-# Order Statuses
+# Order States
+# https://bybit-exchange.github.io/docs/v5/enum#orderstatus
 ORDER_STATE = {
-    "Created": OrderState.OPEN,
     "New": OrderState.OPEN,
-    "Filled": OrderState.FILLED,
     "PartiallyFilled": OrderState.PARTIALLY_FILLED,
+    "Filled": OrderState.FILLED,
     "Cancelled": OrderState.CANCELED,
-    "PendingCancel": OrderState.PENDING_CANCEL,
     "Rejected": OrderState.FAILED,
 }
+
+WS_HEARTBEAT_TIME_INTERVAL = 20
 
 GET_LIMIT_ID = "GETLimit"
 POST_LIMIT_ID = "POSTLimit"
@@ -145,3 +179,119 @@ RET_CODE_MODE_ORDER_NOT_EMPTY = 30086
 RET_CODE_API_KEY_EXPIRED = 33004
 RET_CODE_LEVERAGE_NOT_MODIFIED = 34036
 RET_CODE_POSITION_ZERO = 130125
+
+# Rate Limit Type
+REQUEST_GET = "GET"
+REQUEST_GET_BURST = "GET_BURST"
+REQUEST_GET_MIXED = "GET_MIXED"
+REQUEST_POST = "POST"
+REQUEST_POST_BURST = "POST_BURST"
+REQUEST_POST_MIXED = "POST_MIXED"
+
+# Rate Limit Max request
+MAX_REQUEST_GET = 6000
+MAX_REQUEST_GET_BURST = 70
+MAX_REQUEST_GET_MIXED = 400
+MAX_REQUEST_POST = 2400
+MAX_REQUEST_POST_BURST = 50
+MAX_REQUEST_POST_MIXED = 270
+
+# Rate Limit time intervals
+TWO_MINUTES = 120
+ONE_SECOND = 1
+SIX_SECONDS = 6
+ONE_DAY = 86400
+
+API_REQUEST_RETRY = 2
+
+RATE_LIMITS = {
+    # General
+    RateLimit(limit_id=REQUEST_GET, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES),
+    RateLimit(limit_id=REQUEST_GET_BURST, limit=MAX_REQUEST_GET_BURST, time_interval=ONE_SECOND),
+    RateLimit(limit_id=REQUEST_GET_MIXED, limit=MAX_REQUEST_GET_MIXED, time_interval=SIX_SECONDS),
+    RateLimit(limit_id=REQUEST_POST, limit=MAX_REQUEST_POST, time_interval=TWO_MINUTES),
+    RateLimit(limit_id=REQUEST_POST_BURST, limit=MAX_REQUEST_POST_BURST, time_interval=ONE_SECOND),
+    RateLimit(limit_id=REQUEST_POST_MIXED, limit=MAX_REQUEST_POST_MIXED, time_interval=SIX_SECONDS),
+    # Linked limits
+    RateLimit(
+        limit_id=LAST_TRADED_PRICE_PATH,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=SNAPSHOT_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=SERVER_TIME_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=ORDER_PLACE_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=ORDER_CANCEL_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=MY_TRADES_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=ACCOUNT_INFO_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=WALLET_BALANCE_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+        ]),
+}
