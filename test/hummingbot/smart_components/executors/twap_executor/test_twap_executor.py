@@ -6,8 +6,9 @@ from unittest.mock import MagicMock, PropertyMock, patch
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent
 from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
 from hummingbot.smart_components.executors.twap_executor.twap_executor import TWAPExecutor
@@ -192,3 +193,23 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._order_plan[1] = TrackedOrder("OID-BUY-1")
         executor.process_order_failed_event(1, self.strategy.connectors["binance"], event)
         self.assertEqual(executor._order_plan[1], None)
+
+    @patch.object(TWAPExecutor, "get_price", MagicMock(return_value=Decimal("144")))
+    def test_trade_pnl_pct(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._order_plan[1] = TrackedOrder("OID-BUY-1")
+        executor._order_plan[1].order = self.in_flight_order_taker
+        executor._order_plan[1].order.update_with_trade_update(
+            TradeUpdate(
+                trade_id="1",
+                client_order_id="OID-SELL-1",
+                exchange_order_id="EOID4",
+                trading_pair="ETH-USDT",
+                fill_price=Decimal("120"),
+                fill_base_amount=Decimal("1"),
+                fill_quote_amount=Decimal("120"),
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+                fill_timestamp=10,
+            )
+        )
+        self.assertEqual(executor.trade_pnl_pct, Decimal("0.2"))
