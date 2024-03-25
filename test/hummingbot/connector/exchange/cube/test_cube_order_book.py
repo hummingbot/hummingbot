@@ -74,7 +74,7 @@ class BinanceOrderBookTests(TestCase):
     def test_trade_message_from_exchange(self):
         trade_update = {'trading_pair': 'TSOL-TUSDC', 'price': 177.53, 'fill_quantity': 0.09,
                         'transact_time': 1710842905725833115,
-                        'trade_id': 78151849, 'trade_type': 2.0}
+                        'trade_id': 78151849, 'trade_type': 2.0, "timestamp": 1710842905725833115}
 
         trade_message = CubeOrderBook.trade_message_from_exchange(
             msg=trade_update

@@ -146,10 +146,6 @@ class CubeAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def _successfully_subscribed_event(self):
-        resp = {"result": None, "id": 1}
-        return resp
-
     def _trade_update_event(self):
         trade = market_data_pb2.Trades.Trade(
             tradeId=78636499,
