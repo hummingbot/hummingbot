@@ -45,7 +45,7 @@ class CandlesExample(ScriptStrategyBase):
         Checks if the candlesticks are full.
         :return:
         """
-        return all([self.eth_1h_candles.is_ready, self.eth_1m_candles.is_ready, self.eth_1w_candles.is_ready])
+        return all([self.eth_1h_candles.ready, self.eth_1m_candles.ready, self.eth_1w_candles.ready])
 
     def on_tick(self):
         pass

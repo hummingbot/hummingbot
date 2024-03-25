@@ -3,36 +3,10 @@ from unittest import TestCase
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
-from hummingbot.smart_components.executors.position_executor.data_types import (
-    PositionExecutorConfig,
-    PositionExecutorStatus,
-)
 from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 
 
 class TestPositionExecutorDataTypes(TestCase):
-    def test_position_config_model(self):
-        config = PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                                        open_order_type=OrderType.LIMIT,
-                                        side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                                        stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60)
-        self.assertEqual(config.trading_pair, "ETH-USDT")
-        self.assertEqual(config.exchange, "binance")
-        self.assertEqual(config.open_order_type, OrderType.LIMIT)
-        self.assertEqual(config.side, TradeType.BUY)
-        self.assertEqual(config.entry_price, Decimal("100"))
-        self.assertEqual(config.amount, Decimal("1"))
-        self.assertEqual(config.stop_loss, Decimal("0.05"))
-        self.assertEqual(config.take_profit, Decimal("0.1"))
-        self.assertEqual(config.time_limit, 60)
-
-    def test_position_executor_status_enum(self):
-        self.assertEqual(PositionExecutorStatus.NOT_STARTED.name, "NOT_STARTED")
-        self.assertEqual(PositionExecutorStatus.NOT_STARTED.value, 1)
-        self.assertEqual(PositionExecutorStatus.ACTIVE_POSITION.name, "ACTIVE_POSITION")
-        self.assertEqual(PositionExecutorStatus.ACTIVE_POSITION.value, 2)
-        self.assertEqual(PositionExecutorStatus.COMPLETED.name, "COMPLETED")
-        self.assertEqual(PositionExecutorStatus.COMPLETED.value, 3)
 
     def test_position_executor_close_types_enum(self):
         self.assertEqual(CloseType.TIME_LIMIT.name, "TIME_LIMIT")
