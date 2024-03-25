@@ -280,11 +280,12 @@ class BybitExchange(ExchangePyBase):
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
                 lot_size_filter = rule.get("lotSizeFilter", {})
+                price_filter = rule.get("priceFilter", {})
+
                 min_order_size = lot_size_filter.get("minOrderQty")
-                min_price_increment = lot_size_filter.get("quotePrecision")
+                min_price_increment = price_filter.get("tickSize")
                 min_base_amount_increment = lot_size_filter.get("basePrecision")
                 min_notional_size = lot_size_filter.get("minOrderAmt")
-
                 retval.append(
                     TradingRule(trading_pair,
                                 min_order_size=Decimal(min_order_size),
