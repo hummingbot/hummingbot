@@ -89,4 +89,4 @@ class CubeOrderBook(OrderBook):
             "update_id": msg["transact_time"],
             "price": msg["price"],
             "amount": msg["fill_quantity"]
-        }, timestamp=msg["transact_time"])
+        }, timestamp=msg["timestamp"])
