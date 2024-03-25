@@ -68,6 +68,7 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             connector_name="binance",
             total_amount_quote=Decimal("100"),
+            limit_order_buffer=Decimal("0.1"),
             total_duration=10,
             order_interval=5,
             mode=TWAPMode.MAKER,
