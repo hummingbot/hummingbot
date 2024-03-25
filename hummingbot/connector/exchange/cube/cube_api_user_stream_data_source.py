@@ -61,6 +61,8 @@ class CubeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     send_hb = False
                 except ConnectionError:
                     send_hb = False
+                except RuntimeError:
+                    send_hb = False
 
         # Create a separate task for handle_heartbeat
         heartbeat_task = asyncio.create_task(handle_heartbeat())
