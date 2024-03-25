@@ -108,6 +108,7 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             price_scaler=price_scaler,
             quantity_scaler=quantity_scaler,
         )
+
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -127,7 +128,8 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "trade_id": trade.tradeId,
                 "trade_type": float(
                     TradeType.SELL.value) if trade.aggressing_side == market_data_pb2.Side.ASK else float(
-                    TradeType.BUY.value)
+                    TradeType.BUY.value),
+                "timestamp": time.time(),
             }
 
             trade_message = CubeOrderBook.trade_message_from_exchange(msg)
@@ -153,7 +155,7 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             bids: List[OrderBookRow] = [OrderBookRow(0, 0, 0) for _ in range(0)]
             price = diff.price * price_scaler
             qty = diff.quantity * quantity_scaler
-            update_id = int(time.time())
+            update_id = int(time.time_ns())
 
             match diff.op:
                 case market_data_pb2.MarketByPriceDiff.REMOVE:
@@ -192,6 +194,8 @@ class CubeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 except asyncio.CancelledError:
                     send_hb = False
                 except ConnectionError:
+                    send_hb = False
+                except RuntimeError:
                     send_hb = False
 
         async def handle_messages():

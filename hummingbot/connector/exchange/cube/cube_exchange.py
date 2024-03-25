@@ -249,7 +249,7 @@ class CubeExchange(ExchangePyBase):
             order_result = resp.get("result", {}).get("Ack", {})
 
             o_id = str(order_result.get("exchangeOrderId"))
-            transact_time = order_result.get("transactTime") * 1e-3
+            transact_time = order_result.get("transactTime") * 1e-9
         except IOError as e:
             error_description = str(e)
             is_server_overloaded = (
@@ -299,7 +299,7 @@ class CubeExchange(ExchangePyBase):
 
         # If the order is not found, the response will contain a reason code 2
         if cancel_reject.get("reason") == 2:
-            return True
+            await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
         return False
 
@@ -452,8 +452,6 @@ class CubeExchange(ExchangePyBase):
 
                 else:
                     msg: trade_pb2.OrderResponse = trade_pb2.OrderResponse().FromString(event_message)
-                    # Debug print
-                    # print(f"Received OrderResponse message: {msg}")
 
                     if msg.HasField("new_ack"):
                         tracked_order = self._order_tracker.all_updatable_orders.get(str(msg.new_ack.client_order_id))
@@ -462,7 +460,7 @@ class CubeExchange(ExchangePyBase):
 
                             order_update = OrderUpdate(
                                 trading_pair=tracked_order.trading_pair,
-                                update_timestamp=msg.new_ack.transact_time * 1e-3,
+                                update_timestamp=msg.new_ack.transact_time * 1e-9,
                                 new_state=new_state,
                                 client_order_id=tracked_order.client_order_id,
                                 exchange_order_id=str(msg.new_ack.exchange_order_id),
@@ -473,15 +471,31 @@ class CubeExchange(ExchangePyBase):
                         tracked_order = self._order_tracker.all_updatable_orders.get(
                             str(msg.cancel_ack.client_order_id)
                         )
+
                         if tracked_order is not None:
                             new_state = OrderState.CANCELED
 
                             order_update = OrderUpdate(
                                 trading_pair=tracked_order.trading_pair,
-                                update_timestamp=msg.cancel_ack.transact_time * 1e-3,
+                                update_timestamp=msg.cancel_ack.transact_time * 1e-9,
                                 new_state=new_state,
                                 client_order_id=tracked_order.client_order_id,
                                 exchange_order_id=str(msg.cancel_ack.exchange_order_id),
+                            )
+                            self._order_tracker.process_order_update(order_update=order_update)
+
+                    if msg.HasField("new_reject"):
+                        tracked_order = self._order_tracker.all_updatable_orders.get(
+                            str(msg.new_reject.client_order_id)
+                        )
+                        if tracked_order is not None:
+                            new_state = OrderState.FAILED
+
+                            order_update = OrderUpdate(
+                                trading_pair=tracked_order.trading_pair,
+                                update_timestamp=msg.new_reject.transact_time * 1e-9,
+                                new_state=new_state,
+                                client_order_id=tracked_order.client_order_id,
                             )
                             self._order_tracker.process_order_update(order_update=order_update)
 
@@ -538,7 +552,7 @@ class CubeExchange(ExchangePyBase):
                                 fill_base_amount=Decimal(fill_base_amount),
                                 fill_quote_amount=Decimal(fill_quote_amount),
                                 fill_price=Decimal(fill_price),
-                                fill_timestamp=msg.fill.transact_time * 1e-3,
+                                fill_timestamp=msg.fill.transact_time * 1e-9,
                             )
                             self._order_tracker.process_trade_update(trade_update)
 
@@ -550,7 +564,7 @@ class CubeExchange(ExchangePyBase):
 
                             order_update = OrderUpdate(
                                 trading_pair=tracked_order.trading_pair,
-                                update_timestamp=msg.fill.transact_time * 1e-3,
+                                update_timestamp=msg.fill.transact_time * 1e-9,
                                 new_state=new_state,
                                 client_order_id=client_order_id,
                                 exchange_order_id=str(msg.fill.exchange_order_id),
@@ -577,6 +591,9 @@ class CubeExchange(ExchangePyBase):
             )
 
             fills_data = all_fills_response.get("result", {}).get("fills", [])
+
+            if len(fills_data) <= 0:
+                await self._order_tracker.process_order_not_found(order.client_order_id)
 
             for fill in fills_data:
                 exchange_order_id = str(fill.get("orderId"))
@@ -611,7 +628,7 @@ class CubeExchange(ExchangePyBase):
                     fill_base_amount=Decimal(fill_base_amount),
                     fill_quote_amount=Decimal(fill_quote_amount),
                     fill_price=Decimal(price),
-                    fill_timestamp=fill["filledAt"] * 1e-3,
+                    fill_timestamp=fill["filledAt"] * 1e-9,
                 )
                 trade_updates.append(trade_update)
 
@@ -693,7 +710,8 @@ class CubeExchange(ExchangePyBase):
             path_url=CONSTANTS.ORDER_PATH_URL,
             params={
                 "subaccountId": self.cube_subaccount_id,
-                "createdBefore": int(tracked_order.creation_timestamp + 1000),
+                "createdBefore": int((tracked_order.creation_timestamp + 30) * 1e9),
+                "limit": 1000,
             },
             is_auth_required=True,
         )
@@ -702,7 +720,7 @@ class CubeExchange(ExchangePyBase):
 
         # find the order with the same client order id
         updated_order_data = next(
-            (order for order in orders_data if order["clientOrderId"] == tracked_order.client_order_id), None
+            (order for order in orders_data if int(order["clientOrderId"]) == int(tracked_order.client_order_id)), None
         )
 
         if updated_order_data is None:
@@ -715,12 +733,12 @@ class CubeExchange(ExchangePyBase):
                 new_state=tracked_order.current_state,
             )
 
-        new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"].toLowerCase()]
+        new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"].lower()]
 
-        create_timestamp = updated_order_data.get("createdAt", 0) * 1e-3
-        modified_timestamp = updated_order_data.get("modifiedAt", 0) * 1e-3
-        canceled_timestamp = updated_order_data.get("canceledAt", 0) * 1e-3
-        filled_timestamp = updated_order_data.get("filledAt", 0) * 1e-3
+        create_timestamp = updated_order_data.get("createdAt", 0) * 1e-9
+        modified_timestamp = updated_order_data.get("modifiedAt", 0) * 1e-9
+        canceled_timestamp = updated_order_data.get("canceledAt", 0) * 1e-9
+        filled_timestamp = updated_order_data.get("filledAt", 0) * 1e-9
 
         update_timestamp = max(create_timestamp, modified_timestamp, canceled_timestamp, filled_timestamp)
 
@@ -771,9 +789,9 @@ class CubeExchange(ExchangePyBase):
             asset_name = token_map.get(balance_entry["assetId"], "UNKNOWN")
             decimals = token_info.get(balance_entry["assetId"], {}).get("decimals", 1)
             total_balance = Decimal(balance_entry.get("amount", "0")) / (10 ** decimals)
-            # If _account_available_balances exists, use existing value, otherwise use 0
+            # If _account_available_balances exists, use existing value, otherwise use total_balance
             self._account_available_balances[asset_name] = self._account_available_balances.get(
-                asset_name, Decimal("0")
+                asset_name, total_balance
             )
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
