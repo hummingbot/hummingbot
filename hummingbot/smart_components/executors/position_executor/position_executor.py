@@ -418,13 +418,6 @@ class PositionExecutor(ExecutorBase):
             self.cancel_open_order()
         if self._take_profit_limit_order and self._take_profit_limit_order.order and self._take_profit_limit_order.order.is_open:
             self.cancel_take_profit()
-        for order in self._failed_orders:
-            if order.order and order.order.is_open:
-                self._strategy.cancel(
-                    connector_name=self.config.connector_name,
-                    trading_pair=self.config.trading_pair,
-                    order_id=order.order_id
-                )
 
     def control_stop_loss(self):
         """
