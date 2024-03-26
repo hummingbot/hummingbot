@@ -261,6 +261,17 @@ class PositionExecutor(ExecutorBase):
             await self.control_shutdown_process()
         self.evaluate_max_retries()
 
+    def open_orders_completed(self):
+        """
+        This method is responsible for checking if the open orders are completed.
+
+        :return: True if the open orders are completed, False otherwise.
+        """
+        open_order_condition = not self._open_order or self._open_order.is_done
+        take_profit_condition = not self._take_profit_limit_order or self._take_profit_limit_order.is_done
+        failed_orders_condition = not self._failed_orders or all([order.is_done for order in self._failed_orders])
+        return open_order_condition and take_profit_condition and failed_orders_condition
+
     async def control_shutdown_process(self):
         """
         This method is responsible for controlling the shutdown process of the executor.
@@ -268,7 +279,11 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         if math.isclose(self.open_filled_amount, self.close_filled_amount):
-            self.stop()
+            if self.open_orders_completed():
+                self.stop()
+            else:
+                self.cancel_open_orders()
+                self._current_retries += 1
         elif self._close_order:
             self.logger().info(f"Waiting for close order to be filled --> Filled amount: {self.close_filled_amount} | Open amount: {self.open_filled_amount}")
         else:
@@ -399,9 +414,9 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if self._open_order:
+        if self._open_order and self._open_order.order and self._open_order.order.is_open:
             self.cancel_open_order()
-        if self._take_profit_limit_order:
+        if self._take_profit_limit_order and self._take_profit_limit_order.order and self._take_profit_limit_order.order.is_open:
             self.cancel_take_profit()
 
     def control_stop_loss(self):
