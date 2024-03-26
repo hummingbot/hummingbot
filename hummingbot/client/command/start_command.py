@@ -25,6 +25,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import InvalidScriptModule, OracleRateUnavailable
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -213,15 +214,15 @@ class StartCommand(GatewayChainApiManager):
         try:
             script_class = next((member for member_name, member in inspect.getmembers(script_module)
                                  if inspect.isclass(member) and
-                                 (issubclass(member, ScriptStrategyBase) or issubclass(member, DirectionalStrategyBase)) and
-                                 member not in [ScriptStrategyBase, DirectionalStrategyBase]))
+                                 issubclass(member, ScriptStrategyBase) and
+                                 member not in [ScriptStrategyBase, DirectionalStrategyBase, StrategyV2Base]))
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
         if self.strategy_name != self.strategy_file_name:
             try:
                 config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                     if inspect.isclass(member) and
-                                    issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
+                                    issubclass(member, BaseClientModel) and member not in [BaseClientModel, StrategyV2ConfigBase]))
                 config = config_class(**self.load_script_yaml_config(config_file_path=self.strategy_file_name))
                 script_class.init_markets(config)
             except StopIteration:
