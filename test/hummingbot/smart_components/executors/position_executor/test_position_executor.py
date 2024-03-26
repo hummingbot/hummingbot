@@ -128,6 +128,17 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         trading_rules_mock.return_value = trading_rules
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890 + 61)
         position_executor._open_order = TrackedOrder(order_id="OID-SELL-1")
+        position_executor._open_order.order = InFlightOrder(
+            client_order_id="OID-SELL-1",
+            exchange_order_id="EOID4",
+            trading_pair=position_config.trading_pair,
+            order_type=position_config.triple_barrier_config.open_order_type,
+            trade_type=TradeType.SELL,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN
+        )
         await position_executor.control_task()
         position_executor._strategy.cancel.assert_called_with(
             connector_name="binance",
