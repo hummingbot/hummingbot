@@ -1,5 +1,5 @@
 import asyncio
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from bidict import bidict
@@ -524,9 +524,15 @@ class CubeExchange(ExchangePyBase):
                             price_scaler = Decimal(await self.get_price_scaler(tracked_order.trading_pair))
                             quantity_scaler = Decimal(await self.get_quantity_scaler(tracked_order.trading_pair))
 
+                            base_precision, quote_precision = await self.get_base_quote_precision(
+                                tracked_order.trading_pair
+                            )
+
                             fill_price = Decimal(msg.fill.fill_price) * price_scaler
                             fill_base_amount = Decimal(msg.fill.fill_quantity) * quantity_scaler
+                            fill_base_amount = fill_base_amount.quantize(base_precision, rounding=ROUND_DOWN)
                             fill_quote_amount = fill_base_amount * fill_price
+                            fill_quote_amount = fill_quote_amount.quantize(quote_precision, rounding=ROUND_DOWN)
 
                             # If trade is buy, fee is deducted from base token
                             # If trade is sell, fee is deducted from quote token
@@ -607,9 +613,14 @@ class CubeExchange(ExchangePyBase):
 
                 base_decimals = base_token_info.get("decimals")
                 quote_decimals = quote_token_info.get("decimals")
+                base_precision, quote_precision = await self.get_base_quote_precision(
+                    order.trading_pair
+                )
 
                 fill_base_amount = Decimal(fill["baseAmount"]) / (10 ** base_decimals)
+                fill_base_amount = fill_base_amount.quantize(base_precision, rounding=ROUND_DOWN)
                 fill_quote_amount = Decimal(fill["quoteAmount"]) / (10 ** quote_decimals)
+                fill_quote_amount = fill_quote_amount.quantize(quote_precision, rounding=ROUND_DOWN)
                 # price = Decimal(fill["price"]) / (10 ** quote_token_info.get("decimals"))
                 price = Decimal(fill_quote_amount) / Decimal(fill_base_amount)
 
@@ -1057,3 +1068,17 @@ class CubeExchange(ExchangePyBase):
 
         trading_rule: TradingRule = self._trading_rules.get(trading_pair)
         return float(trading_rule.min_order_size)
+
+    async def get_base_quote_precision(self, trading_pair: str) -> Tuple[Decimal, Decimal]:
+        """
+        Returns the base and quote precision for a trading pair
+        :param trading_pair: the trading pair to get the base and quote precision
+        :return: the base and quote precision
+        """
+        while not self.trading_rule_ready():
+            await asyncio.sleep(0.1)
+
+        trading_rule: TradingRule = self._trading_rules.get(trading_pair)
+        base_precision = trading_rule.min_order_size
+        quote_precision = trading_rule.min_notional_size
+        return base_precision, quote_precision
