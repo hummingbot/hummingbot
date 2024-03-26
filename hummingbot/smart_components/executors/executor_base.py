@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
@@ -90,7 +91,7 @@ class ExecutorBase(SmartComponentBase):
         """
         Returns whether the executor is open or trading.
         """
-        return self._status == SmartComponentStatus.RUNNING
+        return self._status in [SmartComponentStatus.RUNNING, SmartComponentStatus.NOT_STARTED]
 
     @property
     def is_closed(self):
@@ -116,8 +117,10 @@ class ExecutorBase(SmartComponentBase):
             net_pnl_quote=self.net_pnl_quote,
             cum_fees_quote=self.cum_fees_quote,
             filled_amount_quote=self.filled_amount_quote,
+            is_active=self.is_active,
             is_trading=self.is_trading,
-            custom_info=self.get_custom_info()
+            custom_info=self.get_custom_info(),
+            controller_id=self.config.controller_id,
         )
 
     def get_custom_info(self) -> Dict:
@@ -284,6 +287,16 @@ class ExecutorBase(SmartComponentBase):
         :return: The price.
         """
         return self.connectors[connector_name].get_price_by_type(trading_pair, price_type)
+
+    def get_trading_rules(self, connector_name: str, trading_pair: str) -> TradingRule:
+        """
+        Retrieves the trading rules for the specified trading pair from the specified connector.
+
+        :param connector_name: The name of the connector.
+        :param trading_pair: The trading pair.
+        :return: The trading rules.
+        """
+        return self.connectors[connector_name].trading_rules[trading_pair]
 
     def get_order_book(self, connector_name: str, trading_pair: str):
         """
