@@ -8,13 +8,13 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class ArbitrageWithSmartComponent(ScriptStrategyBase):
     # Parameters
-    exchange_pair_1 = ExchangePair(exchange="binance", trading_pair="MATIC-USDT")
-    exchange_pair_2 = ExchangePair(exchange="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
+    exchange_pair_1 = ExchangePair(connector_name="binance", trading_pair="MATIC-USDT")
+    exchange_pair_2 = ExchangePair(connector_name="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
     order_amount = Decimal("50")  # in base asset
     min_profitability = Decimal("0.004")
 
-    markets = {exchange_pair_1.exchange: {exchange_pair_1.trading_pair},
-               exchange_pair_2.exchange: {exchange_pair_2.trading_pair}}
+    markets = {exchange_pair_1.connector_name: {exchange_pair_1.trading_pair},
+               exchange_pair_2.connector_name: {exchange_pair_2.trading_pair}}
     active_buy_arbitrages = []
     active_sell_arbitrages = []
     closed_arbitrage_executors = []
