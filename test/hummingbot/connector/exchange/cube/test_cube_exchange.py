@@ -590,7 +590,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def expected_partial_fill_amount(self) -> Decimal:
-        return Decimal("0.5")
+        return Decimal("1")
 
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
@@ -1831,7 +1831,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
-            amount=Decimal("1"),
+            amount=Decimal("2"),
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
@@ -1873,7 +1873,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self.assertEqual(order.trade_type, fill_event.trade_type)
             self.assertEqual(order.order_type, fill_event.order_type)
             self.assertEqual(self.expected_partial_fill_price, fill_event.price / Decimal(1e3))
-            self.assertEqual(self.expected_partial_fill_amount, fill_event.amount * Decimal(1e9))
+            self.assertEqual(self.expected_partial_fill_amount, fill_event.amount)
             self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
 
     @aioresponses()
@@ -2229,7 +2229,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "filledTotal": {
                         "baseAmount": str(self.expected_partial_fill_amount * Decimal(1e9)),
                         "quoteAmount": str(
-                            (self.expected_partial_fill_amount * (order.price * Decimal(1e2))) * Decimal(1e9)),
+                            (self.expected_partial_fill_amount * order.price) * Decimal(1e9)),
                         "feeAmount": "4000",
                         "feeAssetId": 5,
                         "filledAt": 1711093947444675299
@@ -2238,7 +2238,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         {
                             "baseAmount": str(self.expected_partial_fill_amount * Decimal(1e9)),
                             "quoteAmount": str(
-                                (self.expected_partial_fill_amount * (order.price * Decimal(1e2))) * Decimal(1e9)),
+                                (self.expected_partial_fill_amount * order.price) * Decimal(1e9)),
                             "feeAmount": "4000",
                             "feeAssetId": 5,
                             "filledAt": 1711093947444675299,
@@ -2271,8 +2271,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         "marketId": 100006,
                         "tradeId": self.expected_fill_trade_id,
                         "orderId": int(order.exchange_order_id),
-                        "baseAmount": str(self.expected_partial_fill_amount),
-                        "quoteAmount": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
+                        "baseAmount": str(self.expected_partial_fill_amount * Decimal(1e9)),
+                        "quoteAmount": str((self.expected_partial_fill_amount * self.expected_partial_fill_price) * Decimal(1e9)),
                         "feeAmount": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(1e9)),
                         "feeAssetId": 5,
                         "filledAt": 1711093947444675299,
