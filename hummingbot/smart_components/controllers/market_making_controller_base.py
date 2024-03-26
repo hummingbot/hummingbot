@@ -158,7 +158,11 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
 
     @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
     def parse_spreads(cls, v):
+        if v is None:
+            return []
         if isinstance(v, str):
+            if v == "":
+                return []
             return [float(x.strip()) for x in v.split(',')]
         return v
 

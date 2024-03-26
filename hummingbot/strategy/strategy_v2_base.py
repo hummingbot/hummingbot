@@ -390,14 +390,19 @@ class StrategyV2Base(ScriptStrategyBase):
                 for close_type, count in performance_report.close_type_counts.items():
                     controller_performance_info.append(f"  {close_type}: {count}")
 
-            if controller_id != "main":
-                extra_info.extend(controller_performance_info)
-
             # Aggregate global metrics and close type counts
             global_realized_pnl_quote += performance_report.realized_pnl_quote
             global_unrealized_pnl_quote += performance_report.unrealized_pnl_quote
             global_volume_traded += performance_report.volume_traded
             global_close_type_counts.update(performance_report.close_type_counts)
+            extra_info.extend(controller_performance_info)
+
+        main_executors_list = self.get_executors_by_controller("main")
+        if len(main_executors_list) > 0:
+            extra_info.append("\n\nMain Controller Executors:")
+            main_executors_df = self.executors_info_to_df(main_executors_list)
+            main_executors_df["age"] = self.current_timestamp - main_executors_df["timestamp"]
+            extra_info.extend([format_df_for_printout(main_executors_df[columns_to_show], table_format="psql")])
 
         # Calculate and append global performance metrics
         global_pnl_quote = global_realized_pnl_quote + global_unrealized_pnl_quote
