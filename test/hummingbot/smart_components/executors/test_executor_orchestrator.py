@@ -13,6 +13,8 @@ from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAE
 from hummingbot.smart_components.executors.executor_orchestrator import ExecutorOrchestrator
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig
+from hummingbot.smart_components.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, StoreExecutorAction
 from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -43,7 +45,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
     @patch.object(PositionExecutor, "start")
     @patch.object(DCAExecutor, "start")
     @patch.object(ArbitrageExecutor, "start")
-    def test_execute_actions_create_executor(self, arbitrage_start_mock: MagicMock, dca_start_mock: MagicMock, position_start_mock: MagicMock):
+    @patch.object(TWAPExecutor, "start")
+    def test_execute_actions_create_executor(self, arbitrage_start_mock: MagicMock, dca_start_mock: MagicMock,
+                                             position_start_mock: MagicMock, twap_start_mock: MagicMock):
         position_executor_config = PositionExecutorConfig(
             timestamp=1234, connector_name="binance",
             trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
@@ -55,13 +59,18 @@ class TestExecutorOrchestrator(unittest.TestCase):
         dca_executor_config = DCAExecutorConfig(
             timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
             side=TradeType.BUY, amounts_quote=[Decimal(10)], prices=[Decimal(100)],)
+        twap_executor_config = TWAPExecutorConfig(
+            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
+            side=TradeType.BUY, total_amount_quote=Decimal(100), total_duration=10, order_interval=5,
+        )
         actions = [
             CreateExecutorAction(executor_config=position_executor_config, controller_id="test"),
             CreateExecutorAction(executor_config=arbitrage_executor_config, controller_id="test"),
-            CreateExecutorAction(executor_config=dca_executor_config, controller_id="test")
+            CreateExecutorAction(executor_config=dca_executor_config, controller_id="test"),
+            CreateExecutorAction(executor_config=twap_executor_config, controller_id="test"),
         ]
         self.orchestrator.execute_actions(actions)
-        self.assertEqual(len(self.orchestrator.executors["test"]), 3)
+        self.assertEqual(len(self.orchestrator.executors["test"]), 4)
 
     @patch.object(MarketsRecorder, "store_or_update_executor")
     def test_execute_actions_store_executor_active(self, store_or_update_executor_mock: MagicMock):
