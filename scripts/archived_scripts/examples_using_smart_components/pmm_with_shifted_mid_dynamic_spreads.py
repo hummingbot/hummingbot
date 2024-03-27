@@ -69,7 +69,7 @@ class PMMhShiftedMidPriceDynamicSpread(ScriptStrategyBase):
         self.candles.stop()
 
     def on_tick(self):
-        if self.create_timestamp <= self.current_timestamp and self.candles.is_ready:
+        if self.create_timestamp <= self.current_timestamp and self.candles.ready:
             self.cancel_all_orders()
             self.update_multipliers()
             proposal: List[OrderCandidate] = self.create_proposal()

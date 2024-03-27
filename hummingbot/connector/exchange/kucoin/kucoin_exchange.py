@@ -214,7 +214,9 @@ class KucoinExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
         )
-        return str(exchange_order_id["data"]["orderId"]), self.current_timestamp
+        order_data = exchange_order_id.get("data")
+        order_id = order_data["orderId"] if order_data else None
+        return order_id, self.current_timestamp
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """
