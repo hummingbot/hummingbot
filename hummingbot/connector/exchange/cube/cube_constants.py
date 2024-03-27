@@ -68,12 +68,15 @@ ORDER_STATE = {
 CUBE_ORDER_TYPE = {
     OrderType.LIMIT: 0,
     OrderType.LIMIT_MAKER: 0,
-    OrderType.MARKET: 1,
+    OrderType.MARKET: 2,
 }
 
 # Order Side
 SIDE_BUY = 0
 SIDE_SELL = 1
+
+# Market Order Max Slippage Percentage
+MAX_SLIPPAGE_PERCENTAGE = 5
 
 # Time in force
 TIME_IN_FORCE_IOC = 0
