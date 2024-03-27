@@ -239,6 +239,12 @@ class CubeExchange(ExchangePyBase):
             api_params["orderType"] = CONSTANTS.CUBE_ORDER_TYPE[OrderType.LIMIT]
 
         elif order_type is OrderType.MARKET:
+            if trade_type is TradeType.SELL:
+                api_params["price"] = int(
+                    round(exchange_price - (exchange_price * CONSTANTS.MAX_SLIPPAGE_PERCENTAGE / 100)))
+            else:
+                api_params["price"] = int(
+                    round(exchange_price + (exchange_price * CONSTANTS.MAX_SLIPPAGE_PERCENTAGE / 100)))
             api_params["postOnly"] = 0
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_IOC
             api_params["orderType"] = CONSTANTS.CUBE_ORDER_TYPE[OrderType.MARKET]
@@ -246,6 +252,7 @@ class CubeExchange(ExchangePyBase):
         try:
             resp = await self._api_post(path_url=CONSTANTS.POST_ORDER_PATH_URL, data=api_params, is_auth_required=True)
 
+            # TODO: Handle when getting rejection from creating new order
             order_result = resp.get("result", {}).get("Ack", {})
 
             o_id = str(order_result.get("exchangeOrderId"))
@@ -389,7 +396,8 @@ class CubeExchange(ExchangePyBase):
         retval = []
         for market in filter(cube_utils.is_exchange_information_valid, markets):
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market.get("symbol").upper())
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(
+                    symbol=market.get("symbol").upper())
                 base_asset = assets[market.get("baseAssetId")]
                 quote_asset = assets[market.get("quoteAssetId")]
 
@@ -498,6 +506,8 @@ class CubeExchange(ExchangePyBase):
                                 client_order_id=tracked_order.client_order_id,
                             )
                             self._order_tracker.process_order_update(order_update=order_update)
+                            self.logger().error(
+                                f"Order ({tracked_order.client_order_id}) creation failed: {msg.new_reject}")
 
                     if msg.HasField("position"):
                         if msg.position.subaccount_id == self.cube_subaccount_id:
