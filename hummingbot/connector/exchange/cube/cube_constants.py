@@ -68,7 +68,7 @@ ORDER_STATE = {
 CUBE_ORDER_TYPE = {
     OrderType.LIMIT: 0,
     OrderType.LIMIT_MAKER: 0,
-    OrderType.MARKET: 2,
+    OrderType.MARKET: 1,
 }
 
 # Order Side
