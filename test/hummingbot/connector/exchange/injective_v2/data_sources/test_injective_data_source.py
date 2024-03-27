@@ -17,10 +17,16 @@ from hummingbot.connector.exchange.injective_v2 import injective_constants as CO
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
 )
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_read_only_data_source import (
+    InjectiveReadOnlyDataSource,
+)
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
     InjectiveVaultsDataSource,
 )
 from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
+)
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 
@@ -49,6 +55,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             granter_subaccount_index=0,
             network=Network.testnet(node="sentry"),
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -238,6 +245,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             network=Network.testnet(node="sentry"),
             use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -454,3 +462,62 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
 
         return native_market
+
+
+class InjectiveReadOnlyDataSourceTests(TestCase):
+    # the level is required to receive logs from the data source logger
+    level = 0
+    usdt_usdc_market_id = "0x8b1a4d3e8f6b559e30e40922ee3662dd78edf7042330d4d620d188699d1a9715"  # noqa: mock
+    inj_usdt_market_id = "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"  # noqa: mock
+
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher.fetch_all")
+    def setUp(self, _) -> None:
+        super().setUp()
+        self._original_async_loop = asyncio.get_event_loop()
+        self.async_loop = asyncio.new_event_loop()
+        self.async_tasks = []
+        asyncio.set_event_loop(self.async_loop)
+
+        _, grantee_private_key = PrivateKey.generate()
+        _, granter_private_key = PrivateKey.generate()
+
+        self.data_source = InjectiveReadOnlyDataSource(
+            network=Network.testnet(node="sentry"),
+            rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+        )
+
+        self.query_executor = ProgrammableQueryExecutor()
+        self.data_source._query_executor = self.query_executor
+
+        self.log_records = []
+        self._logs_event: Optional[asyncio.Event] = None
+        self.data_source.logger().setLevel(1)
+        self.data_source.logger().addHandler(self)
+
+    def tearDown(self) -> None:
+        self.async_run_with_timeout(self.data_source.stop())
+        for task in self.async_tasks:
+            task.cancel()
+        self.async_loop.stop()
+        # self.async_loop.close()
+        # Since the event loop will change we need to remove the logs event created in the old event loop
+        self._logs_event = None
+        asyncio.set_event_loop(self._original_async_loop)
+        super().tearDown()
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.async_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
+    def create_task(self, coroutine: Awaitable) -> asyncio.Task:
+        task = self.async_loop.create_task(coroutine)
+        self.async_tasks.append(task)
+        return task
+
+    def handle(self, record):
+        self.log_records.append(record)
+        if self._logs_event is not None:
+            self._logs_event.set()
+
+    def test_order_cancel_message_generation(self):
+        self.assertTrue(self.data_source._uses_default_portfolio_subaccount())

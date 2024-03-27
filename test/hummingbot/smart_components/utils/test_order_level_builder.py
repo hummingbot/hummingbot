@@ -1,8 +1,8 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.smart_components.strategy_frameworks.data_types import TripleBarrierConf
-from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConfig
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevelBuilder
 
 
 class TestOrderLevelBuilder(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestOrderLevelBuilder(unittest.TestCase):
     def test_build_order_levels(self):
         amounts = [Decimal("100"), Decimal("200"), Decimal("300")]
         spreads = [Decimal("0.01"), Decimal("0.02"), Decimal("0.03")]
-        triple_barrier_confs = TripleBarrierConf()  # Assume a default instance is enough.
+        triple_barrier_confs = TripleBarrierConfig()  # Assume a default instance is enough.
         result = self.builder.build_order_levels(amounts, spreads, triple_barrier_confs)
 
         self.assertEqual(len(result), 6)  # 3 levels * 2 sides

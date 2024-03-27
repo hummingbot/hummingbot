@@ -1,5 +1,6 @@
 import asyncio
-from typing import Any, Dict, List, Mapping, Optional
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 from google.protobuf import any_pb2
 from pyinjective import Transaction
@@ -26,6 +27,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveFeeCalculatorMode
+
 
 class InjectiveGranteeDataSource(InjectiveDataSource):
     _logger: Optional[HummingbotLogger] = None
@@ -38,7 +42,9 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             granter_subaccount_index: int,
             network: Network,
             rate_limits: List[RateLimit],
-            use_secure_connection: bool = True):
+            fee_calculator_mode: "InjectiveFeeCalculatorMode",
+            use_secure_connection: bool = True,
+    ):
         self._network = network
         self._client = AsyncClient(
             network=self._network,
@@ -46,6 +52,8 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
+        self._fee_calculator_mode = fee_calculator_mode
+        self._fee_calculator = None
 
         self._private_key = None
         self._public_key = None
@@ -66,7 +74,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             self._granter_subaccount_id = self._granter_address.get_subaccount_id(index=granter_subaccount_index)
 
         self._publisher = PubSub()
-        self._last_received_message_time = 0
+        self._last_received_message_timestamp = 0
         self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._is_timeout_height_initialized = False
@@ -120,6 +128,10 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    @property
+    def last_received_message_timestamp(self) -> float:
+        return self._last_received_message_timestamp
 
     async def composer(self) -> Composer:
         if self._composer is None:
@@ -237,7 +249,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._events_listening_tasks = []
 
     async def initialize_trading_account(self):
-        await self._client.get_account(address=self.trading_account_injective_address)
+        await self._client.fetch_account(address=self.trading_account_injective_address)
         self._is_trading_account_initialized = True
 
     def supported_order_types(self) -> List[OrderType]:
@@ -261,16 +273,21 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     ) -> List[OrderUpdate]:
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
-        transaction_orders = spot_orders + perpetual_orders
 
         order_updates = []
+        # Market orders are not sent in MsgBatchUpdateOrders, but in their own order creation message
+        # If the market order creation message fails, the whole TX containing it will fail
+        # spot_orders_by_cid = {order.client_order_id: order for order in spot_orders
+        #                       if order.order_type != OrderType.MARKET}
+        # derivative_orders_by_cid = {order.client_order_id: order for order in perpetual_orders
+        #                             if order.order_type != OrderType.MARKET}
 
-        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
-            transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
+        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
+            transaction_info = await self.query_executor.get_tx(tx_hash=transaction_hash)
 
-        if transaction_info["data"].get("errorLog", "") != "":
+        if transaction_info["txResponse"]["code"] != CONSTANTS.TRANSACTION_SUCCEEDED_CODE:
             # The transaction failed. All orders should be marked as failed
-            for order in transaction_orders:
+            for order in (spot_orders + perpetual_orders):
                 order_update = OrderUpdate(
                     trading_pair=order.trading_pair,
                     update_timestamp=self._time(),
@@ -278,6 +295,28 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
                     client_order_id=order.client_order_id,
                 )
                 order_updates.append(order_update)
+
+        # This can't be done because some events are not related to the TXs (events that happen during the EndBlocker
+        # else:
+        #     for log_event in transaction_info["txResponse"].get("events", []):
+        #         if log_event.get("type") in [CONSTANTS.NEW_SPOT_ORDERS_EVENT_NAME, CONSTANTS.NEW_DERIVATIVE_ORDERS_EVENT_NAME]:
+        #             for event_attribute in log_event.get("attributes", []):
+        #                 if event_attribute["key"] in ["buy_orders", "sell_orders"]:
+        #                     orders_info = json.loads(event_attribute["value"])
+        #                     for order_info in orders_info:
+        #                         order_cid = order_info.get("order_info", {}).get("cid", "")
+        #                         if order_cid in spot_orders_by_cid:
+        #                             del spot_orders_by_cid[order_cid]
+        #                         if order_cid in derivative_orders_by_cid:
+        #                             del derivative_orders_by_cid[order_cid]
+        #     for order in (list(spot_orders_by_cid.values()) + list(derivative_orders_by_cid.values())):
+        #         order_update = OrderUpdate(
+        #             trading_pair=order.trading_pair,
+        #             update_timestamp=self._time(),
+        #             new_state=OrderState.FAILED,
+        #             client_order_id=order.client_order_id,
+        #         )
+        #         order_updates.append(order_update)
 
         return order_updates
 
@@ -322,29 +361,6 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         return self._granter_subaccount_index == CONSTANTS.DEFAULT_SUBACCOUNT_INDEX
 
-    def _token_from_market_info(
-            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
-    ) -> InjectiveToken:
-        token = self._tokens_map.get(denom)
-        if token is None:
-            unique_symbol = token_meta["symbol"]
-            if unique_symbol in self._token_symbol_and_denom_map:
-                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_and_denom_map:
-                    unique_symbol = candidate_symbol
-                else:
-                    unique_symbol = token_meta["name"]
-            token = InjectiveToken(
-                denom=denom,
-                symbol=token_meta["symbol"],
-                unique_symbol=unique_symbol,
-                name=token_meta["name"],
-                decimals=token_meta["decimals"]
-            )
-            self._tokens_map[denom] = token
-            self._token_symbol_and_denom_map[unique_symbol] = denom
-
-        return token
-
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> Dict[str, Any]:
         async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
             market_info = await self._query_executor.derivative_market(market_id=market_id)
@@ -365,16 +381,17 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         for order in spot_orders_to_create:
             if order.order_type == OrderType.MARKET:
+                order_type = "BUY" if order.trade_type == TradeType.BUY else "SELL"
                 market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
-                creation_message = composer.MsgCreateSpotMarketOrder(
-                    sender=self.portfolio_account_injective_address,
+                creation_message = composer.msg_create_spot_market_order(
                     market_id=market_id,
+                    sender=self.portfolio_account_injective_address,
                     subaccount_id=self.portfolio_account_subaccount_id,
                     fee_recipient=self.portfolio_account_injective_address,
                     price=order.price,
                     quantity=order.amount,
+                    order_type=order_type,
                     cid=order.client_order_id,
-                    is_buy=order.trade_type == TradeType.BUY,
                 )
                 spot_market_order_definitions.append(creation_message.order)
                 all_messages.append(creation_message)
@@ -384,18 +401,23 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         for order in derivative_orders_to_create:
             if order.order_type == OrderType.MARKET:
+                order_type = "BUY" if order.trade_type == TradeType.BUY else "SELL"
                 market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
-                creation_message = composer.MsgCreateDerivativeMarketOrder(
-                    sender=self.portfolio_account_injective_address,
+                creation_message = composer.msg_create_derivative_market_order(
                     market_id=market_id,
+                    sender=self.portfolio_account_injective_address,
                     subaccount_id=self.portfolio_account_subaccount_id,
                     fee_recipient=self.portfolio_account_injective_address,
                     price=order.price,
                     quantity=order.amount,
+                    margin=composer.calculate_margin(
+                        quantity=order.amount,
+                        price=order.price,
+                        leverage=Decimal(str(order.leverage)),
+                        is_reduce_only=order.position == PositionAction.CLOSE,
+                    ),
+                    order_type=order_type,
                     cid=order.client_order_id,
-                    leverage=order.leverage,
-                    is_buy=order.trade_type == TradeType.BUY,
-                    is_reduce_only=order.position == PositionAction.CLOSE,
                 )
                 derivative_market_order_definitions.append(creation_message.order)
                 all_messages.append(creation_message)
@@ -404,7 +426,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
                 derivative_order_definitions.append(order_definition)
 
         if len(spot_order_definitions) > 0 or len(derivative_order_definitions) > 0:
-            message = composer.MsgBatchUpdateOrders(
+            message = composer.msg_batch_update_orders(
                 sender=self.portfolio_account_injective_address,
                 spot_orders_to_create=spot_order_definitions,
                 derivative_orders_to_create=derivative_order_definitions,
@@ -425,7 +447,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     ) -> any_pb2.Any:
         composer = await self.composer()
 
-        message = composer.MsgBatchUpdateOrders(
+        message = composer.msg_batch_update_orders(
             sender=self.portfolio_account_injective_address,
             spot_orders_to_cancel=spot_orders_to_cancel,
             derivative_orders_to_cancel=derivative_orders_to_cancel,
@@ -443,7 +465,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     ) -> any_pb2.Any:
         composer = await self.composer()
 
-        message = composer.MsgBatchUpdateOrders(
+        message = composer.msg_batch_update_orders(
             sender=self.portfolio_account_injective_address,
             subaccount_id=self.portfolio_account_subaccount_id,
             spot_market_ids_to_cancel_all=spot_markets_ids,
@@ -459,13 +481,39 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         composer = await self.composer()
         order_hash = order.exchange_order_id
         cid = order.client_order_id if order_hash is None else None
-        order_data = composer.OrderData(
+        order_data = composer.order_data(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
             order_hash=order_hash,
             cid=cid,
-            order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
-            order_type="market" if order.order_type == OrderType.MARKET else "limit",
+            is_buy=order.trade_type == TradeType.BUY,
+            is_market_order=order.order_type == OrderType.MARKET,
         )
 
         return order_data
+
+    async def _process_chain_stream_update(
+        self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
+    ):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_chain_stream_update(
+            chain_stream_update=chain_stream_update,
+            derivative_markets=derivative_markets,
+        )
+
+    async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_transaction_update(transaction_event=transaction_event)
+
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        if self._fee_calculator is None:
+            self._fee_calculator = self._fee_calculator_mode.create_calculator(
+                client=self._client,
+                composer=await self.composer(),
+            )
+
+        await self._fee_calculator.configure_gas_fee_for_transaction(
+            transaction=transaction,
+            private_key=self._private_key,
+            public_key=self._public_key,
+        )

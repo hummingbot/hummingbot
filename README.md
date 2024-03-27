@@ -13,20 +13,19 @@ This code is free and publicly available under the Apache 2.0 open source licens
 ## Why Hummingbot?
 
 * **Both CEX and DEX connectors**: Hummingbot supports connectors to centralized exchanges like Binance and KuCoin, as well as decentralized exchanges like Uniswap and PancakeSwap on various blockchains (Ethereum, BNB Chain, etc).
-* **Community-contributed strategies**: The Hummingbot community has added many customizable templates for market making, arbitrage, and other algo trading strategies.
+* **Cutting edge strategy framework**: Our new V2 Strategies framework allows you to compose powerful, backtestable, multi-venue, multi-timeframe stategies of any type
 * **Secure local client**: Hummingbot is a local client software that you install and run on your own devices or cloud virtual machines. It encrypts your API keys and private keys and never exposes them to any third parties.
-* **Community modules and events**: Hummingbot is driven by a global community of quant traders and developers. Check out community-maintained modules like Orchestration, join our bi-weekly developer calls, and learn how to build custom strategies using Hummingbot by taking Botcamp!
+* **Community focus**: Hummingbot is driven by a global community of quant traders and developers who maintain the connectors and contribute strategies to the codebase.
 
 Help us **democratize high-frequency trading** and make powerful trading algorithms accessible to everyone in the world!
 
 
 ## Quick Links
 
-* [Docs](https://docs.hummingbot.org): Check out the official Hummingbot documentation
+* [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
 * [Installation](https://hummingbot.org/installation/): Install Hummingbot on various platforms
 * [FAQs](https://hummingbot.org/faq/): Answers to all your burning questions
 * [Botcamp](https://hummingbot.org/botcamp/): Learn how build your own custom HFT strategy in Hummingbot with our hands-on bootcamp!
-* [HBOT](https://hummingbot.org/hbot/): Learn how you can decide how this codebase evolves by voting with HBOT tokens 
 
 ## Community
 
@@ -36,100 +35,77 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
 * [Snapshot](https://snapshot.org/#/hbot-prp.eth): Participate in monthly polls that decide which components should be prioritized and included
 
-## Exchange Connectors
+## Architecture
 
-Hummingbot connectors standardize trading logic and order types across different exchange types. Currently, we support the following exchange types:
+Hummingbot architecture features modular components that can be maintained and extended by individual community members.
 
- * **SPOT**: Connectors to central limit order book (CLOB) exchanges that trade spot markets
- * **PERP**: Connectors to central limit order book (CLOB) exchanges that trade perpetual swap markets
- * **AMM**: Connectors to decentralized exchanges that use the Automatic Market Maker (AMM) methodology
+### Strategies and Scripts
 
-Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which case user assets are stored on the blockchain and trading is performed via wallet addresses.
+A Hummingbot strategy is an ongoing process that executes an algorithmic trading strategy. It is constructed as a user-defined program that uses an underlying framework to abstracts low-level operations:
 
-| Tier | Exchange | Type | Signup code |
-|------|----------|------|-------------|
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=GOLD&color=yellow) | [Binance](https://docs.hummingbot.org/exchanges/binance/) | SPOT CEX | [FQQNNGCD](https://www.binance.com/en/register?ref=FQQNNGCD)
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=GOLD&color=yellow) | [Binance Futures](https://docs.hummingbot.org/exchanges/binance-perpetual/) | PERP CEX | [hummingbot](https://www.binance.com/en/futures/ref?code=hummingbot)
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=GOLD&color=yellow) | [dYdX](https://dydx.exchange/) | PERP DEX |		
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Dexalot](https://docs.hummingbot.org/exchanges/dexalot/) | CLOB DEX |		
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Gate.io](https://docs.hummingbot.org/exchanges/gate-io/) | SPOT CEX | [5868285](https://www.gate.io/signup/5868285)		
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Gate.io Perpetual](https://docs.hummingbot.org/exchanges/gate-io-perpetual/) | PERP CEX | [5868285](https://www.gate.io/signup/5868285)
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Huobi](https://docs.hummingbot.org/exchanges/huobi/) | SPOT CEX |		
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver)| [Injective Helix](https://docs.hummingbot.org/exchanges/injective/) | CLOB DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [KuCoin](https://docs.hummingbot.org/exchanges/kucoin/) | SPOT CEX | [272KvRf](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [KuCoin Perpetual](https://docs.hummingbot.org/exchanges/kucoin-perpetual/) | PERP CEX | [272KvRf](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Polkadex](https://docs.hummingbot.org/exchanges/polkadex/) | SPOT DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [AscendEx](https://docs.hummingbot.org/exchanges/ascend-ex/) | SPOT CEX | [UEIXNXKW](https://ascendex.com/register?inviteCode=UEIXNXKW)
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BTC-Markets](https://docs.hummingbot.org/exchanges/btc-markets/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bit.com](https://docs.hummingbot.org/exchanges/bit-com) | PERP CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BitMart](https://docs.hummingbot.org/exchanges/bitmart/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bitfinex](https://docs.hummingbot.org/exchanges/bitfinex/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BitGet](https://docs.hummingbot.org/exchanges/bitget-perpetual/) | PERP CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bitmex](https://docs.hummingbot.org/exchanges/bitmex/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bitmex (perp](https://docs.hummingbot.org/exchanges/bitmex-perpetual/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bybit](https://docs.hummingbot.org/exchanges/bybit/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bybit (perp)](https://docs.hummingbot.org/exchanges/bitmex-perpetual/) | PERP CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Coinbase](https://docs.hummingbot.org/exchanges/coinbase/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [HitBTC](https://docs.hummingbot.org/exchanges/hitbtc/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Kraken](https://docs.hummingbot.org/exchanges/kraken/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [MEXC](https://docs.hummingbot.org/exchanges/mexc/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Mad Meerkat](https://docs.hummingbot.org/exchanges/mad-meerkat/) | SPOT DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [NDAX](https://docs.hummingbot.org/exchanges/ndax/) | SPOT DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [OKX](https://docs.hummingbot.org/exchanges/okx/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [OpenOcean](https://docs.hummingbot.org/exchanges/openocean/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Pancakeswap](https://docs.hummingbot.org/exchanges/pancakeswap/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Pangolin](https://docs.hummingbot.org/exchanges/pangolin/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Perpetual Protocol](https://docs.hummingbot.org/exchanges/perp/) | PERP DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Phemex Perpetual](https://docs.hummingbot.org/exchanges/perp/) | PERP CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Plenty](https://docs.hummingbot.org/exchanges/plenty/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Quickswap](https://docs.hummingbot.org/exchanges/quickswap/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Ref Finance](https://docs.hummingbot.org/exchanges/ref/) | SPOT DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Sushiswap](https://docs.hummingbot.org/exchanges/sushiswap/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Tinyman](https://docs.hummingbot.org/exchanges/tinyman/) | SPOT DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Traderjoe](https://docs.hummingbot.org/exchanges/traderjoe) | AMM 
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Uniswap](https://docs.hummingbot.org/exchanges/uniswap/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [VVS Finance](https://docs.hummingbot.org/exchanges/vvs/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Vertex](https://docs.hummingbot.org/exchanges/vertex/) | CLOB DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [WOO X](https://docs.hummingbot.org/exchanges/woo-x)| CEX CLOB |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [XSWAP](https://docs.hummingbot.org/exchanges/xswap/) | AMM DEX |
+[V2 Strategies](https://hummingbot.org/v2-strategies/): The latest and most advanced way to create strategies in Hummingbot, V2 strategies are built using composable elements known as Controllers and PositionExecutors. These elements can be mixed and matched, offering a modular approach to strategy creation and making the development process faster and more efficient.
 
+[Scripts](https://hummingbot.org/scripts/): For those who are looking for a lightweight solution, Hummingbot provides scripting support. These are single-file strategies that are quick to implement and can be an excellent starting point for those new to algorithmic trading. Check out the [/scripts](https://github.com/hummingbot/hummingbot/tree/master/scripts) folder for all Script examples included in the codebase.
 
+[V1 Strategies](https://hummingbot.org/v1-strategies/): Templatized programs templates for various algorithmic trading strategies that expose a set of user-defined parameters, allowing you to customize the strategy's behavior. While these V1 strategies were Hummingbot's original method of defining strategies and have been superceded by V2 Strategies and Scripts, the strategies below are still often used:
 
-Quarterly [Polls](https://docs.hummingbot.org/governance/polls/) allow the Hummingbot community to vote using HBOT tokens to decide which exchanges should be certified GOLD or SILVER, which means that they are maintained and continually improved by Hummingbot Foundation. In addition, the codebase includes BRONZE exchange connectors that are maintained by community members. See the [Hummingbot documentation](https://docs.hummingbot.org/exchanges) for all exchanges supported.
+* [Pure Market Making](https://hummingbot.org/strategies/pure-market-making/)
+* [Avellaneda Market Making](https://hummingbot.org/strategies/avellaneda-market-making/)
+* [Cross-Exchange Market Making](https://hummingbot.org/strategies/cross-exchange-market-making/)
 
-## Strategies and Scripts
+### Connectors
 
-We provide customizable strategy templates for core trading strategies that users can configure, extend, and run. Hummingbot Foundation maintains three **CORE** strategies:
+Hummingbot connectors standardize trading logic and order types across different types of exchanges and blockchain networks. Each connector's code is contained in modularized folders in the Hummingbot and/or Gateway codebases.
 
-* [Pure Market Making](https://docs.hummingbot.org/strategies/pure-market-making/): Our original single-pair market making strategy
-* [Cross Exchange Market Making](https://docs.hummingbot.org/strategies/cross-exchange-market-making/): Provide liquidity while hedging filled orders on another exchange
-* [AMM Arbitrage](https://docs.hummingbot.org/strategies/amm-arbitrage/): Exploits price differences between AMM and SPOT exchanges
+Currently, the Hummingbot codebase contains 50+ connectors of the following types:
 
-**CORE** strategies are selected via HBOT voting through quarterly [Polls](https://docs.hummingbot.org/governance/polls/). In addition, the codebase includes **COMMUNITY** strategies that are maintained by individuals or firms in the community. See the [Hummingbot documentation](https://docs.hummingbot.org/strategies) for all strategies supported.
+* [CEX](https://hummingbot.org/cex-connectors/): Centralized exchanges take custody of user assets, i.e. Binance, Kucoin, etc.
+* [DEX](https://hummingbot.org/dex-connectors/): Decentralized exchanges are platforms in which user assets are stored non-custodially in smart contracts, i.e. dYdX, Uniswap, etc.
+* [Chain](https://hummingbot.org/chains/): Layer 1 blockchain ecosystems such as Ethereum, BNB Chain, Avalanche, etc.
 
-### Scripts
+Each exchange has one or more connectors in the Hummingbot codebase that supports a specific **market type** that the exchange supports:
 
-Scripts are a newer, lighter way to build Hummingbot strategies in Python, which let you modify the script's code and re-run it to apply the changes without exiting the Hummingbot interface or re-compiling the code.
+ * **spot**: Connectors to central limit order book (CLOB) exchanges that trade spot markets
+ * **perp**: Connectors to central limit order book (CLOB) exchanges that trade perpetual swap markets
+ * **amm**: Connectors to decentralized exchanges that use the Automatic Market Maker (AMM) methodology
 
-See the [Scripts](https://docs.hummingbot.org/scripts/) section in the documentation for more info, or check out the [/scripts](https://github.com/hummingbot/hummingbot/tree/master/scripts) folder for all Script examples included in the codebase.
+Quarterly [Polls](https://docs.hummingbot.org/governance/polls/) allow HBOT holders decide how maintenance bandwidth and development bounties are allocated toward the connectors in the codebase.
+
+## Sponsors & Partners
+
+The Hummingbot Foundation, supported by its sponsors, partners and backers, is dedicated to fostering a robust, community-driven ecosystem for algorithmic crypto trading.
+
+### Sponsors
+
+- [Vega Protocol](https://vega.xyz/)
+- [Hyperliquid](https://hyperliquid.xyz/)
+- [CoinAlpha](https://coinalpha.com/)
+
+### Exchange Partners
+
+* [Binance Spot](https://www.binance.com/en/register?ref=FQQNNGCD) | [Binance Futures](https://www.binance.com/en/futures/ref?code=hummingbot)
+* [Kucoin](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
+* [Gate.io](https://www.gate.io/signup/5868285)
+* [AscendEx](https://ascendex.com/register?inviteCode=UEIXNXKW)
+* [Huobi](https://www.htx.com/)
+* [OKX](https://www.okx.com/join/1931920)
+
+For more information about the support provided by these partners, see the financial reports provided in [HBOT Tracker](https://docs.google.com/spreadsheets/d/1UNAumPMnXfsghAAXrfKkPGRH9QlC8k7Cu1FGQVL1t0M/edit#gid=285483484).
 
 ## Other Hummingbot Repos
 
-* [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
-* [Hummingbot Project Management](https://github.com/hummingbot/pm): Agendas and recordings of regular Hummingbot developer and community calls
-* [Awesome Hummingbot](https://github.com/hummingbot/awesome-hummingbot): All the Hummingbot links
-* [Hummingbot StreamLit Apps](https://github.com/hummingbot/streamlit-apps): Hummingbot-related StreamLit data apps and dashboards
-* [Community Tools](https://github.com/hummingbot/community-tools): Community contributed resources related to Hummingbot
-* [Brokers](https://github.com/hummingbot/brokers): Different brokers that can be used to communicate with multiple instances of Hummingbot
+* [Dashboard](https://github.com/hummingbot/dashboard): Community pages that help you create, backtest, deploy, and manage Hummingbot instances
+* [Gateway](https://github.com/hummingbot/gateway): API middleware for DEX connectors
 * [Deploy Examples](https://github.com/hummingbot/deploy-examples): Deploy Hummingbot in various configurations with Docker
-* [Remote Client](https://github.com/hummingbot/hbot-remote-client-py): A remote client for Hummingbot in Python
-* [Dashboard](https://github.com/hummingbot/dashboard): Hummingbot Dashboard community project  
+* [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
+* [Awesome Hummingbot](https://github.com/hummingbot/awesome-hummingbot): All the Hummingbot links
+* [Brokers](https://github.com/hummingbot/brokers): Different brokers that can be used to communicate with multiple instances of Hummingbot
 
 ## Contributions
 
 Hummingbot belongs to its community, so we welcome contributions! Please review these [guidelines](./CONTRIBUTING.md) first.
 
-To have your pull request merged into the codebase, submit a [Pull Request Proposal](https://snapshot.org/#/hbot-prp.eth) on our Snapshot. Note that you will need 1 HBOT in your Ethereum wallet to submit a Pull Request Proposal. See [HBOT](https://hummingbot.org/hbot) for more information.
+To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/governance/proposals/). Note that you will need some amount of HBOT tokens in your Ethereum wallet to submit a proposal.
 
 ## Legal
 

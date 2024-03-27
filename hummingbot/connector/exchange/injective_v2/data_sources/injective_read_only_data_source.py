@@ -43,7 +43,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
 
         self._publisher = PubSub()
-        self._last_received_message_time = 0
+        self._last_received_message_timestamp = 0
         self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._markets_initialization_lock = asyncio.Lock()
@@ -74,7 +74,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
     @property
     def portfolio_account_subaccount_id(self) -> str:
-        raise NotImplementedError
+        return ""
 
     @property
     def trading_account_injective_address(self) -> str:
@@ -95,6 +95,10 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    @property
+    def last_received_message_timestamp(self) -> float:
+        return self._last_received_message_timestamp
 
     async def composer(self) -> Composer:
         if self._composer is None:
@@ -262,7 +266,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         raise NotImplementedError
 
     def _uses_default_portfolio_subaccount(self) -> bool:
-        raise NotImplementedError
+        return True
 
     async def _order_creation_messages(
             self,
@@ -298,25 +302,18 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
         return market_info
 
-    def _token_from_market_info(
-            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
-    ) -> InjectiveToken:
-        token = self._tokens_map.get(denom)
-        if token is None:
-            unique_symbol = token_meta["symbol"]
-            if unique_symbol in self._token_symbol_and_denom_map:
-                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_and_denom_map:
-                    unique_symbol = candidate_symbol
-                else:
-                    unique_symbol = token_meta["name"]
-            token = InjectiveToken(
-                denom=denom,
-                symbol=token_meta["symbol"],
-                unique_symbol=unique_symbol,
-                name=token_meta["name"],
-                decimals=token_meta["decimals"]
-            )
-            self._tokens_map[denom] = token
-            self._token_symbol_and_denom_map[unique_symbol] = denom
+    async def _process_chain_stream_update(
+            self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
+    ):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_chain_stream_update(
+            chain_stream_update=chain_stream_update,
+            derivative_markets=derivative_markets,
+        )
 
-        return token
+    async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_transaction_update(transaction_event=transaction_event)
+
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        raise NotImplementedError
