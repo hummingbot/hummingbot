@@ -506,10 +506,15 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         await super()._process_transaction_update(transaction_event=transaction_event)
 
     async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        multiplier = (None
+                      if CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER is None
+                      else Decimal(str(CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER)))
         if self._fee_calculator is None:
             self._fee_calculator = self._fee_calculator_mode.create_calculator(
                 client=self._client,
                 composer=await self.composer(),
+                gas_price=CONSTANTS.TX_GAS_PRICE,
+                gas_limit_adjustment_multiplier=multiplier,
             )
 
         await self._fee_calculator.configure_gas_fee_for_transaction(
