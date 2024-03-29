@@ -9,7 +9,7 @@ from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.core.event.events import FundingPaymentCompletedEvent
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.executors.position_executor.data_types import (
@@ -30,13 +30,7 @@ class FundingRateArbitrageConfig(StrategyV2ConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the leverage (e.g. 20): ",
             prompt_on_new=True))
-    position_mode: PositionMode = Field(
-        default="ONEWAY",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
-            prompt_on_new=True
-        )
-    )
+
     min_funding_rate_profitability: Decimal = Field(
         default=0.001,
         client_data=ClientFieldData(
@@ -72,12 +66,6 @@ class FundingRateArbitrageConfig(StrategyV2ConfigBase):
             prompt=lambda mi: "Enter the profitability to take profit (including PNL of positions and fundings received): ",
         )
     )
-
-    @validator('position_mode', pre=True, allow_reuse=True)
-    def validate_position_mode(cls, v: str) -> PositionMode:
-        if v.upper() in PositionMode.__members__:
-            return PositionMode[v.upper()]
-        raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
 
     @validator("connectors", "tokens", pre=True, allow_reuse=True, always=True)
     def validate_sets(cls, v):
@@ -122,7 +110,8 @@ class FundingRateArbitrage(StrategyV2Base):
     def apply_initial_setting(self):
         for connector_name, connector in self.connectors.items():
             if self.is_perpetual(connector_name):
-                connector.set_position_mode(self.config.position_mode)
+                position_mode = PositionMode.ONEWAY if connector_name == "hyperliquid_perpetual" else PositionMode.HEDGE
+                connector.set_position_mode(position_mode)
                 for trading_pair in self.market_data_provider.get_trading_pairs(connector_name):
                     connector.set_leverage(trading_pair, self.config.leverage)
 
@@ -141,21 +130,21 @@ class FundingRateArbitrage(StrategyV2Base):
         This methods compares the profitability of buying at market in the two exchanges. If the side is TradeType.BUY
         means that the operation is long on connector 1 and short on connector 2.
         """
-        trading_pair_1 = self.get_trading_pair_for_connector(token, connector_1),
-        trading_pair_2 = self.get_trading_pair_for_connector(token, connector_2),
+        trading_pair_1 = self.get_trading_pair_for_connector(token, connector_1)
+        trading_pair_2 = self.get_trading_pair_for_connector(token, connector_2)
 
-        connector_1_price = self.market_data_provider.get_price_for_quote_volume(
+        connector_1_price = Decimal(self.market_data_provider.get_price_for_quote_volume(
             connector_name=connector_1,
             trading_pair=trading_pair_1,
             quote_volume=self.config.position_size_quote,
             is_buy=side == TradeType.BUY,
-        )
-        connector_2_price = self.market_data_provider.get_price_for_quote_volume(
+        ).result_price)
+        connector_2_price = Decimal(self.market_data_provider.get_price_for_quote_volume(
             connector_name=connector_2,
             trading_pair=trading_pair_2,
             quote_volume=self.config.position_size_quote,
             is_buy=side != TradeType.BUY,
-        )
+        ).result_price)
         estimated_fees_connector_1 = self.connectors[connector_1].get_fee(
             base_currency=trading_pair_1.split("-")[0],
             quote_currency=trading_pair_1.split("-")[1],
@@ -163,7 +152,8 @@ class FundingRateArbitrage(StrategyV2Base):
             order_side=TradeType.BUY,
             amount=self.config.position_size_quote / connector_1_price,
             price=connector_1_price,
-            is_maker=False
+            is_maker=False,
+            position_action=PositionAction.OPEN
         ).percent
         estimated_fees_connector_2 = self.connectors[connector_2].get_fee(
             base_currency=trading_pair_2.split("-")[0],
@@ -172,7 +162,8 @@ class FundingRateArbitrage(StrategyV2Base):
             order_side=TradeType.BUY,
             amount=self.config.position_size_quote / connector_2_price,
             price=connector_2_price,
-            is_maker=False
+            is_maker=False,
+            position_action=PositionAction.OPEN
         ).percent
 
         if side == TradeType.BUY:
@@ -219,7 +210,7 @@ class FundingRateArbitrage(StrategyV2Base):
                                        f"Funding rate profitability: {expected_profitability}"
                                        f"Trading profitability after fees: {current_profitability}"
                                        f"Starting executors...")
-                    position_executor_config_1, position_executor_config_2 = self.get_position_executors_config(token, connector_1, connector_2)
+                    position_executor_config_1, position_executor_config_2 = self.get_position_executors_config(token, connector_1, connector_2, trade_side)
                     self.active_funding_arbitrages[token] = {
                         "connector_1": connector_1,
                         "connector_2": connector_2,
@@ -281,7 +272,7 @@ class FundingRateArbitrage(StrategyV2Base):
             timestamp=self.current_timestamp,
             connector_name=connector_2,
             trading_pair=self.get_trading_pair_for_connector(token, connector_2),
-            side=trade_side,
+            side=TradeType.BUY if trade_side == TradeType.SELL else TradeType.SELL,
             amount=position_amount,
             leverage=self.config.leverage,
             triple_barrier_config=TripleBarrierConfig(open_order_type=OrderType.MARKET),
@@ -302,13 +293,15 @@ class FundingRateArbitrage(StrategyV2Base):
                 connector_1, connector_2, side, funding_rate_diff = best_combination
                 token_info["best_combination_connectors"] = f"{connector_1}_{connector_2}"
                 token_info["best_funding_rate_diff (%)"] = funding_rate_diff * 100
+                token_info["trade_profitability (%)"] = self.get_current_profitability_after_fees(token, connector_1, connector_2, side) * 100
+
                 time_to_next_funding_info_c1 = funding_info_report[connector_1].next_funding_utc_timestamp / 1000 - self.current_timestamp
                 time_to_next_funding_info_c2 = funding_info_report[connector_2].next_funding_utc_timestamp / 1000 - self.current_timestamp
                 token_info["minutes_to_funding_c1"] = time_to_next_funding_info_c1 / 60
                 token_info["minutes_to_funding_c2"] = time_to_next_funding_info_c2 / 60
 
                 all_funding_info.append(token_info)
-            funding_rate_status.append("Funding Rate Info: \n")
+            funding_rate_status.append("\nFunding Rate Info: \n")
             funding_rate_status.append(format_df_for_printout(df=pd.DataFrame(all_funding_info), table_format="psql",))
 
         return original_status + "\n".join(funding_rate_status)
