@@ -19,31 +19,19 @@ REST_URLS = {
     "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"
 }
 
-WSS_NON_LINEAR_PUBLIC_URLS = {
-    "bybit_perpetual_main": "wss://stream.bybit.com/realtime",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime"
+WSS_PUBLIC_URL_LINEAR = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/linear",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"
 }
 
-WSS_NON_LINEAR_PRIVATE_URLS = WSS_NON_LINEAR_PUBLIC_URLS
-
-WSS_LINEAR_PUBLIC_URLS = {
-    "bybit_perpetual_main": "wss://stream.bybit.com/realtime_public",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_public"
-}
-
-WSS_LINEAR_PRIVATE_URLS = {
-    "bybit_perpetual_main": "wss://stream.bybit.com/realtime_private",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_private"
-}
-
-WSS_PUBLIC_URL = {
-    "bybit_main": "wss://stream.bybit.com/v5/public/linear",
-    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"
+WSS_PUBLIC_URL_INVERSE = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/linear",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"
 }
 
 WSS_PRIVATE_URL = {
-    "bybit_main": "wss://stream.bybit.com/v5/private",
-    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private"
+    "bybit_perpetual_main": "wss://stream.bybit.com/v5/private",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/private"
 }
 
 
@@ -63,8 +51,8 @@ ORDER_TYPE_MAP = {
     OrderType.MARKET: "Market",
 }
 
-POSITION_MODE_API_ONEWAY = "MergedSingle"
-POSITION_MODE_API_HEDGE = "BothSide"
+POSITION_MODE_API_ONEWAY = 0
+POSITION_MODE_API_HEDGE = 3
 POSITION_MODE_MAP = {
     PositionMode.ONEWAY: POSITION_MODE_API_ONEWAY,
     PositionMode.HEDGE: POSITION_MODE_API_HEDGE,
@@ -74,24 +62,7 @@ POSITION_MODE_MAP = {
 LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
 
-LATEST_SYMBOL_INFORMATION_ENDPOINT = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/tickers",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/tickers"}
-QUERY_SYMBOL_ENDPOINT = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/symbols",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/symbols"}
-ORDER_BOOK_ENDPOINT = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2"}
-
 # REST API Private Endpoints
-SET_LEVERAGE_PATH_URL = {
-    LINEAR_MARKET: "private/linear/position/set-leverage",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/leverage/save"}
-GET_PREDICTED_FUNDING_RATE_PATH_URL = {
-    LINEAR_MARKET: "/private/linear/funding/predicted-funding",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/predicted-funding"
-}
 GET_POSITIONS_PATH_URL = {
     LINEAR_MARKET: "private/linear/position/list",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/list"}
@@ -112,23 +83,31 @@ USER_TRADE_RECORDS_PATH_URL = {
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/execution/list"}
 
 # Public API endpoints
+TICKERS_PATH_URL = "/v5/market/tickers"
 LAST_TRADED_PRICE_PATH = "/v5/market/tickers"
 EXCHANGE_INFO_PATH_URL = "/v5/market/instruments-info"
-SNAPSHOT_PATH_URL = "/v5/market/orderbook"
+ORDERBOOK_SNAPSHOT_PATH_URL = "/v5/market/orderbook"
 SERVER_TIME_PATH_URL = "/v5/market/time"
 FUNDING_RATE_PATH_URL = "/v5/market/funding/history"
+RECENT_TRADING_HISTORY_PATH_URL = "/v5/market/recent-trade"
 
 # Private API endpoints
 ACCOUNT_INFO_PATH_URL = "/v5/account/info"
 WALLET_BALANCE_PATH_URL = "/v5/account/wallet-balance"
 ORDER_PLACE_PATH_URL = "/v5/order/create"
 ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
-MY_TRADES_PATH_URL = "/v5/order/realtime"
+GET_ORDERS_PATH_URL = "/v5/order/realtime"
+SET_TPSL_MODE_PATH_URL = "/v5/position/set-tpsl-mode"
+SET_POSITION_MODE_PATH_URL = "/v5/position/switch-mode"
+GET_POSITION_PATH_URL = "/v5/position/list"
+SET_LEVERAGE_PATH_URL = "/v5/position/set-leverage"
+TRADE_HISTORY_PATH_URL = "/v5/execution/list"
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
 
 # WebSocket Public Endpoints
+WS_ORDER_BOOK_DEPTH = 200
 WS_PING_REQUEST = "ping"
 WS_ORDER_BOOK_EVENTS_TOPIC = "orderBook_200.100ms"
 WS_TRADES_TOPIC = "trade"
@@ -223,6 +202,60 @@ RATE_LIMITS = {
             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
         ]),
     RateLimit(
+        limit_id=FUNDING_RATE_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=TRADE_HISTORY_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=TICKERS_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=RECENT_TRADING_HISTORY_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=SET_POSITION_MODE_PATH_URL,
+        limit=MAX_REQUEST_POST,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=SET_LEVERAGE_PATH_URL,
+        limit=MAX_REQUEST_POST,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_POST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+        ]),
+    RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
         limit=MAX_REQUEST_GET,
         time_interval=TWO_MINUTES,
@@ -232,7 +265,7 @@ RATE_LIMITS = {
             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
         ]),
     RateLimit(
-        limit_id=SNAPSHOT_PATH_URL,
+        limit_id=ORDERBOOK_SNAPSHOT_PATH_URL,
         limit=MAX_REQUEST_GET,
         time_interval=TWO_MINUTES,
         linked_limits=[
@@ -251,7 +284,7 @@ RATE_LIMITS = {
         ]),
     RateLimit(
         limit_id=ORDER_PLACE_PATH_URL,
-        limit=MAX_REQUEST_GET,
+        limit=MAX_REQUEST_POST,
         time_interval=TWO_MINUTES,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_POST, 1),
@@ -260,7 +293,7 @@ RATE_LIMITS = {
         ]),
     RateLimit(
         limit_id=ORDER_CANCEL_PATH_URL,
-        limit=MAX_REQUEST_GET,
+        limit=MAX_REQUEST_POST,
         time_interval=TWO_MINUTES,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_POST, 1),
@@ -268,8 +301,8 @@ RATE_LIMITS = {
             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
         ]),
     RateLimit(
-        limit_id=MY_TRADES_PATH_URL,
-        limit=MAX_REQUEST_GET,
+        limit_id=GET_ORDERS_PATH_URL,
+        limit=MAX_REQUEST_POST,
         time_interval=TWO_MINUTES,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_POST, 1),
@@ -278,7 +311,7 @@ RATE_LIMITS = {
         ]),
     RateLimit(
         limit_id=ACCOUNT_INFO_PATH_URL,
-        limit=MAX_REQUEST_GET,
+        limit=MAX_REQUEST_POST,
         time_interval=TWO_MINUTES,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_POST, 1),
@@ -287,7 +320,7 @@ RATE_LIMITS = {
         ]),
     RateLimit(
         limit_id=WALLET_BALANCE_PATH_URL,
-        limit=MAX_REQUEST_GET,
+        limit=MAX_REQUEST_POST,
         time_interval=TWO_MINUTES,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_POST, 1),
