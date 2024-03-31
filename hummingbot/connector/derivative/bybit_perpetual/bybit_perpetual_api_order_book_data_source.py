@@ -1,15 +1,14 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import pandas as pd
 
-from hummingbot.connector.derivative.bybit_perpetual import (
+from hummingbot.connector.derivative.bybit_perpetual import (  # bybit_perpetual_web_utils as web_utils,
     bybit_perpetual_constants as CONSTANTS,
-    bybit_perpetual_utils,
-    bybit_perpetual_web_utils as web_utils,
+    bybit_perpetual_utils as bybit_utils,
 )
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.connector.derivative.bybit_perpetual.bybit_order_book import BybitOrderBook
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
@@ -36,21 +35,22 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
+        self._depth = CONSTANTS.WS_ORDER_BOOK_DEPTH
 
-    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        funding_info_response = await self._request_complete_funding_info(trading_pair)
-        general_info = funding_info_response[0]["result"][0]
-        predicted_funding = funding_info_response[1]["result"]
-
+        funding_info, tickers = await self._request_complete_funding_info(trading_pair)
+        funding_info = funding_info["list"][0]
+        tickers = tickers["list"][0]
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(general_info["index_price"])),
-            mark_price=Decimal(str(general_info["mark_price"])),
-            next_funding_utc_timestamp=int(pd.Timestamp(general_info["next_funding_time"]).timestamp()),
-            rate=Decimal(str(predicted_funding["predicted_funding_rate"])),
+            index_price=Decimal(str(tickers["indexPrice"])),
+            mark_price=Decimal(str(tickers["markPrice"])),
+            next_funding_utc_timestamp=int(pd.Timestamp(int(tickers["nextFundingTime"])).timestamp()),
+            rate=Decimal(str(tickers["fundingRate"])),
         )
         return funding_info
 
@@ -60,19 +60,25 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         """
         tasks_future = None
         try:
-            linear_trading_pairs, non_linear_trading_pairs = bybit_perpetual_utils.get_linear_non_linear_split(
+            linear_trading_pairs, non_linear_trading_pairs = bybit_utils.get_linear_non_linear_split(
                 self._trading_pairs
             )
 
             tasks = []
             if linear_trading_pairs:
-                tasks.append(self._listen_for_subscriptions_on_url(
-                    url=web_utils.wss_linear_public_url(self._domain),
-                    trading_pairs=linear_trading_pairs))
+                tasks.append(
+                    self._listen_for_subscriptions_on_url(
+                        url=CONSTANTS.WSS_PUBLIC_URL_LINEAR[self._domain],
+                        trading_pairs=linear_trading_pairs
+                    )
+                )
             if non_linear_trading_pairs:
-                tasks.append(self._listen_for_subscriptions_on_url(
-                    url=web_utils.wss_non_linear_public_url(self._domain),
-                    trading_pairs=non_linear_trading_pairs))
+                tasks.append(
+                    self._listen_for_subscriptions_on_url(
+                        url=CONSTANTS.WSS_PUBLIC_URL_INVERSE[self._domain],
+                        trading_pairs=non_linear_trading_pairs
+                    )
+                )
 
             if tasks:
                 tasks_future = asyncio.gather(*tasks)
@@ -112,29 +118,37 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return ws
 
+    def _get_trade_topic_from_symbol(self, symbol: str) -> str:
+        return f"publicTrade.{symbol}"
+
+    def _get_ob_topic_from_symbol(self, symbol: str, depth: int) -> str:
+        return f"orderbook.{depth}.{symbol}"
+
+    def _get_tickers_topic_from_symbol(self, symbol: str) -> str:
+        return f"tickers.{symbol}"
+
     async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
         try:
             symbols = [
                 await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 for trading_pair in trading_pairs
             ]
-            symbols_str = "|".join(symbols)
 
             payload = {
                 "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_TRADES_TOPIC}.{symbols_str}"],
+                "args": [self._get_ob_topic_from_symbol(symbol, self._depth) for symbol in symbols],
             }
             subscribe_trade_request = WSJSONRequest(payload=payload)
 
             payload = {
                 "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}.{symbols_str}"],
+                "args": [self._get_trade_topic_from_symbol(symbol) for symbol in symbols],
             }
             subscribe_orderbook_request = WSJSONRequest(payload=payload)
 
             payload = {
                 "op": "subscribe",
-                "args": [f"{CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC}.{symbols_str}"],
+                "args": [self._get_tickers_topic_from_symbol(symbol) for symbol in symbols],
             }
             subscribe_instruments_request = WSJSONRequest(payload=payload)
 
@@ -170,51 +184,41 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return channel
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message["type"]
-
-        if event_type == "delta":
-            symbol = raw_message["topic"].split(".")[-1]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_us = int(raw_message["timestamp_e6"])
-            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_us * 1e-6)
-            diffs_data = raw_message["data"]
-            bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
-            order_book_message_content = {
-                "trading_pair": trading_pair,
-                "update_id": update_id,
-                "bids": bids,
-                "asks": asks,
-            }
-            diff_message = OrderBookMessage(
-                message_type=OrderBookMessageType.DIFF,
-                content=order_book_message_content,
-                timestamp=timestamp_us * 1e-6,
-            )
-            message_queue.put_nowait(diff_message)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+            symbol=raw_message["data"]["s"]
+        )
+        data = raw_message["data"]
+        timestamp = raw_message["ts"]
+        # timestamps from ByBit is in ms
+        update_id = self._nonce_provider.get_tracking_nonce(timestamp=raw_message["ts"] * 1e-3)
+        # update_id = data["u"]
+        order_book_message_content = {
+            "trading_pair": trading_pair,
+            "update_id": update_id,
+            "bids": data["b"],
+            "asks": data["a"],
+        }
+        order_book_message: OrderBookMessage = OrderBookMessage(
+            message_type=OrderBookMessageType.DIFF,
+            content=order_book_message_content,
+            timestamp=timestamp,
+        )
+        message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trade_updates = raw_message["data"]
-
-        for trade_data in trade_updates:
-            symbol = trade_data["symbol"]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            ts_ms = int(trade_data["trade_time_ms"])
-            trade_type = float(TradeType.BUY.value) if trade_data["side"] == "Buy" else float(TradeType.SELL.value)
-            message_content = {
-                "trade_id": trade_data["trade_id"],
-                "trading_pair": trading_pair,
-                "trade_type": trade_type,
-                "amount": trade_data["size"],
-                "price": trade_data["price"],
-            }
-            trade_message = OrderBookMessage(
-                message_type=OrderBookMessageType.TRADE,
-                content=message_content,
-                timestamp=ts_ms * 1e-3,
+        data = raw_message["data"]
+        topic = raw_message["topic"]
+        symbol = topic.split('.')[1]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
+        for trades in data:
+            trade_message: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
+                trades,
+                {"trading_pair": trading_pair}
             )
             message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        print("_parse_funding_info_message")
         event_type = raw_message["type"]
         if event_type == "delta":
             symbol = raw_message["topic"].split(".")[-1]
@@ -237,47 +241,71 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 message_queue.put_nowait(info_update)
 
     async def _request_complete_funding_info(self, trading_pair: str):
-        tasks = []
+        funding_info = await self._get_funding_info(trading_pair)
+        tickers = await self._get_tickers(trading_pair)
+        return funding_info, tickers
+
+    async def _get_funding_info(self, trading_pair: str):
+        exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+
         params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "category": bybit_utils.get_trading_pair_category(trading_pair),
+            "symbol": exchange_symbol,
+            "limit": 1  # Get last
+        }
+        response: Dict[str, Any] = await self._connector._api_get(
+            path_url=CONSTANTS.FUNDING_RATE_PATH_URL,
+            params=params,
+            is_auth_required=False,
+            trading_pair=trading_pair,
+        )
+        result: Dict[str, Any] = response["result"]
+        return result
+
+    async def _get_tickers(self, trading_pair: str):
+        exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+
+        params = {
+            "category": bybit_utils.get_trading_pair_category(trading_pair),
+            "symbol": exchange_symbol
+        }
+        response: Dict[str, Any] = await self._connector._api_get(
+            path_url=CONSTANTS.TICKERS_PATH_URL,
+            params=params,
+            is_auth_required=False,
+            trading_pair=trading_pair,
+        )
+        result: Dict[str, Any] = response["result"]
+        return result
+
+    async def _request_trading_history(self, trading_pair: str):
+        exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
+
+        params = {
+            "category": bybit_utils.get_trading_pair_category(trading_pair),
+            "symbol": exchange_symbol,
+            "limit": 1  # Get last
         }
 
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint_info = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url_info = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_info, trading_pair=trading_pair, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_info)
-        tasks.append(rest_assistant.execute_request(
-            url=url_info,
-            throttler_limit_id=limit_id,
+        response: Dict[str, Any] = await self._connector._api_get(
+            path_url=CONSTANTS.RECENT_TRADING_HISTORY_PATH_URL,
             params=params,
-            method=RESTMethod.GET,
-        ))
-        endpoint_predicted = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
-        url_predicted = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_predicted, trading_pair=trading_pair, domain=self._domain)
-        limit_id_predicted = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_predicted, trading_pair)
-        tasks.append(rest_assistant.execute_request(
-            url=url_predicted,
-            throttler_limit_id=limit_id_predicted,
-            params=params,
-            method=RESTMethod.GET,
-            is_auth_required=True
-        ))
-
-        responses = await asyncio.gather(*tasks)
-        return responses
+            is_auth_required=True,
+            trading_pair=trading_pair,
+        )
+        result: Dict[str, Any] = response["result"]
+        return result
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        snapshot_response = await self._request_order_book_snapshot(trading_pair)
-        snapshot_data = snapshot_response["result"]
-        timestamp = float(snapshot_response["time_now"])
-        update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
+        snapshot = await self._request_order_book_snapshot(trading_pair)
+        timestamp = float(snapshot["ts"])
+        update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp * 1e-3)
 
-        bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
         order_book_message_content = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": bids,
-            "asks": asks,
+            "bids": snapshot["b"],
+            "asks": snapshot["a"],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
@@ -288,61 +316,26 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return snapshot_msg
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
+        """
+        Retrieves a copy of the full order book from the exchange, for a particular trading pair.
+
+        :param trading_pair: the trading pair for which the order book will be retrieved
+
+        :return: the response from the exchange (JSON dictionary)
+        """
         params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "category": bybit_utils.get_trading_pair_category(trading_pair),
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(
+                trading_pair=trading_pair
+            ),
+            "limit": "1000"
         }
-
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, trading_pair=trading_pair, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint)
-        data = await rest_assistant.execute_request(
-            url=url,
-            throttler_limit_id=limit_id,
-            params=params,
+        response = await self._connector._api_request(
+            path_url=CONSTANTS.ORDERBOOK_SNAPSHOT_PATH_URL,
             method=RESTMethod.GET,
+            params=params
         )
-
-        return data
-
-    @staticmethod
-    def _get_bids_and_asks_from_rest_msg_data(
-        snapshot: List[Dict[str, Union[str, int, float]]]
-    ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bisect_idx = 0
-        for i, row in enumerate(snapshot):
-            if row["side"] == "Sell":
-                bisect_idx = i
-                break
-        bids = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[:bisect_idx]
-        ]
-        asks = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[bisect_idx:]
-        ]
-        return bids, asks
-
-    @staticmethod
-    def _get_bids_and_asks_from_ws_msg_data(
-        snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
-    ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bids = []
-        asks = []
-        for action, rows_list in snapshot.items():
-            if action not in ["delete", "update", "insert"]:
-                continue
-            is_delete = action == "delete"
-            for row_dict in rows_list:
-                row_price = row_dict["price"]
-                row_size = 0.0 if is_delete else row_dict["size"]
-                row_tuple = (row_price, row_size)
-                if row_dict["side"] == "Buy":
-                    bids.append(row_tuple)
-                else:
-                    asks.append(row_tuple)
-        return bids, asks
+        return response['result']
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         pass  # unused

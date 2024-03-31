@@ -137,45 +137,6 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         # }
         pass
 
-    # async def _subscribe_to_channels(self, ws: WSAssistant, url: str):
-    #     try:
-    #         payload = {
-    #             "op": "subscribe",
-    #             "args": [f"{CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME}"],
-    #         }
-    #         subscribe_positions_request = WSJSONRequest(payload)
-    #         payload = {
-    #             "op": "subscribe",
-    #             "args": [f"{CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME}"],
-    #         }
-    #         subscribe_orders_request = WSJSONRequest(payload)
-    #         payload = {
-    #             "op": "subscribe",
-    #             "args": [f"{CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME}"],
-    #         }
-    #         subscribe_executions_request = WSJSONRequest(payload)
-    #         payload = {
-    #             "op": "subscribe",
-    #             "args": [f"{CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME}"],
-    #         }
-    #         subscribe_wallet_request = WSJSONRequest(payload)
-
-    #         await ws.send(subscribe_positions_request)
-    #         await ws.send(subscribe_orders_request)
-    #         await ws.send(subscribe_executions_request)
-    #         await ws.send(subscribe_wallet_request)
-
-    #         self.logger().info(
-    #             f"Subscribed to private account and orders channels {url}..."
-    #         )
-    #     except asyncio.CancelledError:
-    #         raise
-    #     except Exception:
-    #         self.logger().exception(
-    #             f"Unexpected error occurred subscribing to order book trading and delta streams {url}..."
-    #         )
-    #         raise
-
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
@@ -185,6 +146,11 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         pass
+
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
 
     async def _connected_websocket_assistant(self, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
