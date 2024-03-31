@@ -6,8 +6,8 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "dydx_perpetual"
 DEFAULT_DOMAIN = "com"
-##
-API_VERSION = "v4"
+
+API_VERSION = "v3"
 
 HBOT_BROKER_ID = "Hummingbot"
 MAX_ID_LEN = 40
@@ -16,23 +16,15 @@ ORDER_EXPIRATION = 2419200  # 28 days
 LIMIT_FEE = 0.015
 
 # API Base URLs
-##
-DYDX_VALIDATOR_REST_BASE_URL = "https://dydx-ops-rpc.kingnodes.com"
-##
-DYDX_INDEXER_REST_BASE_URL = "https://api.dydx.exchange"
-##
-DYDX_REST_URL = "{}/{}".format(DYDX_INDEXER_REST_BASE_URL, API_VERSION)
-##
-DYDX_WS_URL = "wss://indexer.dydx.trade/{}/ws".format(API_VERSION)
+DYDX_REST_BASE_URL = "https://api.dydx.exchange"
+DYDX_REST_URL = "{}/{}".format(DYDX_REST_BASE_URL, API_VERSION)
+DYDX_WS_URL = "wss://api.dydx.exchange/{}/ws".format(API_VERSION)
 
 # Public REST Endpoints
-##
-PATH_MARKETS = "/perpetualMarkets"
-##
-PATH_HISTORY_FUNDING = "/historicalFunding"
+
+PATH_MARKETS = "/markets"
 PATH_TICKER = "/stats"
-##
-PATH_SNAPSHOT = "/orderbooks/perpetualMarket"
+PATH_SNAPSHOT = "/orderbook"
 PATH_TIME = "/time"
 PATH_ORDERS = "/orders"
 PATH_ACTIVE_ORDERS = "/active-orders"
@@ -47,11 +39,10 @@ PATH_FUNDING = "/funding"
 WS_PATH_ACCOUNTS = "/ws/accounts"
 
 # WS Channels
-####
-WS_CHANNEL_TRADES = "v4_trades"
-WS_CHANNEL_ORDERBOOK = "v4_orderbook"
-WS_CHANNEL_MARKETS = "v4_markets"
-WS_CHANNEL_ACCOUNTS = "v4_accounts"
+WS_CHANNEL_TRADES = "v3_trades"
+WS_CHANNEL_ORDERBOOK = "v3_orderbook"
+WS_CHANNEL_MARKETS = "v3_markets"
+WS_CHANNEL_ACCOUNTS = "v3_accounts"
 
 WS_TYPE_SUBSCRIBE = "subscribe"
 WS_TYPE_SUBSCRIBED = "subscribed"

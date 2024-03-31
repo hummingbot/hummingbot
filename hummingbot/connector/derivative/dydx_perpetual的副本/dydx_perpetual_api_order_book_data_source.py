@@ -186,18 +186,20 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if raw_message["type"] == "channel_data":
-            for trading_pair in raw_message["contents"]["markets"].keys():
+            for trading_pair in raw_message["contents"].keys():
                 if trading_pair in self._trading_pairs:
-                    market_info = raw_message["contents"]["markets"][trading_pair]
+                    market_info = raw_message["contents"][trading_pair]
 
                     if any(
-                        info in ["oraclePrice", "nextFundingRate", "nextFundingAt"]
+                        info in ["indexPrice", "oraclePrice", "nextFundingRate", "nextFundingAt"]
                         for info in market_info.keys()
                     ):
 
                         info_update = FundingInfoUpdate(trading_pair)
+
+                        if "indexPrice" in market_info.keys():
+                            info_update.index_price = Decimal(market_info["indexPrice"])
                         if "oraclePrice" in market_info.keys():
-                            info_update.index_price = Decimal(market_info["oraclePrice"])
                             info_update.mark_price = Decimal(market_info["oraclePrice"])
                         if "nextFundingRate" in market_info.keys():
                             info_update.rate = Decimal(market_info["nextFundingRate"])
@@ -208,13 +210,12 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
         params = {
-            "limit": "0",
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint = CONSTANTS.PATH_HISTORY_FUNDING
-        ex_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        url = web_utils.public_rest_url(path_url=endpoint + "/" + ex_symbol)
+        endpoint = CONSTANTS.PATH_MARKETS
+        url = web_utils.public_rest_url(path_url=endpoint)
         data = await rest_assistant.execute_request(
             url=url,
             throttler_limit_id=endpoint,
@@ -247,8 +248,7 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         rest_assistant = await self._api_factory.get_rest_assistant()
         endpoint = CONSTANTS.PATH_SNAPSHOT
-        ex_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        url = web_utils.public_rest_url(path_url=endpoint + "/" + ex_symbol)
+        url = web_utils.public_rest_url(path_url=endpoint + "/" + trading_pair)
         data = await rest_assistant.execute_request(
             url=url,
             throttler_limit_id=endpoint,
