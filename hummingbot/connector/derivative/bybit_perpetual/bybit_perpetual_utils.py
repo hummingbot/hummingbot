@@ -50,6 +50,13 @@ def is_linear_perpetual(trading_pair: str) -> bool:
     return quote_asset == "USDT"
 
 
+def get_trading_pair_category(trading_pair):
+    if is_linear_perpetual(trading_pair):
+        return "linear"
+    else:  # non-linear
+        return "inverse"
+
+
 def get_next_funding_timestamp(current_timestamp: float) -> float:
     # On ByBit Perpetuals, funding occurs every 8 hours at 00:00UTC, 08:00UTC and 16:00UTC.
     # Reference: https://help.bybit.com/hc/en-us/articles/360039261134-Funding-fee-calculation
