@@ -69,7 +69,6 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
 
         self._allocated_collateral = {}
         self._allocated_collateral_sum = Decimal("0")
-        self.subaccount_id = 0
 
         super().__init__(client_config_map=client_config_map)
 
@@ -203,17 +202,10 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         try:
             body_params = {
                 "market": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
-                "client_order_id": tracked_order.client_order_id,
-                "clob_pair_id": self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
-                "dydx_perpetual_ethereum_address": self.dydx_perpetual_ethereum_address,
-                "subaccount_num": self.subaccount_id,
-                "order_flags": 64,
-                "good_til_time_in_seconds": 120,
-                "good_til_block": 0,
-                # "good_til_block_time": 0,
+                "side": "BUY" if tracked_order.trade_type == TradeType.BUY else "SELL",
+                "id": tracked_order.exchange_order_id,
             }
-            # good_til_block_time = int((datetime.now() + timedelta(seconds=good_til_time_in_seconds)).timestamp())
-            good_til_block_time = int(time.time()) + CONSTANTS.ORDER_EXPIRATION
+
             resp = await self._api_delete(
                 path_url=CONSTANTS.PATH_ACTIVE_ORDERS,
                 params=body_params,
@@ -522,7 +514,6 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                 self._margin_fractions[market_name] = {
                     "initial": Decimal(market["initialMarginFraction"]),
                     "maintenance": Decimal(market["maintenanceMarginFraction"]),
-                    "clob_pair_id": market["clobPairId"],
                 }
             except Exception:
                 self.logger().exception("Error updating trading rules")
@@ -788,13 +779,13 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {"ticker": exchange_symbol}
+        params = {"market": exchange_symbol}
 
         response: Dict[str, Dict[str, Any]] = await self._api_get(
             path_url=CONSTANTS.PATH_MARKETS, params=params, is_auth_required=False
         )
 
-        price = float(response["markets"][exchange_symbol]["oraclePrice"])
+        price = float(response["markets"][exchange_symbol]["indexPrice"])
         return price
 
     def supported_position_modes(self) -> List[PositionMode]:
