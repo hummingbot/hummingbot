@@ -486,7 +486,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(Decimal(index_price_resp["data"][0]["idxPx"]), funding_info.index_price)
         self.assertEqual(Decimal(mark_price_resp["data"][0]["markPx"]), funding_info.mark_price)
-        self.assertEqual(int(funding_info_resp["data"][0]["nextFundingTime"]), funding_info.next_funding_utc_timestamp)
+        self.assertEqual(int(funding_info_resp["data"][0]["nextFundingTime"] * 1e-3), funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(funding_info_resp["data"][0]["fundingRate"]), funding_info.rate)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -1008,7 +1008,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         expected_last_index_price = -3
         expected_last_mark_price = -3
-        update_next_funding_utc_timestamp = int(index_price_event["data"][0]["nextFundingTime"])
+        update_next_funding_utc_timestamp = int(index_price_event["data"][0]["nextFundingTime"] * 1e-3)
         update_rate = Decimal(index_price_event["data"][0]["fundingRate"])
 
         self.data_source._last_mark_price = expected_last_mark_price

@@ -124,7 +124,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trading_pair=trading_pair,
             index_price=Decimal(str(index_price["idxPx"])),
             mark_price=Decimal(str(mark_price["markPx"])),
-            next_funding_utc_timestamp=int(funding_data["nextFundingTime"]),
+            next_funding_utc_timestamp=int(float(funding_data["nextFundingTime"]) * 1e-3),
             rate=Decimal(str(funding_data["fundingRate"])),
         )
         return funding_info
@@ -385,7 +385,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         symbol = raw_message["arg"]["instId"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         funding_data = raw_message["data"][0]
-        self._last_next_funding_utc_timestamp = int(funding_data["nextFundingTime"])
+        self._last_next_funding_utc_timestamp = int(float(funding_data["nextFundingTime"]) * 1e-3)
         self._last_rate = (Decimal(str(funding_data["fundingRate"])))
         info_update = FundingInfoUpdate(trading_pair=trading_pair,
                                         index_price=self._last_index_price,
