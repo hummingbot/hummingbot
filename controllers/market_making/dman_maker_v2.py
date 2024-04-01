@@ -44,7 +44,7 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
         client_data=ClientFieldData(
             prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
             prompt_on_new=True))
-    top_order_refresh_time: Optional[float] = Field(
+    top_executor_refresh_time: Optional[float] = Field(
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
@@ -97,9 +97,9 @@ class DManMakerV2(MarketMakingControllerBase):
         self.spreads = self.config.dca_spreads
 
     def first_level_refresh_condition(self, executor):
-        if self.config.top_order_refresh_time is not None:
-            if self.get_level_from_level_id(executor.custom_info["level_id"]) == 1:
-                return time.time() - executor.timestamp > self.config.top_order_refresh_time
+        if self.config.top_executor_refresh_time is not None:
+            if self.get_level_from_level_id(executor.custom_info["level_id"]) == 0:
+                return time.time() - executor.timestamp > self.config.top_executor_refresh_time
         return False
 
     def order_level_refresh_condition(self, executor):
