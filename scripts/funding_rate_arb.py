@@ -295,8 +295,8 @@ class FundingRateArbitrage(StrategyV2Base):
                 token_info["best_funding_rate_diff (%)"] = funding_rate_diff * 100
                 token_info["trade_profitability (%)"] = self.get_current_profitability_after_fees(token, connector_1, connector_2, side) * 100
 
-                time_to_next_funding_info_c1 = funding_info_report[connector_1].next_funding_utc_timestamp / 1000 - self.current_timestamp
-                time_to_next_funding_info_c2 = funding_info_report[connector_2].next_funding_utc_timestamp / 1000 - self.current_timestamp
+                time_to_next_funding_info_c1 = funding_info_report[connector_1].next_funding_utc_timestamp - self.current_timestamp
+                time_to_next_funding_info_c2 = funding_info_report[connector_2].next_funding_utc_timestamp - self.current_timestamp
                 token_info["minutes_to_funding_c1"] = time_to_next_funding_info_c1 / 60
                 token_info["minutes_to_funding_c2"] = time_to_next_funding_info_c2 / 60
 
