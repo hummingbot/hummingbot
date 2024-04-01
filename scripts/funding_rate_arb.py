@@ -236,7 +236,7 @@ class FundingRateArbitrage(StrategyV2Base):
             )
             funding_payments_pnl = sum(funding_payment.amount for funding_payment in funding_arbitrage_info["funding_payments"])
             executors_pnl = sum(executor.net_pnl_quote for executor in executors)
-            if executors_pnl + funding_payments_pnl > self.config.profitability_to_take_profit:
+            if executors_pnl + funding_payments_pnl > self.config.profitability_to_take_profit * self.config.position_size_quote:
                 self.stopped_funding_arbitrages[token].append(funding_arbitrage_info)
                 self.logger().info("Take profit profitability reached, stopping executors")
                 stop_executor_actions.extend([StopExecutorAction(executor_id=executor.id) for executor in executors])
