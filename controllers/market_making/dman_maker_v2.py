@@ -18,7 +18,7 @@ from hummingbot.smart_components.models.executor_actions import ExecutorAction, 
 
 class DManMakerV2Config(MarketMakingControllerConfigBase):
     """
-    Configuration required to run the PairsTrading strategy.
+    Configuration required to run the D-Man Maker V2 strategy.
     """
     controller_name: str = "dman_maker_v2"
     candles_config: List[CandlesConfig] = []
