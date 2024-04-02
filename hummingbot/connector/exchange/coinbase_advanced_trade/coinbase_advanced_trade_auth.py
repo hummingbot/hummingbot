@@ -197,21 +197,18 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
             ],
             "channel": "level2",
             "jwt": "exampleJWT",
-            "timestamp": 1660838876,
         }
         To subscribe to any channel, users must provide a channel name, api_key, timestamp, and signature:
             channel name as a string. You can only subscribe to one channel at a time.
             timestamp should be a string in UNIX format. Example: "1677527973".
             signature should be created by:
-        Concatenating and comma-separating the timestamp, channel name, and product Ids, for example: 1660838876level2ETH-USD,ETH-EUR.
+        Concatenating and comma-separating the timestamp, channel name, and product Ids,f
+        for example: 1660838876level2ETH-USD,ETH-EUR.
         Signing the above message with the passphrase and base64-encoding the signature.
         """
-        timestamp: int = int(self.time_provider.time())
-
         try:
             payload: Dict = dict(request.payload or {}) | {
                 "jwt": self._build_jwt(coinbase.constants.WS_SERVICE),
-                "timestamp": timestamp,
             }
             request.payload = payload
         except ValueError as e:

@@ -179,8 +179,6 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=12345678900)
         result = await self.auth.ws_jwt_authenticate(self.request)
         self.assertIn('jwt', result.payload)
-        self.assertIn('timestamp', result.payload)
-        self.assertEqual(12345678900, result.payload['timestamp'])
         mock_encode.assert_called_once()
 
     @patch('jwt.encode')
