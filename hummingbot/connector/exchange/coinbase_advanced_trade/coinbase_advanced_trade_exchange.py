@@ -198,6 +198,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             f"\n   symbols_mapping_initialized: {self.trading_pair_symbol_map_ready()}\n"
             f"   order_books_initialized: {self.order_book_tracker.ready}\n"
             f"   account_balance: {len(self._account_balances) > 0}\n"
+            f"   account_balance: {len(self._account_available_balances) > 0}\n"
             f"   trading_required: {self.is_trading_required}\n"
             f"   trading_rule_initialized: {len(self._trading_rules) > 0 if self.is_trading_required else True}\n"
             f"   user_stream_initialized: {self._is_user_stream_initialized()}\n"
@@ -707,7 +708,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
     async def _status_polling_loop_fetch_updates(self):
         await self._update_order_fills_from_trades()
-        await self._update_balances()
         await super()._status_polling_loop_fetch_updates()
 
     def update_balance(self, asset: str, balance: Decimal):
@@ -724,8 +724,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        self.logger().debug(f"Updating balances from {self.name}...")
 
+        self.logger().debug("DBG:Balance _update_balance")
         async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
             asset_name: str = account.get("currency")
             hold_value: Decimal = Decimal(account.get("hold").get("value"))
@@ -741,7 +741,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         # Request removal of non-valid assets
         self.remove_balances(local_asset_names.difference(remote_asset_names))
-        self.logger().debug(f" '-> Balance updated: {self._account_balances}")
+        self.logger().debug(f"DBG:Balance '-> Balance updated: {self._account_balances}")
 
     async def _list_one_page_of_accounts(self, cursor: str) -> Dict[str, Any]:
         """
@@ -939,11 +939,13 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         in_flight_orders: Dict[str, InFlightOrder] = self.in_flight_orders
 
+        self.logger().debug(f"DBG:Balance: _update_order_fills_from_trades {small_interval_last_tick} {small_interval_current_tick}")
         if (long_interval_current_tick > long_interval_last_tick
                 or (in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = set_exchange_time_from_timestamp(self._last_trades_poll_coinbase_advanced_trade_timestamp,
-                                                          "s")
+            query_time = set_exchange_time_from_timestamp(self._last_trades_poll_coinbase_advanced_trade_timestamp, "s")
             self._last_trades_poll_coinbase_advanced_trade_timestamp = self.time_synchronizer.time()
+            self.logger().debug(f"DBG:Balance:   '-> Time: {query_time}:{self._last_trades_poll_coinbase_advanced_trade_timestamp}")
+
             order_by_exchange_id_map = {
                 order.exchange_order_id: order
                 for order in self._order_tracker.all_fillable_orders.values()
@@ -963,8 +965,10 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     is_auth_required=True))
 
             results = await safe_gather(*tasks, return_exceptions=True)
+            self.logger().debug(f"DBG:Balance:   '-> Fetched trades: {results}")
 
             for trades, trading_pair in zip(results, trading_pairs):
+                self.logger().debug(f"DBG:Balance:   '-> Fetched trades: {trading_pair}:{trades}")
                 if isinstance(trades, Exception):
                     self.logger().network(
                         f"Error fetching trades update for the order {trading_pair}: {trades}.",
@@ -992,6 +996,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                         else:
                             fill_base_amount: Decimal = Decimal(trade["size"])
                             fill_quote_amount: Decimal = Decimal(trade["size"]) * Decimal(trade["price"])
+                        self.logger().debug(f"DBG:Balance:      '-> {trade['size']}:{fill_quote_amount}:{fill_base_amount}")
                         trade_update = TradeUpdate(
                             trade_id=str(trade["trade_id"]),
                             client_order_id=tracked_order.client_order_id,
