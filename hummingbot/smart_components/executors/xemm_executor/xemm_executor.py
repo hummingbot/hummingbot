@@ -7,6 +7,7 @@ from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.executor_base import ExecutorBase
 from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -93,3 +94,19 @@ class XEMMExecutor(ExecutorBase):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.logger().error("Not enough budget to open position.")
             self.stop()
+
+    async def control_task(self):
+        if self.status == SmartComponentStatus.RUNNING:
+            self.control_maker_order()
+            self.control_taker_order()
+        elif self.status == SmartComponentStatus.SHUTTING_DOWN:
+            await self.control_shutdown_process()
+
+    def control_maker_order(self):
+        pass
+
+    def control_taker_order(self):
+        pass
+
+    async def control_shutdown_process(self):
+        pass
