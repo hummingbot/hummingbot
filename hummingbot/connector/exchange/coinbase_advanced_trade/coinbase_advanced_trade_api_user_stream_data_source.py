@@ -177,17 +177,12 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param queue: The queue to put the order into.
         """
         try:
-            CoinbaseAdvancedTradeAPIUserStreamDataSource.logger().debug(f"Putting order into queue (no wait): {item}")
             queue.put_nowait(item)
             await asyncio.sleep(0)
         except asyncio.QueueFull:
             try:
-                CoinbaseAdvancedTradeAPIUserStreamDataSource.logger().debug(
-                    f"Putting order into queue (async): {item}")
                 await asyncio.wait_for(queue.put(item), timeout=1.0)
             except asyncio.TimeoutError:
-                CoinbaseAdvancedTradeAPIUserStreamDataSource.logger().debug(
-                    f"Queueing Failed for : {item}")
                 raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
@@ -216,11 +211,9 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             channel: str = data["channel"]
             if channel == 'user':
                 async for order in self._decipher_message(event_message=data):
-                    self.logger().debug(f"Queueing order: {order}")
                     try:
                         # queue.put_nowait(order)
                         await self._try_except_queue_put(item=order, queue=queue)
-                        self.logger().debug(f"Queued order: {order}")
                     except asyncio.QueueFull:
                         self.logger().exception("Timeout while waiting to put message into raw queue. Message dropped.")
                         raise
@@ -247,14 +240,14 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Processes the subscription message from the websocket connection.
         :param data: The message received from the websocket connection.
         """
-        self.logger().debug(f"Received subscription message: {data}")
+        pass  # self.logger().debug(f"Received subscription message: {data}")
 
     def _process_heartbeat_message(self, data: Dict[str, Any]):
         """
         Processes the heartbeat message from the websocket connection.
         :param data: The message received from the websocket connection.
         """
-        self.logger().debug(f"Received heartbeat message: {data}")
+        pass  # self.logger().debug(f"Received heartbeat message: {data}")
 
     async def _decipher_message(self, event_message: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
         """
