@@ -19,9 +19,10 @@ from pydantic.fields import FieldInfo
 from pydantic.main import ModelMetaclass, validate_model
 from yaml import SafeDumper
 
-from hummingbot import get_strategy_list, root_path
+from hummingbot import get_strategy_list
 from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
+from hummingbot.client.config.config_validators import parse_strategy_location
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
 from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
@@ -573,10 +574,13 @@ def get_strategy_config_map(
     """
     try:
         config_cls = get_strategy_pydantic_config_cls(strategy)
+
+        location = parse_strategy_location(strategy)
+
         if config_cls is None:  # legacy
-            cm_key = f"{strategy}_config_map"
-            strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
-                                         fromlist=[f"hummingbot.strategy.{strategy}"])
+            cm_key = f"{location.strategy_name}_config_map"
+            strategy_module = __import__(f"{location.import_path}.{cm_key}",
+                                         fromlist=[location.import_path])
             config_map = getattr(strategy_module, cm_key)
         else:
             hb_config = config_cls.construct()
@@ -594,8 +598,10 @@ def get_strategy_starter_file(strategy: str) -> Callable:
     if strategy is None:
         return lambda: None
     try:
-        strategy_module = __import__(f"hummingbot.strategy.{strategy}.start",
-                                     fromlist=[f"hummingbot.strategy.{strategy}"])
+        location = parse_strategy_location(strategy)
+
+        strategy_module = __import__(f"{location.import_path}.start",
+                                     fromlist=[location.import_path])
         return getattr(strategy_module, "start")
     except Exception as e:
         logging.getLogger().error(e, exc_info=True)
@@ -633,12 +639,14 @@ def read_yml_file(yml_path: Path) -> Dict[str, Any]:
 def get_strategy_pydantic_config_cls(strategy_name: str) -> Optional[ModelMetaclass]:
     pydantic_cm_class = None
     try:
-        pydantic_cm_pkg = f"{strategy_name}_config_map_pydantic"
-        pydantic_cm_path = root_path() / "hummingbot" / "strategy" / strategy_name / f"{pydantic_cm_pkg}.py"
+        location = parse_strategy_location(strategy_name)
+
+        pydantic_cm_pkg = f"{location.strategy_name}_config_map_pydantic"
+
+        pydantic_cm_path = location.path / f"{pydantic_cm_pkg}.py"
         if pydantic_cm_path.exists():
-            pydantic_cm_class_name = f"{''.join([s.capitalize() for s in strategy_name.split('_')])}ConfigMap"
-            pydantic_cm_mod = __import__(f"hummingbot.strategy.{strategy_name}.{pydantic_cm_pkg}",
-                                         fromlist=[f"{pydantic_cm_class_name}"])
+            pydantic_cm_class_name = f"{''.join([s.capitalize() for s in location.strategy_name.split('_')])}ConfigMap"
+            pydantic_cm_mod = __import__(f"{location.import_path}.{pydantic_cm_pkg}", fromlist=[f"{pydantic_cm_class_name}"])
             pydantic_cm_class = getattr(pydantic_cm_mod, pydantic_cm_class_name)
     except ImportError:
         logging.getLogger().exception(f"Could not import Pydantic configs for {strategy_name}.")

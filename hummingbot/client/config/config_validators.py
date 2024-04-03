@@ -4,10 +4,14 @@ string and determines whether it is valid input. This file contains many validat
 hummingbot ConfigVars.
 """
 
+import sys
 import time
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from pathlib import Path
+from typing import NamedTuple, Optional
+
+from hummingbot import root_path
 
 
 def validate_exchange(value: str) -> Optional[str]:
@@ -38,13 +42,58 @@ def validate_connector(value: str) -> Optional[str]:
         return f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}"
 
 
+EXTERNAL_STRATEGY_PREFIX = 'external::'
+
+
+class ParsedStrategy(NamedTuple):
+    input_strategy: str
+    path: Path
+    import_path: str
+    strategy_name: str
+    external: bool
+
+
+def parse_strategy_location(strategy_name: str) -> ParsedStrategy:
+    if strategy_name.startswith(EXTERNAL_STRATEGY_PREFIX):
+        parts = strategy_name.split(EXTERNAL_STRATEGY_PREFIX)
+        raw_path = parts[1]
+        path = Path(raw_path)
+        if len(path.parts) > 1:
+            # Make sure the parent folder is in sys.path
+            parent_path = str(path.parent)
+            if parent_path not in sys.path:
+                sys.path.append(parent_path)
+
+        import_path = path.parts[-1]
+
+        strategy_name = path.parts[-1].split('.')[0]
+        return ParsedStrategy(
+            input_strategy=strategy_name,
+            path=path,
+            import_path=import_path,
+            strategy_name=strategy_name,
+            external=True
+        )
+    else:
+        return ParsedStrategy(
+            input_strategy=strategy_name,
+            path=root_path() / "hummingbot" / "strategy" / strategy_name,
+            import_path=f"hummingbot.strategy.{strategy_name}",
+            strategy_name=strategy_name,
+            external=False
+        )
+
+
 def validate_strategy(value: str) -> Optional[str]:
     """
     Restrict valid derivatives to the strategy file names
     """
     from hummingbot.client.settings import STRATEGIES
-    if value not in STRATEGIES:
+    location = parse_strategy_location(value)
+    if not location.external and location.strategy_name not in STRATEGIES:
         return f"Invalid strategy, please choose value from {STRATEGIES}"
+    elif location.external and not location.path.exists():
+        return f"Invalid external strategy, the path {location.path} does not exist"
 
 
 def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal = None, inclusive=True) -> Optional[str]:
