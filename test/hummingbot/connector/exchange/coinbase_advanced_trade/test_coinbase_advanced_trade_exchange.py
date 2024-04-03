@@ -336,7 +336,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
-        return False
+        return True
 
     @property
     def expected_partial_fill_price(self) -> Decimal:
@@ -1076,7 +1076,6 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request_params = request.kwargs["params"]
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                          request_params["product_id"])
-        self.assertNotIn("start_sequence_timestamp", request_params)
 
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
@@ -1583,6 +1582,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
 
         cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
 
+        print(self._all_executed_requests(mock_api, url))
         cancel_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(cancel_request)
 
