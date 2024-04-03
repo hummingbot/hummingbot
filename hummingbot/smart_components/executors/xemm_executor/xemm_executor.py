@@ -64,9 +64,11 @@ class XEMMExecutor(ExecutorBase):
             self.taker_connector = config.buying_market.connector_name
             self.taker_trading_pair = config.buying_market.trading_pair
             self.taker_order_side = TradeType.BUY
-        self._last_buy_price = Decimal("1")
-        self._last_sell_price = Decimal("1")
-        self._last_tx_cost = Decimal("1")
+        self._taker_result_price = Decimal("1")
+        self._maker_target_price = Decimal("1")
+        self._tx_cost = Decimal("1")
+        self.maker_order = None
+        self.taker_order = None
         super().__init__(strategy=strategy,
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval)
@@ -98,14 +100,19 @@ class XEMMExecutor(ExecutorBase):
     async def control_task(self):
         if self.status == SmartComponentStatus.RUNNING:
             self.control_maker_order()
-            self.control_taker_order()
         elif self.status == SmartComponentStatus.SHUTTING_DOWN:
             await self.control_shutdown_process()
 
     def control_maker_order(self):
+        if self.maker_order is None:
+            await self.create_maker_order()
+        else:
+            await self.control_profitability_and_update_maker_order()
+
+    async def control_profitability_and_update_maker_order(self):
         pass
 
-    def control_taker_order(self):
+    async def create_maker_order(self):
         pass
 
     async def control_shutdown_process(self):
