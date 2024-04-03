@@ -1,155 +1,167 @@
 import logging
-import math
+import os
 from decimal import Decimal
 from typing import Dict
 
-from hummingbot.connector.utils import split_hb_trading_pair
+import pandas as pd
+from pydantic import Field
+
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
+from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class VWAPExample(ScriptStrategyBase):
+class SimpleVWAPConfig(BaseClientModel):
+    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    exchange: str = Field("bitrue_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange where the bot will trade:"))
+    trading_pair: str = Field("HBOT-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair where the bot will place orders:"))
+    is_buy: bool = Field(True, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Are you buying or selling the base asset? (True for buy, False for sell):"))
+    total_amount_quote: Decimal = Field(100, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the total amount to buy/sell (in quote asset):"))
+    slippage_limit_pct: Decimal = Field(2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the maximum slippage per order (in %):"))
+    order_decrement_pct: Decimal = Field(1, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "How much should the bot decrease each order to lower slippage (in %):"))
+    filled_order_delay: Decimal = Field(10, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "How long should the bot wait after an order fill (in seconds)?:"))
+
+
+class SimpleVWAP(ScriptStrategyBase):
     """
-    BotCamp Cohort: Sept 2022
-    Design Template: https://hummingbot-foundation.notion.site/Simple-VWAP-Example-d43a929cc5bd45c6b1a72f63e6635618
-    Video: -
-    Description:
-    This example lets you create one VWAP in a market using a percentage of the sum volume of the order book
-    until a spread from the mid price.
-    This example demonstrates:
-      - How to get the account balance
-      - How to get the bids and asks of a market
-      - How to code a "utility" strategy
+    Simple VWAP Example V2.
     """
-    last_ordered_ts = 0
-    vwap: Dict = {"connector_name": "binance_paper_trade", "trading_pair": "ETH-USDT", "is_buy": True,
-                  "total_volume_usd": 100000, "price_spread": 0.001, "volume_perc": 0.001, "order_delay_time": 10}
-    markets = {vwap["connector_name"]: {vwap["trading_pair"]}}
+    @classmethod
+    def init_markets(cls, config: SimpleVWAPConfig):
+        cls.markets = {config.exchange: {config.trading_pair}}
+
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: SimpleVWAPConfig):
+        super().__init__(connectors)
+        self.config = config
+        self.initialized = False
+
+    # Assumptions
+    price_source = PriceType.MidPrice       # PriceType.LastTrade
+    order_type = OrderType.LIMIT            # OrderType.MARKET
+    is_maker = False                        # True for maker orders
+    minimum_amount_quote = 1                # Bot stops when remaining quote amount is below this value
 
     def on_tick(self):
-        """
-         Every order delay time the strategy will buy or sell the base asset. It will compute the cumulative order book
-         volume until the spread and buy a percentage of that.
-         The input of the strategy is in USD, but we will use the rate oracle to get a target base that will be static.
-         - Use the Rate Oracle to get a conversion rate
-         - Create proposal (a list of order candidates)
-         - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
-         - Lastly, execute the proposal on the exchange
-         """
-        if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]):
-            if self.vwap.get("status") is None:
-                self.init_vwap_stats()
-            elif self.vwap.get("status") == "ACTIVE":
-                vwap_order: OrderCandidate = self.create_order()
-                vwap_order_adjusted = self.vwap["connector"].budget_checker.adjust_candidate(vwap_order,
-                                                                                             all_or_none=False)
-                if math.isclose(vwap_order_adjusted.amount, Decimal("0"), rel_tol=1E-5):
-                    self.logger().info(f"Order adjusted: {vwap_order_adjusted.amount}, too low to place an order")
-                else:
-                    self.place_order(
-                        connector_name=self.vwap["connector_name"],
-                        trading_pair=self.vwap["trading_pair"],
-                        is_buy=self.vwap["is_buy"],
-                        amount=vwap_order_adjusted.amount,
-                        order_type=vwap_order_adjusted.order_type)
-                    self.last_ordered_ts = self.current_timestamp
+        if self.initialized is False:
+            self.initialize()
 
-    def init_vwap_stats(self):
-        # General parameters
-        vwap = self.vwap.copy()
-        vwap["connector"] = self.connectors[vwap["connector_name"]]
-        vwap["delta"] = 0
-        vwap["trades"] = []
-        vwap["status"] = "ACTIVE"
-        vwap["trade_type"] = TradeType.BUY if self.vwap["is_buy"] else TradeType.SELL
-        base_asset, quote_asset = split_hb_trading_pair(vwap["trading_pair"])
+        if (self.current_timestamp > self.delay_timestamp) and (self.waiting_for_fill is False):
+            # Determine remaining amount to buy/sell
+            price = self.connectors[self.config.exchange].get_price_by_type(self.config.trading_pair, self.price_source)
+            current_amount_base = self.remaining_amount_quote / price
 
-        # USD conversion to quote and base asset
-        conversion_base_asset = f"{base_asset}-USD"
-        conversion_quote_asset = f"{quote_asset}-USD"
-        base_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_base_asset)
-        quote_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_quote_asset)
-        vwap["start_price"] = vwap["connector"].get_price(vwap["trading_pair"], vwap["is_buy"])
-        vwap["target_base_volume"] = vwap["total_volume_usd"] / base_conversion_rate
-        vwap["ideal_quote_volume"] = vwap["total_volume_usd"] / quote_conversion_rate
+            # Decrement the order size until slippage is lower than slippage limit
+            (order_amount, vwap_price) = self.get_amount_for_slippage(current_amount_base, price)
 
-        # Compute market order scenario
-        orderbook_query = vwap["connector"].get_quote_volume_for_base_amount(vwap["trading_pair"], vwap["is_buy"],
-                                                                             vwap["target_base_volume"])
-        vwap["market_order_base_volume"] = orderbook_query.query_volume
-        vwap["market_order_quote_volume"] = orderbook_query.result_volume
-        vwap["volume_remaining"] = vwap["target_base_volume"]
-        vwap["real_quote_volume"] = Decimal(0)
-        self.vwap = vwap
+            # Place the order and wait for it to be filled
+            if order_amount * vwap_price > self.minimum_amount_quote:
+                self.place_order(order_amount, vwap_price)
+                self.waiting_for_fill = True
+            else:
+                slippage = self.calc_slippage(vwap_price, price)
+                self.notify_hb_app_with_timestamp(f"Slippage limit exceeded - {order_amount:.2f} order results in {slippage * 100:.2f}% slippage.")
+                self.delay_timestamp = self.current_timestamp + self.config.filled_order_delay
 
-    def create_order(self) -> OrderCandidate:
-        """
-         Retrieves the cumulative volume of the order book until the price spread is reached, then takes a percentage
-         of that to use as order amount.
-         """
-        # Compute the new price using the max spread allowed
-        mid_price = float(self.vwap["connector"].get_mid_price(self.vwap["trading_pair"]))
-        price_multiplier = 1 + self.vwap["price_spread"] if self.vwap["is_buy"] else 1 - self.vwap["price_spread"]
-        price_affected_by_spread = mid_price * price_multiplier
+    # Initialize bot settings
+    def initialize(self):
+        self.create_timestamp = self.delay_timestamp = self.current_timestamp
+        self.remaining_amount_quote = self.config.total_amount_quote
 
-        # Query the cumulative volume until the price affected by spread
-        orderbook_query = self.vwap["connector"].get_volume_for_price(
-            trading_pair=self.vwap["trading_pair"],
-            is_buy=self.vwap["is_buy"],
-            price=price_affected_by_spread)
-        volume_for_price = orderbook_query.result_volume
+        # Calculate the price if you buy/sell total amount in one shot
+        price = self.connectors[self.config.exchange].get_price_by_type(self.config.trading_pair, self.price_source)
+        ideal_amount_base = self.config.total_amount_quote / price
+        vwap = self.get_vwap(ideal_amount_base, price)
 
-        # Check if the volume available is higher than the remaining
-        amount = min(volume_for_price * Decimal(self.vwap["volume_perc"]), Decimal(self.vwap["volume_remaining"]))
+        # Initialize reporting data structures
+        self.summary: Dict = {'1-shot Price': vwap.result_price, 'VWAP Price': 0, 'Base Amount Transacted': 0, 'Quote Amount Transacted': 0, 'P&L vs 1-shot': 0}
+        self.fills = []
+        self.waiting_for_fill = False
+        self.initialized = True
 
-        # Quantize the order amount and price
-        amount = self.vwap["connector"].quantize_order_amount(self.vwap["trading_pair"], amount)
-        price = self.vwap["connector"].quantize_order_price(self.vwap["trading_pair"],
-                                                            Decimal(price_affected_by_spread))
-        # Create the Order Candidate
-        vwap_order = OrderCandidate(
-            trading_pair=self.vwap["trading_pair"],
-            is_maker=False,
-            order_type=OrderType.MARKET,
-            order_side=self.vwap["trade_type"],
-            amount=amount,
-            price=price)
-        return vwap_order
+    # Decrement the order amount until the implied slippage is lower than slippage limit
+    def get_amount_for_slippage(self, amount: Decimal, price: Decimal) -> Decimal:
+        decrement = (self.config.order_decrement_pct / 100) * amount
+        while amount > 0:
+            vwap = self.get_vwap(amount, price)
+            slippage = self.calc_slippage(vwap.result_price, price)
+            if slippage < self.config.slippage_limit_pct / 100:
+                break
+            amount -= decrement
+        return (amount, vwap.result_price)
 
-    def place_order(self,
-                    connector_name: str,
-                    trading_pair: str,
-                    is_buy: bool,
-                    amount: Decimal,
-                    order_type: OrderType,
-                    price=Decimal("NaN"),
-                    ):
-        if is_buy:
-            self.buy(connector_name, trading_pair, amount, order_type, price)
-        else:
-            self.sell(connector_name, trading_pair, amount, order_type, price)
-
-    def did_fill_order(self, event: OrderFilledEvent):
-        """
-         Listens to fill order event to log it and notify the Hummingbot application.
-         If you set up Telegram bot, you will get notification there as well.
-         """
-        if event.trading_pair == self.vwap["trading_pair"] and event.trade_type == self.vwap["trade_type"]:
-            self.vwap["volume_remaining"] -= event.amount
-            self.vwap["delta"] = (self.vwap["target_base_volume"] - self.vwap["volume_remaining"]) / self.vwap[
-                "target_base_volume"]
-            self.vwap["real_quote_volume"] += event.price * event.amount
-            self.vwap["trades"].append(event)
-            if math.isclose(self.vwap["delta"], 1, rel_tol=1e-5):
-                self.vwap["status"] = "COMPLETE"
-        msg = (f"({event.trading_pair}) {event.trade_type.name} order (price: {round(event.price, 2)}) of "
-               f"{round(event.amount, 2)} "
-               f"{split_hb_trading_pair(event.trading_pair)[0]} is filled.")
-
+    # Get the VWAP price and volume for a given amount
+    def get_vwap(self, amount: Decimal, ref_price: Decimal) -> ClientOrderBookQueryResult:
+        # Determine the VWAP price and volume for the maximum order amount
+        result = self.connectors[self.config.exchange].get_vwap_for_volume(
+            self.config.trading_pair,
+            self.config.is_buy,
+            amount)
+        slippage = self.calc_slippage(result.result_price, ref_price)
+        trade_type = "buy" if self.config.is_buy else "sell"
+        msg = (f"VWAP: {trade_type} {result.result_volume:.2f} for {result.result_price:.6f} | Slippage: {slippage * 100:.2f}%")
         self.log_with_clock(logging.INFO, msg)
+        return result
+
+    # Calculate slippage for two prices
+    def calc_slippage(self, price: Decimal, ref_price: Decimal) -> Decimal:
+        slippage = float(price) / float(ref_price) - 1 if self.config.is_buy else 1 - float(price) / float(ref_price)
+        return slippage
+
+    # Place an order
+    def place_order(self, amount, price):
+        # Create order proposal
+        order = OrderCandidate(trading_pair=self.config.trading_pair,
+                               is_maker=self.is_maker,
+                               order_type=self.order_type,
+                               order_side=TradeType.BUY if self.config.is_buy else TradeType.SELL,
+                               amount=amount,
+                               price=price)
+        # Adjust order amount and price to budget and exchange rules
+        order = self.connectors[self.config.exchange].budget_checker.adjust_candidate(order, all_or_none=False)
+
+        # Place the order
+        if order.order_side == TradeType.SELL:
+            self.sell(connector_name=self.config.exchange, trading_pair=order.trading_pair, amount=order.amount,
+                      order_type=order.order_type, price=order.price)
+        elif order.order_side == TradeType.BUY:
+            self.buy(connector_name=self.config.exchange, trading_pair=order.trading_pair, amount=order.amount,
+                     order_type=order.order_type, price=order.price)
+
+    # Handle order fill event
+    def did_fill_order(self, event: OrderFilledEvent):
+        # Notify the user when the order has been filled
+        msg = (f"{event.trade_type.name} {event.amount:.2f} {event.trading_pair} at {event.price}")
         self.notify_hb_app_with_timestamp(msg)
+
+        # Calculate metrics
+        self.remaining_amount_quote -= event.amount * event.price
+
+        # Update data structures
+        self.fills.append({'Timestamp': self.current_timestamp,
+                           'Type': event.trade_type.name,
+                           'Amount': event.amount.quantize(Decimal('0.01')),
+                           'Price': event.price.quantize(Decimal('0.000001'))})
+
+        self.summary['Base Amount Transacted'] += event.amount
+        self.summary['Quote Amount Transacted'] += event.amount * event.price
+        self.summary['VWAP Price'] = self.summary['Quote Amount Transacted'] / self.summary['Base Amount Transacted']
+        self.summary['P&L vs 1-shot'] = (self.summary['VWAP Price'] - self.summary['1-shot Price']) * self.summary['Base Amount Transacted']
+        if self.config.is_buy:
+            self.summary['P&L vs 1-shot'] *= -1
+
+        # End the bot if the remaining amount is below the minimum
+        if self.remaining_amount_quote <= self.minimum_amount_quote:
+            for key, value in self.summary.items():
+                self.notify_hb_app(f"{key}: {str(round(value, 4))}")
+            HummingbotApplication.main_application().stop()
+        else:
+            self.waiting_for_fill = False
+            self.delay_timestamp = self.current_timestamp + self.config.filled_order_delay
 
     def format_status(self) -> str:
         """
@@ -162,23 +174,20 @@ class VWAPExample(ScriptStrategyBase):
         warning_lines = []
         warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
 
+        # Balances table
         balance_df = self.get_balance_df()
         lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
 
-        try:
-            df = self.active_orders_df()
-            lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
-        except ValueError:
-            lines.extend(["", "  No active maker orders."])
-        lines.extend(["", "VWAP Info:"] + ["   " + key + ": " + value
-                                           for key, value in self.vwap.items()
-                                           if isinstance(value, str)])
+        # Fills table
+        fills_df = pd.DataFrame(self.fills)
+        lines.extend(["", "  Fills:"] + ["    " + line for line in fills_df.to_string(index=False).split("\n")])
 
-        lines.extend(["", "VWAP Stats:"] + ["   " + key + ": " + str(round(value, 4))
-                                            for key, value in self.vwap.items()
-                                            if type(value) in [int, float, Decimal]])
+        # VWAP Summary table
+        summary_df = pd.DataFrame(list(self.summary.items()), columns=['Key', 'Value'])
+        summary_df['Value'] = summary_df['Value'].apply(lambda x: round(x, 4) if isinstance(x, (int, float, Decimal)) else x)
+        lines.extend(["", "  Summary:"] + ["    " + line for line in summary_df.to_string(index=False).split("\n")])
+        lines.extend(["", f"  Next order in: {self.delay_timestamp - self.current_timestamp:.0f} seconds"])
 
-        warning_lines.extend(self.balance_warning(self.get_market_trading_pair_tuples()))
         if len(warning_lines) > 0:
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
         return "\n".join(lines)

@@ -26,8 +26,8 @@ from hummingbot.connector.connector_metrics_collector import (
     MetricsCollector,
     TradeVolumeMetricCollector,
 )
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import AscendExConfigMap
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
+from hummingbot.connector.exchange.bitrue.bitrue_utils import BitrueConfigMap
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
@@ -305,7 +305,7 @@ class PaperTradeConfigMap(BaseClientModel):
         default=[
             BinanceConfigMap.Config.title,
             KuCoinConfigMap.Config.title,
-            AscendExConfigMap.Config.title,
+            BitrueConfigMap.Config.title,
             GateIOConfigMap.Config.title,
             InjectiveConfigMap.Config.title,
         ],
@@ -313,14 +313,13 @@ class PaperTradeConfigMap(BaseClientModel):
     paper_trade_account_balance: Dict[str, float] = Field(
         default={
             "BTC": 1,
-            "USDT": 1000,
-            "ONE": 1000,
-            "USDQ": 1000,
-            "TUSD": 1000,
-            "ETH": 10,
-            "WETH": 10,
-            "USDC": 1000,
-            "DAI": 1000,
+            "USDT": 100000,
+            "USDC": 100000,
+            "ETH": 20,
+            "WETH": 20,
+            "SOL": 100,
+            "DOGE": 1000000,
+            "HBOT": 10000000,
         },
         client_data=ClientFieldData(
             prompt=lambda cm: (
