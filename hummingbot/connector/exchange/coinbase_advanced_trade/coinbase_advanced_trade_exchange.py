@@ -1,5 +1,4 @@
 import asyncio
-import decimal
 import logging
 import math
 from decimal import Decimal
@@ -22,7 +21,6 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_order_book import (
     CoinbaseAdvancedTradeOrderBook,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import DEFAULT_FEES
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_timestamp_from_exchange_time,
     set_exchange_time_from_timestamp,
@@ -49,7 +47,7 @@ if TYPE_CHECKING:
 
 
 class CoinbaseAdvancedTradeExchange(ExchangePyBase):
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 2.5
 
     web_utils = web_utils
 
@@ -181,7 +179,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        # Websocket feed has 'PENDING' state, but REST API does not, it also seems to be for CREATE only
+        # Websocket feed has 'PENDING' state, but REST API does not, it also seems PENDING is for CREATE only
         return True
 
     @property
@@ -373,6 +371,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         if order_result["success"]:
             o_id = str(order_result["order_id"])
             transact_time = self.time_synchronizer.time()
+            self.logger().debug(f"Placed {type_str} order {side_str} {amount_str} {symbol} @ {price_str}")
             return o_id, transact_time
 
         elif "INSUFFICIENT_FUND" in order_result['error_response']["error"]:
@@ -425,12 +424,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
             :param order_ids: the client id of the orders to cancel
             """
-            tracked_order = []
-            for o in order_ids:
-                if t := self._order_tracker.fetch_tracked_order(o):
-                    tracked_order.append((o, t))
-
-            result = await self._execute_orders_cancel(orders=[t[1] for t in tracked_order if t[1] is not None])
+            tracked_orders = [(o, t) for o in order_ids if (t := self._order_tracker.fetch_tracked_order(o))]
+            result = await self._execute_orders_cancel(orders=[t[1] for t in tracked_orders if t[1] is not None])
             return result
 
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
@@ -532,10 +527,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                 f"request)")
         return False
 
-    async def _place_cancels(self, order_ids: List[str]) -> List[Dict[str, Any]]:
+    async def _place_cancels(self, order_ids: List[str], max_size: int = 100) -> List[Dict[str, Any]]:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
+        MAX_ORDERS is 100 (ChangeLog: 2024-JAN-16)
 
         :param order_ids: List[str]
         :return: List[Dict[str, Any]]
@@ -546,20 +542,33 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         if not order_ids:
             return [{"success": True, "failure_reason": "EMPTY_CANCEL_REQUEST"}]
 
-        api_data = {
-            "order_ids": order_ids
-        }
-        try:
-            cancel_result: Dict[str, Any] = await self._api_post(
-                path_url=constants.BATCH_CANCEL_EP,
-                data=api_data,
-                is_auth_required=True)
-            results: List[Dict[str, Any]] = cancel_result.get("results", [])
-            return results
+        all_results = []
+        for i in range(0, len(order_ids), max_size):
+            batched_order_ids = order_ids[i:i + max_size]
+            api_data = {
+                "order_ids": batched_order_ids
+            }
+            try:
+                cancel_result: Dict[str, Any] = await self._api_post(
+                    path_url=constants.BATCH_CANCEL_EP,
+                    data=api_data,
+                    is_auth_required=True)
 
-        except OSError as e:
-            self.logger().error(f"Error cancelling orders: {str(e)}\n   {api_data}", exc_info=False)
-            return [{"success": False, "failure_reason": "UNKNOWN_CANCEL_FAILURE_REASON"} for _ in order_ids]
+                if cancel_result.get("error", False) == 'InvalidArgument':
+                    # Error message is 'Too many orderIDs entered, limit is ' + str(NEW_LIMIT)
+                    limit = cancel_result.get("message", "").split(" ")[-1]
+                    # Resubmit for the remaining orders
+                    all_results.extend(await self._place_cancels(order_ids=order_ids[i:], max_size=int(limit)))
+                    return all_results
+
+                results: List[Dict[str, Any]] = cancel_result.get("results", [])
+                all_results.extend(results)
+
+            except OSError as e:
+                self.logger().error(f"Error cancelling orders: {str(e)}\n   {api_data}", exc_info=False)
+                return [{"success": False, "failure_reason": "UNKNOWN_CANCEL_FAILURE_REASON"} for _ in order_ids]
+
+        return all_results
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         """
@@ -638,6 +647,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     # Overwriting this method from ExchangePyBase that seems to force mis-handling data flow
     # as well as duplicating expensive API calls (call for all products)
     async def _update_trading_rules(self):
+        def decimal_or_none(x: Any) -> Decimal | None:
+            return Decimal(x) if x is not None else None
+
         self.trading_rules.clear()
         trading_pair_symbol_map: bidict[str, str] = bidict()
 
@@ -655,13 +667,13 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             try:
                 trading_rule: TradingRule = TradingRule(
                     trading_pair=trading_pair,
-                    min_order_size=Decimal(product.get("base_min_size", None)),
-                    max_order_size=Decimal(product.get("base_max_size", None)),
-                    min_price_increment=Decimal(product.get("quote_increment", None)),
-                    min_base_amount_increment=Decimal(product.get("base_increment", None)),
-                    min_quote_amount_increment=Decimal(product.get("quote_increment", None)),
-                    min_notional_size=Decimal(product.get("quote_min_size", None)),
-                    min_order_value=Decimal(product.get("base_min_size", None)) * Decimal(
+                    min_order_size=decimal_or_none(product.get("base_min_size", None)),
+                    max_order_size=decimal_or_none(product.get("base_max_size", None)),
+                    min_price_increment=decimal_or_none(product.get("quote_increment", None)),
+                    min_base_amount_increment=decimal_or_none(product.get("base_increment", None)),
+                    min_quote_amount_increment=decimal_or_none(product.get("quote_increment", None)),
+                    min_notional_size=decimal_or_none(product.get("quote_min_size", None)),
+                    min_order_value=decimal_or_none(product.get("base_min_size", None)) * decimal_or_none(
                         product.get("price", None)),
                     max_price_significant_digits=Decimal(
                         abs(math.floor(
@@ -865,50 +877,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                    new_state == OrderState.OPEN))
             new_state = OrderState.PARTIALLY_FILLED if partially else new_state
 
-            if fillable_order is not None and any((
-                    new_state == OrderState.OPEN,
-                    new_state == OrderState.PARTIALLY_FILLED,
-                    new_state == OrderState.FILLED,
-            )):
-                self.logger().debug(
-                    f" '-> Fillable: {event_message.client_order_id} {event_message.status} fillable: {fillable_order} updatable: {updatable_order}")
-                transaction_fee: Decimal = Decimal(event_message.cumulative_fee) - fillable_order.cumulative_fee_paid(
-                    "USD")
-                fee = TradeFeeBase.new_spot_fee(
-                    fee_schema=DEFAULT_FEES,
-                    trade_type=fillable_order.trade_type,
-                    percent_token=fillable_order.quote_asset,
-                    flat_fees=[TokenAmount(amount=Decimal(transaction_fee),
-                                           token=fillable_order.quote_asset)]
-                )
-
-                avg_exc_price: Decimal | None = fillable_order.average_executed_price
-                avg_exc_price: Decimal = avg_exc_price if avg_exc_price is not None else Decimal("0")
-                fill_base_amount: Decimal = event_message.cumulative_base_amount - fillable_order.executed_amount_base
-                if fill_base_amount == Decimal("0"):
-                    fill_price: Decimal = avg_exc_price
-                else:
-                    total_price: Decimal = event_message.average_price * event_message.cumulative_base_amount
-                    try:
-                        fill_price: Decimal = (total_price - avg_exc_price) / fill_base_amount
-                    except (ZeroDivisionError, decimal.InvalidOperation) as e:
-                        raise ValueError(
-                            "Fill base amount is zero for an InFlightOrder, this is unexpected"
-                        ) from e
-
-                trade_update = TradeUpdate(
-                    trade_id="",  # Coinbase does not provide matching trade id
-                    client_order_id=event_message.client_order_id,
-                    exchange_order_id=event_message.exchange_order_id,
-                    trading_pair=fillable_order.trading_pair,
-                    fee=fee,
-                    fill_base_amount=fill_base_amount,
-                    fill_quote_amount=fill_base_amount * fill_price,
-                    fill_price=fill_price,
-                    fill_timestamp=event_message.fill_timestamp_s,
-                )
-                self.logger().debug(f" '-> Trade Updater: {trade_update}")
-                self._order_tracker.process_trade_update(trade_update)
+            if fillable_order is not None and new_state == OrderState.FILLED:
+                self.logger().debug(f" '-> Fillable: {event_message.client_order_id}. Trigger FILL request at :{self.time_synchronizer.time()}")
+                # This fails the tests, but it is not a problem for the connector
+                # safe_ensure_future(self._update_order_fills_from_trades())
+                await self._update_order_fills_from_trades()
 
             if updatable_order is not None:
                 self.logger().debug(f" '-> Updatable order: {event_message.client_order_id}")
@@ -926,77 +899,81 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _update_order_fills_from_trades(self):
         """
         This is intended to be a backup measure to get filled events with trade ID for orders,
-        in case Binance's user stream events are not working.
+        in case Coinbaase's user stream events are not working.
         NOTE: It is not required to copy this functionality in other connectors.
         This is separated from _update_order_status which only updates the order status without producing filled
-        events, since Binance's get order endpoint does not return trade IDs.
-        The minimum poll interval for order status is 10 seconds.
+        events, since Coinbaase's get order endpoint does not return trade IDs.
+        The minimum poll interval for order status is UPDATE_ORDER_STATUS_MIN_INTERVAL seconds.
         """
-        small_interval_last_tick: float = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        small_interval_current_tick: float = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        long_interval_last_tick: float = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
-        long_interval_current_tick: float = self.current_timestamp / self.LONG_POLL_INTERVAL
 
-        in_flight_orders: Dict[str, InFlightOrder] = self.in_flight_orders
+        def is_execution_time() -> bool:
+            """Sets execution time for small and long intervals."""
+            small_interval_last_tick: float = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+            small_interval_current_tick: float = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+            long_interval_last_tick: float = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
+            long_interval_current_tick: float = self.current_timestamp / self.LONG_POLL_INTERVAL
 
-        self.logger().debug(f"DBG:Balance: _update_order_fills_from_trades {small_interval_last_tick} {small_interval_current_tick}")
-        if (long_interval_current_tick > long_interval_last_tick
-                or (in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
+            in_flight_orders: int = len(self.in_flight_orders)
+
+            return (long_interval_current_tick > long_interval_last_tick
+                    or (in_flight_orders > 0 and small_interval_current_tick > small_interval_last_tick))
+
+        async def query_trades(pair: str, timestamp=None) -> List[Dict[str, Any]]:
+            """Queries trades for a trading pair."""
+            p = {"product_id": await self.exchange_symbol_associated_to_pair(trading_pair=pair)}
+            if timestamp is not None:
+                p["start_sequence_timestamp"] = timestamp
+
+            t: List[Dict[str, Any]] = await self._api_get(
+                path_url=constants.FILLS_EP,
+                params=p,
+                is_auth_required=True)
+            return t
+
+        if is_execution_time():
+            self.logger().debug(f" '-> Fill request at: {self.time_synchronizer.time()}")
             query_time = set_exchange_time_from_timestamp(self._last_trades_poll_coinbase_advanced_trade_timestamp, "s")
             self._last_trades_poll_coinbase_advanced_trade_timestamp = self.time_synchronizer.time()
-            self.logger().debug(f"DBG:Balance:   '-> Time: {query_time}:{self._last_trades_poll_coinbase_advanced_trade_timestamp}")
 
             order_by_exchange_id_map = {
                 order.exchange_order_id: order
                 for order in self._order_tracker.all_fillable_orders.values()
             }
-            tasks = []
-            trading_pairs = self.trading_pairs
-            for trading_pair in trading_pairs:
-                product_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                params = {
-                    "product_id": product_id
-                }
-                if self.last_poll_timestamp > 0:
-                    params["start_sequence_timestamp"] = query_time
-                tasks.append(self._api_get(
-                    path_url=constants.FILLS_EP,
-                    params=params,
-                    is_auth_required=True))
 
-            results = await safe_gather(*tasks, return_exceptions=True)
-            self.logger().debug(f"DBG:Balance:   '-> Fetched trades: {results}")
-
-            for trades, trading_pair in zip(results, trading_pairs):
-                self.logger().debug(f"DBG:Balance:   '-> Fetched trades: {trading_pair}:{trades}")
+            pairs = self.trading_pairs
+            results = await safe_gather(*[query_trades(p, query_time) for p in pairs], return_exceptions=True)
+            print(results)
+            for trades, trading_pair in zip(results, pairs):
                 if isinstance(trades, Exception):
                     self.logger().network(
-                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                        f"Error fetching trades update for the order >{trading_pair}<: >{trades}<.",
                         app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
                     continue
+
                 for trade in trades["fills"]:
                     exchange_order_id = trade["order_id"]
                     quote_token: str = trading_pair.split("-")[1]
+
                     if not isinstance(trade["trade_time"], float):
                         trade_time = float(get_timestamp_from_exchange_time(trade["trade_time"], "s"))
                     else:
                         trade_time = trade["trade_time"]
-                    fee = AddedToCostTradeFee(
-                        percent_token=quote_token,
-                        flat_fees=[TokenAmount(
-                            amount=Decimal(trade["commission"]),
-                            token=quote_token)])
+
+                    f_fee: TokenAmount = TokenAmount(amount=Decimal(trade["commission"]), token=quote_token)
+                    fee = AddedToCostTradeFee(percent_token=quote_token, flat_fees=[f_fee])
+
                     if exchange_order_id in order_by_exchange_id_map:
                         # This is a fill for a tracked order
                         tracked_order = order_by_exchange_id_map[exchange_order_id]
+
                         if trade["size_in_quote"] is True:
                             fill_quote_amount: Decimal = Decimal(trade["size"])
                             fill_base_amount: Decimal = Decimal(trade["size"]) / Decimal(trade["price"])
                         else:
                             fill_base_amount: Decimal = Decimal(trade["size"])
                             fill_quote_amount: Decimal = Decimal(trade["size"]) * Decimal(trade["price"])
-                        self.logger().debug(f"DBG:Balance:      '-> {trade['size']}:{fill_quote_amount}:{fill_base_amount}")
+
                         trade_update = TradeUpdate(
                             trade_id=str(trade["trade_id"]),
                             client_order_id=tracked_order.client_order_id,
@@ -1033,6 +1010,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                 exchange_trade_id=str(trade["trade_id"])
                             ))
                         self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
+                    else:
+                        self.logger().debug(f"Trade without matching order_id and not in the DB: {trade}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         """
