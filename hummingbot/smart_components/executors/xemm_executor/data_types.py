@@ -11,3 +11,4 @@ class XEMMExecutorConfig(ExecutorConfigBase):
     maker_side: TradeType
     order_amount: Decimal
     min_profitability: Decimal
+    target_profitability: Decimal
