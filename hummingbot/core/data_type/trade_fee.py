@@ -210,9 +210,8 @@ class TradeFeeBase(ABC):
             if self._are_tokens_interchangeable(quote, token):
                 fee_amount += amount_from_percentage
             else:
-                conversion_pair: str = combine_to_hb_trading_pair(base=quote, quote=token)
-                conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)
-                fee_amount += amount_from_percentage * conversion_rate
+                conversion_rate: Decimal = self._get_exchange_rate(trading_pair, exchange, rate_source)
+                fee_amount += amount_from_percentage / conversion_rate
         for flat_fee in self.flat_fees:
             if self._are_tokens_interchangeable(flat_fee.token, token):
                 # No need to convert the value
