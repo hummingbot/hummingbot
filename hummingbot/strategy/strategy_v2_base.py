@@ -13,6 +13,7 @@ from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import PositionMode
 from hummingbot.core.event.events import ExecutorEvent
 from hummingbot.core.pubsub import PubSub
@@ -216,6 +217,7 @@ class StrategyV2Base(ScriptStrategyBase):
         controllers_configs = self.config.load_controller_configs()
         for controller_config in controllers_configs:
             self.add_controller(controller_config)
+            MarketsRecorder.get_instance().store_controller_config(controller_config)
 
     def add_controller(self, config: ControllerConfigBase):
         try:
@@ -336,7 +338,7 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         Convert a list of executor handler info to a dataframe.
         """
-        df = pd.DataFrame([ei.dict() for ei in executors_info])
+        df = pd.DataFrame([ei.to_dict() for ei in executors_info])
         # Convert the enum values to integers
         df['status'] = df['status'].apply(lambda x: x.value)
 
@@ -345,12 +347,11 @@ class StrategyV2Base(ScriptStrategyBase):
 
         # Convert back to enums for display
         df['status'] = df['status'].apply(SmartComponentStatus)
-        return df[["id", "timestamp", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote", "is_trading",
-                   "filled_amount_quote", "close_type"]]
+        return df
 
     def format_status(self) -> str:
         original_info = super().format_status()
-        columns_to_show = ["id", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
+        columns_to_show = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
                            "filled_amount_quote", "is_trading", "close_type", "age"]
         extra_info = []
 
