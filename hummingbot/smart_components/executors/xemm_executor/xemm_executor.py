@@ -1,11 +1,18 @@
 import logging
 from decimal import Decimal
+from typing import Dict
 
 from hummingbot.connector.connector_base import ConnectorBase, Union
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketOrderFailureEvent, SellOrderCompletedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.executor_base import ExecutorBase
@@ -132,7 +139,7 @@ class XEMMExecutor(ExecutorBase):
             self._maker_target_price = self._taker_result_price * (1 - self.config.target_profitability - self._tx_cost_pct)
 
     async def get_tx_cost(self):
-        base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
+        base, quote = split_hb_trading_pair(trading_pair=self.config.buying_market.trading_pair)
         # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
         base_without_wrapped = base[1:] if base.startswith("W") else base
         taker_fee = await self.get_tx_cost_in_asset(
@@ -144,7 +151,7 @@ class XEMMExecutor(ExecutorBase):
             asset=base_without_wrapped
         )
         maker_fee = await self.get_tx_cost_in_asset(
-            exchange=self.maker_trading_pair,
+            exchange=self.maker_connector,
             trading_pair=self.maker_trading_pair,
             order_type=OrderType.LIMIT,
             is_buy=False,
@@ -155,7 +162,6 @@ class XEMMExecutor(ExecutorBase):
     async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal,
                                    asset: str, order_type: OrderType = OrderType.MARKET):
         connector = self.connectors[exchange]
-        price = await self.get_resulting_price_for_amount(exchange, trading_pair, is_buy, order_amount)
         if self.is_amm_connector(exchange=exchange):
             gas_cost = connector.network_transaction_fee
             conversion_price = RateOracle.get_instance().get_pair_rate(f"{asset}-{gas_cost.token}")
@@ -163,16 +169,16 @@ class XEMMExecutor(ExecutorBase):
         else:
             fee = connector.get_fee(
                 base_currency=asset,
-                quote_currency=asset,
+                quote_currency=trading_pair.split("-")[1],
                 order_type=order_type,
                 order_side=TradeType.BUY if is_buy else TradeType.SELL,
                 amount=order_amount,
-                price=price,
+                price=self._taker_result_price,
                 is_maker=False
             )
             return fee.fee_amount_in_token(
                 trading_pair=trading_pair,
-                price=price,
+                price=self._taker_result_price,
                 order_amount=order_amount,
                 token=asset,
                 exchange=connector,
@@ -191,34 +197,49 @@ class XEMMExecutor(ExecutorBase):
             amount=self.config.order_amount,
             price=self._maker_target_price)
         self.maker_order = TrackedOrder(order_id=order_id)
-        self.maker_order.order = self.get_in_flight_order(self.maker_connector, order_id)
         self.logger().info(f"Created maker order {order_id} at price {self._maker_target_price}.")
 
     async def control_shutdown_process(self):
-        if self.maker_order.order.is_done and self.taker_order.order.is_done:
+        if self.maker_order.is_done and self.taker_order.is_done:
             self.logger().info("Both orders are done, executor terminated.")
             self.stop()
 
     async def control_update_maker_order(self):
-        if self.maker_order.order.is_open:
+        trade_profitability = self.get_current_trade_profitability()
+        if trade_profitability - self._tx_cost_pct < self.config.min_profitability:
+            self.logger().info(f"Trade profitability {trade_profitability - self._tx_cost_pct} is below minimum profitability. Cancelling order.")
+            self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
+            self.maker_order = None
+
+    def get_current_trade_profitability(self):
+        trade_profitability = Decimal("0")
+        if self.maker_order and self.maker_order.order and self.maker_order.order.is_open:
             maker_price = self.maker_order.order.price
             if self.maker_order_side == TradeType.BUY:
                 trade_profitability = (self._taker_result_price - maker_price) / maker_price
             else:
                 trade_profitability = (maker_price - self._taker_result_price) / maker_price
-            if trade_profitability - self._tx_cost_pct < self.config.min_profitability:
-                self.logger().info(f"Trade profitability {trade_profitability} is below minimum profitability. Cancelling order.")
-                await self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-                self.maker_order = None
+        return trade_profitability
+
+    def process_order_created_event(self,
+                                    event_tag: int,
+                                    market: ConnectorBase,
+                                    event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
+        if self.maker_order and event.order_id == self.maker_order.order_id:
+            self.logger().info(f"Maker order {event.order_id} created.")
+            self.maker_order.order = self.get_in_flight_order(self.maker_connector, event.order_id)
+        elif self.taker_order and event.order_id == self.taker_order.order_id:
+            self.logger().info(f"Taker order {event.order_id} created.")
+            self.taker_order.order = self.get_in_flight_order(self.taker_connector, event.order_id)
 
     def process_order_completed_event(self,
                                       event_tag: int,
                                       market: ConnectorBase,
                                       event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
-        if event.order_id == self.maker_order.order_id:
+        if self.maker_order and event.order_id == self.maker_order.order_id:
             self.logger().info(f"Maker order {event.order_id} completed. Executing taker order.")
             self.place_taker_order()
-            self.status = SmartComponentStatus.SHUTTING_DOWN
+            self._status = SmartComponentStatus.SHUTTING_DOWN
 
     def place_taker_order(self):
         taker_order_id = self.place_order(
@@ -228,14 +249,55 @@ class XEMMExecutor(ExecutorBase):
             side=self.taker_order_side,
             amount=self.config.order_amount)
         self.taker_order = TrackedOrder(order_id=taker_order_id)
-        self.taker_order.order = self.get_in_flight_order(self.taker_connector, taker_order_id)
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
-        if self.maker_order.order_id == event.order_id:
+        if self.maker_order and self.maker_order.order_id == event.order_id:
             self.failed_orders.append(self.maker_order)
             self.maker_order = None
             self._current_retries += 1
-        elif self.taker_order.order_id == event.order_id:
+        elif self.taker_order and self.taker_order.order_id == event.order_id:
             self.failed_orders.append(self.taker_order)
             self._current_retries += 1
             self.place_taker_order()
+
+    def get_custom_info(self) -> Dict:
+        return {
+            "side": self.config.maker_side,
+        }
+
+    def early_stop(self):
+        if self.maker_order and self.maker_order.order and self.maker_order.order.is_open:
+            self.logger().info(f"Cancelling maker order {self.maker_order.order_id}.")
+            self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
+        self.close_type = CloseType.EARLY_STOP
+        self.stop()
+
+    def get_cum_fees_quote(self) -> Decimal:
+        if self.is_closed and self.maker_order and self.taker_order:
+            return self.maker_order.cum_fees_quote + self.taker_order.cum_fees_quote
+        else:
+            return Decimal("0")
+
+    def get_net_pnl_quote(self) -> Decimal:
+        if self.is_closed and self.maker_order and self.taker_order and self.maker_order.is_done and self.taker_order.is_done:
+            maker_pnl = self.maker_order.executed_amount_base * self.maker_order.average_executed_price
+            taker_pnl = self.taker_order.executed_amount_base * self.taker_order.average_executed_price
+            return taker_pnl - maker_pnl - self.get_cum_fees_quote()
+        else:
+            return Decimal("0")
+
+    def get_net_pnl_pct(self) -> Decimal:
+        pnl_quote = self.get_net_pnl_quote()
+        return pnl_quote / self.config.order_amount
+
+    def to_format_status(self):
+        trade_profitability = self.get_current_trade_profitability()
+        return f"""
+-----------------------------------------------------------------------------------------------------------------------
+Maker Side: {self.maker_order_side}
+    - Maker: {self.maker_connector} {self.maker_trading_pair} | Taker: {self.taker_connector} {self.taker_trading_pair}
+    - Min profitability: {self.config.min_profitability*100:.2f}% | Target profitability: {self.config.target_profitability*100:.2f}% | Current profitability: {(trade_profitability - self._tx_cost_pct)*100:.2f}%
+    - Trade profitability: {trade_profitability*100:.3f}% | Tx cost: {self._tx_cost_pct:.4f}%
+    - Taker result price: {self._taker_result_price:.3f} | Tx cost: {self._tx_cost:.3f} {self.maker_trading_pair.split('-')[-1]} | Order amount (Base): {self.config.order_amount:.2f}
+-----------------------------------------------------------------------------------------------------------------------
+"""
