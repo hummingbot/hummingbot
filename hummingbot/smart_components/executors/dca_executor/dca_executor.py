@@ -534,4 +534,5 @@ class DCAExecutor(ExecutorBase):
             "current_retries": self._current_retries,
             "max_retries": self._max_retries,
             "level_id": self.config.level_id,
+            "order_ids": [order.order_id for order in self._open_orders] + [order.order_id for order in self._close_orders],
         }
