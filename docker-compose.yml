@@ -23,25 +23,18 @@ services:
     #  environment:
     #    - CONFIG_PASSWORD=a
     #    - CONFIG_FILE_NAME=simple_pmm_example.py
-
-  # dashboard:
-  #   container_name: dashboard
-  #   image: hummingbot/dashboard:latest
-  #   volumes:
-  #     - ./data:/home/dashboard/data
-  #   ports:
-  #     - "8501:8501"
+    #    - SCRIPT_CONFIG=conf_simple_pmm_example.yaml
 
   # gateway:
-  #   container_name: gateway
-  #   image: hummingbot/gateway:latest
-  #   ports:
-  #     - "15888:15888"
-  #     - "8080:8080"
-  #   volumes:
-  #     - "./gateway_files/conf:/home/gateway/conf"
-  #     - "./gateway_files/logs:/home/gateway/logs"
-  #     - "./gateway_files/db:/home/gateway/db"
-  #     - "./certs:/home/gateway/certs"
-  #   environment:
-  #     - GATEWAY_PASSPHRASE=a
+  #  container_name: gateway
+  #  image: hummingbot/gateway:latest
+  #  ports:
+  #    - "15888:15888"
+  #    - "8080:8080"
+  #  volumes:
+  #    - "./gateway_files/conf:/home/gateway/conf"
+  #    - "./gateway_files/logs:/home/gateway/logs"
+  #    - "./gateway_files/db:/home/gateway/db"
+  #    - "./certs:/home/gateway/certs"
+  #  environment:
+  #    - GATEWAY_PASSPHRASE=a
