@@ -210,6 +210,10 @@ class XEMMExecutor(ExecutorBase):
             self.logger().info(f"Trade profitability {trade_profitability - self._tx_cost_pct} is below minimum profitability. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
             self.maker_order = None
+        if trade_profitability - self._tx_cost_pct > self.config.max_profitability:
+            self.logger().info(f"Trade profitability {trade_profitability - self._tx_cost_pct} is above target profitability. Cancelling order.")
+            self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
+            self.maker_order = None
 
     def get_current_trade_profitability(self):
         trade_profitability = Decimal("0")
@@ -293,8 +297,8 @@ class XEMMExecutor(ExecutorBase):
     def to_format_status(self):
         trade_profitability = self.get_current_trade_profitability()
         return f"""
------------------------------------------------------------------------------------------------------------------------
 Maker Side: {self.maker_order_side}
+-----------------------------------------------------------------------------------------------------------------------
     - Maker: {self.maker_connector} {self.maker_trading_pair} | Taker: {self.taker_connector} {self.taker_trading_pair}
     - Min profitability: {self.config.min_profitability*100:.2f}% | Target profitability: {self.config.target_profitability*100:.2f}% | Current profitability: {(trade_profitability - self._tx_cost_pct)*100:.2f}%
     - Trade profitability: {trade_profitability*100:.3f}% | Tx cost: {self._tx_cost_pct:.4f}%
