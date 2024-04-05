@@ -300,8 +300,8 @@ class XEMMExecutor(ExecutorBase):
 Maker Side: {self.maker_order_side}
 -----------------------------------------------------------------------------------------------------------------------
     - Maker: {self.maker_connector} {self.maker_trading_pair} | Taker: {self.taker_connector} {self.taker_trading_pair}
-    - Min profitability: {self.config.min_profitability*100:.2f}% | Target profitability: {self.config.target_profitability*100:.2f}% | Current profitability: {(trade_profitability - self._tx_cost_pct)*100:.2f}%
-    - Trade profitability: {trade_profitability*100:.3f}% | Tx cost: {self._tx_cost_pct:.4f}%
+    - Min profitability: {self.config.min_profitability*100:.2f}% | Target profitability: {self.config.target_profitability*100:.2f}% | Max profitability: {self.config.max_profitability*100:.2f}% | Current profitability: {(trade_profitability - self._tx_cost_pct)*100:.2f}%
+    - Trade profitability: {trade_profitability*100:.2f}% | Tx cost: {self._tx_cost_pct*100:.2f}%
     - Taker result price: {self._taker_result_price:.3f} | Tx cost: {self._tx_cost:.3f} {self.maker_trading_pair.split('-')[-1]} | Order amount (Base): {self.config.order_amount:.2f}
 -----------------------------------------------------------------------------------------------------------------------
 """

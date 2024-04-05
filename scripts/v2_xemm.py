@@ -54,6 +54,12 @@ class V2XEMMConfig(StrategyV2ConfigBase):
             prompt=lambda e: "Enter the minimum profitability: ",
             prompt_on_new=True
         ))
+    max_profitability: Decimal = Field(
+        default=0.008,
+        client_data=ClientFieldData(
+            prompt=lambda e: "Enter the maximum profitability: ",
+            prompt_on_new=True
+        ))
     order_amount_quote: Decimal = Field(
         default=100,
         client_data=ClientFieldData(
@@ -92,7 +98,8 @@ class V2XEMM(StrategyV2Base):
                 maker_side=TradeType.BUY,
                 order_amount=self.config.order_amount_quote,
                 min_profitability=self.config.min_profitability,
-                target_profitability=self.config.target_profitability
+                target_profitability=self.config.target_profitability,
+                max_profitability=self.config.max_profitability
             )
             executor_actions.append(CreateExecutorAction(executor_config=config))
         if len(active_sell_executors) == 0:
@@ -105,7 +112,8 @@ class V2XEMM(StrategyV2Base):
                 maker_side=TradeType.SELL,
                 order_amount=self.config.order_amount_quote,
                 min_profitability=self.config.min_profitability,
-                target_profitability=self.config.target_profitability
+                target_profitability=self.config.target_profitability,
+                max_profitability=self.config.max_profitability
             )
             executor_actions.append(CreateExecutorAction(executor_config=config))
         return executor_actions
