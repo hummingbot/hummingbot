@@ -38,6 +38,13 @@ class FundingRateArbitrageConfig(StrategyV2ConfigBase):
             prompt_on_new=True
         )
     )
+    funding_rate_diff_stop_loss: Decimal = Field(
+        default=-0.001,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter the funding rate difference to stop the position: ",
+            prompt_on_new=True
+        )
+    )
     connectors: Set[str] = Field(
         default="hyperliquid_perpetual,binance_perpetual",
         client_data=ClientFieldData(
@@ -314,6 +321,7 @@ class FundingRateArbitrage(StrategyV2Base):
                 all_funding_info.append(token_info)
             funding_rate_status.append("\n\n\nFunding Rate Info (Funding Profitability in Days): \n")
             funding_rate_status.append("Min Funding Rate Profitability: " + str(self.config.min_funding_rate_profitability))
+            funding_rate_status.append("Profitability to Take Profit: " + str(self.config.profitability_to_take_profit))
             funding_rate_status.append(format_df_for_printout(df=pd.DataFrame(all_funding_info), table_format="psql",))
 
         return original_status + "\n".join(funding_rate_status)
