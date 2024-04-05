@@ -79,6 +79,11 @@ class FundingRateArbitrage(StrategyV2Base):
         "hyperliquid_perpetual": "USD",
         "binance_perpetual": "USDT"
     }
+    funding_payment_interval_map = {
+        "binance_perpetual": 60 * 60 * 8,
+        "hyperliquid_perpetual": 60 * 60 * 1
+    }
+    funding_profitability_interval = 60 * 60 * 24
 
     @classmethod
     def get_trading_pair_for_connector(cls, token, connector):
@@ -178,14 +183,17 @@ class FundingRateArbitrage(StrategyV2Base):
         for connector_1 in funding_info_report:
             for connector_2 in funding_info_report:
                 if connector_1 != connector_2:
-                    rate_connector_1 = funding_info_report[connector_1].rate
-                    rate_connector_2 = funding_info_report[connector_2].rate
-                    funding_rate_diff = abs(rate_connector_1 - rate_connector_2)
+                    rate_connector_1 = self.get_normalized_funding_rate_in_seconds(funding_info_report, connector_1)
+                    rate_connector_2 = self.get_normalized_funding_rate_in_seconds(funding_info_report, connector_2)
+                    funding_rate_diff = abs(rate_connector_1 - rate_connector_2) * self.funding_profitability_interval
                     if funding_rate_diff > highest_profitability:
                         trade_side = TradeType.BUY if rate_connector_1 < rate_connector_2 else TradeType.SELL
                         highest_profitability = funding_rate_diff
                         best_combination = (connector_1, connector_2, trade_side, funding_rate_diff)
         return best_combination
+
+    def get_normalized_funding_rate_in_seconds(self, funding_info_report, connector_name):
+        return funding_info_report[connector_name].rate / self.funding_payment_interval_map.get(connector_name, 60 * 60 * 8)
 
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         """
@@ -289,19 +297,23 @@ class FundingRateArbitrage(StrategyV2Base):
                 funding_info_report = self.get_funding_info_by_token(token)
                 best_combination = self.get_most_profitable_combination(funding_info_report)
                 for connector_name, info in funding_info_report.items():
-                    token_info[f"{connector_name} Rate (%)"] = info.rate * 100
+                    token_info[f"{connector_name} Rate (%)"] = self.get_normalized_funding_rate_in_seconds(funding_info_report, connector_name) * self.funding_profitability_interval * 100
                 connector_1, connector_2, side, funding_rate_diff = best_combination
-                token_info["best_combination_connectors"] = f"{connector_1}_{connector_2}"
-                token_info["best_funding_rate_diff (%)"] = funding_rate_diff * 100
-                token_info["trade_profitability (%)"] = self.get_current_profitability_after_fees(token, connector_1, connector_2, side) * 100
+                profitability_after_fees = self.get_current_profitability_after_fees(token, connector_1, connector_2, side)
+                token_info["Best Path"] = f"{connector_1}_{connector_2}"
+                token_info["Best Rate Diff (%)"] = funding_rate_diff * 100
+                token_info["Trade Profitability (%)"] = profitability_after_fees * 100
+                token_info["Days Trade Prof"] = - profitability_after_fees / funding_rate_diff
+                token_info["Days to TP"] = (self.config.profitability_to_take_profit - profitability_after_fees) / funding_rate_diff
 
                 time_to_next_funding_info_c1 = funding_info_report[connector_1].next_funding_utc_timestamp - self.current_timestamp
                 time_to_next_funding_info_c2 = funding_info_report[connector_2].next_funding_utc_timestamp - self.current_timestamp
-                token_info["minutes_to_funding_c1"] = time_to_next_funding_info_c1 / 60
-                token_info["minutes_to_funding_c2"] = time_to_next_funding_info_c2 / 60
+                token_info["Min to Funding 1"] = time_to_next_funding_info_c1 / 60
+                token_info["Min to Funding 2"] = time_to_next_funding_info_c2 / 60
 
                 all_funding_info.append(token_info)
-            funding_rate_status.append("\nFunding Rate Info: \n")
+            funding_rate_status.append("\n\n\nFunding Rate Info (Funding Profitability in Days): \n")
+            funding_rate_status.append("Min Funding Rate Profitability: " + str(self.config.min_funding_rate_profitability))
             funding_rate_status.append(format_df_for_printout(df=pd.DataFrame(all_funding_info), table_format="psql",))
 
         return original_status + "\n".join(funding_rate_status)
