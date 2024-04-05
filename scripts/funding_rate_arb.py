@@ -329,5 +329,4 @@ class FundingRateArbitrage(StrategyV2Base):
                 funding_rate_status.append(f"Profitability to Take Profit: {self.config.profitability_to_take_profit*100:.2%} %")
                 funding_rate_status.append(format_df_for_printout(df=pd.DataFrame(all_funding_info), table_format="psql",))
                 funding_rate_status.append(format_df_for_printout(df=pd.DataFrame(all_best_paths), table_format="psql",))
-
         return original_status + "\n".join(funding_rate_status)
