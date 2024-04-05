@@ -62,25 +62,6 @@ POSITION_MODE_MAP = {
 LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
 
-# REST API Private Endpoints
-GET_POSITIONS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/position/list",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/list"}
-PLACE_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/create",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/create"}
-CANCEL_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/cancel",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancel"}
-CANCEL_ALL_ACTIVE_ORDERS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/cancelAll",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancelAll"}
-QUERY_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/search",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order"}
-USER_TRADE_RECORDS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/trade/execution/list",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/execution/list"}
 
 # Public API endpoints
 TICKERS_PATH_URL = "/v5/market/tickers"
@@ -99,9 +80,11 @@ ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
 GET_ORDERS_PATH_URL = "/v5/order/realtime"
 SET_TPSL_MODE_PATH_URL = "/v5/position/set-tpsl-mode"
 SET_POSITION_MODE_PATH_URL = "/v5/position/switch-mode"
-GET_POSITION_PATH_URL = "/v5/position/list"
 SET_LEVERAGE_PATH_URL = "/v5/position/set-leverage"
 TRADE_HISTORY_PATH_URL = "/v5/execution/list"
+GET_POSITIONS_PATH_URL = "/v5/position/list"
+# SET_LEVERAGE_PATH_URL = "/v5/position/switch-isolated"
+# SET_POSITION_MODE_PATH_URL = "/v5/position/switch-isolated"
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
@@ -183,6 +166,8 @@ ONE_DAY = 86400
 
 API_REQUEST_RETRY = 2
 
+UPDATE_TRADE_HISTORY_LIMIT = 200
+
 RATE_LIMITS = {
     # General
     RateLimit(limit_id=REQUEST_GET, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES),
@@ -194,6 +179,15 @@ RATE_LIMITS = {
     # Linked limits
     RateLimit(
         limit_id=LAST_TRADED_PRICE_PATH,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
+    RateLimit(
+        limit_id=GET_POSITIONS_PATH_URL,
         limit=MAX_REQUEST_GET,
         time_interval=TWO_MINUTES,
         linked_limits=[

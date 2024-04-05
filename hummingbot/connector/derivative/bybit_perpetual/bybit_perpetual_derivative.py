@@ -319,14 +319,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         for trading_pair in self._trading_pairs:
             exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
             params = {
+                "category": bybit_utils.get_trading_pair_category(trading_pair),
                 "symbol": exchange_symbol,
-                "limit": 200,
+                "limit": CONSTANTS.UPDATE_TRADE_HISTORY_LIMIT,
             }
             if self._last_trade_history_timestamp:
-                params["start_time"] = int(int(self._last_trade_history_timestamp) * 1e3)
+                params["startTime"] = int(int(self._last_trade_history_timestamp) * 1e3)
             trade_history_tasks.append(
-                asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
+                asyncio.create_task(self._api_request(
+                    method=RESTMethod.GET,
+                    path_url=CONSTANTS.TRADE_HISTORY_PATH_URL,
                     params=params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
@@ -334,15 +336,13 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             )
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
-
         # Initial parsing of responses. Joining all the responses
         parsed_history_resps: List[Dict[str, Any]] = []
         for trading_pair, resp in zip(self._trading_pairs, raw_responses):
             if not isinstance(resp, Exception):
-                self._last_trade_history_timestamp = float(resp["time_now"])
-                trade_entries = (resp["result"]["trade_list"]
-                                 if "trade_list" in resp["result"]
-                                 else resp["result"]["data"])
+                result = resp["result"]
+                self._last_trade_history_timestamp = float(resp["time"])
+                trade_entries = result["list"]
                 if trade_entries:
                     parsed_history_resps.extend(trade_entries)
             else:
@@ -366,11 +366,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         for active_order in active_orders:
             tasks.append(asyncio.create_task(self._request_order_status_data(tracked_order=active_order)))
 
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
+        responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
 
         # Initial parsing of responses. Removes Exceptions.
         parsed_status_responses: List[Dict[str, Any]] = []
-        for resp, active_order in zip(raw_responses, active_orders):
+        for resp, active_order in zip(responses, active_orders):
             if not isinstance(resp, Exception):
                 parsed_status_responses.append(resp["result"]["list"][0])
             else:
@@ -436,10 +436,13 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         for trading_pair in self._trading_pairs:
             ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
             params = {
-                "symbol": ex_trading_pair
+                "category": bybit_utils.get_trading_pair_category(trading_pair),
+                "symbol": ex_trading_pair,
+                "limit": 1
             }
             position_tasks.append(
-                asyncio.create_task(self._api_get(
+                asyncio.create_task(self._api_request(
+                    method=RESTMethod.GET,
                     path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
                     params=params,
                     is_auth_required=True,
@@ -453,7 +456,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         parsed_resps: List[Dict[str, Any]] = []
         for resp, trading_pair in zip(raw_responses, self._trading_pairs):
             if not isinstance(resp, Exception):
-                result = resp["result"]
+                result = resp["result"]["list"][0]
                 if result:
                     position_entries = result if isinstance(result, list) else [result]
                     parsed_resps.extend(position_entries)
@@ -465,11 +468,10 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             ex_trading_pair = data.get("symbol")
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
             position_side = PositionSide.LONG if data["side"] == "Buy" else PositionSide.SHORT
-            unrealized_pnl = Decimal(str(data["unrealised_pnl"]))
-            entry_price = Decimal(str(data["entry_price"]))
+            unrealized_pnl = Decimal(str(data["unrealisedPnl"] if len(data["unrealisedPnl"]) > 0 else 0))
+            entry_price = Decimal(str(data["avgPrice"]))
             amount = Decimal(str(data["size"]))
-            leverage = Decimal(str(data["leverage"])) if bybit_utils.is_linear_perpetual(hb_trading_pair) \
-                else Decimal(str(data["effective_leverage"]))
+            leverage = Decimal(str(data["leverage"]))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
                 position = Position(
@@ -521,7 +523,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
+            print('REQUEST ORDER STATUS DATA')
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
+            print(f"ORDER_DATA: {order_status_data}")
             order_msg = order_status_data["result"]["list"][0]
             client_order_id = str(order_msg["orderLinkId"])
 
@@ -532,7 +536,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 client_order_id=client_order_id,
                 exchange_order_id=order_msg["orderId"],
             )
-
             return order_update
 
         except IOError as ex:
@@ -560,7 +563,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             api_params["orderId"] = exchange_order_id
         else:
             api_params["orderLinkId"] = client_order_id
-
+        print('CALLING API ENDPOINT')
         resp = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.GET_ORDERS_PATH_URL,
@@ -665,7 +668,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             flat_fees=flat_fees,
         )
 
-        exec_price = Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"])
+        exec_price = Decimal(trade_msg["execPrice"]) if "execPrice" in trade_msg else Decimal(trade_msg["price"])
         exec_time = (
             trade_msg["execTime"] if "execTime" in trade_msg else pd.Timestamp(trade_msg["trade_time"]).timestamp()
         )
@@ -833,6 +836,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=trading_pair,
         )
+        print(resp)
 
         success = False
         msg = ""
