@@ -14,8 +14,8 @@ MAX_ORDER_ID_LEN = 36  # Injective supports uuid style client ids (36 characters
 HBOT_ORDER_ID_PREFIX = "HBOT"
 
 DEFAULT_SUBACCOUNT_INDEX = 0
-EXTRA_TRANSACTION_GAS = pyinjective.constant.GAS_FEE_BUFFER_AMOUNT
-DEFAULT_GAS_PRICE = pyinjective.constant.GAS_PRICE
+TX_GAS_PRICE = pyinjective.constant.GAS_PRICE
+GAS_LIMIT_ADJUSTMENT_MULTIPLIER = None  # Leave as None to use the default value from the SDK. Otherwise, a float value.
 
 EXPECTED_BLOCK_TIME = 1.5
 TRANSACTIONS_CHECK_INTERVAL = 3 * EXPECTED_BLOCK_TIME
