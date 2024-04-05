@@ -334,7 +334,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                 "limit_limit_gtc": {
                     "base_size": amount_str,
                     "limit_price": price_str,
-                    "post_only": True
+                    # As per HB dev team, LIMIT_MAKER should be converted to LIMIT
+                    # "post_only": True
                 }
             }
         elif type_str == "MARKET":
