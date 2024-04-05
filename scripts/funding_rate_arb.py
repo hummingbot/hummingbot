@@ -251,7 +251,14 @@ class FundingRateArbitrage(StrategyV2Base):
             )
             funding_payments_pnl = sum(funding_payment.amount for funding_payment in funding_arbitrage_info["funding_payments"])
             executors_pnl = sum(executor.net_pnl_quote for executor in executors)
-            if executors_pnl + funding_payments_pnl > self.config.profitability_to_take_profit * self.config.position_size_quote:
+            take_profit_condition = executors_pnl + funding_payments_pnl > self.config.profitability_to_take_profit * self.config.position_size_quote
+            funding_info_report = self.get_funding_info_by_token(token)
+            if funding_arbitrage_info["side"] == TradeType.BUY:
+                funding_rate_diff = self.get_normalized_funding_rate_in_seconds(funding_info_report, funding_arbitrage_info["connector_2"]) - self.get_normalized_funding_rate_in_seconds(funding_info_report, funding_arbitrage_info["connector_1"])
+            else:
+                funding_rate_diff = self.get_normalized_funding_rate_in_seconds(funding_info_report, funding_arbitrage_info["connector_1"]) - self.get_normalized_funding_rate_in_seconds(funding_info_report, funding_arbitrage_info["connector_2"])
+            current_funding_condition = funding_rate_diff < self.config.funding_rate_diff_stop_loss
+            if take_profit_condition or current_funding_condition:
                 self.stopped_funding_arbitrages[token].append(funding_arbitrage_info)
                 self.logger().info("Take profit profitability reached, stopping executors")
                 stop_executor_actions.extend([StopExecutorAction(executor_id=executor.id) for executor in executors])
