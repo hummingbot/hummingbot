@@ -89,17 +89,17 @@ def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     return pd.DataFrame(data=data, columns=columns)
 
 
-def build_connector_tokens_display(chain_networks: Dict[str, List[str]]) -> pd.DataFrame:
+def build_connector_tokens_display(connectors_chain_network: List[Dict[str, Any]]) -> pd.DataFrame:
     """
     Display connector and the tokens the balance command will report on
     """
     columns = ["Exchange", "Report Token Balances"]
     data = []
-    for network_spec in chain_networks:
+    for connector_spec in connectors_chain_network:
         data.extend([
             [
-                network_spec['chain_network'],
-                network_spec.get("tokens", ""),
+                f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}",
+                connector_spec.get("tokens", ""),
             ]
         ])
 
