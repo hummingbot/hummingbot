@@ -1150,7 +1150,7 @@ class TestVertexExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders[digest]
 
-        matches_url = web_utils.public_rest_url(CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain], domain=self.domain)
+        matches_url = web_utils.public_rest_url(CONSTANTS.INDEXER_PATH_URL, domain=self.domain)
         matches_response = self.get_matches_filled_mock()
         mock_api.post(matches_url, body=json.dumps(matches_response))
 
@@ -1195,7 +1195,7 @@ class TestVertexExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders[digest]
 
-        matches_url = web_utils.public_rest_url(CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain], domain=self.domain)
+        matches_url = web_utils.public_rest_url(CONSTANTS.INDEXER_PATH_URL, domain=self.domain)
         matches_response = self.get_matches_unfilled_mock()
         mock_api.post(matches_url, body=json.dumps(matches_response))
 
@@ -1229,7 +1229,7 @@ class TestVertexExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders[digest]
 
-        matches_url = web_utils.public_rest_url(CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain], domain=self.domain)
+        matches_url = web_utils.public_rest_url(CONSTANTS.INDEXER_PATH_URL, domain=self.domain)
         matches_response = self.get_matches_unfilled_mock()
         mock_api.post(matches_url, body=json.dumps(matches_response))
 
@@ -1289,7 +1289,7 @@ class TestVertexExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders[digest]
 
-        matches_url = web_utils.public_rest_url(CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain], domain=self.domain)
+        matches_url = web_utils.public_rest_url(CONSTANTS.INDEXER_PATH_URL, domain=self.domain)
         matches_response = self.get_matches_unfilled_mock()
         mock_api.post(matches_url, body=json.dumps(matches_response))
 
@@ -1332,7 +1332,7 @@ class TestVertexExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders[digest]
 
-        matches_url = web_utils.public_rest_url(CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain], domain=self.domain)
+        matches_url = web_utils.public_rest_url(CONSTANTS.INDEXER_PATH_URL, domain=self.domain)
         matches_response = self.get_matches_unfilled_mock()
         mock_api.post(matches_url, body=json.dumps(matches_response))
 
