@@ -22,22 +22,22 @@ QUOTE = "USDC"
 
 BASE_URLS = {
     DEFAULT_DOMAIN: "https://gateway.prod.vertexprotocol.com/v1",
-    TESTNET_DOMAIN: "https://test.vertexprotocol-backend.com",
+    TESTNET_DOMAIN: "https://gateway.sepolia-test.vertexprotocol.com/v1",
 }
 
 WSS_URLS = {
     DEFAULT_DOMAIN: "wss://gateway.prod.vertexprotocol.com/v1/ws",
-    TESTNET_DOMAIN: "wss://test.vertexprotocol-backend.com",
+    TESTNET_DOMAIN: "wss://gateway.sepolia-test.vertexprotocol.com/v1/ws",
 }
 
 ARCHIVE_INDEXER_URLS = {
     DEFAULT_DOMAIN: "https://archive.prod.vertexprotocol.com/v1",
-    TESTNET_DOMAIN: "https://test.vertexprotocol-backend.com",
+    TESTNET_DOMAIN: "https://archive.sepolia-test.vertexprotocol.com/v1",
 }
 
 WS_SUBSCRIBE_URLS = {
     DEFAULT_DOMAIN: "wss://gateway.prod.vertexprotocol.com/v1/subscribe",
-    TESTNET_DOMAIN: "wss://test.vertexprotocol-backend.com",
+    TESTNET_DOMAIN: "wss://gateway.vertexprotocol-vertexprotocol.com/v1/subscribe",
 }
 
 CONTRACTS = {
