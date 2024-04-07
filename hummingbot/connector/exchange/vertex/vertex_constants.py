@@ -21,12 +21,22 @@ TESTNET_DOMAIN = "vertex_testnet"
 QUOTE = "USDC"
 
 BASE_URLS = {
-    DEFAULT_DOMAIN: "https://prod.vertexprotocol-backend.com",
+    DEFAULT_DOMAIN: "https://gateway.prod.vertexprotocol.com/v1",
     TESTNET_DOMAIN: "https://test.vertexprotocol-backend.com",
 }
 
 WSS_URLS = {
-    DEFAULT_DOMAIN: "wss://prod.vertexprotocol-backend.com",
+    DEFAULT_DOMAIN: "wss://gateway.prod.vertexprotocol.com/v1/ws",
+    TESTNET_DOMAIN: "wss://test.vertexprotocol-backend.com",
+}
+
+ARCHIVE_INDEXER_URLS = {
+    DEFAULT_DOMAIN: "https://archive.prod.vertexprotocol.com/v1",
+    TESTNET_DOMAIN: "https://test.vertexprotocol-backend.com",
+}
+
+WS_SUBSCRIBE_URLS = {
+    DEFAULT_DOMAIN: "wss://gateway.prod.vertexprotocol.com/v1/subscribe",
     TESTNET_DOMAIN: "wss://test.vertexprotocol-backend.com",
 }
 
@@ -53,10 +63,7 @@ TIME_IN_FORCE_POSTONLY = "POSTONLY"  # PostOnly
 # API PATHS
 POST_PATH_URL = "/execute"
 QUERY_PATH_URL = "/query"
-INDEXER_PATH_URL = "/indexer"
 SYMBOLS_PATH_URL = "/symbols"
-WS_PATH_URL = "/ws"
-WS_SUBSCRIBE_PATH_URL = "/subscribe"
 
 # POST METHODS
 PLACE_ORDER_METHOD = "place_order"
@@ -173,7 +180,7 @@ ALL_ENDPOINTS_LIMIT = "All"
 RATE_LIMITS = [
     RateLimit(limit_id=ALL_ENDPOINTS_LIMIT, limit=600, time_interval=10),
     RateLimit(
-        limit_id=INDEXER_PATH_URL, limit=60, time_interval=1, linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]
+        limit_id=ARCHIVE_INDEXER_URLS[DEFAULT_DOMAIN], limit=60, time_interval=1, linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]
     ),
     RateLimit(
         limit_id=STATUS_REQUEST_TYPE,
