@@ -516,9 +516,9 @@ class VertexExchange(ExchangePyBase):
             product_id = utils.trading_pair_to_product_id(order.trading_pair, self._exchange_market_info[self._domain])
 
             matches_response = await self._api_post(
-                path_url=CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain],
+                path_url=CONSTANTS.INDEXER_PATH_URL,
                 data={"matches": {"product_ids": [product_id], "subaccount": self.sender_address}},
-                limit_id=CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain],
+                limit_id=CONSTANTS.INDEXER_PATH_URL,
             )
 
             matches_data = matches_response.get("matches", [])
@@ -600,7 +600,7 @@ class VertexExchange(ExchangePyBase):
                     "orders": {"digests": [tracked_order.exchange_order_id]},
                 }
                 indexed_order_data = await self._api_post(
-                    path_url=CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain], data=data, limit_id=CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain]
+                    path_url=CONSTANTS.INDEXER_PATH_URL, data=data, limit_id=CONSTANTS.INDEXER_PATH_URL
                 )
                 orders = indexed_order_data.get("orders", [])
                 if len(orders) > 0:
@@ -731,9 +731,9 @@ class VertexExchange(ExchangePyBase):
         try:
             data = {"matches": {"product_ids": [product_id], "limit": 5}}
             matches_response = await self._api_post(
-                path_url=CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain],
+                path_url=CONSTANTS.INDEXER_PATH_URL,
                 data=data,
-                limit_id=CONSTANTS.ARCHIVE_INDEXER_URLS[self._domain],
+                limit_id=CONSTANTS.INDEXER_PATH_URL
             )
             matches = matches_response.get("matches", [])
             if matches and len(matches) > 0:
