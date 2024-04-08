@@ -460,7 +460,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
 
                 tracked_order.update_exchange_order_id(transaction_hash)
                 tracked_order.gas_price = gas_price
-                tracked_order.token_id = int(order_result.get("tokenId"))
                 tracked_order.current_state = OrderState.OPEN
             if transaction_hash is not None:
                 tracked_order.nonce = 0
