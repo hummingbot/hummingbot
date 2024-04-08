@@ -943,7 +943,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
             pairs = self.trading_pairs
             results = await safe_gather(*[query_trades(p, query_time) for p in pairs], return_exceptions=True)
-            print(results)
+
             for trades, trading_pair in zip(results, pairs):
                 if isinstance(trades, Exception):
                     self.logger().network(
@@ -1010,7 +1010,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                 trade_fee=fee,
                                 exchange_trade_id=str(trade["trade_id"])
                             ))
-                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
+                        self.logger().info(f"Recreating missing trade {trade['side']} {trade['size']} {trading_pair} @ {trade['price']}")
                     else:
                         self.logger().debug(f"Trade without matching order_id and not in the DB: {trade}")
 
