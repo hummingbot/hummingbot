@@ -1055,7 +1055,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             fill_event.trade_fee.flat_fees)
         self.assertTrue(self.is_logged(
             "INFO",
-            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
+            f"Recreating missing trade {trade_fill_non_tracked_order['side']} "
+            f"{trade_fill_non_tracked_order['size']} {self.base_asset}-{self.quote_asset} @ {trade_fill_non_tracked_order['price']}"
         ))
 
     @aioresponses()
@@ -1151,7 +1152,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             fill_event.trade_fee.flat_fees)
         self.assertTrue(self.is_logged(
             "INFO",
-            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
+            f"Recreating missing trade {trade_fill_non_tracked_order['side']} "
+            f"{trade_fill_non_tracked_order['size']} {self.base_asset}-{self.quote_asset} @ {trade_fill_non_tracked_order['price']}"
         ))
 
     @aioresponses()
