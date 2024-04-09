@@ -76,25 +76,22 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
     async def test_level2_order_book_snapshot_message(self):
         snapshot_message = await (CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
             msg=self.snapshot_msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
 
-        update_id = int(get_timestamp_from_exchange_time("1970-01-01T00:00:00Z", "second"))
-
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
         self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_message.type)
-        self.assertEqual(1640000000.0, snapshot_message.timestamp)
-        self.assertEqual(0, snapshot_message.update_id)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg["timestamp"], "s")), snapshot_message.timestamp)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.update_id)
         self.assertEqual(-1, snapshot_message.trade_id)
         self.assertEqual(2, len(snapshot_message.bids))
         self.assertEqual(21921.73, snapshot_message.bids[0].price)
         self.assertEqual(0.06317902, snapshot_message.bids[0].amount)
-        self.assertEqual(update_id, snapshot_message.bids[0].update_id)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.bids[0].update_id)
         self.assertEqual(1, len(snapshot_message.asks))
         self.assertEqual(2192.3, snapshot_message.asks[0].price)
         self.assertEqual(0.002, snapshot_message.asks[0].amount)
-        self.assertEqual(update_id, snapshot_message.asks[0].update_id)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.asks[0].update_id)
 
     async def test_level2_order_book_update_message(self):
         update_msg = self.snapshot_msg
@@ -103,14 +100,13 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
 
         update_message = await (CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
             msg=update_msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
 
         self.assertEqual("COINALPHA-HBOT", update_message.trading_pair)
         self.assertEqual(OrderBookMessageType.DIFF, update_message.type)
-        self.assertEqual(1640000000.0, update_message.timestamp)
-        self.assertEqual(5, update_message.update_id)
+        self.assertEqual(int(get_timestamp_from_exchange_time(update_msg["timestamp"], "s")), update_message.timestamp)
+        self.assertEqual(int(get_timestamp_from_exchange_time(update_msg["timestamp"], "s")), update_message.update_id)
         self.assertEqual(-1, update_message.trade_id)
         self.assertEqual(2, len(update_message.bids))
         self.assertEqual(21921.73, update_message.bids[0].price)
@@ -144,20 +140,19 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
 
         snapshot_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
 
         self.assertEqual(snapshot_message.type, OrderBookMessageType.SNAPSHOT)
-        self.assertEqual(snapshot_message.update_id, 1)
-        self.assertEqual(snapshot_message.timestamp, 1640000000.0)
+        self.assertEqual(snapshot_message.update_id, int(get_timestamp_from_exchange_time(
+            snapshot_msg['timestamp'], "s")))
+        self.assertEqual(snapshot_message.timestamp, int(get_timestamp_from_exchange_time(snapshot_msg["timestamp"], "s")))
 
     async def test_level2_or_trade_message_from_exchange_market_trades(self):
         trade_msg = self.trade_msg
         trade_msg["sequence_num"] = 1
         trade_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
 
@@ -176,16 +171,8 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
 
         await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
-
-        # To reduce the amount of logs, the expected non-ideal behavior are muted
-        # self.assertTrue(
-        #     self.is_partially_logged(log_level="WARNING",
-        #                              message="Received out of order message from l2_data, this indicates a "
-        #                                      "missed message")
-        # )
 
     async def test_level2_or_trade_message_from_exchange_trade_out_of_order(self):
         trade_msg = self.trade_msg
@@ -193,23 +180,14 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
 
         await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
-
-        # To reduce the amount of logs, the expected non-ideal behavior are muted
-        # self.assertTrue(
-        #     self.is_partially_logged(log_level="WARNING",
-        #                              message="Received out of order message from market_trades, this indicates a "
-        #                                      "missed message")
-        # )
 
     async def test_level2_or_trade_message_from_exchange_unexpected_channel(self):
         msg = self.snapshot_msg.copy()
         msg["channel"] = "unexpected_channel"
         out = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         )
         self.assertIsNone(out)
@@ -219,7 +197,6 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
         del msg["events"]
         out = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         )
         self.assertIsNone(out)
@@ -228,7 +205,6 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
         msg = {"events": {}, "type": "unexpected_type", "data": {}}
         out = await CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
             msg=msg,
-            timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         )
         self.assertIsNone(out)
@@ -238,7 +214,6 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
         with self.assertRaises(KeyError):
             await CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
                 msg=msg,
-                timestamp=1640000000.0,
                 symbol_to_pair=self.symbol_to_pair
             )
 

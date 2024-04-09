@@ -322,22 +322,22 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         side_str: str = constants.SIDE_BUY if trade_type is TradeType.BUY else constants.SIDE_SELL
         symbol: str = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-        if type_str == "LIMIT":
+        if type_str in {"LIMIT", "LIMIT_MAKER"}:
             order_configuration = {
                 "limit_limit_gtc": {
                     "base_size": amount_str,
                     "limit_price": price_str
                 }
             }
-        elif type_str == "LIMIT_MAKER":
-            order_configuration = {
-                "limit_limit_gtc": {
-                    "base_size": amount_str,
-                    "limit_price": price_str,
-                    # As per HB dev team, LIMIT_MAKER should be converted to LIMIT
-                    # "post_only": True
-                }
-            }
+        # elif type_str == "LIMIT_MAKER":
+        #     order_configuration = {
+        #         "limit_limit_gtc": {
+        #             "base_size": amount_str,
+        #             "limit_price": price_str,
+        #             # As per HB dev team, LIMIT_MAKER should be converted to LIMIT
+        #             # "post_only": True
+        #         }
+        #     }
         elif type_str == "MARKET":
             if side_str == constants.SIDE_BUY:
                 quote_size: Decimal = (amount * price).quantize(
@@ -879,7 +879,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             new_state = OrderState.PARTIALLY_FILLED if partially else new_state
 
             if fillable_order is not None and new_state == OrderState.FILLED:
-                self.logger().debug(f" '-> Fillable: {event_message.client_order_id}. Trigger FILL request at :{self.time_synchronizer.time()}")
+                self.logger().debug(
+                    f" '-> Fillable: {event_message.client_order_id}. "
+                    f"Trigger FILL request at :{self.time_synchronizer.time()}")
                 # This fails the tests, but it is not a problem for the connector
                 # safe_ensure_future(self._update_order_fills_from_trades())
                 await self._update_order_fills_from_trades()
@@ -1010,7 +1012,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                 trade_fee=fee,
                                 exchange_trade_id=str(trade["trade_id"])
                             ))
-                        self.logger().info(f"Recreating missing trade {trade['side']} {trade['size']} {trading_pair} @ {trade['price']}")
+                        self.logger().info(
+                            f"Recreating missing trade {trade['side']} {trade['size']} {trading_pair} @ {trade['price']}")
                     else:
                         self.logger().debug(f"Trade without matching order_id and not in the DB: {trade}")
 

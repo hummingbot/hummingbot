@@ -57,14 +57,12 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
     async def level2_or_trade_message_from_exchange(
             cls,
             msg: Dict[str, Any],
-            timestamp: float,
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> Optional[OrderBookMessage]:
         """
         Process messages from the order book or trade channel
         https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
         The snapshot is the first message received form the 'level2' channel. It has a sequence_num = 0
         :param msg: the response from the exchange when requesting the order book snapshot
-        :param timestamp: the snapshot timestamp
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
         """
@@ -82,7 +80,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         cls._sequence_nums[channel] = msg["sequence_num"] + 1
 
         if channel == "l2_data":
-            return await cls._level2_order_book_message(msg, timestamp, symbol_to_pair)
+            return await cls._level2_order_book_message(msg, symbol_to_pair)
 
         elif channel == "market_trades":
             return await cls._market_trades_order_book_message(msg, symbol_to_pair)
@@ -98,21 +96,19 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
     async def _level2_order_book_message(
             cls,
             msg: Dict[str, any],
-            timestamp: float,
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> Optional[OrderBookMessage]:
         """
         Process messages from the order book or trade channel
         https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
         The snapshot is the first message received form the 'level2' channel. It has a sequence_num = 0
         :param msg: the response from the exchange when requesting the order book snapshot
-        :param timestamp: the snapshot timestamp
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
         """
         for event in msg["events"]:
             trading_pair = await symbol_to_pair(event["product_id"])
             obm_content = {"trading_pair": trading_pair,
-                           "update_id": msg["sequence_num"],
+                           "update_id": int(get_timestamp_from_exchange_time(msg["timestamp"], "s")),
                            "bids": [],
                            "asks": []
                            }
@@ -123,14 +119,14 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                     obm_content["asks"].append([update["price_level"], update["new_quantity"]])
 
             if event["type"] == "snapshot":
-                obm_content["first_update_id"] = 0
+                # obm_content["first_update_id"] = 0
                 return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
                                         obm_content,
-                                        timestamp=timestamp)
+                                        timestamp=obm_content['update_id'])
             if event["type"] == "update":
                 return OrderBookMessage(OrderBookMessageType.DIFF,
                                         obm_content,
-                                        timestamp=timestamp)
+                                        timestamp=obm_content['update_id'])
 
             cls.logger().warning(f"Unexpected event type: {event['type']}")
             return None
