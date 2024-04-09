@@ -50,11 +50,13 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
     bb_long_threshold: float = Field(
         default=0.0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the Bollinger Bands long threshold: ",
             prompt_on_new=True))
     bb_short_threshold: float = Field(
         default=1.0,
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt=lambda mi: "Enter the Bollinger Bands short threshold: ",
             prompt_on_new=True))
     dca_spreads: List[Decimal] = Field(
