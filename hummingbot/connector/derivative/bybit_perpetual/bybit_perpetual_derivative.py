@@ -171,27 +171,28 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        data = {"symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
-        if tracked_order.exchange_order_id:
-            data["orderId"] = tracked_order.exchange_order_id
+        exchange_order_id = tracked_order.exchange_order_id
+        client_order_id = tracked_order.client_order_id
+        trading_pair = tracked_order.trading_pair
+        api_params = {
+            "category": bybit_utils.get_trading_pair_category(tracked_order.trading_pair),
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair)
+        }
+        if exchange_order_id:
+            api_params["orderId"] = exchange_order_id
         else:
-            data["orderLinkId"] = tracked_order.client_order_id
+            api_params["orderLinkId"] = client_order_id
+        api_params = dict(sorted(api_params.items()))
         cancel_result = await self._api_request(
             method=RESTMethod.POST,
-            path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
-            data=data,
+            path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
+            data=api_params,
             is_auth_required=True,
-            trading_pair=tracked_order.trading_pair,
+            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
         )
-        response_code = cancel_result["retCode"]
-
-        if response_code != CONSTANTS.RET_CODE_OK:
-            if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
-                await self._order_tracker.process_order_not_found(order_id)
-            formatted_ret_code = self._format_ret_code_for_print(response_code)
-            raise IOError(f"{formatted_ret_code} - {cancel_result['ret_msg']}")
-
-        return True
+        if isinstance(cancel_result, dict) and "orderLinkId" in cancel_result["result"]:
+            return True
+        return False
 
     async def _place_order(
         self,
@@ -206,34 +207,37 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     ) -> Tuple[str, float]:
         position_idx = self._get_position_idx(trade_type, position_action)
         data = {
+            "category": bybit_utils.get_trading_pair_category(trading_pair),
             "side": "Buy" if trade_type == TradeType.BUY else "Sell",
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-            "qty": float(amount),
-            "time_in_force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-            "close_on_trigger": position_action == PositionAction.CLOSE,
+            "qty": str(amount),
+            "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
+            "closeOnTrigger": position_action == PositionAction.CLOSE,
             "orderLinkId": order_id,
             "reduceOnly": position_action == PositionAction.CLOSE,
             "positionIdx": position_idx,
             "orderType": CONSTANTS.ORDER_TYPE_MAP[order_type],
         }
         if order_type.is_limit_type():
-            data["price"] = float(price)
+            data["price"] = str(price)
 
         resp = await self._api_request(
-
-            path_url=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
+            method=RESTMethod.POST,
+            path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
             data=data,
             is_auth_required=True,
             trading_pair=trading_pair,
             headers={"referer": CONSTANTS.HBOT_BROKER_ID},
             **kwargs,
         )
+        if resp["retCode"] != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(resp['retCode'])
+            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['retMsg']}")
 
-        if resp["ret_code"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(resp['ret_code'])
-            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['ret_msg']}")
-
-        return str(resp["result"]["order_id"]), self.current_timestamp
+        order_result = resp.get("result", {})
+        o_id = str(order_result["orderId"])
+        transact_time = int(resp['time'])
+        return (o_id, transact_time)
 
     def _get_position_idx(self, trade_type: TradeType, position_action: PositionAction) -> int:
         if position_action == PositionAction.NIL:
@@ -523,12 +527,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
-            print('REQUEST ORDER STATUS DATA')
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
-            print(f"ORDER_DATA: {order_status_data}")
             order_msg = order_status_data["result"]["list"][0]
             client_order_id = str(order_msg["orderLinkId"])
-
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
@@ -563,7 +564,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             api_params["orderId"] = exchange_order_id
         else:
             api_params["orderLinkId"] = client_order_id
-        print('CALLING API ENDPOINT')
         resp = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.GET_ORDERS_PATH_URL,
@@ -777,7 +777,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             mapping.pop(current_exchange_symbol)
             mapping[new_exchange_symbol] = trading_pair
         else:
-            self.logger().error(f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
+            # self.logger().error(f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
+            # print(f"Expected Exchange Symbol: {expected_exchange_symbol}")
+            # print(f"Trading Pair: {trading_pair}")
+            # print(f"Current Exchange Symbol: {current_exchange_symbol}")
+            # print(f"New Exchange Symbol: {new_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
@@ -836,11 +840,10 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=trading_pair,
         )
-        print(resp)
-
         success = False
         msg = ""
-        if resp["retCode"] == CONSTANTS.RET_CODE_OK or (resp["retCode"] == CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED and resp["ret_msg"] == "leverage not modified"):
+        response_code = resp["retCode"]
+        if response_code in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED]:
             success = True
         else:
             formatted_ret_code = self._format_ret_code_for_print(resp['retCode'])
