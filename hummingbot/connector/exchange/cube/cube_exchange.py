@@ -1,4 +1,5 @@
 import asyncio
+import math
 from decimal import ROUND_DOWN, Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
@@ -58,6 +59,10 @@ class CubeExchange(ExchangePyBase):
         self._is_bootstrap_completed = False
         self._nonce_creator = NonceCreator.for_milliseconds()
         self._mapping_initialization_lock = asyncio.Lock()
+
+        if not self.check_domain(self._domain):
+            raise ValueError(f"Invalid domain: {self._domain}")
+
         super().__init__(client_config_map)
 
     @staticmethod
@@ -1065,7 +1070,22 @@ class CubeExchange(ExchangePyBase):
             await asyncio.sleep(0.1)
 
         trading_rule: TradingRule = self._trading_rules.get(trading_pair)
-        return float(trading_rule.min_price_increment)
+
+        if trading_rule is None:
+            self.logger().error(f"get_price_scaler: Trading rule for trading pair {trading_pair} is not defined")
+            return float("1")
+
+        if trading_rule.min_price_increment is None:
+            self.logger().error(f"get_price_scaler: min_price_increment for trading pair {trading_pair} is not defined")
+            return float("1")
+
+        min_price_increment = trading_rule.min_price_increment
+
+        if math.isnan(min_price_increment):
+            self.logger().error(f"get_price_scaler: min_price_increment for trading pair {trading_pair} is NaN")
+            return float("1")
+
+        return float(min_price_increment)
 
     async def get_quantity_scaler(self, trading_pair: str) -> float:
         """
@@ -1077,7 +1097,22 @@ class CubeExchange(ExchangePyBase):
             await asyncio.sleep(0.1)
 
         trading_rule: TradingRule = self._trading_rules.get(trading_pair)
-        return float(trading_rule.min_order_size)
+
+        if trading_rule is None:
+            self.logger().error(f"get_quantity_scaler: Trading rule for trading pair {trading_pair} is not defined")
+            return float("1")
+
+        if trading_rule.min_order_size is None:
+            self.logger().error(f"get_quantity_scaler: min_order_size for trading pair {trading_pair} is not defined")
+            return float("1")
+
+        min_order_size = trading_rule.min_order_size
+
+        if math.isnan(min_order_size):
+            self.logger().error(f"get_quantity_scaler: min_order_size for trading pair {trading_pair} is NaN")
+            return float("1")
+
+        return float(min_order_size)
 
     async def get_base_quote_precision(self, trading_pair: str) -> Tuple[Decimal, Decimal]:
         """
@@ -1092,3 +1127,15 @@ class CubeExchange(ExchangePyBase):
         base_precision = trading_rule.min_order_size
         quote_precision = trading_rule.min_notional_size
         return base_precision, quote_precision
+
+    def check_domain(self, domain: str):
+        """
+        Checks if the domain value is valid
+        :param domain: the domain value to check
+        :return: True if the domain value is valid, False otherwise
+        """
+        valid_domains = [CONSTANTS.DEFAULT_DOMAIN, CONSTANTS.TESTNET_DOMAIN]
+        if domain not in valid_domains:
+            self.logger().error(f"Invalid domain: {domain}. Domain must be one of {valid_domains}")
+            return False
+        return True
