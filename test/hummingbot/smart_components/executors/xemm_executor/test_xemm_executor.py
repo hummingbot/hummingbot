@@ -49,6 +49,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         strategy.cancel.return_value = None
         strategy.connectors = {
             "binance": MagicMock(spec=ConnectorBase),
+            "kucoin": MagicMock(spec=ConnectorBase),
         }
         return strategy
 
