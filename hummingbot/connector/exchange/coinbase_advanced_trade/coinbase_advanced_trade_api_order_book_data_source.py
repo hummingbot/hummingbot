@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -65,9 +64,9 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
-            raw_message, time.time(),
+            raw_message,
             self._connector.exchange_symbol_associated_to_pair)
-        message_queue.put_nowait(order_book_message)
+        await message_queue.put(order_book_message)
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -184,16 +183,16 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
 
-            if ws_response.data and "type" in ws_response.data and ws_response.data["type"] == 'error':
+            if data and "type" in data and data["type"] == 'error':
                 self.logger().error(f"Error received from websocket: {ws_response}")
-                raise Exception(f"Error received from websocket: {ws_response}")
+                raise ValueError(f"Error received from websocket: {ws_response}")
 
             if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
-                if data["channel"] == "market_trades":
-                    self.logger().debug(f"Received message from Coinbase Advanced Trade: {data}")
                 if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse:
-                    await self._message_queue[data["channel"]].put(data)
-                elif data["channel"] in ["subscriptions", "heartbeat"]:
+                    queue_key: str = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse[data["channel"]]
+                    await self._message_queue[queue_key].put(data)
+
+                elif data["channel"] in ["subscriptions", "heartbeats"]:
                     self.logger().debug(f"Ignoring message from Coinbase Advanced Trade: {data}")
                 else:
                     self.logger().debug(
@@ -215,7 +214,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             throttler_limit_id=constants.SNAPSHOT_EP,
         )
 
-        snapshot_timestamp: float = self._connector._time_synchronizer.time() * 1e3
+        snapshot_timestamp: float = self._connector.time_synchronizer.time()
 
         snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.snapshot_message_from_exchange(
             snapshot,

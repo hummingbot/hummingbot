@@ -361,7 +361,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertEqual(diff_event["sequence_num"], msg.update_id)
+        self.assertEqual(int(get_timestamp_from_exchange_time(diff_event["timestamp"], 's')), msg.update_id)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
