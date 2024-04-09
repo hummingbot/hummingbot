@@ -3,11 +3,13 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import check_transaction_exceptions
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
@@ -124,29 +126,105 @@ class GatewayAuraAMM(GatewayEVMAMM):
             gas_cost: Decimal = Decimal(price_response["gasCost"])
             price: Decimal = Decimal(price_response["price"])
             self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-            if process_exception is True:
-                gas_limit: int = int(price_response["gasLimit"])
-                exceptions: List[str] = check_transaction_exceptions(
-                    allowances=self._allowances,
-                    balances=self._account_balances,
-                    base_asset=base,
-                    quote_asset=quote,
-                    amount=amount,
-                    side=side,
-                    gas_limit=gas_limit,
-                    gas_cost=gas_cost,
-                    gas_asset=gas_price_token,
-                    swaps_count=len(price_response.get("swaps", [])),
-                    chain=self.chain
-                )
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
-                if len(exceptions) > 0:
-                    return None
+            # if process_exception is True:
+            #     gas_limit: int = int(price_response["gasLimit"])
+            #     exceptions: List[str] = check_transaction_exceptions(
+            #         allowances=self._allowances,
+            #         balances=self._account_balances,
+            #         base_asset=base,
+            #         quote_asset=quote,
+            #         amount=amount,
+            #         side=side,
+            #         gas_limit=gas_limit,
+            #         gas_cost=gas_cost,
+            #         gas_asset=gas_price_token,
+            #         swaps_count=len(price_response.get("swaps", [])),
+            #         chain=self.chain
+            #     )
+            #     for index in range(len(exceptions)):
+            #         self.logger().warning(
+            #             f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
+            #         )
+            #     if len(exceptions) > 0:
+            #         return None
             return Decimal(str(price))
         return None
+    async def _status_polling_loop(self):
+        await self.update_balances(on_interval=False)
+        while True:
+            try:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
+                await safe_gather(
+                    self.update_balances(on_interval=True),
+                    self.update_canceling_transactions(self.canceling_orders),
+                    self.update_token_approval_status(self.approval_orders),
+                    self.update_order_status(self.amm_orders)
+                )
+                self._last_poll_timestamp = self.current_timestamp
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+
+    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+        """
+        Calls REST API to get status update for each in-flight amm orders.
+        """
+        if len(tracked_orders) < 1:
+            return
+
+        # split canceled and non-canceled orders
+        tx_hash_list: List[str] = await safe_gather(
+            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
+        )
+        self.logger().debug(
+            "Polling for order status updates of %d orders.",
+            len(tracked_orders)
+        )
+        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            self._get_gateway_instance().get_transaction_status(
+                self.chain,
+                self.network,
+                tx_hash
+            )
+            for tx_hash in tx_hash_list
+        ], return_exceptions=True)
+        for tracked_order, tx_details in zip(tracked_orders, update_results):
+            if isinstance(tx_details, Exception):
+                self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
+                continue
+            if "txHash" not in tx_details:
+                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+                                    f"{tx_details}.")
+                continue
+            tx_status: int = tx_details["txStatus"]
+            if tx_status == 0:
+                gas_used: int = tx_details["gasUsed"]
+                gas_price: Decimal = tracked_order.gas_price
+                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+
+                self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
+
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.FILLED,
+                )
+                self._order_tracker.process_order_update(order_update)
+            elif tx_status not in [1, 2, 3]:
+                # 0: in the mempool but we dont have data to guess its status
+                # 2: in the mempool and likely to succeed
+                # 3: in the mempool and likely to fail
+                pass
+
+            else:
+                self.logger().network(
+                    f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
+                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
+                )
+                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """

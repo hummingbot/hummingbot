@@ -250,7 +250,7 @@ class GatewayEVMAMM(ConnectorBase):
     async def load_token_data(self):
         tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
         for t in tokens.get("tokens", []):
-            self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
+            self._amount_quantum_dict[t["name"]] = Decimal(str(10 ** -t["decimals"]))
 
     async def get_chain_info(self):
         """
