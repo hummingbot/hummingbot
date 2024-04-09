@@ -216,7 +216,7 @@ class CubeExchange(ExchangePyBase):
         price_scaler = Decimal(await self.get_price_scaler(trading_pair))
         quantity_scaler = Decimal(await self.get_quantity_scaler(trading_pair))
 
-        if price == s_decimal_NaN:
+        if math.isnan(price):
             order_book_price = self.get_price(trading_pair, is_buy=True if trade_type is TradeType.BUY else False)
             exchange_price = order_book_price / price_scaler
         else:
