@@ -75,6 +75,10 @@ class XEMMExecutor(ExecutorBase):
             self.taker_connector = config.buying_market.connector_name
             self.taker_trading_pair = config.buying_market.trading_pair
             self.taker_order_side = TradeType.BUY
+        taker_connector = strategy.connectors[self.taker_connector]
+        if not self.is_amm_connector(exchange=self.taker_connector):
+            if OrderType.MARKET not in taker_connector.supported_order_types():
+                raise ValueError(f"{self.taker_connector} does not support market orders.")
         self._taker_result_price = Decimal("1")
         self._maker_target_price = Decimal("1")
         self._tx_cost = Decimal("1")
