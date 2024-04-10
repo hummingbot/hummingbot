@@ -884,7 +884,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pair=trading_pair,
         )
         result: Dict[str, Any] = response["result"]
-
         if len(result["list"]) == 0:
             # An empty funding fee/payment is retrieved.
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
@@ -892,7 +891,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             data: Dict[str, Any] = result["list"][0]
             funding_rate: Decimal = Decimal(data["feeRate"])
             payment: Decimal = Decimal(str(data["execFee"]))
-            timestamp: int = int(data["fundingRateTimestamp"])
+            timestamp: int = int(data["execTime"])
         return timestamp, funding_rate, payment
 
     async def _api_request(self,
