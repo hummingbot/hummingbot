@@ -1,9 +1,11 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_validators import validate_int, validate_with_regex
+from hummingbot.connector.exchange.cube.cube_constants import DEFAULT_DOMAIN, TESTNET_DOMAIN
 from hummingbot.connector.exchange.cube.cube_ws_protobufs import trade_pb2
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
@@ -93,6 +95,37 @@ class CubeConfigMap(BaseConnectorConfigMap):
 
     class Config:
         title = "cube"
+
+    @validator("cube_api_key", pre=True)
+    def validate_cube_api_key(cls, v: str):
+        pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+        error_message = "Invalid API key. API key should be a UUID string."
+        ret = validate_with_regex(v, pattern, error_message)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("cube_api_secret", pre=True)
+    def validate_cube_api_secret(cls, v: str):
+        pattern = r'^[a-zA-Z0-9]{64}$'
+        error_message = "Invalid secret key. Secret key should be a 64-character alphanumeric string."
+        ret = validate_with_regex(v, pattern, error_message)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("cube_subaccount_id", pre=True)
+    def validate_cube_subaccount_id(cls, v: str):
+        ret = validate_int(v, min_value=0, inclusive=False)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("domain", pre=True)
+    def validate_domain(cls, v: str):
+        if v not in [DEFAULT_DOMAIN, TESTNET_DOMAIN]:
+            raise ValueError(f"Domain must be either {DEFAULT_DOMAIN} or {TESTNET_DOMAIN}")
+        return v
 
 
 KEYS = CubeConfigMap.construct()
