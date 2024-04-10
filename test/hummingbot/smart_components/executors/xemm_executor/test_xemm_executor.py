@@ -47,9 +47,11 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
         strategy.sell.side_effect = ["OID-SELL-1", "OID-SELL-2", "OID-SELL-3"]
         strategy.cancel.return_value = None
+        binance_connector = MagicMock(spec=ConnectorBase)
+        kucoin_connector = MagicMock(spec=ConnectorBase)
         strategy.connectors = {
-            "binance": MagicMock(spec=ConnectorBase),
-            "kucoin": MagicMock(spec=ConnectorBase),
+            "binance": binance_connector,
+            "kucoin": kucoin_connector,
         }
         return strategy
 
