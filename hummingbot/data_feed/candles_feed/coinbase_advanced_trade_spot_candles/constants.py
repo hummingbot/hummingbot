@@ -1,9 +1,9 @@
 from bidict import bidict
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
-    MAX_REST_REQUESTS_S,
+    MAX_PRIVATE_REST_REQUESTS_S,
+    PRIVATE_REST_REQUESTS,
     RATE_LIMITS,
-    REST_REQUESTS,
 )
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
@@ -30,7 +30,7 @@ MAX_CANDLES_SIZE = 300
 RATE_LIMITS.append(
     RateLimit(
         CANDLES_ENDPOINT_ID,
-        limit=MAX_REST_REQUESTS_S,
+        limit=MAX_PRIVATE_REST_REQUESTS_S,
         time_interval=1,
-        linked_limits=[LinkedLimitWeightPair(REST_REQUESTS, 1)]),
+        linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]),
 )

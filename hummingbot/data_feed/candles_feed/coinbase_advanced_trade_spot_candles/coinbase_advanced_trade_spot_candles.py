@@ -182,7 +182,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         Fills the historical candles deque with the candles fetched from the exchange.
         Ideally, one request should provide the number of candles needed to fill the deque.
         """
-        while not self.is_ready:
+        while not self.ready:
             end_timestamp: int = end_time or int(self._candles[0][0])
             try:
                 candles = await self.fetch_candles(end_time=end_timestamp)
