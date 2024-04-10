@@ -3,8 +3,8 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.smart_components.executors.data_types import ConnectorPair
 from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
 from hummingbot.smart_components.executors.xemm_executor.xemm_executor import XEMMExecutor
@@ -47,8 +47,10 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
         strategy.sell.side_effect = ["OID-SELL-1", "OID-SELL-2", "OID-SELL-3"]
         strategy.cancel.return_value = None
-        binance_connector = MagicMock(spec=ConnectorBase)
-        kucoin_connector = MagicMock(spec=ConnectorBase)
+        binance_connector = MagicMock(spec=ExchangePyBase)
+        binance_connector.supported_order_types = MagicMock(return_value=[OrderType.LIMIT, OrderType.MARKET])
+        kucoin_connector = MagicMock(spec=ExchangePyBase)
+        kucoin_connector.supported_order_types = MagicMock(return_value=[OrderType.LIMIT, OrderType.MARKET])
         strategy.connectors = {
             "binance": binance_connector,
             "kucoin": kucoin_connector,
@@ -62,14 +64,18 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'BTC-USDT'))
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
 
-    def test_net_pnl_quote(self):
+    def test_net_pnl(self):
         self.executor._status = SmartComponentStatus.TERMINATED
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.taker_order = Mock(spec=TrackedOrder)
         self.executor.maker_order.executed_amount_base = Decimal('1')
         self.executor.taker_order.executed_amount_base = Decimal('1')
         self.executor.maker_order.average_executed_price = Decimal('100')
-        self.executor.taker_order.average_executed_price = Decimal('101')
+        self.executor.taker_order.average_executed_price = Decimal('200')
+        self.executor.maker_order.cum_fees_quote = Decimal('1')
+        self.executor.taker_order.cum_fees_quote = Decimal('1')
+        self.assertEqual(self.executor.net_pnl_quote, Decimal('98'))
+        self.assertEqual(self.executor.net_pnl_pct, Decimal('98'))
 
     @patch.object(XEMMExecutor, 'place_order')
     def test_place_maker_order(self, mock_place_order):
