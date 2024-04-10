@@ -55,7 +55,7 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trading_pair=trading_pair,
             index_price=Decimal(symbol_info["indexPrice"]),
             mark_price=Decimal(symbol_info["markPrice"]),
-            next_funding_utc_timestamp=int(symbol_info["nextFundingTime"]),
+            next_funding_utc_timestamp=int(float(symbol_info["nextFundingTime"]) * 1e-3),
             rate=Decimal(symbol_info["lastFundingRate"]),
         )
         return funding_info
@@ -189,7 +189,7 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trading_pair=trading_pair,
             index_price=Decimal(data["i"]),
             mark_price=Decimal(data["p"]),
-            next_funding_utc_timestamp=int(data["T"]),
+            next_funding_utc_timestamp=int(float(data["T"]) * 1e-3),
             rate=Decimal(data["r"]),
         )
 

@@ -17,8 +17,6 @@ class GenericV2StrategyWithControllersConfig(StrategyV2ConfigBase):
 
 
 class GenericV2StrategyWithControllers(StrategyV2Base):
-    account_config_set = False
-
     def __init__(self, connectors: Dict[str, ConnectorBase], config: GenericV2StrategyWithControllersConfig):
         super().__init__(connectors, config)
         self.config = config
@@ -39,13 +37,11 @@ class GenericV2StrategyWithControllers(StrategyV2Base):
         return []
 
     def apply_initial_setting(self):
-        if not self.account_config_set:
-            for controller_id, controller in self.controllers.items():
-                config_dict = controller.config.dict()
-                if self.is_perpetual(config_dict.get("connector_name")):
-                    if "position_mode" in config_dict:
-                        self.connectors[config_dict["connector_name"]].set_position_mode(config_dict["position_mode"])
-                    if "leverage" in config_dict:
-                        self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
-                                                                                    trading_pair=config_dict["trading_pair"])
-            self.account_config_set = True
+        for controller_id, controller in self.controllers.items():
+            config_dict = controller.config.dict()
+            if self.is_perpetual(config_dict.get("connector_name")):
+                if "position_mode" in config_dict:
+                    self.connectors[config_dict["connector_name"]].set_position_mode(config_dict["position_mode"])
+                if "leverage" in config_dict:
+                    self.connectors[config_dict["connector_name"]].set_leverage(leverage=config_dict["leverage"],
+                                                                                trading_pair=config_dict["trading_pair"])

@@ -1,17 +1,13 @@
-import asyncio
-import functools
-import logging
 import re
 from typing import Callable, Dict, NamedTuple, Optional, Tuple
 
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as constants
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
-from . import coinbase_advanced_trade_constants as constants
 
 
 def public_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> str:
@@ -112,14 +108,10 @@ async def get_current_server_time_s(
         throttler_limit_id=constants.SERVER_TIME_EP,
     )
     server_time: float = float(get_timestamp_from_exchange_time(response["iso"], "s"))
-    # We could implement:
-    # server_time = float(response["epochSeconds"])
-    # server_time = float(response["epochMillis"]) / 1000
 
     return server_time
 
 
-# Ok, forgot HB does not like units on time ...
 async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = constants.DEFAULT_DOMAIN,
@@ -143,6 +135,8 @@ def get_timestamp_from_exchange_time(exchange_time: str, unit: str) -> float:
 
     dt = parser.parse(timestr=exchange_time)
     t_s: float = dt.timestamp()
+    if not isinstance(t_s, float):
+        raise ValueError(f"Failed to parse exchange time {exchange_time}:{t_s}")
     if unit in {"s", "second", "seconds"}:
         return t_s
     elif unit in {"ms", "millisecond", "milliseconds"}:
@@ -201,53 +195,3 @@ class CoinbaseAdvancedTradeServerIssueException(Exception):
     Exception raised when the Coinbase Advanced Trade server returns an error
     """
     pass
-
-
-def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
-    def decorator(f):
-        @functools.wraps(f)
-        async def wrapper(*args, **kwargs):
-            assert any(p in f.__name__ for p in ['api_post', 'api_get']), f"{f.__name__} is not an API call"
-            retries: int = 0
-            sleep_time: float = initial_sleep
-            response: Dict = {}
-            logger: logging.Logger = args[0].logger()
-            url: str | None = kwargs.get("path_url")
-
-            while retries < max_retries:
-                try:
-                    logger.debug(f"   Calling {f.__name__} request with {url}: {retries}/{max_retries}.")
-                    response = await f(*args, **kwargs)
-                    break
-
-                except IOError as e:
-                    if any(f"HTTP status is {c}" in str(e) for c in ("400", "403", "500", "501", "502", "503", "504")):
-                        logger.exception(str(e))
-                        raise e
-
-                    retries += 1
-                    if retries >= max_retries:
-                        logger.exception(f"Max retries reached for {url}.")
-                        logger.exception(f"    Exception: {e}.")
-                        return [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}]
-
-                    if "HTTP status is 401" in str(e):
-                        logger.warning("Unauthorized. This could be temporary.")
-
-                    if "HTTP status is 429" in str(e):
-                        logger.warning("API call rate limited. Notify hummingbot Foundation if this happens frequently.")
-                        # sleep_time = 1 / constants.MAX_REST_REQUESTS_S
-
-                    logger.info(f"Retrying REST call in {sleep_time} seconds.")
-                    await asyncio.sleep(sleep_time)
-                    sleep_time = min(sleep_time * 2, max_sleep)  # Exponential backoff, capped at max_sleep
-
-                except Exception as e:
-                    logger.exception(f"Unexpected error in function {f.__name__}.")
-                    raise CoinbaseAdvancedTradeServerIssueException from e
-
-            return response
-
-        return wrapper
-
-    return decorator

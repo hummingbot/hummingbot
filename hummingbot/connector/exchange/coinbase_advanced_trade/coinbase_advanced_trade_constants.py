@@ -9,8 +9,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 EXCHANGE_NAME = "Coinbase Advanced Trade"
 
 CHANGELOG_URL = "https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog"
-LATEST_UPDATE = "2023-JUL-26"
-CHANGELOG_HASH = "3a99968df3223eb00502e2059012c9a5"
+LATEST_UPDATE = "2024-FEB-22"
+# curl https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog | md5sum
+CHANGELOG_HASH = "4825e9a0e67b58f6be38f7e411637b87"
 
 COINBASE_ADVANCED_TRADE_CLASS_PREFIX = "CoinbaseAdvancedTrade"
 
@@ -58,8 +59,7 @@ ACCOUNT_EP = "/brokerage/accounts/{account_uuid}"
 ACCOUNT_RATE_LIMIT_ID = "Account"
 SNAPSHOT_EP = "/brokerage/product_book"
 
-REST_ENDPOINTS = {
-    SERVER_TIME_EP,
+PRIVATE_REST_ENDPOINTS = {
     ALL_PAIRS_EP,
     PAIR_TICKER_RATE_LIMIT_ID,
     PAIR_TICKER_24HR_RATE_LIMIT_ID,
@@ -72,6 +72,10 @@ REST_ENDPOINTS = {
     ACCOUNTS_LIST_EP,
     ACCOUNT_RATE_LIMIT_ID,
     SNAPSHOT_EP,
+}
+
+PUBLIC_REST_ENDPOINTS = {
+    SERVER_TIME_EP,
 }
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
@@ -99,8 +103,11 @@ SIDE_BUY = "BUY"
 SIDE_SELL = "SELL"
 
 # Rate Limit Type
-REST_REQUESTS = "REST_REQUESTS"
-MAX_REST_REQUESTS_S = 30
+PRIVATE_REST_REQUESTS = "PRIVATE_REST_REQUESTS"
+MAX_PRIVATE_REST_REQUESTS_S = 30
+
+PUBLIC_REST_REQUESTS = "PUBLIC_REST_REQUESTS"
+MAX_PUBLIC_REST_REQUESTS_S = 10
 
 SIGNIN_REQUESTS = "SIGNIN_REQUESTS"
 MAX_SIGNIN_REQUESTS_H = 10000
@@ -128,21 +135,31 @@ ORDER_STATE = {
 # Oddly, order can be in unknown state ???
 ORDER_STATUS_NOT_FOUND_ERROR_CODE = "UNKNOWN_ORDER_STATUS"
 
-REST_RATE_LIMITS = [RateLimit(limit_id=endpoint,
-                              limit=MAX_REST_REQUESTS_S,
-                              time_interval=ONE_SECOND,
-                              linked_limits=[LinkedLimitWeightPair(REST_REQUESTS, 1)]) for endpoint in
-                    REST_ENDPOINTS]
+PRIVATE_REST_RATE_LIMITS = [
+    RateLimit(limit_id=endpoint,
+              limit=MAX_PRIVATE_REST_REQUESTS_S,
+              time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]) for endpoint in PRIVATE_REST_ENDPOINTS]
 
-SIGNIN_RATE_LIMITS = [RateLimit(limit_id=endpoint,
-                                limit=MAX_SIGNIN_REQUESTS_H,
-                                time_interval=ONE_HOUR,
-                                linked_limits=[LinkedLimitWeightPair(SIGNIN_REQUESTS, 1)]) for endpoint in
-                      SIGNIN_ENDPOINTS]
+PUBLIC_REST_RATE_LIMITS = [
+    RateLimit(limit_id=endpoint,
+              limit=MAX_PUBLIC_REST_REQUESTS_S,
+              time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]) for endpoint in PUBLIC_REST_ENDPOINTS]
+
+SIGNIN_RATE_LIMITS = [
+    RateLimit(limit_id=endpoint,
+              limit=MAX_SIGNIN_REQUESTS_H,
+              time_interval=ONE_HOUR,
+              linked_limits=[LinkedLimitWeightPair(SIGNIN_REQUESTS, 1)]) for endpoint in SIGNIN_ENDPOINTS]
 
 RATE_LIMITS = [
-    # Pools
-    RateLimit(limit_id=REST_REQUESTS, limit=MAX_REST_REQUESTS_S, time_interval=ONE_SECOND),
+    RateLimit(limit_id=PRIVATE_REST_REQUESTS, limit=MAX_PRIVATE_REST_REQUESTS_S, time_interval=ONE_SECOND),
+    RateLimit(limit_id=PUBLIC_REST_REQUESTS, limit=MAX_PUBLIC_REST_REQUESTS_S, time_interval=ONE_SECOND),
     RateLimit(limit_id=SIGNIN_REQUESTS, limit=MAX_SIGNIN_REQUESTS_H, time_interval=ONE_HOUR),
     RateLimit(limit_id=WSS_REQUESTS, limit=MAX_WSS_REQUESTS_S, time_interval=ONE_SECOND),
-] + REST_RATE_LIMITS + SIGNIN_RATE_LIMITS
+]
+
+RATE_LIMITS.extend(PRIVATE_REST_RATE_LIMITS)
+RATE_LIMITS.extend(PUBLIC_REST_RATE_LIMITS)
+RATE_LIMITS.extend(SIGNIN_RATE_LIMITS)

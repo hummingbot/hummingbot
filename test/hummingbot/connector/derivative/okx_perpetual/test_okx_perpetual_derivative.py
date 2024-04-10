@@ -691,7 +691,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def target_funding_info_next_funding_utc_timestamp(self):
-        return 1657099053000
+        return 1657099053
 
     @property
     def target_funding_info_next_funding_utc_str(self):
