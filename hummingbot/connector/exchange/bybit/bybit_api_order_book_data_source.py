@@ -23,7 +23,6 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
-    ONE_HOUR = 60 * 60
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
@@ -118,7 +117,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=self.ONE_HOUR)
+                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=CONSTANTS.ONE_HOUR)
             except asyncio.TimeoutError:
                 await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
             except asyncio.CancelledError:
