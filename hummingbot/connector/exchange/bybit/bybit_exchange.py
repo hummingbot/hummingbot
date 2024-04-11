@@ -336,12 +336,11 @@ class BybitExchange(ExchangePyBase):
                 api_params["orderLinkId"] = client_order_id
 
             all_fills_response = await self._api_get(
-                path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                path_url=CONSTANTS.TRADE_HISTORY_PATH_URL,
                 params=api_params,
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL
+                limit_id=CONSTANTS.TRADE_HISTORY_PATH_URL
             )
-
             result = all_fills_response.get("result", [])
             if result not in (None, {}):
                 for trade in result["list"]:
@@ -386,10 +385,10 @@ class BybitExchange(ExchangePyBase):
         else:
             api_params["orderLinkId"] = client_order_id
         updated_order_data = await self._api_get(
-            path_url=CONSTANTS.MY_TRADES_PATH_URL,
+            path_url=CONSTANTS.GET_ORDERS_PATH_URL,
             params=api_params,
             is_auth_required=True,
-            limit_id=CONSTANTS.MY_TRADES_PATH_URL
+            limit_id=CONSTANTS.GET_ORDERS_PATH_URL
         )
 
         order_data = updated_order_data["result"]["list"][0]

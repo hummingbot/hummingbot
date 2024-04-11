@@ -37,7 +37,6 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
         self._connector = connector
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._domain = domain
         self._time_synchronizer = time_synchronizer
         self._throttler = throttler
@@ -164,12 +163,6 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 ws and await ws.disconnect()
 
-    def _get_trade_topic_from_symbol(self, symbol: str) -> str:
-        return f"publicTrade.{symbol}"
-
-    def _get_ob_topic_from_symbol(self, symbol: str, depth: int) -> str:
-        return f"orderbook.{depth}.{symbol}"
-
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
@@ -184,6 +177,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "args": [trade_topic]
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
+
                 orderbook_topic = self._get_ob_topic_from_symbol(symbol, self._depth)
                 orderbook_payload = {
                     "op": "subscribe",
@@ -194,7 +188,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)
 
-                self.logger().info(f"Subscribed to public order book and trade channels of {trading_pair}...")
+                self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -216,19 +210,16 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 continue
             event_type = data.get("type")
             topic = data.get("topic")
-            if event_type == CONSTANTS.DIFF_EVENT_TYPE:
-                if data.get("f"):
-                    self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
-                else:
-                    self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
-            elif event_type == CONSTANTS.V5_TRADE_EVENT_TYPE and "publicTrade" in topic:
-                self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(data)
-            elif event_type == CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE:
-                self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
-            elif event_type == CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE:
-                self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
-            # else:
-            #     self.logger().info(f"Other Event: {event_type} -> {ws_response}")
+            if event_type == CONSTANTS.TRADE_EVENT_TYPE and "publicTrade" in topic:
+                channel = self._trade_messages_queue_key
+            elif event_type == CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE and "orderbook" in topic:
+                channel = self._snapshot_messages_queue_key
+            elif event_type == CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE and "orderbook" in topic:
+                channel = self._diff_messages_queue_key
+            else:
+                channel = None
+            if channel:
+                self._message_queue[channel].put_nowait(data)
 
     async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
         message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]
@@ -268,3 +259,9 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def _time(self):
         return time.time()
+
+    def _get_trade_topic_from_symbol(self, symbol: str) -> str:
+        return f"publicTrade.{symbol}"
+
+    def _get_ob_topic_from_symbol(self, symbol: str, depth: int) -> str:
+        return f"orderbook.{depth}.{symbol}"

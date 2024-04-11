@@ -36,10 +36,8 @@ X_API_RECV_WINDOW = str(50000)
 SPOT_ORDER_BOOK_DEPTH = 50
 
 # Websocket event types
-DIFF_EVENT_TYPE = "diffDepth"
-TRADE_EVENT_TYPE = "trade"
 # https://bybit-exchange.github.io/docs/v5/websocket/public/trade
-V5_TRADE_EVENT_TYPE = "snapshot"  # Weird but true in V5
+TRADE_EVENT_TYPE = "snapshot"  # Weird but true in V5
 SNAPSHOT_EVENT_TYPE = "depth"
 # V5: https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
 ORDERBOOK_DIFF_EVENT_TYPE = "delta"
@@ -56,7 +54,8 @@ ACCOUNT_INFO_PATH_URL = "/v5/account/info"
 BALANCE_PATH_URL = "/v5/account/wallet-balance"
 ORDER_PLACE_PATH_URL = "/v5/order/create"
 ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
-MY_TRADES_PATH_URL = "/v5/order/realtime"
+GET_ORDERS_PATH_URL = "/v5/order/realtime"
+TRADE_HISTORY_PATH_URL = "/v5/execution/list"
 
 
 # Order States
@@ -124,7 +123,7 @@ RATE_LIMITS = {
     RateLimit(limit_id=ORDER_CANCEL_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+    RateLimit(limit_id=GET_ORDERS_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
     RateLimit(limit_id=ACCOUNT_INFO_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
@@ -133,4 +132,13 @@ RATE_LIMITS = {
     RateLimit(limit_id=BALANCE_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
+    RateLimit(
+        limit_id=TRADE_HISTORY_PATH_URL,
+        limit=MAX_REQUEST_GET,
+        time_interval=TWO_MINUTES,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET, 1),
+            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+        ]),
 }
