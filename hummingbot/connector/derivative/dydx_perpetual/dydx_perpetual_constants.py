@@ -17,7 +17,8 @@ LIMIT_FEE = 0.015
 
 # API Base URLs
 ##
-DYDX_VALIDATOR_REST_BASE_URL = "https://dydx-ops-rpc.kingnodes.com"
+# DYDX_VALIDATOR_REST_BASE_URL = "https://dydx-ops-rpc.kingnodes.com"
+DYDX_VALIDATOR_REST_BASE_URL = "https://dydx-grpc.publicnode.com:443"
 ##
 DYDX_INDEXER_REST_BASE_URL = "https://api.dydx.exchange"
 ##

@@ -212,8 +212,11 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                 "good_til_block": 0,
                 # "good_til_block_time": 0,
             }
+            gas_limit = 0
+            fee = 0
+            broadcast_mode = 0 #"BroadcastMode.BroadcastTxSync"
             # good_til_block_time = int((datetime.now() + timedelta(seconds=good_til_time_in_seconds)).timestamp())
-            good_til_block_time = int(time.time()) + CONSTANTS.ORDER_EXPIRATION
+            # good_til_block_time = int(time.time()) + CONSTANTS.ORDER_EXPIRATION
             resp = await self._api_delete(
                 path_url=CONSTANTS.PATH_ACTIVE_ORDERS,
                 params=body_params,
