@@ -36,6 +36,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
         self._depth = CONSTANTS.WS_ORDER_BOOK_DEPTH
+        # self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
 
     async def get_last_traded_prices(self, trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
@@ -88,6 +89,26 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             tasks_future and tasks_future.cancel()
             raise
 
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """
+        This method runs continuously and request the full order book content from the exchange every hour.
+        The method uses the REST API from the exchange because it does not provide an endpoint to get the full order
+        book through websocket. With the information creates a snapshot messages that is added to the output queue
+        :param ev_loop: the event loop the method will run in
+        :param output: a queue to add the created snapshot messages
+        """
+        while True:
+            try:
+                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=CONSTANTS.ONE_HOUR)
+            except asyncio.TimeoutError:
+                await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error.", exc_info=True)
+                await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
+                await self._sleep(5.0)
+
     async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):
         """
         Subscribe to all required events and start the listening cycle.
@@ -118,16 +139,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return ws
 
-    def _get_trade_topic_from_symbol(self, symbol: str) -> str:
-        return f"publicTrade.{symbol}"
-
-    def _get_ob_topic_from_symbol(self, symbol: str, depth: int) -> str:
-        return f"orderbook.{depth}.{symbol}"
-
-    def _get_tickers_topic_from_symbol(self, symbol: str) -> str:
-        return f"tickers.{symbol}"
-
     async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
+        print(f"Subscribe to Channels for pairs: {trading_pairs}")
         try:
             symbols = [
                 await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -162,46 +175,61 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
             raise
 
-    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+    async def _process_websocket_messages(self, ws_assistant: WSAssistant):
+        self._last_ws_message_sent_timestamp = self._time()
         while True:
             try:
-                await super()._process_websocket_messages(websocket_assistant=websocket_assistant)
+                seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL - (
+                    self._time() - self._last_ws_message_sent_timestamp))
+                # await super()._process_websocket_messages(websocket_assistant=websocket_assistant)
+                await asyncio.wait_for(self._process_ws_messages(ws=ws_assistant), timeout=seconds_until_next_ping)
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"op": "ping"})
-                await websocket_assistant.send(ping_request)
+                ping_time = self._time()
+                ping_request = WSJSONRequest(
+                    payload={
+                        "op": "ping"
+                    }
+                )
+                await ws_assistant.send(ping_request)
+                self._last_ws_message_sent_timestamp = ping_time
 
-    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        channel = ""
-        if "success" not in event_message:
-            event_channel = event_message["topic"]
-            event_channel = ".".join(event_channel.split(".")[:-1])
-            if event_channel == CONSTANTS.WS_TRADES_TOPIC:
+    async def _process_ws_messages(self, ws: WSAssistant):
+        async for ws_response in ws.iter_messages():
+            data = ws_response.data
+            if data.get("op") == "subscribe":
+                if data.get("success") is False:
+                    self.logger().error(
+                        "Unexpected error occurred subscribing to order book trading and delta streams...",
+                        exc_info=True
+                    )
+                continue
+            event_type = data.get("type")
+            topic = data.get("topic")
+            channel = ""
+            if event_type == CONSTANTS.TRADE_EVENT_TYPE and "publicTrade" in topic:
                 channel = self._trade_messages_queue_key
-            elif event_channel == CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC:
-                channel = self._diff_messages_queue_key
-            elif event_channel == CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC:
+            elif event_type == CONSTANTS.TICKERS_SNAPSHOT_EVENT_TYPE and "tickers" in topic:
                 channel = self._funding_info_messages_queue_key
-        return channel
+            elif event_type == CONSTANTS.TICKERS_DIFF_EVENT_TYPE and "tickers" in topic:
+                channel = self._funding_info_messages_queue_key
+            elif event_type == CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE:
+                channel = self._snapshot_messages_queue_key
+                self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
+            elif event_type == CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE:
+                channel = self._diff_messages_queue_key
+            else:
+                pass
+            if channel:
+                self._message_queue[channel].put_nowait(data)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
             symbol=raw_message["data"]["s"]
         )
-        data = raw_message["data"]
-        timestamp = raw_message["ts"]
-        # timestamps from ByBit is in ms
-        update_id = self._nonce_provider.get_tracking_nonce(timestamp=raw_message["ts"] * 1e-3)
-        # update_id = data["u"]
-        order_book_message_content = {
-            "trading_pair": trading_pair,
-            "update_id": update_id,
-            "bids": data["b"],
-            "asks": data["a"],
-        }
-        order_book_message: OrderBookMessage = OrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=order_book_message_content,
-            timestamp=timestamp,
+        order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
+            raw_message['data'],
+            raw_message["ts"],
+            {"trading_pair": trading_pair}
         )
         message_queue.put_nowait(order_book_message)
 
@@ -212,33 +240,32 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
         for trades in data:
             trade_message: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
-                trades,
-                {"trading_pair": trading_pair}
-            )
+                trades, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        print("_parse_funding_info_message")
+        # This topic utilises the snapshot field and delta field.
+        # If a response param is not found in the message, then its value has not changed
+        # https://bybit-exchange.github.io/docs/v5/websocket/public/ticker
         event_type = raw_message["type"]
-        if event_type == "delta":
-            symbol = raw_message["topic"].split(".")[-1]
+        if event_type == CONSTANTS.TICKERS_DIFF_EVENT_TYPE:
+            symbol = raw_message["data"]["symbol"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            entries = raw_message["data"]["update"]
-            for entry in entries:
-                info_update = FundingInfoUpdate(trading_pair)
-                if "index_price" in entry:
-                    info_update.index_price = Decimal(str(entry["index_price"]))
-                if "mark_price" in entry:
-                    info_update.mark_price = Decimal(str(entry["mark_price"]))
-                if "next_funding_time" in entry:
-                    info_update.next_funding_utc_timestamp = int(
-                        pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp()
-                    )
-                if "predicted_funding_rate_e6" in entry:
-                    info_update.rate = (
-                        Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
-                    )
-                message_queue.put_nowait(info_update)
+            entry = raw_message["data"]
+            info_update = FundingInfoUpdate(trading_pair)
+            if "indexPrice" in entry:
+                info_update.index_price = Decimal(str(entry["indexPrice"]))
+            if "markPrice" in entry:
+                info_update.mark_price = Decimal(str(entry["markPrice"]))
+            if "nextFundingTime" in entry:
+                info_update.next_funding_utc_timestamp = int(
+                    pd.Timestamp(str(entry["nextFundingTime"]), tz="UTC").timestamp()
+                )
+            if "fundingRate" in entry:
+                info_update.rate = (
+                    Decimal(str(entry["fundingRate"]))
+                )
+            message_queue.put_nowait(info_update)
 
     async def _request_complete_funding_info(self, trading_pair: str):
         funding_info = await self._get_funding_info(trading_pair)
@@ -342,3 +369,51 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         pass  # unused
+
+    async def _take_full_order_book_snapshot(self, trading_pairs: List[str], snapshot_queue: asyncio.Queue):
+        for trading_pair in trading_pairs:
+            try:
+                snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair=trading_pair)
+                snapshot_timestamp: float = float(snapshot["ts"]) * 1e-3
+                snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_rest(
+                    snapshot,
+                    snapshot_timestamp,
+                    metadata={"trading_pair": trading_pair}
+                )
+                snapshot_queue.put_nowait(snapshot_msg)
+                self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.",
+                                    exc_info=True)
+                await self._sleep(5.0)
+
+    async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
+        message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]
+        while True:
+            try:
+                json_msg = await message_queue.get()
+                data = json_msg["data"]
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                    symbol=data["s"])
+                order_book_message: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_websocket(
+                    data,
+                    json_msg["ts"],
+                    {"trading_pair": trading_pair}
+                )
+                snapshot_queue.put_nowait(order_book_message)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error when processing public order book updates from exchange")
+                raise
+
+    def _get_trade_topic_from_symbol(self, symbol: str) -> str:
+        return f"publicTrade.{symbol}"
+
+    def _get_ob_topic_from_symbol(self, symbol: str, depth: int) -> str:
+        return f"orderbook.{depth}.{symbol}"
+
+    def _get_tickers_topic_from_symbol(self, symbol: str) -> str:
+        return f"tickers.{symbol}"

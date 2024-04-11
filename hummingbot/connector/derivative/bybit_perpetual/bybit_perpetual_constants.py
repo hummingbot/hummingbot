@@ -91,7 +91,6 @@ FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after s
 
 # WebSocket Public Endpoints
 WS_ORDER_BOOK_DEPTH = 200
-WS_PING_REQUEST = "ping"
 WS_ORDER_BOOK_EVENTS_TOPIC = "orderBook_200.100ms"
 WS_TRADES_TOPIC = "trade"
 WS_INSTRUMENTS_INFO_TOPIC = "instrument_info.100ms"
@@ -100,6 +99,16 @@ WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME = "position"
 WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
 WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
 WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME = "wallet"
+
+# Websocket event types
+# https://bybit-exchange.github.io/docs/v5/websocket/public/trade
+TRADE_EVENT_TYPE = "snapshot"  # Weird but true in V5
+SNAPSHOT_EVENT_TYPE = "depth"
+# V5: https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
+ORDERBOOK_DIFF_EVENT_TYPE = "delta"
+ORDERBOOK_SNAPSHOT_EVENT_TYPE = "snapshot"
+TICKERS_SNAPSHOT_EVENT_TYPE = "snapshot"
+TICKERS_DIFF_EVENT_TYPE = "delta"
 
 # Order States
 # https://bybit-exchange.github.io/docs/v5/enum#orderstatus
@@ -162,7 +171,8 @@ MAX_REQUEST_POST_MIXED = 270
 TWO_MINUTES = 120
 ONE_SECOND = 1
 SIX_SECONDS = 6
-ONE_DAY = 86400
+ONE_DAY = 60 * 60 * 24
+ONE_HOUR = 60 * 60
 
 API_REQUEST_RETRY = 2
 
