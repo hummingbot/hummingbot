@@ -9,6 +9,7 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USD"
 
+# 需要查看
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0005"),
     taker_percent_fee_decimal=Decimal("0.002"),
@@ -21,46 +22,19 @@ def clamp(value, minvalue, maxvalue):
 
 class DydxPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="dydx_perpetual", client_data=None)
-    dydx_perpetual_api_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your dydx Perpetual API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
     dydx_perpetual_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your dydx Perpetual API secret",
+            prompt=lambda cm: "Enter your Ethereum wallet private key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         ),
     )
-    dydx_perpetual_passphrase: SecretStr = Field(
+    dydx_perpetual_chain_address: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your dydx Perpetual API passphrase",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
-    dydx_perpetual_stark_private_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your stark private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
-    dydx_perpetual_ethereum_address: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your ethereum wallet address",
+            prompt=lambda cm: "Enter your dydx chain address ( starts with 'dydx' )",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
