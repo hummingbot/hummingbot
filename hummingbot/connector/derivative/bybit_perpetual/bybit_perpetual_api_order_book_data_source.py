@@ -214,7 +214,6 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 channel = self._funding_info_messages_queue_key
             elif event_type == CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE:
                 channel = self._snapshot_messages_queue_key
-                self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
             elif event_type == CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE:
                 channel = self._diff_messages_queue_key
             else:
