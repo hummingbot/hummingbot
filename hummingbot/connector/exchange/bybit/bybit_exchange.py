@@ -196,7 +196,6 @@ class BybitExchange(ExchangePyBase):
 
     async def _get_account_type(self):
         account_info = await self._get_account_info()
-        print(account_info)
         if account_info["retCode"] != 0:
             raise ValueError(f"{account_info['retMsg']}")
         account_type = 'SPOT' if account_info["result"]["unifiedMarginStatus"] == \
