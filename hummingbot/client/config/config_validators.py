@@ -4,6 +4,7 @@ string and determines whether it is valid input. This file contains many validat
 hummingbot ConfigVars.
 """
 
+import re
 import time
 from datetime import datetime
 from decimal import Decimal
@@ -161,3 +162,11 @@ def validate_time_iso_string(value: str) -> Optional[str]:
         time.strptime(value, '%H:%M:%S')
     except ValueError:
         return "Incorrect time format (expected is HH:MM:SS)"
+
+
+def validate_with_regex(value: str, pattern: str, error_message: str) -> Optional[str]:
+    """
+    Validate a string using a regex pattern.
+    """
+    if not re.match(pattern, value):
+        return error_message
