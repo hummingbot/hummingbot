@@ -768,6 +768,17 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
         title = "binance"
 
 
+class CubeRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="cube",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "cube"
+
+
 class CoinGeckoRateSourceMode(RateSourceModeBase):
     name: str = Field(
         default="coin_gecko",
@@ -929,6 +940,7 @@ RATE_SOURCE_MODES = {
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
     GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
     CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
+    CubeRateSourceMode.Config.title: CubeRateSourceMode,
 }
 
 
