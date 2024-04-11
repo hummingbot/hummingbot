@@ -196,8 +196,11 @@ class BybitExchange(ExchangePyBase):
 
     async def _get_account_type(self):
         account_info = await self._get_account_info()
-        account_type = 'SPOT' if account_info["result"]["unifiedMarginStatus"] \
-            else 'UNIFIED'
+        print(account_info)
+        if account_info["retCode"] != 0:
+            raise ValueError(f"{account_info['retMsg']}")
+        account_type = 'SPOT' if account_info["result"]["unifiedMarginStatus"] == \
+            CONSTANTS.ACCOUNT_TYPE["REGULAR"] else 'UNIFIED'
         return account_type
 
     async def _update_account_type(self):
@@ -418,10 +421,10 @@ class BybitExchange(ExchangePyBase):
             },
             is_auth_required=True
         )
-
+        if balances["retCode"] != 0:
+            raise ValueError(f"{balances['retMsg']}")
         self._account_available_balances.clear()
         self._account_balances.clear()
-
         for coin in balances["result"]["list"][0]["coin"]:
             name = coin["coin"]
             free_balance = Decimal(coin["free"])
