@@ -18,7 +18,7 @@ PERPETUAL_WS_URL = "wss://api.hyperliquid.xyz/ws"
 
 TESTNET_WS_URL = "wss://api.hyperliquid-testnet.xyz/ws"
 
-FUNDING_RATE_UPDATE_INTERNAL_SECOND = 5
+FUNDING_RATE_UPDATE_INTERNAL_SECOND = 60
 
 CURRENCY = "USD"
 
