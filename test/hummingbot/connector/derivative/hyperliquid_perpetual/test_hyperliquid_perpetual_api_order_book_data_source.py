@@ -21,7 +21,7 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
@@ -508,3 +508,59 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    def test_listen_for_funding_info_cancelled_error_raised(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue))
+
+
+    def test_listen_for_funding_info_logs_exception(self):
+        incomplete_resp = self.get_funding_info_rest_msg()
+        incomplete_resp[0]["universe"] = ""
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+
+    def test_listen_for_funding_info_successful(self):
+        funding_info_event = self.get_funding_info_rest_msg()
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [funding_info_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+
+        funding_info: FundingInfo = self.async_run_with_timeout(
+            self.data_source.get_funding_info(self.trading_pair)
+        )
+
+        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(self.trading_pair, msg.trading_pair)
+        expected_index_price = Decimal(str(funding_info.index_price))
+        self.assertEqual(expected_index_price, msg.index_price)
+        expected_mark_price = Decimal(str(funding_info.mark_price))
+        self.assertEqual(expected_mark_price, msg.mark_price)
+        expected_funding_time = int(funding_info.next_funding_utc_timestamp)
+        self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
+        expected_rate = Decimal(funding_info.rate)
+        self.assertEqual(expected_rate, msg.rate)
