@@ -517,7 +517,6 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue))
 
-
     def test_listen_for_funding_info_logs_exception(self):
         incomplete_resp = self.get_funding_info_rest_msg()
         incomplete_resp[0]["universe"] = ""
