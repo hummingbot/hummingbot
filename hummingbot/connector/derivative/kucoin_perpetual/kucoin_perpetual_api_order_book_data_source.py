@@ -186,7 +186,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 info_update.mark_price = Decimal(str(entries["markPrice"]))
             if "fundingRate" in entries:
                 info_update.rate = Decimal(str(entries["fundingRate"]))
-                message_queue.put_nowait(info_update)
+            message_queue.put_nowait(info_update)
 
     async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
         exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),

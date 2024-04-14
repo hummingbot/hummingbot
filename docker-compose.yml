@@ -9,9 +9,13 @@ services:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors
       - ./conf/strategies:/home/hummingbot/conf/strategies
+      - ./conf/controllers:/home/hummingbot/conf/controllers
+      - ./conf/scripts:/home/hummingbot/conf/scripts
       - ./logs:/home/hummingbot/logs
       - ./data:/home/hummingbot/data
+      - ./certs:/home/hummingbot/certs
       - ./scripts:/home/hummingbot/scripts
+      - ./controllers:/home/hummingbot/controllers
     logging:
       driver: "json-file"
       options:

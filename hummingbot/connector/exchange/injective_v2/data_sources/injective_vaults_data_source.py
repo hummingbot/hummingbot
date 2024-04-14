@@ -332,29 +332,6 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         return self._vault_subaccount_index == CONSTANTS.DEFAULT_SUBACCOUNT_INDEX
 
-    def _token_from_market_info(
-            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
-    ) -> InjectiveToken:
-        token = self._tokens_map.get(denom)
-        if token is None:
-            unique_symbol = token_meta["symbol"]
-            if unique_symbol in self._token_symbol_and_denom_map:
-                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_and_denom_map:
-                    unique_symbol = candidate_symbol
-                else:
-                    unique_symbol = token_meta["name"]
-            token = InjectiveToken(
-                denom=denom,
-                symbol=token_meta["symbol"],
-                unique_symbol=unique_symbol,
-                name=token_meta["name"],
-                decimals=token_meta["decimals"]
-            )
-            self._tokens_map[denom] = token
-            self._token_symbol_and_denom_map[unique_symbol] = denom
-
-        return token
-
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> Dict[str, Any]:
         async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
             market_info = await self._query_executor.derivative_market(market_id=market_id)
@@ -378,7 +355,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             order_definition = await self._create_derivative_order_definition(order=order)
             derivative_order_definitions.append(order_definition)
 
-        message = composer.MsgBatchUpdateOrders(
+        message = composer.msg_batch_update_orders(
             sender=self.portfolio_account_injective_address,
             spot_orders_to_create=spot_order_definitions,
             derivative_orders_to_create=derivative_order_definitions,
@@ -409,7 +386,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     ) -> any_pb2.Any:
         composer = await self.composer()
 
-        message = composer.MsgBatchUpdateOrders(
+        message = composer.msg_batch_update_orders(
             sender=self.portfolio_account_injective_address,
             spot_orders_to_cancel=spot_orders_to_cancel,
             derivative_orders_to_cancel=derivative_orders_to_cancel,
@@ -440,7 +417,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     ) -> any_pb2.Any:
         composer = await self.composer()
 
-        message = composer.MsgBatchUpdateOrders(
+        message = composer.msg_batch_update_orders(
             sender=self.portfolio_account_injective_address,
             subaccount_id=self.portfolio_account_subaccount_id,
             spot_market_ids_to_cancel_all=spot_markets_ids,
@@ -469,13 +446,13 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         composer = await self.composer()
         order_hash = order.exchange_order_id
         cid = order.client_order_id if order_hash is None else None
-        order_data = composer.OrderData(
+        order_data = composer.order_data(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             order_hash=order_hash,
             cid=cid,
-            order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
-            order_type="market" if order.order_type == OrderType.MARKET else "limit",
+            is_buy=order.trade_type == TradeType.BUY,
+            is_market_order=order.order_type == OrderType.MARKET,
         )
 
         return order_data
@@ -483,17 +460,19 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     async def _create_spot_order_definition(self, order: GatewayInFlightOrder):
         # Both price and quantity have to be adjusted because the vaults expect to receive those values without
         # the extra 18 zeros that the chain backend expects for direct trading messages
+        order_type = "BUY" if order.trade_type == TradeType.BUY else "SELL"
+        if order.order_type == OrderType.LIMIT_MAKER:
+            order_type = order_type + "_PO"
         market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
         composer = await self.composer()
-        definition = composer.SpotOrder(
+        definition = composer.spot_order(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            order_type=order_type,
             cid=order.client_order_id,
-            is_buy=order.trade_type == TradeType.BUY,
-            is_po=order.order_type == OrderType.LIMIT_MAKER
         )
 
         definition.order_info.quantity = f"{(Decimal(definition.order_info.quantity) * Decimal('1e-18')).normalize():f}"
@@ -503,19 +482,25 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     async def _create_derivative_order_definition(self, order: GatewayPerpetualInFlightOrder):
         # Price, quantity and margin have to be adjusted because the vaults expect to receive those values without
         # the extra 18 zeros that the chain backend expects for direct trading messages
+        order_type = "BUY" if order.trade_type == TradeType.BUY else "SELL"
+        if order.order_type == OrderType.LIMIT_MAKER:
+            order_type = order_type + "_PO"
         market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
         composer = await self.composer()
-        definition = composer.DerivativeOrder(
+        definition = composer.derivative_order(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            margin=composer.calculate_margin(
+                quantity=order.amount,
+                price=order.price,
+                leverage=Decimal(str(order.leverage)),
+                is_reduce_only=order.position == PositionAction.CLOSE,
+            ),
+            order_type=order_type,
             cid=order.client_order_id,
-            leverage=order.leverage,
-            is_buy=order.trade_type == TradeType.BUY,
-            is_po=order.order_type == OrderType.LIMIT_MAKER,
-            is_reduce_only = order.position == PositionAction.CLOSE,
         )
 
         definition.order_info.quantity = f"{(Decimal(definition.order_info.quantity) * Decimal('1e-18')).normalize():f}"
