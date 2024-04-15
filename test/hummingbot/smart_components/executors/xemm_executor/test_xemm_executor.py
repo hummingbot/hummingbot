@@ -21,13 +21,26 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self):
         super().setUp()
         self.strategy = self.create_mock_strategy()
-        self.xemm_base_config = self.base_config
+        self.xemm_base_config = self.base_config_long
         self.update_interval = 0.5
         self.executor = XEMMExecutor(self.strategy, self.xemm_base_config, self.update_interval)
         self.set_loggers(loggers=[self.executor.logger()])
 
     @property
-    def base_config(self) -> XEMMExecutorConfig:
+    def base_config_long(self) -> XEMMExecutorConfig:
+        return XEMMExecutorConfig(
+            timestamp=1234,
+            buying_market=ConnectorPair(connector_name='binance', trading_pair='ETH-USDT'),
+            selling_market=ConnectorPair(connector_name='kucoin', trading_pair='ETH-USDT'),
+            maker_side=TradeType.BUY,
+            order_amount=Decimal('100'),
+            min_profitability=Decimal('0.01'),
+            target_profitability=Decimal('0.015'),
+            max_profitability=Decimal('0.02'),
+        )
+
+    @property
+    def base_config_short(self) -> XEMMExecutorConfig:
         return XEMMExecutorConfig(
             timestamp=1234,
             buying_market=ConnectorPair(connector_name='binance', trading_pair='ETH-USDT'),
@@ -68,8 +81,22 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'BTC-USDT'))
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
 
-    def test_net_pnl(self):
+    def test_net_pnl_long(self):
         self.executor._status = SmartComponentStatus.TERMINATED
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.taker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.executed_amount_base = Decimal('1')
+        self.executor.taker_order.executed_amount_base = Decimal('1')
+        self.executor.maker_order.average_executed_price = Decimal('100')
+        self.executor.taker_order.average_executed_price = Decimal('200')
+        self.executor.maker_order.cum_fees_quote = Decimal('1')
+        self.executor.taker_order.cum_fees_quote = Decimal('1')
+        self.assertEqual(self.executor.net_pnl_quote, Decimal('98'))
+        self.assertEqual(self.executor.net_pnl_pct, Decimal('0.98'))
+
+    def test_net_pnl_short(self):
+        self.executor._status = SmartComponentStatus.TERMINATED
+        self.executor.config = self.base_config_short
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.taker_order = Mock(spec=TrackedOrder)
         self.executor.maker_order.executed_amount_base = Decimal('1')
