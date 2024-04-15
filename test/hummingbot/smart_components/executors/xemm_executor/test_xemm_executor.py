@@ -4,12 +4,16 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.event.events import BuyOrderCompletedEvent, BuyOrderCreatedEvent, MarketOrderFailureEvent
 from hummingbot.smart_components.executors.data_types import ConnectorPair
 from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
 from hummingbot.smart_components.executors.xemm_executor.xemm_executor import XEMMExecutor
 from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import TrackedOrder
+from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -29,7 +33,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             buying_market=ConnectorPair(connector_name='binance', trading_pair='ETH-USDT'),
             selling_market=ConnectorPair(connector_name='kucoin', trading_pair='ETH-USDT'),
             maker_side=TradeType.BUY,
-            order_amount=Decimal('1'),
+            order_amount=Decimal('100'),
             min_profitability=Decimal('0.01'),
             target_profitability=Decimal('0.015'),
             max_profitability=Decimal('0.02'),
@@ -75,12 +79,176 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.executor.maker_order.cum_fees_quote = Decimal('1')
         self.executor.taker_order.cum_fees_quote = Decimal('1')
         self.assertEqual(self.executor.net_pnl_quote, Decimal('98'))
-        self.assertEqual(self.executor.net_pnl_pct, Decimal('98'))
+        self.assertEqual(self.executor.net_pnl_pct, Decimal('0.98'))
 
-    @patch.object(XEMMExecutor, 'place_order')
-    def test_place_maker_order(self, mock_place_order):
-        pass
+    @patch.object(XEMMExecutor, 'get_trading_rules')
+    @patch.object(XEMMExecutor, 'adjust_order_candidates')
+    def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+        # Mock trading rules
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
+                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+        order_candidate = OrderCandidate(
+            trading_pair="ETH-USDT",
+            is_maker=True,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100")
+        )
+        # Test for sufficient balance
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        self.executor.validate_sufficient_balance()
+        self.assertNotEqual(self.executor.close_type, CloseType.INSUFFICIENT_BALANCE)
 
-    @patch.object(XEMMExecutor, 'place_order')
-    def test_place_taker_order(self, mock_place_order):
-        pass
+        # Test for insufficient balance
+        order_candidate.amount = Decimal("0")
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        self.executor.validate_sufficient_balance()
+        self.assertEqual(self.executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertEqual(self.executor.status, SmartComponentStatus.TERMINATED)
+
+    @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
+    @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
+    async def test_control_task_running_order_not_placed(self, tx_cost_mock, resulting_price_mock):
+        tx_cost_mock.return_value = Decimal('0.01')
+        resulting_price_mock.return_value = Decimal("100")
+        self.executor._status = SmartComponentStatus.RUNNING
+        await self.executor.control_task()
+        self.assertEqual(self.executor._status, SmartComponentStatus.RUNNING)
+        self.assertEqual(self.executor.maker_order.order_id, "OID-BUY-1")
+        self.assertEqual(self.executor._maker_target_price, Decimal("98.48"))
+
+    @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
+    @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
+    async def test_control_task_running_order_placed_refresh_condition_min_profitability(self, tx_cost_mock, resulting_price_mock):
+        tx_cost_mock.return_value = Decimal('0.01')
+        resulting_price_mock.return_value = Decimal("100")
+        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.order_id = "OID-BUY-1"
+        self.executor.maker_order.order = InFlightOrder(
+            creation_timestamp=1234,
+            trading_pair="ETH-USDT",
+            client_order_id="OID-BUY-1",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("99.5"),
+            initial_state=OrderState.OPEN,
+        )
+        await self.executor.control_task()
+        self.assertEqual(self.executor._status, SmartComponentStatus.RUNNING)
+        self.assertEqual(self.executor.maker_order, None)
+
+    @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
+    @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
+    async def test_control_task_running_order_placed_refresh_condition_max_profitability(self, tx_cost_mock, resulting_price_mock):
+        tx_cost_mock.return_value = Decimal('0.01')
+        resulting_price_mock.return_value = Decimal("103")
+        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.order_id = "OID-BUY-1"
+        self.executor.maker_order.order = InFlightOrder(
+            creation_timestamp=1234,
+            trading_pair="ETH-USDT",
+            client_order_id="OID-BUY-1",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("99.5"),
+            initial_state=OrderState.OPEN,
+        )
+        await self.executor.control_task()
+        self.assertEqual(self.executor._status, SmartComponentStatus.RUNNING)
+        self.assertEqual(self.executor.maker_order, None)
+
+    @patch.object(XEMMExecutor, "get_in_flight_order")
+    def test_process_order_created_event(self, in_flight_order_mock):
+        self.executor._status = SmartComponentStatus.RUNNING
+        in_flight_order_mock.side_effect = [
+            InFlightOrder(
+                client_order_id="OID-BUY-1",
+                creation_timestamp=1234,
+                trading_pair="ETH-USDT",
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("100"),
+                price=Decimal("100"),
+            ),
+            InFlightOrder(
+                client_order_id="OID-SELL-1",
+                creation_timestamp=1234,
+                trading_pair="ETH-USDT",
+                order_type=OrderType.MARKET,
+                trade_type=TradeType.SELL,
+                amount=Decimal("100"),
+                price=Decimal("100"),
+            )
+        ]
+
+        self.executor.maker_order = TrackedOrder(order_id="OID-BUY-1")
+        self.executor.taker_order = TrackedOrder(order_id="OID-SELL-1")
+        buy_order_created_event = BuyOrderCreatedEvent(
+            timestamp=1234,
+            type=OrderType.LIMIT,
+            creation_timestamp=1233,
+            order_id="OID-BUY-1",
+            trading_pair="ETH-USDT",
+            amount=Decimal("100"),
+            price=Decimal("100"),
+        )
+        sell_order_created_event = BuyOrderCreatedEvent(
+            timestamp=1234,
+            type=OrderType.MARKET,
+            creation_timestamp=1233,
+            order_id="OID-SELL-1",
+            trading_pair="ETH-USDT",
+            amount=Decimal("100"),
+            price=Decimal("100"),
+        )
+        self.assertEqual(self.executor.maker_order.order, None)
+        self.assertEqual(self.executor.taker_order.order, None)
+        self.executor.process_order_created_event(1, MagicMock(), buy_order_created_event)
+        self.assertEqual(self.executor.maker_order.order.client_order_id, "OID-BUY-1")
+        self.executor.process_order_created_event(1, MagicMock(), sell_order_created_event)
+        self.assertEqual(self.executor.taker_order.order.client_order_id, "OID-SELL-1")
+
+    def test_process_order_completed_event(self):
+        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor.maker_order = TrackedOrder(order_id="OID-BUY-1")
+        self.assertEqual(self.executor.taker_order, None)
+        buy_order_created_event = BuyOrderCompletedEvent(
+            base_asset="ETH",
+            quote_asset="USDT",
+            base_asset_amount=Decimal("100"),
+            quote_asset_amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+            timestamp=1234,
+            order_id="OID-BUY-1",
+        )
+        self.executor.process_order_completed_event(1, MagicMock(), buy_order_created_event)
+        self.assertEqual(self.executor.status, SmartComponentStatus.SHUTTING_DOWN)
+        self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
+
+    def test_process_order_failed_event(self):
+        self.executor.maker_order = TrackedOrder(order_id="OID-BUY-1")
+        maker_failure_event = MarketOrderFailureEvent(
+            timestamp=1234,
+            order_id="OID-BUY-1",
+            order_type=OrderType.LIMIT,
+        )
+        self.executor.process_order_failed_event(1, MagicMock(), maker_failure_event)
+        self.assertEqual(self.executor.maker_order, None)
+
+        self.executor.taker_order = TrackedOrder(order_id="OID-SELL-1")
+        taker_failure_event = MarketOrderFailureEvent(
+            timestamp=1234,
+            order_id="OID-SELL-0",
+            order_type=OrderType.MARKET,
+        )
+        self.executor.process_order_failed_event(1, MagicMock(), taker_failure_event)
+        self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
+
+    def test_get_custom_info(self):
+        self.assertEqual(self.executor.get_custom_info(), {"side": TradeType.BUY})
