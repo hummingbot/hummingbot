@@ -163,6 +163,15 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor._status, SmartComponentStatus.RUNNING)
         self.assertEqual(self.executor.maker_order, None)
 
+    async def test_control_task_shut_down_process(self):
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.is_done = True
+        self.executor.taker_order = Mock(spec=TrackedOrder)
+        self.executor.taker_order.is_done = True
+        self.executor._status = SmartComponentStatus.SHUTTING_DOWN
+        await self.executor.control_task()
+        self.assertEqual(self.executor._status, SmartComponentStatus.TERMINATED)
+
     @patch.object(XEMMExecutor, "get_in_flight_order")
     def test_process_order_created_event(self, in_flight_order_mock):
         self.executor._status = SmartComponentStatus.RUNNING
@@ -241,7 +250,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.executor.process_order_failed_event(1, MagicMock(), maker_failure_event)
         self.assertEqual(self.executor.maker_order, None)
 
-        self.executor.taker_order = TrackedOrder(order_id="OID-SELL-1")
+        self.executor.taker_order = TrackedOrder(order_id="OID-SELL-0")
         taker_failure_event = MarketOrderFailureEvent(
             timestamp=1234,
             order_id="OID-SELL-0",
@@ -252,3 +261,6 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     def test_get_custom_info(self):
         self.assertEqual(self.executor.get_custom_info(), {"side": TradeType.BUY})
+
+    def test_to_format_status(self):
+        self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
