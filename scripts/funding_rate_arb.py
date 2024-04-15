@@ -224,10 +224,10 @@ class FundingRateArbitrage(StrategyV2Base):
                 best_combination = self.get_most_profitable_combination(funding_info_report)
                 connector_1, connector_2, trade_side, expected_profitability = best_combination
                 if expected_profitability >= self.config.min_funding_rate_profitability:
+                    current_profitability = self.get_current_profitability_after_fees(
+                        token, connector_1, connector_2, trade_side
+                    )
                     if self.config.trade_profitability_condition_to_enter:
-                        current_profitability = self.get_current_profitability_after_fees(
-                            token, connector_1, connector_2, trade_side
-                        )
                         if current_profitability < 0:
                             self.logger().info(f"Best Combination: {connector_1} | {connector_2} | {trade_side}"
                                                f"Funding rate profitability: {expected_profitability}"
