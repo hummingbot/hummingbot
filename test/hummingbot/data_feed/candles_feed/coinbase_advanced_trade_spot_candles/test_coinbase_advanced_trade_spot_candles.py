@@ -24,6 +24,105 @@ from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles impo
 )
 
 
+def get_candles_rest_data_mock():
+    return {
+        "candles": [
+            {
+                "start": "150",
+                "low": "140.21",
+                "high": "140.21",
+                "open": "140.21",
+                "close": "140.21",
+                "volume": "06437345",
+            },
+            {
+                "start": "170",
+                "low": "141.21",
+                "high": "141.21",
+                "open": "141.21",
+                "close": "141.21",
+                "volume": "16437345",
+            },
+            {
+                "start": "190",
+                "low": "142.21",
+                "high": "142.21",
+                "open": "142.21",
+                "close": "142.21",
+                "volume": "26437345",
+            },
+        ]
+    }
+
+
+def get_candles_ws_data_mock_1():
+    return {
+        "channel": "candles",
+        "client_id": "",
+        "timestamp": "2023-06-09T20:19:35.39625135Z",
+        "sequence_num": 0,
+        "events": [
+            {
+                "type": "snapshot",
+                "candles": [
+                    {
+                        "start": "200",
+                        "high": "1867.72",
+                        "low": "1865.63",
+                        "open": "1867.38",
+                        "close": "1866.81",
+                        "volume": "0.20269406",
+                        "product_id": "ETH-USD",
+                    },
+                    {
+                        "start": "260",
+                        "high": "1867.72",
+                        "low": "1865.63",
+                        "open": "1867.38",
+                        "close": "1866.81",
+                        "volume": "0.20269406",
+                        "product_id": "ETH-USD",
+                    },
+                ],
+            }
+        ],
+    }
+
+
+def get_candles_ws_data_mock_2():
+    return {
+        "channel": "candles",
+        "client_id": "",
+        "timestamp": "2023-06-09T20:19:35.39625135Z",
+        "sequence_num": 0,
+        "events": [
+            {
+                "type": "snapshot",
+                "candles": [
+                    {
+                        "start": "260",
+                        "high": "2000.72",
+                        "low": "1865.63",
+                        "open": "1867.38",
+                        "close": "1866.81",
+                        "volume": "0.20269406",
+                        "product_id": "ETH-USD",
+                    },
+                    {
+                        "start": "320",
+                        "high": "1867.72",
+                        "low": "1865.63",
+                        "open": "1867.38",
+                        "close": "1866.81",
+                        "volume": "0.20269406",
+                        "product_id": "ETH-USD",
+                    },
+                ],
+            }
+        ],
+    }
+
+
 class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     trading_pair = None
     quote_asset = "USDT"
@@ -44,105 +143,6 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
 
         self.set_loggers([self.data_feed.logger()])
         self.resume_test_event = asyncio.Event()
-
-    def get_candles_rest_data_mock(self):
-        data = {
-            "candles": [
-                {
-                    "start": "150",
-                    "low": "140.21",
-                    "high": "140.21",
-                    "open": "140.21",
-                    "close": "140.21",
-                    "volume": "06437345"
-                },
-                {
-                    "start": "170",
-                    "low": "141.21",
-                    "high": "141.21",
-                    "open": "141.21",
-                    "close": "141.21",
-                    "volume": "16437345"
-                },
-                {
-                    "start": "190",
-                    "low": "142.21",
-                    "high": "142.21",
-                    "open": "142.21",
-                    "close": "142.21",
-                    "volume": "26437345"
-                },
-            ]
-        }
-        return data
-
-    def get_candles_ws_data_mock_1(self):
-        data = {
-            "channel": "candles",
-            "client_id": "",
-            "timestamp": "2023-06-09T20:19:35.39625135Z",
-            "sequence_num": 0,
-            "events": [
-                {
-                    "type": "snapshot",
-                    "candles": [
-                        {
-                            "start": "200",
-                            "high": "1867.72",
-                            "low": "1865.63",
-                            "open": "1867.38",
-                            "close": "1866.81",
-                            "volume": "0.20269406",
-                            "product_id": "ETH-USD",
-                        },
-                        {
-                            "start": "260",
-                            "high": "1867.72",
-                            "low": "1865.63",
-                            "open": "1867.38",
-                            "close": "1866.81",
-                            "volume": "0.20269406",
-                            "product_id": "ETH-USD",
-                        }
-                    ]
-                }
-            ]
-        }
-        return data
-
-    def get_candles_ws_data_mock_2(self):
-        data = {
-            "channel": "candles",
-            "client_id": "",
-            "timestamp": "2023-06-09T20:19:35.39625135Z",
-            "sequence_num": 0,
-            "events": [
-                {
-                    "type": "snapshot",
-                    "candles": [
-                        {
-                            "start": "260",
-                            "high": "2000.72",
-                            "low": "1865.63",
-                            "open": "1867.38",
-                            "close": "1866.81",
-                            "volume": "0.20269406",
-                            "product_id": "ETH-USD",
-                        },
-                        {
-                            "start": "320",
-                            "high": "1867.72",
-                            "low": "1865.63",
-                            "open": "1867.38",
-                            "close": "1866.81",
-                            "volume": "0.20269406",
-                            "product_id": "ETH-USD",
-                        }
-                    ]
-                }
-            ]
-        }
-        return data
 
     def assertDequeEqual(self, deque1, deque2):
         self.assertEqual(len(deque1), len(deque2))
@@ -316,7 +316,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         url = (f"{REST_URL.format(domain='com')}{CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair)}?"
                f"end={end_time}&granularity=ONE_MINUTE&start={start_time}")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        data_mock = self.get_candles_rest_data_mock()
+        data_mock = get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
         self.data_feed._public_api_factory.get_rest_assistant.return_value.execute_request.return_value = data_mock
 
@@ -429,7 +429,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            message=json.dumps(get_candles_ws_data_mock_1()))
 
         self.data_feed._api_factory = self.data_feed._public_api_factory
         self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
@@ -453,11 +453,11 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            message=json.dumps(get_candles_ws_data_mock_1()))
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            message=json.dumps(get_candles_ws_data_mock_1()))
 
         self.data_feed._api_factory = self.data_feed._public_api_factory
         self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
@@ -477,11 +477,11 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            message=json.dumps(get_candles_ws_data_mock_1()))
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_2()))
+            message=json.dumps(get_candles_ws_data_mock_2()))
 
         self.data_feed._api_factory = self.data_feed._public_api_factory
         self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
