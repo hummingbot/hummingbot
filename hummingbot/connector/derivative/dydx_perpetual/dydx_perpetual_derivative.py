@@ -43,20 +43,14 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
     def __init__(
             self,
             client_config_map: "ClientConfigAdapter",
-            dydx_perpetual_api_key: str,
             dydx_perpetual_api_secret: str,
-            dydx_perpetual_passphrase: str,
-            dydx_perpetual_ethereum_address: str,
-            dydx_perpetual_stark_private_key: str,
+            dydx_perpetual_chain_address: str,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
-        self._dydx_perpetual_api_key = dydx_perpetual_api_key
         self._dydx_perpetual_api_secret = dydx_perpetual_api_secret
-        self._dydx_perpetual_passphrase = dydx_perpetual_passphrase
-        self._dydx_perpetual_ethereum_address = dydx_perpetual_ethereum_address
-        self._dydx_perpetual_stark_private_key = dydx_perpetual_stark_private_key
+        self._dydx_perpetual_chain_address = dydx_perpetual_chain_address
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._domain = domain
@@ -80,13 +74,10 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def authenticator(self) -> DydxPerpetualAuth:
         return DydxPerpetualAuth(
-            dydx_perpetual_api_key=self._dydx_perpetual_api_key,
             dydx_perpetual_api_secret=self._dydx_perpetual_api_secret,
-            dydx_perpetual_passphrase=self._dydx_perpetual_passphrase,
-            dydx_perpetual_ethereum_address=self._dydx_perpetual_ethereum_address,
-            dydx_perpetual_stark_private_key=self._dydx_perpetual_stark_private_key,
+            dydx_perpetual_chain_address=self._dydx_perpetual_chain_address,
         )
-
+    # todo
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
         rate_limits = deepcopy(CONSTANTS.RATE_LIMITS)
