@@ -6,6 +6,7 @@ from pydantic import Field
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.executors.data_types import ConnectorPair
 from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
@@ -43,13 +44,13 @@ class V2XEMMConfig(StrategyV2ConfigBase):
             prompt_on_new=True
         ))
     target_profitability: Decimal = Field(
-        default=0.01,
+        default=0.006,
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the target profitability: ",
             prompt_on_new=True
         ))
     min_profitability: Decimal = Field(
-        default=0.004,
+        default=0.003,
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the minimum profitability: ",
             prompt_on_new=True
@@ -80,6 +81,7 @@ class V2XEMM(StrategyV2Base):
     def determine_executor_actions(self) -> List[ExecutorAction]:
         executor_actions = []
         all_executors = self.get_all_executors()
+        mid_price = self.market_data_provider.get_price_by_type(self.config.maker_connector, self.config.maker_trading_pair, PriceType.MidPrice)
         active_buy_executors = self.filter_executors(
             executors=all_executors,
             filter_func=lambda e: not e.is_done and e.config.maker_side == TradeType.BUY
@@ -96,7 +98,7 @@ class V2XEMM(StrategyV2Base):
                 selling_market=ConnectorPair(connector_name=self.config.taker_connector,
                                              trading_pair=self.config.taker_trading_pair),
                 maker_side=TradeType.BUY,
-                order_amount=self.config.order_amount_quote,
+                order_amount=self.config.order_amount_quote / mid_price,
                 min_profitability=self.config.min_profitability,
                 target_profitability=self.config.target_profitability,
                 max_profitability=self.config.max_profitability
@@ -110,7 +112,7 @@ class V2XEMM(StrategyV2Base):
                 selling_market=ConnectorPair(connector_name=self.config.maker_connector,
                                              trading_pair=self.config.maker_trading_pair),
                 maker_side=TradeType.SELL,
-                order_amount=self.config.order_amount_quote,
+                order_amount=self.config.order_amount_quote / mid_price,
                 min_profitability=self.config.min_profitability,
                 target_profitability=self.config.target_profitability,
                 max_profitability=self.config.max_profitability
