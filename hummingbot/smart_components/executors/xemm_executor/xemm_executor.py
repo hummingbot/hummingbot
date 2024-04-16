@@ -105,7 +105,7 @@ class XEMMExecutor(ExecutorBase):
         taker_order_candidate = OrderCandidate(
             trading_pair=self.taker_trading_pair,
             is_maker=False,
-            order_type=OrderType.LIMIT,
+            order_type=OrderType.MARKET,
             order_side=self.taker_order_side,
             amount=self.config.order_amount,
             price=mid_price,)
@@ -269,8 +269,19 @@ class XEMMExecutor(ExecutorBase):
             self.place_taker_order()
 
     def get_custom_info(self) -> Dict:
+        trade_profitability = self.get_current_trade_profitability()
         return {
             "side": self.config.maker_side,
+            "maker_connector": self.maker_connector,
+            "maker_trading_pair": self.maker_trading_pair,
+            "taker_connector": self.taker_connector,
+            "taker_trading_pair": self.taker_trading_pair,
+            "min_profitability": self.config.min_profitability,
+            "target_profitability_pct": self.config.target_profitability,
+            "max_profitability": self.config.max_profitability,
+            "trade_profitability": trade_profitability,
+            "tx_cost": self._tx_cost,
+            "tx_cost_pct": self._tx_cost_pct,
         }
 
     def early_stop(self):
