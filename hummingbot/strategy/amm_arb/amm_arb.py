@@ -337,6 +337,7 @@ class AmmArbStrategy(StrategyPyBase):
                 })
 
                 if not self._concurrent_orders_submission:
+                    await asyncio.sleep(6)
                     await arb_side.completed_event.wait()
                     if arb_side.is_failed:
                         self.log_with_clock(logging.ERROR,
