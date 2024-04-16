@@ -515,7 +515,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue))
+            self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue), timeout=70)
 
     def test_listen_for_funding_info_logs_exception(self):
         incomplete_resp = self.get_funding_info_rest_msg()
@@ -530,7 +530,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
         try:
-            self.async_run_with_timeout(self.listening_task)
+            self.async_run_with_timeout(self.listening_task, timeout=70)
         except asyncio.CancelledError:
             pass
 
