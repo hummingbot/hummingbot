@@ -148,7 +148,8 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
     @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
-    async def test_control_task_running_order_placed_refresh_condition_min_profitability(self, tx_cost_mock, resulting_price_mock):
+    async def test_control_task_running_order_placed_refresh_condition_min_profitability(self, tx_cost_mock,
+                                                                                         resulting_price_mock):
         tx_cost_mock.return_value = Decimal('0.01')
         resulting_price_mock.return_value = Decimal("100")
         self.executor._status = SmartComponentStatus.RUNNING
@@ -170,7 +171,8 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
     @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
-    async def test_control_task_running_order_placed_refresh_condition_max_profitability(self, tx_cost_mock, resulting_price_mock):
+    async def test_control_task_running_order_placed_refresh_condition_max_profitability(self, tx_cost_mock,
+                                                                                         resulting_price_mock):
         tx_cost_mock.return_value = Decimal('0.01')
         resulting_price_mock.return_value = Decimal("103")
         self.executor._status = SmartComponentStatus.RUNNING
@@ -287,7 +289,17 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
 
     def test_get_custom_info(self):
-        self.assertEqual(self.executor.get_custom_info(), {"side": TradeType.BUY})
+        self.assertEqual(self.executor.get_custom_info(), {'maker_connector': 'binance',
+                                                           'maker_trading_pair': 'ETH-USDT',
+                                                           'max_profitability': Decimal('0.02'),
+                                                           'min_profitability': Decimal('0.01'),
+                                                           'side': TradeType.BUY,
+                                                           'taker_connector': 'kucoin',
+                                                           'taker_trading_pair': 'ETH-USDT',
+                                                           'target_profitability_pct': Decimal('0.015'),
+                                                           'trade_profitability': Decimal('0'),
+                                                           'tx_cost': Decimal('1'),
+                                                           'tx_cost_pct': Decimal('1')})
 
-    def test_to_format_status(self):
-        self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
+        def test_to_format_status(self):
+            self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
