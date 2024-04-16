@@ -213,7 +213,7 @@ class MarketsRecorder:
             base_columns = ["id", "timestamp", "type"]
             controller = Controllers(id=config["id"],
                                      timestamp=time.time(),
-                                     type=config["type"],
+                                     type=config["controller_type"],
                                      config={k: v for k, v in config.items() if k not in base_columns})
             session.add(controller)
             session.commit()
