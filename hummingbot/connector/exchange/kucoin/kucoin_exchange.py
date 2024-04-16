@@ -230,7 +230,7 @@ class KucoinExchange(ExchangePyBase):
         This implementation specific function is called by _cancel, and returns True if successful
         """
         exchange_order_id = await tracked_order.get_exchange_order_id()
-        params = {"symbol": tracked_order.trading_pair} if self.domain == "hft" else {}
+        params = {"symbol": tracked_order.trading_pair} if self.domain == "hft" else None
         cancel_result = await self._api_delete(
             f"{self.orders_path_url}/{exchange_order_id}",
             params=params,
@@ -490,7 +490,7 @@ class KucoinExchange(ExchangePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         exchange_order_id = await tracked_order.get_exchange_order_id()
-        params = {"symbol": tracked_order.trading_pair} if self.domain == "hft" else {}
+        params = {"symbol": tracked_order.trading_pair} if self.domain == "hft" else None
         updated_order_data = await self._api_get(
             path_url=f"{self.orders_path_url}/{exchange_order_id}",
             is_auth_required=True,
