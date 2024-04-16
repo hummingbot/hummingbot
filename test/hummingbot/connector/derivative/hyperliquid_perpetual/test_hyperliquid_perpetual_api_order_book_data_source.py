@@ -48,7 +48,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.connector = HyperliquidPerpetualDerivative(
             client_config_map,
             hyperliquid_perpetual_api_key="testkey",
-            hyperliquid_perpetual_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930", # noqa: mock
+            hyperliquid_perpetual_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",
+            # noqa: mock
             use_vault=False,
             trading_pairs=[self.trading_pair],
         )
@@ -84,6 +85,10 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    def resume_test_callback(self, *_, **__):
+        self.resume_test_event.set()
+        return None
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -509,57 +514,65 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
             )
         }
 
-    def test_listen_for_funding_info_cancelled_error_raised(self):
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = asyncio.CancelledError
-        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+    @aioresponses()
+    def test_listen_for_funding_info_cancelled_error_raised(self, mock_api):
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        resp = self.get_funding_info_rest_msg()
+        mock_api.post(regex_url, body=json.dumps(resp), exception=asyncio.CancelledError)
 
+        mock_queue: asyncio.Queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue), timeout=70)
+            self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue),
+                                        timeout=CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND + 10)
 
-    def test_listen_for_funding_info_logs_exception(self):
-        incomplete_resp = self.get_funding_info_rest_msg()
-        incomplete_resp[0]["universe"] = ""
+        self.assertEqual(0, mock_queue.qsize())
 
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+    @aioresponses()
+    def test_listen_for_funding_info_logs_exception(self, mock_api):
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        resp = self.get_funding_info_rest_msg()
+        resp[0]["universe"] = ""
+        mock_api.post(regex_url, body=json.dumps(resp), callback=self.resume_test_callback)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        try:
-            self.async_run_with_timeout(self.listening_task, timeout=70)
-        except asyncio.CancelledError:
-            pass
+        self.async_run_with_timeout(self.resume_test_event.wait(),
+                                    timeout=CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND + 10)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
 
-    def test_listen_for_funding_info_successful(self):
-        funding_info_event = self.get_funding_info_rest_msg()
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [funding_info_event, asyncio.CancelledError()]
-        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+    @patch(
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source."
+        "HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    @aioresponses()
+    def test_listen_for_funding_info_successful(self, next_funding_time_mock, mock_api):
+        next_funding_time_mock.return_value = 1713272400
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        resp = self.get_funding_info_rest_msg()
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        funding_info: FundingInfo = self.async_run_with_timeout(
-            self.data_source.get_funding_info(self.trading_pair)
-        )
-
-        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get(),
+                                                             timeout=CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND + 10)
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        expected_index_price = Decimal(str(funding_info.index_price))
+        expected_index_price = Decimal('36717.0')
         self.assertEqual(expected_index_price, msg.index_price)
-        expected_mark_price = Decimal(str(funding_info.mark_price))
+        expected_mark_price = Decimal('36733.0')
         self.assertEqual(expected_mark_price, msg.mark_price)
-        expected_funding_time = int(funding_info.next_funding_utc_timestamp)
+        expected_funding_time = next_funding_time_mock.return_value
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
-        expected_rate = Decimal(funding_info.rate)
+        expected_rate = Decimal('0.00001793')
         self.assertEqual(expected_rate, msg.rate)
