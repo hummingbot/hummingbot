@@ -440,21 +440,12 @@ class DCAExecutor(ExecutorBase):
                 orders=[order.order for order in self.active_close_orders if order.order],
                 error_handler=connector._handle_update_error_for_active_order
             )
-            for order in self.active_close_orders:
-                self.update_tracked_orders_with_order_id(order.order_id)
-                if order.order and order.order.is_done and order.executed_amount_base == Decimal("0"):
-                    self.logger().error(
-                        f"Close order {order.order_id} is done, might be an error with this update. Cancelling the order and placing it again.")
-                    self._strategy.cancel(connector_name=self.config.connector_name, trading_pair=self.config.trading_pair,
-                                          order_id=order.order_id)
-                    self._close_orders.remove(order)
-                    self._failed_orders.append(order)
+            self.logger().info(f"Waiting for close order {self.active_close_orders[0].order_id} to be filled | Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
         else:
-            self.logger().info(
-                f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}, Back up filled amount {self._total_executed_amount_backup}")
+            self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}, Back up filled amount {self._total_executed_amount_backup}")
             self.place_close_order_and_cancel_open_orders()
             self._current_retries += 1
-        await asyncio.sleep(5.0)
+        await asyncio.sleep(1.0)
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         all_orders = self._open_orders + self._close_orders
@@ -534,5 +525,4 @@ class DCAExecutor(ExecutorBase):
             "current_retries": self._current_retries,
             "max_retries": self._max_retries,
             "level_id": self.config.level_id,
-            "order_ids": [order.order_id for order in self._open_orders] + [order.order_id for order in self._close_orders],
         }
