@@ -18,7 +18,7 @@ class PMMSimpleConfig(MarketMakingControllerConfigBase):
     controller_name = "pmm_simple"
     # As this controller is a simple version of the PMM, we are not using the candles feed
     candles_config: List[CandlesConfig] = Field(default=[], client_data=ClientFieldData(prompt_on_new=False))
-    top_order_refresh_time: Optional[float] = Field(
+    top_executor_refresh_time: Optional[float] = Field(
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
@@ -31,9 +31,9 @@ class PMMSimpleController(MarketMakingControllerBase):
         self.config = config
 
     def first_level_refresh_condition(self, executor):
-        if self.config.top_order_refresh_time is not None:
+        if self.config.top_executor_refresh_time is not None:
             if self.get_level_from_level_id(executor.custom_info["level_id"]) == 0:
-                return time.time() - executor.timestamp > self.config.top_order_refresh_time
+                return time.time() - executor.timestamp > self.config.top_executor_refresh_time
         return False
 
     def order_level_refresh_condition(self, executor):
