@@ -921,6 +921,17 @@ class GateIoRateSourceMode(ExchangeRateSourceModeBase):
         title: str = "gate_io"
 
 
+class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="coinbase_advanced_trade",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title: str = "coinbase_advanced_trade"
+
+
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
@@ -928,6 +939,7 @@ RATE_SOURCE_MODES = {
     CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
     GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
+    CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.Config.title: CubeRateSourceMode,
 }
 
