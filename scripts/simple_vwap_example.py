@@ -17,20 +17,24 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class SimpleVWAPConfig(BaseClientModel):
+    """
+    Configuration parameters for the SimpleVWAP strategy.
+    """
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    exchange: str = Field("bitrue_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange where the bot will trade:"))
-    trading_pair: str = Field("HBOT-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair where the bot will place orders:"))
+    exchange: str = Field("kraken_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange where the bot will trade:"))
+    trading_pair: str = Field("DOT-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair where the bot will place orders:"))
     is_buy: bool = Field(True, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Are you buying or selling the base asset? (True for buy, False for sell):"))
-    total_amount_quote: Decimal = Field(100, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the total amount to buy/sell (in quote asset):"))
-    slippage_limit_pct: Decimal = Field(2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the maximum slippage per order (in %):"))
-    order_decrement_pct: Decimal = Field(1, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "How much should the bot decrease each order to lower slippage (in %):"))
-    filled_order_delay: Decimal = Field(10, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "How long should the bot wait after an order fill (in seconds)?:"))
+    total_amount_quote: Decimal = Field(100000, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the total amount to buy/sell (in quote asset):"))
+    slippage_limit_pct: Decimal = Field(0.05, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the maximum slippage per order (in %):"))
+    order_decrement_pct: Decimal = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "How much should the bot decrease each order to lower slippage (in %):"))
+    filled_order_delay: int = Field(10, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "How long should the bot wait after an order fill (in seconds)?:"))
 
 
 class SimpleVWAP(ScriptStrategyBase):
     """
-    Simple VWAP Example V2.
+    This strategy helps a user automate a series or buy or sell orders to achieve a desired total trading volume, while minimizing market impact. It configures dynamic order sizing and timing to optimize trade execution.
     """
+
     @classmethod
     def init_markets(cls, config: SimpleVWAPConfig):
         cls.markets = {config.exchange: {config.trading_pair}}
@@ -163,11 +167,8 @@ class SimpleVWAP(ScriptStrategyBase):
             self.waiting_for_fill = False
             self.delay_timestamp = self.current_timestamp + self.config.filled_order_delay
 
+    # This method overrides the format_status in ScriptStrategyBase to include VWAP information
     def format_status(self) -> str:
-        """
-         Returns status of the current strategy on user balances and current active orders. This function is called
-         when status command is issued. Override this function to create custom status display output.
-         """
         if not self.ready_to_trade:
             return "Market connectors are not ready."
         lines = []
