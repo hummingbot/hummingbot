@@ -23,7 +23,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 ## Quick Links
 
 * [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
-* [Installation](https://hummingbot.org/installation/): Install Hummingbot on various platforms
+* [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
 * [FAQs](https://hummingbot.org/faq/): Answers to all your burning questions
 * [Botcamp](https://hummingbot.org/botcamp/): Learn how build your own custom HFT strategy in Hummingbot with our hands-on bootcamp!
 * [Newsletter](https://hummingbot.substack.com): Get our monthly newletter whenever we ship a new release
@@ -38,7 +38,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 
 We recommend installing Hummingbot using Docker if you want the simplest, easiest installation method and don't need to modify the Hummingbot codebase.
 
-**Prerequesites:**
+**Prerequisites:**
 
 * MacOS 10.12.6+ / Linux (Ubuntu 20.04+, Debian 10+) / Windows 10+
 * Memory: 4 GB RAM per instance
@@ -56,7 +56,7 @@ docker attach hummingbot
 
 We recommend installing Hummingbot from source if you want to customize or extend the Hummingbot codebase, build new components like connectors or strategies, and/or learn how Hummingbot works at a deeper, technical level.
 
-**Prerequesites:**
+**Prerequisites:**
 
 * MacOS 10.12.6+ / Linux (Ubuntu 20.04+, Debian 10+)
 * Memory: 4 GB RAM per instance
@@ -72,7 +72,7 @@ conda activate hummingbot
 ./start
 ```
 
-See [Installation](https://hummingbot.org/installation/) for detailed guides for each OS.
+See [Installation](https://hummingbot.org/installation/linux) for detailed guides for each OS.
 
 ## Architecture
 
