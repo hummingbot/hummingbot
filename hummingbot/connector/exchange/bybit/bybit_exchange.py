@@ -266,14 +266,15 @@ class BybitExchange(ExchangePyBase):
         else:
             api_params["orderLinkId"] = client_order_id
         api_params = dict(sorted(api_params.items()))
-        cancel_result = await self._api_post(
+        response = await self._api_post(
             path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
             data=api_params,
             is_auth_required=True,
             headers={"referer": CONSTANTS.HBOT_BROKER_ID},
         )
-
-        if isinstance(cancel_result, dict) and "orderLinkId" in cancel_result["result"]:
+        if response["retCode"] != 0:
+            raise ValueError(f"{response['retMsg']}")
+        if isinstance(response, dict) and "orderLinkId" in response["result"]:
             return True
         return False
 
