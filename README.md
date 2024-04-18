@@ -72,7 +72,7 @@ conda activate hummingbot
 ./start
 ```
 
-See [Installation](https://hummingbot.org/installation/linux) for detailed guides for each OS.
+See [Installation](https://hummingbot.org/installation/linux/) for detailed guides for each OS.
 
 ## Architecture
 
