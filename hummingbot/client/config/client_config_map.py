@@ -27,10 +27,10 @@ from hummingbot.connector.connector_metrics_collector import (
     TradeVolumeMetricCollector,
 )
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
-from hummingbot.connector.exchange.bitrue.bitrue_utils import BitrueConfigMap
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
-from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveConfigMap
+from hummingbot.connector.exchange.kraken.kraken_utils import KrakenConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
+from hummingbot.connector.exchange.okx.okx_utils import OKExConfigMap
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES, RateOracle
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
@@ -305,9 +305,9 @@ class PaperTradeConfigMap(BaseClientModel):
         default=[
             BinanceConfigMap.Config.title,
             KuCoinConfigMap.Config.title,
-            BitrueConfigMap.Config.title,
+            KrakenConfigMap.Config.title,
             GateIOConfigMap.Config.title,
-            InjectiveConfigMap.Config.title,
+            OKExConfigMap.Config.title,
         ],
     )
     paper_trade_account_balance: Dict[str, float] = Field(
