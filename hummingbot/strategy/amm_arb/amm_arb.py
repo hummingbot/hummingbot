@@ -324,6 +324,8 @@ class AmmArbStrategy(StrategyPyBase):
                 self.log_with_clock(logging.INFO,
                                     f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
                                     f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
+                arb_side.completed_event.clear()
+                arb_side.failed_event.clear()
 
                 order_id: str = await self.place_arb_order(
                     arb_side.market_info,
@@ -337,7 +339,6 @@ class AmmArbStrategy(StrategyPyBase):
                 })
 
                 if not self._concurrent_orders_submission:
-                    await asyncio.sleep(6)
                     await arb_side.completed_event.wait()
                     if arb_side.is_failed:
                         self.log_with_clock(logging.ERROR,
