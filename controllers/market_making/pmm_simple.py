@@ -32,7 +32,7 @@ class PMMSimpleController(MarketMakingControllerBase):
 
     def first_level_refresh_condition(self, executor):
         if self.config.top_order_refresh_time is not None:
-            if self.get_level_from_level_id(executor.custom_info["level_id"]) == 1:
+            if self.get_level_from_level_id(executor.custom_info["level_id"]) == 0:
                 return time.time() - executor.timestamp > self.config.top_order_refresh_time
         return False
 

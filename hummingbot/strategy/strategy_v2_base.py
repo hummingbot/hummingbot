@@ -389,13 +389,14 @@ class StrategyV2Base(ScriptStrategyBase):
                 controller_performance_info.append("Close Types Count:")
                 for close_type, count in performance_report.close_type_counts.items():
                     controller_performance_info.append(f"  {close_type}: {count}")
+            extra_info.extend(controller_performance_info)
 
             # Aggregate global metrics and close type counts
             global_realized_pnl_quote += performance_report.realized_pnl_quote
             global_unrealized_pnl_quote += performance_report.unrealized_pnl_quote
             global_volume_traded += performance_report.volume_traded
-            global_close_type_counts.update(performance_report.close_type_counts)
-            extra_info.extend(controller_performance_info)
+            for close_type, value in performance_report.close_type_counts.items():
+                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + value
 
         main_executors_list = self.get_executors_by_controller("main")
         if len(main_executors_list) > 0:
@@ -403,6 +404,13 @@ class StrategyV2Base(ScriptStrategyBase):
             main_executors_df = self.executors_info_to_df(main_executors_list)
             main_executors_df["age"] = self.current_timestamp - main_executors_df["timestamp"]
             extra_info.extend([format_df_for_printout(main_executors_df[columns_to_show], table_format="psql")])
+            main_performance_report = self.executor_orchestrator.generate_performance_report("main")
+            # Aggregate global metrics and close type counts
+            global_realized_pnl_quote += main_performance_report.realized_pnl_quote
+            global_unrealized_pnl_quote += main_performance_report.unrealized_pnl_quote
+            global_volume_traded += main_performance_report.volume_traded
+            for close_type, value in main_performance_report.close_type_counts.items():
+                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + value
 
         # Calculate and append global performance metrics
         global_pnl_quote = global_realized_pnl_quote + global_unrealized_pnl_quote
