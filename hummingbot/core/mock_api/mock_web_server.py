@@ -35,7 +35,7 @@ class MockWebServer:
     ----------
     __instance : Humming Web App instance
     _ev_loop : event loops run asynchronous task
-    _impl : web applicaiton
+    _impl : web application
     _runner : web runner
     _started : if started indicator
     _stock_responses : stocked web response
