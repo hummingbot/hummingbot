@@ -67,8 +67,7 @@ class SimpleVWAP(ScriptStrategyBase):
                 self.place_order(order_amount, vwap_price)
                 self.waiting_for_fill = True
             else:
-                slippage = self.calc_slippage(vwap_price, price)
-                self.notify_hb_app_with_timestamp(f"Slippage limit exceeded - {order_amount:.2f} order results in {slippage * 100:.2f}% slippage.")
+                self.notify_hb_app_with_timestamp("Slippage limit exceeded - no order placed.")
                 self.delay_timestamp = self.current_timestamp + self.config.filled_order_delay
 
     # Initialize bot settings
