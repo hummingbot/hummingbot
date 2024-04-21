@@ -92,7 +92,9 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
         for trades in data:
             trade_message: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
-                trades, {"trading_pair": trading_pair})
+                trades,
+                {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):

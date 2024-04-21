@@ -70,11 +70,14 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws: WSAssistant = await self._get_ws_assistant()
                 await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL[self._domain])
                 await self._authenticate_connection(ws)
+                await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
                     try:
-                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
-                                                   (self._time() - self._last_ws_message_sent_timestamp))
+                        seconds_until_next_ping = (
+                            CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
+                            (self._time() - self._last_ws_message_sent_timestamp)
+                        )
                         await asyncio.wait_for(
                             self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
@@ -98,15 +101,41 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await ws.send(request=ping_request)
         self._last_ws_message_sent_timestamp = ping_time
 
-    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+    async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
-
-        ByBit does not require any channel subscription.
-
-        :param websocket_assistant: the websocket assistant used to connect to the exchange
+        :param ws: the websocket assistant used to connect to the exchange
         """
-        pass
+        try:
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME}"],
+            }
+            subscribe_orders_request = WSJSONRequest(payload)
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME}"],
+            }
+            subscribe_executions_request = WSJSONRequest(payload)
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME}"],
+            }
+            subscribe_wallet_request = WSJSONRequest(payload)
+
+            await ws.send(subscribe_orders_request)
+            await ws.send(subscribe_executions_request)
+            await ws.send(subscribe_wallet_request)
+
+            self.logger().info("Subscribed to private orders, executions and wallet channels")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to private channels...",
+                exc_info=True
+            )
+            raise
 
     async def _authenticate_connection(self, ws: WSAssistant):
         """
@@ -126,6 +155,26 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     await self._process_ws_auth_msg(data, output)
                 elif data.get("op") == "pong":
                     await self._process_ws_pingpong_msg(data, output)
+                elif data.get("op") == "subscribe":
+                    if data.get("success") is False:
+                        self.logger().error(
+                            "Unexpected error occurred subscribing to private channels...",
+                            exc_info=True
+                        )
+                continue
+            topic = data.get("topic")
+            channel = ""
+            if topic == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_ORDER_CHANNEL
+            elif topic == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_TRADE_CHANNEL
+            elif topic == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_WALLET_CHANNEL
+            else:
+                pass
+            if channel:
+                data["channel"] = channel
+                output.put_nowait(data)
 
     async def _process_ws_auth_msg(self, data: dict, output: asyncio.Queue):
         # {

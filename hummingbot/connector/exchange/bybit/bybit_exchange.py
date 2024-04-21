@@ -46,7 +46,7 @@ class BybitExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._last_trades_poll_bybit_timestamp = 1.0
         self._account_type = None  # To be update on firtst call to balances
-        self._category = "spot"  # Required by the V5 API
+        self._category = CONSTANTS.TRADE_CATEGORY  # Required by the V5 API
         super().__init__(client_config_map)
 
     @staticmethod
@@ -292,11 +292,14 @@ class BybitExchange(ExchangePyBase):
                 min_base_amount_increment = lot_size_filter.get("basePrecision")
                 min_notional_size = lot_size_filter.get("minOrderAmt")
                 retval.append(
-                    TradingRule(trading_pair,
-                                min_order_size=Decimal(min_order_size),
-                                min_price_increment=Decimal(min_price_increment),
-                                min_base_amount_increment=Decimal(min_base_amount_increment),
-                                min_notional_size=Decimal(min_notional_size)))
+                    TradingRule(
+                        trading_pair,
+                        min_order_size=Decimal(min_order_size),
+                        min_price_increment=Decimal(min_price_increment),
+                        min_base_amount_increment=Decimal(min_base_amount_increment),
+                        min_notional_size=Decimal(min_notional_size)
+                    )
+                )
 
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {rule.get('name')}. Skipping.")
@@ -316,8 +319,72 @@ class BybitExchange(ExchangePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                pass
-                # event_type = event_message.get("e")
+                channel = event_message.get("channel")
+                if channel == CONSTANTS.PRIVATE_TRADE_CHANNEL:
+                    data = event_message.get("data")
+                    for trade in data:
+                        if trade.get("execType") != "Trade":  # Not a trade event
+                            continue
+                        client_order_id = trade.get("orderLinkId")
+                        exchange_order_id = trade.get("orderId")
+                        # fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                        fillable_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                        if fillable_order is not None:
+                            # print(f"TRADE UPDATE Event for Order: {client_order_id}")
+                            trading_pair = fillable_order.trading_pair
+                            ptoken = trading_pair.split("-")[1]
+                            fee = TradeFeeBase.new_spot_fee(
+                                fee_schema=self.trade_fee_schema(),
+                                trade_type=fillable_order.trade_type,
+                                flat_fees=[
+                                    TokenAmount(
+                                        amount=Decimal(trade["execFee"]),
+                                        token=ptoken
+                                    )
+                                ]
+                            )
+                            trade_update = TradeUpdate(
+                                trade_id=str(trade["blockTradeId"]),
+                                client_order_id=client_order_id,
+                                exchange_order_id=str(exchange_order_id),
+                                trading_pair=fillable_order.trading_pair,
+                                fee=fee,
+                                fill_base_amount=Decimal(trade["execQty"]),
+                                fill_quote_amount=Decimal(trade["execPrice"]) * Decimal(trade["execQty"]),
+                                fill_price=Decimal(trade["execPrice"]),
+                                fill_timestamp=int(trade["execTime"]) * 1e-3,
+                            )
+                            self._order_tracker.process_trade_update(trade_update)
+                if channel == CONSTANTS.PRIVATE_ORDER_CHANNEL:
+                    data = event_message.get("data")
+                    for order in data:
+                        client_order_id = order.get("orderLinkId")
+                        exchange_order_id = order.get("orderId")
+                        updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+                        if updatable_order is not None:
+                            new_state = CONSTANTS.ORDER_STATE[order["orderStatus"]]
+                            # print(f"NEW Order State: {client_order_id} -> {new_state}")
+                            order_update = OrderUpdate(
+                                trading_pair=updatable_order.trading_pair,
+                                update_timestamp=int(order["updatedTime"]) * 1e-3,
+                                new_state=new_state,
+                                client_order_id=client_order_id,
+                                exchange_order_id=str(exchange_order_id),
+                            )
+                            self._order_tracker.process_order_update(order_update=order_update)
+                elif channel == CONSTANTS.PRIVATE_WALLET_CHANNEL:
+                    accounts = event_message["data"]
+                    account_type = self._account_type
+                    balances = []
+                    for account in accounts:
+                        if account["accountType"] == account_type:
+                            balances = account["coin"]
+                    for balance_entry in balances:
+                        asset_name = balance_entry["coin"]
+                        free_balance = Decimal(balance_entry["free"])
+                        total_balance = Decimal(balance_entry["walletBalance"])
+                        self._account_available_balances[asset_name] = free_balance
+                        self._account_balances[asset_name] = total_balance
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -346,7 +413,6 @@ class BybitExchange(ExchangePyBase):
             limit_id=CONSTANTS.TRADE_HISTORY_PATH_URL
         )
         result = all_fills_response.get("result", [])
-        # print(result)
         if result not in (None, {}):
             for trade in result["list"]:
                 exchange_order_id = trade["orderId"]
@@ -363,7 +429,7 @@ class BybitExchange(ExchangePyBase):
                     ]
                 )
                 trade_update = TradeUpdate(
-                    trade_id=str(trade["orderId"]),
+                    trade_id=str(trade["blockTradeId"]),
                     client_order_id=client_order_id,
                     exchange_order_id=exchange_order_id,
                     trading_pair=symbol,
@@ -371,11 +437,10 @@ class BybitExchange(ExchangePyBase):
                     fill_base_amount=Decimal(trade["qty"]),
                     fill_quote_amount=Decimal(trade["price"]) * Decimal(trade["qty"]),
                     fill_price=Decimal(trade["price"]),
-                    fill_timestamp=int(trade["updatedTime"]) * 1e-3,  # TODO: Check multiplication
+                    fill_timestamp=int(trade["updatedTime"]) * 1e-3,
                 )
 
                 trade_updates.append(trade_update)
-        # print("TRADE UPDATES: ", trade_updates)
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:

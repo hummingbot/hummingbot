@@ -35,6 +35,8 @@ X_API_RECV_WINDOW = str(50000)
 # https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
 SPOT_ORDER_BOOK_DEPTH = 50
 
+TRADE_CATEGORY = "spot"
+
 # Websocket event types
 # https://bybit-exchange.github.io/docs/v5/websocket/public/trade
 TRADE_EVENT_TYPE = "snapshot"  # Weird but true in V5
@@ -42,6 +44,14 @@ SNAPSHOT_EVENT_TYPE = "depth"
 # V5: https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
 ORDERBOOK_DIFF_EVENT_TYPE = "delta"
 ORDERBOOK_SNAPSHOT_EVENT_TYPE = "snapshot"
+
+PRIVATE_ORDER_CHANNEL = "order"
+PRIVATE_TRADE_CHANNEL = "trade"
+PRIVATE_WALLET_CHANNEL = "wallet"
+
+WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
+WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
+WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME = "wallet"
 
 # Public API endpoints
 LAST_TRADED_PRICE_PATH = "/v5/market/tickers"
