@@ -250,7 +250,6 @@ class BybitExchange(ExchangePyBase):
         order_result = response.get("result", {})
         o_id = str(order_result["orderId"])
         transact_time = int(response["time"]) * 1e-3
-        # transact_time = int(response['time'])
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -323,22 +322,23 @@ class BybitExchange(ExchangePyBase):
                 if channel == CONSTANTS.PRIVATE_TRADE_CHANNEL:
                     data = event_message.get("data")
                     for trade in data:
-                        if trade.get("execType") != "Trade":  # Not a trade event
+                        # SPOT: "", UNIFIED: "Trade"
+                        if trade.get("execType") not in ("Trade", ""):  # Not a trade event
                             continue
                         client_order_id = trade.get("orderLinkId")
                         exchange_order_id = trade.get("orderId")
-                        # fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
-                        fillable_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                        fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                        # fillable_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
                         if fillable_order is not None:
-                            # print(f"TRADE UPDATE Event for Order: {client_order_id}")
                             trading_pair = fillable_order.trading_pair
                             ptoken = trading_pair.split("-")[1]
+                            fee_amount = trade["execFee"] or "0"
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=fillable_order.trade_type,
                                 flat_fees=[
                                     TokenAmount(
-                                        amount=Decimal(trade["execFee"]),
+                                        amount=Decimal(fee_amount),
                                         token=ptoken
                                     )
                                 ]
@@ -363,7 +363,6 @@ class BybitExchange(ExchangePyBase):
                         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                         if updatable_order is not None:
                             new_state = CONSTANTS.ORDER_STATE[order["orderStatus"]]
-                            # print(f"NEW Order State: {client_order_id} -> {new_state}")
                             order_update = OrderUpdate(
                                 trading_pair=updatable_order.trading_pair,
                                 update_timestamp=int(order["updatedTime"]) * 1e-3,
@@ -423,7 +422,7 @@ class BybitExchange(ExchangePyBase):
                     percent_token=ptoken,
                     flat_fees=[
                         TokenAmount(
-                            amount=Decimal("0"),
+                            amount=Decimal(trade["execFee"]),
                             token=ptoken
                         )
                     ]
@@ -439,7 +438,6 @@ class BybitExchange(ExchangePyBase):
                     fill_price=Decimal(trade["price"]),
                     fill_timestamp=int(trade["updatedTime"]) * 1e-3,
                 )
-
                 trade_updates.append(trade_update)
         return trade_updates
 
