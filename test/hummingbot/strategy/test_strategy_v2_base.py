@@ -264,8 +264,22 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(df, pd.DataFrame)
         self.assertEqual(len(df), 2)
         self.assertEqual(list(df.columns),
-                         ["id", "timestamp", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
-                          "is_trading", "filled_amount_quote", "close_type"])
+                         ['id',
+                          'timestamp',
+                          'type',
+                          'close_timestamp',
+                          'close_type',
+                          'status',
+                          'config',
+                          'net_pnl_pct',
+                          'net_pnl_quote',
+                          'cum_fees_quote',
+                          'filled_amount_quote',
+                          'is_active',
+                          'is_trading',
+                          'custom_info',
+                          'controller_id',
+                          'side'])
         self.assertEqual(df.iloc[0]['id'], '2')  # Since the dataframe is sorted by status
         self.assertEqual(df.iloc[1]['id'], '1')
         self.assertEqual(df.iloc[0]['status'], SmartComponentStatus.RUNNING)
