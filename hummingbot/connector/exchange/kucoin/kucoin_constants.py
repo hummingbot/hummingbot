@@ -68,3 +68,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=FILLS_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=FILLS_PATH_URL_HFT, limit=9, time_interval=3),
 ]
+
+RET_CODE_OK = 200000
