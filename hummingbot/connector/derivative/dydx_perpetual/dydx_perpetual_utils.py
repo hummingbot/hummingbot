@@ -11,8 +11,8 @@ EXAMPLE_PAIR = "BTC-USD"
 
 # 需要查看
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.0005"),
-    taker_percent_fee_decimal=Decimal("0.002"),
+    maker_percent_fee_decimal=Decimal("0.0001"),
+    taker_percent_fee_decimal=Decimal("0.0005"),
 )
 
 
