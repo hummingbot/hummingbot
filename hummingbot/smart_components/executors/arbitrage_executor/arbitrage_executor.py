@@ -1,10 +1,8 @@
 import asyncio
 import logging
 from decimal import Decimal
-from functools import lru_cache
 from typing import Union
 
-from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
@@ -27,13 +25,6 @@ class ArbitrageExecutor(ExecutorBase):
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
-
-    @staticmethod
-    @lru_cache(maxsize=10)
-    def is_amm(exchange: str) -> bool:
-        return exchange in sorted(
-            AllConnectorSettings.get_gateway_amm_connector_names()
-        )
 
     @property
     def is_closed(self):
@@ -217,7 +208,7 @@ class ArbitrageExecutor(ExecutorBase):
     async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal, asset: str):
         connector = self.connectors[exchange]
         price = await self.get_resulting_price_for_amount(exchange, trading_pair, is_buy, order_amount)
-        if self.is_amm(exchange=exchange):
+        if self.is_amm_connector(exchange=exchange):
             gas_cost = connector.network_transaction_fee
             conversion_price = RateOracle.get_instance().get_pair_rate(f"{asset}-{gas_cost.token}")
             return gas_cost.amount / conversion_price
