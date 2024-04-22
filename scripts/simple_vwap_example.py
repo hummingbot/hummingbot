@@ -24,8 +24,8 @@ class VWAPExample(ScriptStrategyBase):
       - How to code a "utility" strategy
     """
     last_ordered_ts = 0
-    vwap: Dict = {"connector_name": "kucoin_paper_trade", "trading_pair": "ETH-USDT", "is_buy": True,
-                  "total_volume_usd": 100, "price_spread": 0.001, "volume_perc": 0.001, "order_delay_time": 10}
+    vwap: Dict = {"connector_name": "binance_paper_trade", "trading_pair": "ETH-USDT", "is_buy": True,
+                  "total_volume_usd": 1000, "price_spread": 0.001, "volume_perc": 0.001, "order_delay_time": 10}
     markets = {vwap["connector_name"]: {vwap["trading_pair"]}}
 
     def on_tick(self):
