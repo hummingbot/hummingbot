@@ -7,7 +7,8 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig, ExchangePair
+from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.smart_components.executors.data_types import ConnectorPair
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.smart_components.executors.executor_orchestrator import ExecutorOrchestrator
@@ -53,8 +54,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
             trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
         arbitrage_executor_config = ArbitrageExecutorConfig(
             timestamp=1234, order_amount=Decimal(10), min_profitability=Decimal(0.01),
-            buying_market=ExchangePair(connector_name="binance", trading_pair="ETH-USDT"),
-            selling_market=ExchangePair(connector_name="coinbase", trading_pair="ETH-USDT"),
+            buying_market=ConnectorPair(connector_name="binance", trading_pair="ETH-USDT"),
+            selling_market=ConnectorPair(connector_name="coinbase", trading_pair="ETH-USDT"),
         )
         dca_executor_config = DCAExecutorConfig(
             timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",

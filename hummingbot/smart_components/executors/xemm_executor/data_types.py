@@ -1,20 +1,15 @@
 from decimal import Decimal
-from enum import Enum
 
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.smart_components.executors.data_types import ConnectorPair, ExecutorConfigBase
 
 
-class ArbitrageExecutorConfig(ExecutorConfigBase):
-    type = "arbitrage_executor"
+class XEMMExecutorConfig(ExecutorConfigBase):
+    type = "xemm_executor"
     buying_market: ConnectorPair
     selling_market: ConnectorPair
+    maker_side: TradeType
     order_amount: Decimal
     min_profitability: Decimal
-    max_retries: int = 3
-
-
-class ArbitrageExecutorStatus(Enum):
-    NOT_STARTED = 1
-    ACTIVE_ARBITRAGE = 2
-    COMPLETED = 3
-    FAILED = 4
+    target_profitability: Decimal
+    max_profitability: Decimal
