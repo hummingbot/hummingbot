@@ -733,7 +733,7 @@ class VertexExchange(ExchangePyBase):
             matches_response = await self._api_post(
                 path_url=CONSTANTS.INDEXER_PATH_URL,
                 data=data,
-                limit_id=CONSTANTS.INDEXER_PATH_URL,
+                limit_id=CONSTANTS.INDEXER_PATH_URL
             )
             matches = matches_response.get("matches", [])
             if matches and len(matches) > 0:
