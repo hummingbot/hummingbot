@@ -29,6 +29,7 @@ omit =
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/user/user_balances.py
+        hummingbot/connector/exchange/cube/cube_ws_protobufs/*
 dynamic_context = test_function
 branch = true
 
