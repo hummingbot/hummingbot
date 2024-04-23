@@ -23,17 +23,56 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 ## Quick Links
 
 * [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
-* [Installation](https://hummingbot.org/installation/): Install Hummingbot on various platforms
+* [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
 * [FAQs](https://hummingbot.org/faq/): Answers to all your burning questions
 * [Botcamp](https://hummingbot.org/botcamp/): Learn how build your own custom HFT strategy in Hummingbot with our hands-on bootcamp!
-
-## Community
-
 * [Newsletter](https://hummingbot.substack.com): Get our monthly newletter whenever we ship a new release
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most of of Hummingbot
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
-* [Snapshot](https://snapshot.org/#/hbot-prp.eth): Participate in monthly polls that decide which components should be prioritized and included
+* [Snapshot](https://snapshot.org/#/hbot-prp.eth): Participate in monthly polls that decide which components should be prioritized 
+
+## Getting Started
+
+### Install with Docker
+
+We recommend installing Hummingbot using Docker if you want the simplest, easiest installation method and don't need to modify the Hummingbot codebase.
+
+**Prerequisites:**
+
+* MacOS 10.12.6+ / Linux (Ubuntu 20.04+, Debian 10+) / Windows 10+
+* Memory: 4 GB RAM per instance
+* Storage: 5 GB HDD space per instance
+* Install [Docker Compose](https://docs.docker.com/compose/)
+
+```
+git clone https://github.com/hummingbot/hummingbot
+cd hummingbot
+docker compose up -d
+docker attach hummingbot
+```
+
+### Install from Source
+
+We recommend installing Hummingbot from source if you want to customize or extend the Hummingbot codebase, build new components like connectors or strategies, and/or learn how Hummingbot works at a deeper, technical level.
+
+**Prerequisites:**
+
+* MacOS 10.12.6+ / Linux (Ubuntu 20.04+, Debian 10+)
+* Memory: 4 GB RAM per instance
+* Storage: 3 GB HDD space per instance
+* Install [Anaconda](https://www.anaconda.com/download) or [Miniconda](https://docs.anaconda.com/free/miniconda/miniconda-install/)
+
+```
+git clone https://github.com/hummingbot/hummingbot
+cd hummingbot
+./install
+conda activate hummingbot
+./compile
+./start
+```
+
+See [Installation](https://hummingbot.org/installation/linux/) for detailed guides for each OS.
 
 ## Architecture
 
