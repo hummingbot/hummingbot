@@ -79,52 +79,9 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
     def authenticator(self) -> DydxPerpetualAuth:
         return DydxPerpetualAuth()
 
-    # todo
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
-        rate_limits = deepcopy(CONSTANTS.RATE_LIMITS)
-
-        # Order cancelation
-        for trading_pair in self._trading_pairs:
-            rate_limits += [
-                RateLimit(
-                    limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL + "_" + trading_pair,
-                    limit=425,
-                    time_interval=CONSTANTS.ONE_SECOND * 10,
-                )
-            ]
-
-        # Order placement
-        if "placeOrderRateLimiting" in self._rate_limits_config:
-            for trading_pair in self._trading_pairs:
-                rate_limits += [
-                    RateLimit(
-                        limit_id=CONSTANTS.LIMIT_LONG_TERM_ORDER_PLACE + "_" + trading_pair,
-                        limit=self._rate_limits_config["placeOrderRateLimiting"]["maxPoints"],
-                        time_interval=self._rate_limits_config["placeOrderRateLimiting"]["windowSec"],
-                    )
-                ]
-
-        for amount, amount_id in self._order_notional_amounts.items():
-            weight = clamp(
-                ceil(self._rate_limits_config["placeOrderRateLimiting"]["targetNotional"] / amount),
-                self._rate_limits_config["placeOrderRateLimiting"]["minLimitConsumption"],
-                self._rate_limits_config["placeOrderRateLimiting"]["maxOrderConsumption"],
-            )
-
-            for trading_pair in self._trading_pairs:
-                rate_limits += [
-                    RateLimit(
-                        limit_id=CONSTANTS.LIMIT_LONG_TERM_ORDER_PLACE + "_" + trading_pair + "_" + str(amount_id),
-                        limit=self._rate_limits_config["placeOrderRateLimiting"]["maxPoints"],
-                        time_interval=self._rate_limits_config["placeOrderRateLimiting"]["windowSec"],
-                        linked_limits=[
-                            LinkedLimitWeightPair(CONSTANTS.LIMIT_LONG_TERM_ORDER_PLACE + "_" + trading_pair, weight)
-                        ],
-                    )
-                ]
-
-        return rate_limits
+        return CONSTANTS.RATE_LIMITS
 
     @property
     def domain(self) -> str:
@@ -222,7 +179,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             # good_til_block_time = int(time.time()) + CONSTANTS.ORDER_EXPIRATION
 
             # limit_id 怎么写
-            async with self.throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
+            async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
                 resp = await self._tx_client.cancel_order(
                     client_id=int(tracked_order.client_order_id),
                     clob_pair_id=self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
@@ -339,7 +296,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         if notional_amount not in self._order_notional_amounts.keys():
             self._order_notional_amounts[notional_amount] = len(self._order_notional_amounts.keys())
             # Set updated rate limits
-            self._throttler.set_rate_limits(self.rate_limits_rules)
+            # self._throttler.set_rate_limits(self.rate_limits_rules)
         size = str(amount)
         price = str(price)
         side = "BUY" if trade_type == TradeType.BUY else "SELL"
@@ -364,7 +321,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         #     "reduce_only":False,
         # }
         try:
-            async with self.throttler.execute_task(limit_id=limit_id):
+            async with self._throttler.execute_task(limit_id=limit_id):
                 resp = await self._tx_client.place_order(
                     market=market,
                     type=_order_type,
@@ -417,20 +374,20 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         # await self._update_rate_limits()
         # await self._update_position_id()
 
-    async def _update_rate_limits(self):
-        # Initialize rate limits for statically allocatedrequests
-        self._throttler.set_rate_limits(self.rate_limits_rules)
-
-        response: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=CONSTANTS.PATH_CONFIG,
-            is_auth_required=False,
-        )
-
-        self._rate_limits_config["cancelOrderRateLimiting"] = response["cancelOrderRateLimiting"]
-        self._rate_limits_config["placeOrderRateLimiting"] = response["placeOrderRateLimiting"]
-
-        # Update rate limits with the obtained information
-        self._throttler.set_rate_limits(self.rate_limits_rules)
+    # async def _update_rate_limits(self):
+    #     # Initialize rate limits for statically allocatedrequests
+    #     self._throttler.set_rate_limits(self.rate_limits_rules)
+    #
+    #     response: Dict[str, Dict[str, Any]] = await self._api_get(
+    #         path_url=CONSTANTS.PATH_CONFIG,
+    #         is_auth_required=False,
+    #     )
+    #
+    #     self._rate_limits_config["cancelOrderRateLimiting"] = response["cancelOrderRateLimiting"]
+    #     self._rate_limits_config["placeOrderRateLimiting"] = response["placeOrderRateLimiting"]
+    #
+    #     # Update rate limits with the obtained information
+    #     self._throttler.set_rate_limits(self.rate_limits_rules)
     #
     # async def _update_position_id(self):
     #     if self._position_id is None:
@@ -441,37 +398,23 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         pass
 
     async def _user_stream_event_listener(self):
+
         async for event_message in self._iter_user_event_queue():
             try:
                 event: Dict[str, Any] = event_message
                 data: Dict[str, Any] = event["contents"]
                 if "subaccount" in data.keys() and len(data["subaccount"]) > 0:
-                    quote = CONSTANTS.CURRENCY
+                    quote = "USD"
                     self._account_balances[quote] = Decimal(data["subaccount"]["equity"])
-                    # freeCollateral is sent only on start
-                    # todo 这里似乎没有quoteBalance看看是不是用freeCollateral好一点
-                    self._account_available_balances[quote] = (
-                            Decimal(data["subaccount"]["quoteBalance"]) - self._allocated_collateral_sum
-                    )
+                    self._account_available_balances[quote] = Decimal(data["subaccount"]["freeCollateral"])
                     if "openPerpetualPositions" in data["subaccount"]:
                         await self._process_open_positions(data["subaccount"]["openPerpetualPositions"])
-
-                # if "subaccount" in data.keys() and len(data["subaccount"]) > 0:
-                #     for account in data["subaccount"]:
-                #         quote = "USD"
-                #         # freeCollateral is sent only on start
-                #         self._account_available_balances[quote] = (
-                #                 Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
-                #         )
-
                 if "orders" in data.keys() and len(data["orders"]) > 0:
                     for order in data["orders"]:
-                        # todo 这里是不是要用 exchange_order_id
                         client_order_id: str = order["clientId"]
-                        exchange_order_id: str = order["id"]
                         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                         if tracked_order is not None:
-                            trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["market"])
+                            trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["ticker"])
                             state = CONSTANTS.ORDER_STATE[order["status"]]
                             new_order_update: OrderUpdate = OrderUpdate(
                                 trading_pair=tracked_order.trading_pair,
@@ -505,9 +448,9 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                     for trade_update in trade_updates:
                         self._order_tracker.process_trade_update(trade_update)
 
-                if "positions" in data.keys() and len(data["positions"]) > 0:
+                if "perpetualPositions" in data.keys() and len(data["perpetualPositions"]) > 0:
                     # this is hit when a position is closed
-                    positions = data["positions"]
+                    positions = data["perpetualPositions"]
                     for position in positions:
                         trading_pair = position["market"]
                         if trading_pair not in self._trading_pairs:
@@ -530,14 +473,14 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                             if self._perpetual_trading.get_position(pos_key):
                                 self._perpetual_trading.remove_position(pos_key)
 
-                if "fundingPayments" in data:
-                    if event["type"] != CONSTANTS.WS_TYPE_SUBSCRIBED:  # Only subsequent funding payments
-                        funding_payments = await self._process_funding_payments(data["fundingPayments"])
-                        for trading_pair in funding_payments:
-                            timestamp = funding_payments[trading_pair]["timestamp"]
-                            funding_rate = funding_payments[trading_pair]["funding_rate"]
-                            payment = funding_payments[trading_pair]["payment"]
-                            self._emit_funding_payment_event(trading_pair, timestamp, funding_rate, payment, False)
+                # if "fundingPayments" in data:
+                #     if event["type"] != CONSTANTS.WS_TYPE_SUBSCRIBED:  # Only subsequent funding payments
+                #         funding_payments = await self._process_funding_payments(data["fundingPayments"])
+                #         for trading_pair in funding_payments:
+                #             timestamp = funding_payments[trading_pair]["timestamp"]
+                #             funding_rate = funding_payments[trading_pair]["funding_rate"]
+                #             payment = funding_payments[trading_pair]["payment"]
+                #             self._emit_funding_payment_event(trading_pair, timestamp, funding_rate, payment, False)
 
             except asyncio.CancelledError:
                 raise
@@ -577,23 +520,36 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
 
     ##
     async def _update_balances(self):
-        bank_balances = self._tx_client.bank_balances(self._dydx_perpetual_chain_address)
-        quote = "USD"
-        self._account_balances[quote] = Decimal(bank_balances["equity"])
-        # freeCollateral is sent only on start
-        self._account_available_balances[quote] = Decimal(
-            bank_balances["quoteBalance"]) - self._allocated_collateral_sum
+        path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self._dydx_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
+        response: Dict[str, Dict[str, Any]] = await self._api_get(
+            path_url=path, params={},limit_id=CONSTANTS.PATH_SUBACCOUNT
+        )
+        # print(response)
+        quote = CONSTANTS.CURRENCY
+        self._account_available_balances.clear()
+        self._account_balances.clear()
+
+        self._account_balances[quote] = Decimal(response["subaccount"]["equity"])
+        self._account_available_balances[quote] = Decimal(response["subaccount"]["freeCollateral"])
+
 
     # todo
     def _process_ws_fills(self, fills_data: List) -> List[TradeUpdate]:
         trade_updates = []
-        all_fillable_orders = self._order_tracker.all_fillable_orders
+        # all_fillable_orders = self._order_tracker.all_fillable_orders
+
         for fill_data in fills_data:
-            client_order_id: str = fill_data["orderClientId"]
-            order = all_fillable_orders.get(client_order_id)
-            trade_update = self._process_order_fills(fill_data=fill_data, order=order)
-            if trade_update is not None:
-                trade_updates.append(trade_update)
+            # client_order_id: str = fill_data["orderClientId"]
+            # order = all_fillable_orders.get(client_order_id)
+            exchange_order_id: str = fill_data["orderId"]
+            tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+
+            if tracked_order is None:
+                self.logger().debug(f"Ignoring trade message with exchange id {exchange_order_id}: not in in_flight_orders.")
+            else:
+                trade_update = self._process_order_fills(fill_data=fill_data, order=tracked_order)
+                if trade_update is not None:
+                    trade_updates.append(trade_update)
         return trade_updates
 
     ##
@@ -713,7 +669,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             )
 
             trade_update = TradeUpdate(
-                trade_id=fill_data["createdAt"],
+                trade_id=fill_data["id"],
                 client_order_id=order.client_order_id,
                 exchange_order_id=order.exchange_order_id,
                 trading_pair=order.trading_pair,
@@ -792,7 +748,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            # time_synchronizer=self._time_synchronizer,
             auth=self._auth,
         )
 
@@ -884,11 +840,11 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         # }
         path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self._dydx_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
         response: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=path, params=params
+            path_url=path, params=params,limit_id=CONSTANTS.PATH_SUBACCOUNT
         )
 
         # account = await self._get_account()
-        await self._process_open_positions(response["openPerpetualPositions"])
+        await self._process_open_positions(response["subaccount"]["openPerpetualPositions"])
 
     ##
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
@@ -947,7 +903,8 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         return success, msg
 
     ## todo 没有接口
-    # async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+        pass
     #     """
     #     Returns a tuple of the latest funding payment timestamp, funding rate, and payment amount.
     #     If no payment exists, return (0, -1, -1)

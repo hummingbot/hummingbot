@@ -26,7 +26,7 @@ MAX_ID_BIT_COUNT = 31
 # DYDX_VALIDATOR_REST_BASE_URL = "https://dydx-ops-rpc.kingnodes.com"
 DYDX_VALIDATOR_REST_BASE_URL = "https://dydx-grpc.publicnode.com:443"
 ##
-DYDX_INDEXER_REST_BASE_URL = "https://api.dydx.exchange"
+DYDX_INDEXER_REST_BASE_URL = "https://indexer.dydx.trade"
 ##
 DYDX_REST_URL = "{}/{}".format(DYDX_INDEXER_REST_BASE_URL, API_VERSION)
 ##
@@ -56,7 +56,6 @@ PATH_FUNDING = "/historical-pnl"
 ##
 PATH_SUBACCOUNT = "/addresses"
 
-
 # WS Endpoints
 WS_PATH_ACCOUNTS = "/ws/accounts"
 
@@ -70,7 +69,6 @@ WS_CHANNEL_ACCOUNTS = "v4_subaccounts"
 WS_TYPE_SUBSCRIBE = "subscribe"
 WS_TYPE_SUBSCRIBED = "subscribed"
 WS_TYPE_CHANNEL_DATA = "channel_data"
-
 
 TIF_GOOD_TIL_TIME = "GTT"
 TIF_FILL_OR_KILL = "FOK"
@@ -98,7 +96,6 @@ ORDER_STATE = {
 
 WS_CHANNEL_TO_PATH = {WS_CHANNEL_ACCOUNTS: WS_PATH_ACCOUNTS}
 
-
 ERR_MSG_NO_ORDER_FOUND = "No order found with id"
 ERR_MSG_NO_ORDER_FOR_MARKET = "No order for market"
 
@@ -112,7 +109,7 @@ LIMIT_ID_LONG_TERM_ORDER_PLACE = "LIMIT_ID_LONG_TERM_ORDER_PLACE"
 LIMIT_LONG_TERM_ORDER_PLACE = "LIMIT_LONG_TERM_ORDER_PLACE"
 MARKET_SHORT_TERM_ORDER_PLACE = "LIMIT_LONG_TERM_ORDER_PLACE"
 
-NO_LIMIT = sys.maxsize
+NO_LIMIT = 1000
 ONE_SECOND = 1
 ONE_HUNDRED_SECOND = 100
 
@@ -149,7 +146,19 @@ RATE_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(LIMIT_ID_GET)],
     ),
     RateLimit(
+        limit_id=PATH_HISTORY_FUNDING,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(LIMIT_ID_GET)],
+    ),
+    RateLimit(
         limit_id=PATH_ACCOUNTS,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(LIMIT_ID_GET)],
+    ),
+    RateLimit(
+        limit_id=PATH_SUBACCOUNT,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
         linked_limits=[LinkedLimitWeightPair(LIMIT_ID_GET)],

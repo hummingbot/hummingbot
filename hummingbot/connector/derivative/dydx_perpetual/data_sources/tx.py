@@ -10,11 +10,11 @@ from google.protobuf.any_pb2 import Any as ProtoAny
 import re
 from typing import List
 
-from v4_proto.cosmos.base.v1beta1.coin_pb2 import Coin
+from pyinjective.proto.cosmos.base.v1beta1.coin_pb2 import Coin
 
-from v4_proto.cosmos.crypto.secp256k1.keys_pb2 import PubKey as ProtoPubKey
-from v4_proto.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
-from v4_proto.cosmos.tx.v1beta1.tx_pb2 import (
+from pyinjective.proto.injective.crypto.v1beta1.ethsecp256k1.keys_pb2 import PubKey as ProtoPubKey
+from pyinjective.proto.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
+from pyinjective.proto.cosmos.tx.v1beta1.tx_pb2 import (
     AuthInfo,
     Fee,
     ModeInfo,
