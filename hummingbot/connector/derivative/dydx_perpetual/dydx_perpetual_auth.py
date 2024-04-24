@@ -1,10 +1,4 @@
 import json
-
-from dydx3 import Client
-from dydx3.helpers.db import get_account_id as dydx3_get_acount_id
-from dydx3.helpers.request_helpers import generate_now_iso, generate_query_path, remove_nones
-from dydx3.starkex.order import SignableOrder
-
 import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
@@ -34,9 +28,9 @@ class DydxPerpetualAuth(AuthBase):
 
     # def get_account_id(self):
     #     return dydx3_get_acount_id(self._dydx_perpetual_ethereum_address)
-
-    def _get_iso_timestamp(self):
-        return generate_now_iso()
+    #
+    # def _get_iso_timestamp(self):
+    #     return generate_now_iso()
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         # ts = self._get_iso_timestamp()

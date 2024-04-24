@@ -272,8 +272,8 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         diff: Dict[str, List[Dict[str, Union[str, int, float]]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
 
-        bids = [(Decimal(bid[0]), Decimal(bid[1])) for bid in diff["bids"]]
-        asks = [(Decimal(ask[0]), Decimal(ask[1])) for ask in diff["asks"]]
+        bids = [(Decimal(bid[0]), Decimal(bid[1])) for bid in diff.get("bids",[])]
+        asks = [(Decimal(ask[0]), Decimal(ask[1])) for ask in diff.get("asks",[])]
 
         return bids, asks
 
