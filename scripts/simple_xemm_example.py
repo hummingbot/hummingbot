@@ -119,8 +119,8 @@ class SimpleXEMM(ScriptStrategyBase):
         Return a custom data frame of prices on maker vs taker exchanges for display purposes
         """
         mid_price = self.connectors[self.maker_exchange].get_mid_price(self.maker_pair)
-        maker_buy_result = self.connectors[self.maker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
-        maker_sell_result = self.connectors[self.maker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
+        maker_buy_result = self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, True, self.order_amount)
+        maker_sell_result = self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, False, self.order_amount)
         taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
         taker_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
         maker_buy_spread_bps = (maker_buy_result.result_price - taker_buy_result.result_price) / mid_price * 10000
@@ -139,7 +139,7 @@ class SimpleXEMM(ScriptStrategyBase):
         data.append([
             self.taker_exchange,
             self.taker_pair,
-            float(self.connectors[self.taker_exchange].get_mid_price(self.maker_pair)),
+            float(self.connectors[self.taker_exchange].get_mid_price(self.taker_pair)),
             float(taker_buy_result.result_price),
             float(taker_sell_result.result_price),
             int(-maker_buy_spread_bps),

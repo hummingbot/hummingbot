@@ -8,15 +8,15 @@ from hummingbot.connector.exchange.vertex import vertex_constants as CONSTANTS, 
 class WebUtilsTests(TestCase):
     def test_public_rest_url(self):
         url = web_utils.public_rest_url(path_url=CONSTANTS.QUERY_PATH_URL, domain=CONSTANTS.DEFAULT_DOMAIN)
-        self.assertEqual("https://prod.vertexprotocol-backend.com/query", url)
+        self.assertEqual("https://gateway.prod.vertexprotocol.com/v1/query", url)
         url = web_utils.public_rest_url(path_url=CONSTANTS.QUERY_PATH_URL, domain=CONSTANTS.TESTNET_DOMAIN)
-        self.assertEqual("https://test.vertexprotocol-backend.com/query", url)
+        self.assertEqual("https://gateway.sepolia-test.vertexprotocol.com/v1/query", url)
 
     def test_private_rest_url(self):
         url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_PATH_URL, domain=CONSTANTS.DEFAULT_DOMAIN)
-        self.assertEqual("https://prod.vertexprotocol-backend.com/query", url)
+        self.assertEqual("https://gateway.prod.vertexprotocol.com/v1/query", url)
         url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_PATH_URL, domain=CONSTANTS.TESTNET_DOMAIN)
-        self.assertEqual("https://test.vertexprotocol-backend.com/query", url)
+        self.assertEqual("https://gateway.sepolia-test.vertexprotocol.com/v1/query", url)
 
     def test_build_api_factory(self):
         self.assertIsNotNone(web_utils.build_api_factory())
