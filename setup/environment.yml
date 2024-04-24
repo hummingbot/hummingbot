@@ -30,8 +30,6 @@ dependencies:
     - appdirs==1.4.3
     - async-timeout
     - asyncssh==2.13.1
-    - bip_utils
-    - bech32
     - pyOpenSSL==21.0.0
     - appnope==0.1.3
     - base58==2.1.1
@@ -41,14 +39,12 @@ dependencies:
     - diff-cover
     - docker==5.0.3
     - eth_abi==4.0.0
-    - eth-account>=0.9.0
-    - eth_keys>=0.4.0
+    - eth-account==0.9.0
     - eth-utils==2.2.0
     - eip712-structs==1.1.0
     - dotmap==1.3.30
     - flake8==3.7.9
     - gql
-    - grpcio
     - grpcio-tools
     - importlib-metadata==0.23
     - injective-py==1.4.*
@@ -56,7 +52,6 @@ dependencies:
     - mypy-extensions==0.4.3
     - pandas_ta==0.3.14b
     - pre-commit==2.18.1
-    - protobuf==4.25.1
     - psutil==5.7.2
     - ptpython==3.0.20
     - pyjwt==1.7.1
@@ -74,5 +69,5 @@ dependencies:
     - websockets
     - yarl==1.*
     - git+https://github.com/CoinAlpha/python-signalr-client.git
-#    - git+https://github.com/konichuvak/dydx-v3-python.git@web3
+    - git+https://github.com/konichuvak/dydx-v3-python.git@web3
     - xrpl-py

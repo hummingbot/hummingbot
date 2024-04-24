@@ -87,7 +87,7 @@ def main():
         "pip",
         "pre-commit",
         "prompt-toolkit",
-        "protobuf==4.25.1",
+        "protobuf",
         "psutil",
         "pydantic",
         "pyjwt",
