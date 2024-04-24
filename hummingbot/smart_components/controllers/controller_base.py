@@ -132,21 +132,9 @@ class ControllerBase(SmartComponentBase):
         if self._status != SmartComponentStatus.RUNNING:
             self.terminated.clear()
             self._status = SmartComponentStatus.RUNNING
+            self.executors_update_event.set()
             safe_ensure_future(self.control_loop())
-            safe_ensure_future(self.handle_executors_updates())
         self.initialize_candles()
-
-    async def handle_executors_updates(self):
-        """
-        Handle executors updates, by default we are going to store the executors related to this controller, but
-        this method can be overridden to implement custom behavior.
-        """
-        while True:
-            try:
-                self.executors_info = await self.executors_info_queue.get()
-                self.executors_update_event.set()
-            except Exception as e:
-                self.logger().error(f"Error updating executors info {e}.", exc_info=True)
 
     def initialize_candles(self):
         for candles_config in self.config.candles_config:
