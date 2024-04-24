@@ -246,26 +246,25 @@ class StrategyV2Base(ScriptStrategyBase):
                 actions = await self.actions_queue.get()
                 self.executor_orchestrator.execute_actions(actions)
                 self.update_executors_info()
-                await self.report_update_to_controller(actions[0].controller_id)
+                controller_id = actions[0].controller_id
+                controller = self.controllers.get(controller_id)
+                controller.executors_info = self.executors_info.get(controller_id, [])
+                controller.executors_update_event.set()
             except Exception as e:
                 self.logger().error(f"Error executing action: {e}", exc_info=True)
 
     def update_executors_info(self):
         """
         Update the local state of the executors and publish the updates to the active controllers.
+        In this case we are going to update the controllers directly with the executors info so the event is not
+        set and is managed with the async queue.
         """
         try:
             self.executors_info = self.executor_orchestrator.get_executors_report()
+            for controllers in self.controllers.values():
+                controllers.executors_info = self.executors_info.get(controllers.config.id, [])
         except Exception as e:
             self.logger().error(f"Error updating executors info: {e}", exc_info=True)
-
-    async def report_update_to_controller(self, controller_id: str):
-        """
-        Report the update to the controller with the provided id.
-        """
-        if controller_id in self.controllers:
-            controller = self.controllers[controller_id]
-            await controller.executors_info_queue.put(self.executors_info.get(controller_id, []))
 
     @staticmethod
     def is_perpetual(connector: str) -> bool:
