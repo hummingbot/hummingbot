@@ -230,7 +230,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result.trading_pair, self.trading_pair)
         self.assertEqual(result.index_price, Decimal(mock_response["indexPrice"]))
         self.assertEqual(result.mark_price, Decimal(mock_response["markPrice"]))
-        self.assertEqual(result.next_funding_utc_timestamp, mock_response["nextFundingTime"])
+        self.assertEqual(result.next_funding_utc_timestamp, int(mock_response["nextFundingTime"] * 1e-3))
         self.assertEqual(result.rate, Decimal(mock_response["lastFundingRate"]))
 
     @aioresponses()
@@ -256,7 +256,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result.trading_pair, self.trading_pair)
         self.assertEqual(result.index_price, Decimal(mock_response["indexPrice"]))
         self.assertEqual(result.mark_price, Decimal(mock_response["markPrice"]))
-        self.assertEqual(result.next_funding_utc_timestamp, mock_response["nextFundingTime"])
+        self.assertEqual(result.next_funding_utc_timestamp, int(mock_response["nextFundingTime"] * 1e-3))
         self.assertEqual(result.rate, Decimal(mock_response["lastFundingRate"]))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
