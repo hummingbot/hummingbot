@@ -378,7 +378,7 @@ class BybitExchange(ExchangePyBase):
                             balances = account["coin"]
                     for balance_entry in balances:
                         asset_name = balance_entry["coin"]
-                        free_balance = Decimal(balance_entry["free"])
+                        free_balance = Decimal(balance_entry.get("free") or balance_entry.get("availableToWithdraw"))
                         total_balance = Decimal(balance_entry["walletBalance"])
                         self._account_available_balances[asset_name] = free_balance
                         self._account_balances[asset_name] = total_balance
