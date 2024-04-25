@@ -26,7 +26,7 @@ class BinanceUSRateSourceTest(unittest.TestCase):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def setup_binance_responses(self, mock_api, expected_rate: Decimal):
+    def setup_binance_us_responses(self, mock_api, expected_rate: Decimal):
         pairs_us_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain="us")
         symbols_response = {  # truncated
             "symbols": [
@@ -73,12 +73,11 @@ class BinanceUSRateSourceTest(unittest.TestCase):
     @aioresponses()
     def test_get_binance_prices(self, mock_api):
         expected_rate = Decimal("10")
-        self.setup_binance_responses(mock_api=mock_api, expected_rate=expected_rate)
+        self.setup_binance_us_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = BinanceUSRateSource()
         prices = self.async_run_with_timeout(rate_source.get_prices())
 
         self.assertIn(self.us_trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.us_trading_pair])
-        # self.assertIn(self.us_trading_pair, prices)
         self.assertNotIn(self.ignored_trading_pair, prices)
