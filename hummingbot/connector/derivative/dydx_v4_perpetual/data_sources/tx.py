@@ -23,7 +23,7 @@ from pyinjective.proto.cosmos.tx.v1beta1.tx_pb2 import (
     Tx,
     TxBody,
 )
-from hummingbot.connector.derivative.dydx_perpetual.data_sources.keypairs import PublicKey
+from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.keypairs import PublicKey
 
 
 def parse_coins(value: str) -> List[Coin]:

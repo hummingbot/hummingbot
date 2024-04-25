@@ -9,7 +9,6 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 from google.protobuf import message as _message
 from google.protobuf import json_format
 
-# from v4_proto.dydxprotocol.clob.tx_pb2 import MsgPlaceOrder, MsgCancelOrder
 from v4_proto.dydxprotocol.clob.order_pb2 import Order, OrderId
 from v4_proto.dydxprotocol.subaccounts.subaccount_pb2 import SubaccountId
 
@@ -40,11 +39,11 @@ from pyinjective.proto.cosmos.tx.v1beta1.service_pb2 import (
     BroadcastTxRequest,
 )
 
-from hummingbot.connector.derivative.dydx_perpetual.data_sources.tx import Transaction, SigningCfg
-from hummingbot.connector.derivative.dydx_perpetual.data_sources.keypairs import PrivateKey, PublicKey
+from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.tx import Transaction, SigningCfg
+from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.keypairs import PrivateKey, PublicKey
 
-from hummingbot.connector.derivative.dydx_perpetual import (
-    dydx_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.dydx_v4_perpetual import (
+    dydx_v4_perpetual_constants as CONSTANTS
 )
 
 AERIAL_GRPC_OR_REST_PREFIX = "grpc"
@@ -80,12 +79,12 @@ class DydxPerpetualV4Client:
     def __init__(
             self,
             private_key: str,
-            dydx_chain_address: str,
+            dydx_v4_chain_address: str,
             connector,
             subaccount_num=0,
     ):
         self._private_key = PrivateKey(bytes.fromhex(private_key))
-        self._dydx_chain_address = dydx_chain_address
+        self._dydx_v4_chain_address = dydx_v4_chain_address
         self._connector = connector
         self._subaccount_num = subaccount_num
 
@@ -201,7 +200,7 @@ class DydxPerpetualV4Client:
             good_til_block_time: int,
     ):
 
-        subaccount_id = SubaccountId(owner=self._dydx_chain_address, number=self._subaccount_num)
+        subaccount_id = SubaccountId(owner=self._dydx_v4_chain_address, number=self._subaccount_num)
         order_id = OrderId(
             subaccount_id=subaccount_id,
             client_id=client_id,
@@ -262,7 +261,7 @@ class DydxPerpetualV4Client:
         conditional_order_trigger_subticks = 0
 
         # msg
-        subaccount_id = SubaccountId(owner=self._dydx_chain_address, number=self._subaccount_num)
+        subaccount_id = SubaccountId(owner=self._dydx_v4_chain_address, number=self._subaccount_num)
 
         order_id = OrderId(
             subaccount_id=subaccount_id,
@@ -305,7 +304,7 @@ class DydxPerpetualV4Client:
 
     async def query_account(self):
         # 这里sequence可以加一个初始化
-        request = QueryAccountRequest(address=self._dydx_chain_address)
+        request = QueryAccountRequest(address=self._dydx_v4_chain_address)
         response = await self.auth_client.Account(request)
 
         account = BaseAccount()
