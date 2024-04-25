@@ -213,7 +213,6 @@ class BybitExchange(ExchangePyBase):
                            order_type: OrderType,
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
-        amount_str = f"{amount:f}"
         type_str = self.bybit_order_type(order_type)
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
@@ -222,19 +221,18 @@ class BybitExchange(ExchangePyBase):
         for tp, tpr in self._trading_rules.items():
             if tp == trading_pair:
                 precision = f"{tpr.min_base_amount_increment}"[::-1].find('.')
-                _price = round(price, precision)
+                price = round(price, precision)
 
         api_params = {
             "category": self._category,
             "symbol": symbol,
             "side": side_str,
             "orderType": type_str,
-            "qty": amount_str,
-            "price": f"{_price:f}",
+            "qty": f"{amount:f}",
+            "marketUnit": "baseCoin",
+            "price": f"{price:f}",
             "orderLinkId": order_id
         }
-        # sort params required for V5
-        api_params = dict(sorted(api_params.items()))
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
