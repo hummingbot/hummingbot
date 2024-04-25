@@ -84,10 +84,10 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": [
+                    "permissionSets": [[
                         "SPOT",
                         "MARGIN"
-                    ]
+                    ]]
                 },
             ]
         }
@@ -149,9 +149,9 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": [
+                    "permissionSets": [[
                         "MARGIN"
-                    ]
+                    ]]
                 },
                 {
                     "symbol": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
@@ -176,9 +176,9 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": [
+                    "permissionSets": [[
                         "MARGIN"
-                    ]
+                    ]]
                 },
             ]
         }
@@ -226,10 +226,10 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                             "minNotional": "0.00100000"
                         }
                     ],
-                    "permissions": [
+                    "permissionSets": [[
                         "SPOT",
                         "MARGIN"
-                    ]
+                    ]]
                 }
             ]
         }
@@ -255,10 +255,10 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "ocoAllowed": True,
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
-                    "permissions": [
+                    "permissionSets": [[
                         "SPOT",
                         "MARGIN"
-                    ]
+                    ]]
                 }
             ]
         }
@@ -297,9 +297,9 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "locked": "0.00000000"
                 }
             ],
-            "permissions": [
+            "permissionSets": [[
                 "SPOT"
-            ]
+            ]]
         }
 
     @property
@@ -315,7 +315,7 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "updateTime": 123456789,
             "accountType": "SPOT",
             "balances": [{"asset": self.base_asset, "free": "10.0", "locked": "5.0"}],
-            "permissions": ["SPOT"],
+            "permissionSets": [["SPOT"]],
         }
 
     @property
@@ -1180,9 +1180,9 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "minNotional": "0.00100000"
                 }
             ],
-            "permissions": [
+            "permissionSets": [[
                 "SPOT"
-            ]
+            ]]
         }]
         exchange_info = {"symbols": trading_rules}
 
@@ -1217,9 +1217,9 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "avgPriceMins": 5
                 }
             ],
-            "permissions": [
+            "permissionSets": [[
                 "SPOT"
-            ]
+            ]]
         }]
         exchange_info = {"symbols": trading_rules}
 
