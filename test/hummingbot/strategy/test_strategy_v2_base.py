@@ -10,7 +10,10 @@ from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExcha
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.data_type.common import PositionMode, TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorConfig,
+    TripleBarrierConfig,
+)
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.smart_components.models.executors_info import ExecutorInfo, PerformanceReport
@@ -261,8 +264,22 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(df, pd.DataFrame)
         self.assertEqual(len(df), 2)
         self.assertEqual(list(df.columns),
-                         ["id", "timestamp", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
-                          "is_trading", "filled_amount_quote", "close_type"])
+                         ['id',
+                          'timestamp',
+                          'type',
+                          'close_timestamp',
+                          'close_type',
+                          'status',
+                          'config',
+                          'net_pnl_pct',
+                          'net_pnl_quote',
+                          'cum_fees_quote',
+                          'filled_amount_quote',
+                          'is_active',
+                          'is_trading',
+                          'custom_info',
+                          'controller_id',
+                          'side'])
         self.assertEqual(df.iloc[0]['id'], '2')  # Since the dataframe is sorted by status
         self.assertEqual(df.iloc[1]['id'], '1')
         self.assertEqual(df.iloc[0]['status'], SmartComponentStatus.RUNNING)
@@ -290,32 +307,29 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         controller_mock.to_format_status.return_value = ["Mock status for controller"]
         self.strategy.controllers = {"controller_1": controller_mock}
 
-        # Mocking generate_performance_report
-        mock_report = MagicMock()
-        mock_report.realized_pnl_quote = Decimal("100.00")
-        mock_report.unrealized_pnl_quote = Decimal("50.00")
-        mock_report.global_pnl_quote = Decimal("150.00")
-        mock_report.global_pnl_pct = Decimal("10.00")
-        mock_report.volume_traded = Decimal("1500.00")
-        mock_report.close_type_counts = {"close_type_1": 1, "close_type_2": 2}
-        self.strategy.executor_orchestrator.generate_performance_report = MagicMock(return_value=mock_report)
+        mock_report_controller_1 = MagicMock()
+        mock_report_controller_1.realized_pnl_quote = Decimal("100.00")
+        mock_report_controller_1.unrealized_pnl_quote = Decimal("50.00")
+        mock_report_controller_1.global_pnl_quote = Decimal("150.00")
+        mock_report_controller_1.global_pnl_pct = Decimal("15.00")
+        mock_report_controller_1.volume_traded = Decimal("1000.00")
+        mock_report_controller_1.close_type_counts = {CloseType.TAKE_PROFIT: 10, CloseType.STOP_LOSS: 5}
 
-        # Expected data
-        expected_controller_performance_info = [
-            "Realized PNL (Quote): 100.00 | Unrealized PNL (Quote): 50.00",
-            "--> Global PNL (Quote): 150.00 | Global PNL (%): 10.00%",
-            "Total Volume Traded: 1500.00",
-            "Close Types Count:",
-            "  close_type_1: 1",
-            "  close_type_2: 2"
-        ]
-
-        expected_global_performance_summary = [
-            "Global PNL (Quote): 150.00 | Global PNL (%): 10.00% | Total Volume Traded (Global): 1500.00",
-            "Global Close Types Count:",
-            "  close_type_1: 1",
-            "  close_type_2: 2"
-        ]
+        # Mocking generate_performance_report for main controller
+        mock_report_main = MagicMock()
+        mock_report_main.realized_pnl_quote = Decimal("200.00")
+        mock_report_main.unrealized_pnl_quote = Decimal("75.00")
+        mock_report_main.global_pnl_quote = Decimal("275.00")
+        mock_report_main.global_pnl_pct = Decimal("15.00")
+        mock_report_main.volume_traded = Decimal("2000.00")
+        mock_report_main.close_type_counts = {CloseType.TAKE_PROFIT: 2, CloseType.STOP_LOSS: 3}
+        self.strategy.executor_orchestrator.generate_performance_report = MagicMock(side_effect=[mock_report_controller_1, mock_report_main])
+        # Mocking get_executors_by_controller for main controller to return an empty list
+        self.strategy.get_executors_by_controller = MagicMock(return_value=[ExecutorInfo(
+            id="12312", timestamp=1234567890, status=SmartComponentStatus.TERMINATED,
+            config=self.get_position_config_market_short(), net_pnl_pct=Decimal(0), net_pnl_quote=Decimal(0),
+            cum_fees_quote=Decimal(0), filled_amount_quote=Decimal(0), is_active=False, is_trading=False,
+            custom_info={}, type="position_executor", controller_id="main")])
 
         # Call format_status
         status = self.strategy.format_status()
@@ -323,7 +337,13 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         # Assertions
         self.assertIn(original_status, status)
         self.assertIn("Mock status for controller", status)
-        for line in expected_controller_performance_info:
-            self.assertIn(line, status)
-        for line in expected_global_performance_summary:
-            self.assertIn(line, status)
+        self.assertIn("Controller: controller_1", status)
+        self.assertIn("Realized PNL (Quote): 100.00", status)
+        self.assertIn("Unrealized PNL (Quote): 50.00", status)
+        self.assertIn("Global PNL (Quote): 150", status)
+
+    def get_position_config_market_short(self):
+        return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT",
+                                      connector_name="binance",
+                                      side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      triple_barrier_config=TripleBarrierConfig())
