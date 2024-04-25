@@ -175,7 +175,7 @@ class StrategyV2Base(ScriptStrategyBase):
     """
     markets: Dict[str, Set[str]]
     _last_config_update_ts: float = 0
-    closed_executors_buffer: int = 5
+    closed_executors_buffer: int = 100
 
     @classmethod
     def init_markets(cls, config: StrategyV2ConfigBase):
