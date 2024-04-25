@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 
-from hummingbot.connector.derivative.dydx_perpetual import (
-    dydx_perpetual_constants as CONSTANTS,
-    dydx_perpetual_web_utils as web_utils,
+from hummingbot.connector.derivative.dydx_v4_perpetual import (
+    dydx_v4_perpetual_constants as CONSTANTS,
+    dydx_v4_perpetual_web_utils as web_utils,
 )
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
@@ -21,16 +21,16 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
-    from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
+    from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivative import DydxV4PerpetualDerivative
 
 
-class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
+class DydxV4PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     FULL_ORDER_BOOK_RESET_DELTA_SECONDS = sys.maxsize
 
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: "DydxPerpetualDerivative",
+        connector: "DydxV4PerpetualDerivative",
         api_factory: WebAssistantsFactory,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
@@ -51,9 +51,9 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         market_info: Dict[str, Any] = funding_info_response["markets"][trading_pair]
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(market_info["indexPrice"])),
+            index_price=Decimal(str(market_info["oraclePrice"])),
             mark_price=Decimal(str(market_info["oraclePrice"])),
-            next_funding_utc_timestamp=int(dp.parse(market_info["nextFundingAt"]).timestamp()),
+            next_funding_utc_timestamp=self._next_funding_time(),
             rate=Decimal(str(market_info["nextFundingRate"])),
         )
         return funding_info
@@ -186,31 +186,32 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if raw_message["type"] == "channel_data":
-            for trading_pair in raw_message["contents"].keys():
+            print(raw_message)
+            for trading_pair in raw_message["contents"]["markets"].keys():
                 if trading_pair in self._trading_pairs:
-                    market_info = raw_message["contents"][trading_pair]
+                    market_info = raw_message["contents"]["markets"][trading_pair]
 
                     if any(
-                        info in ["indexPrice", "oraclePrice", "nextFundingRate", "nextFundingAt"]
+                        info in ["oraclePrice", "nextFundingRate", "nextFundingAt"]
                         for info in market_info.keys()
                     ):
 
                         info_update = FundingInfoUpdate(trading_pair)
-
-                        if "indexPrice" in market_info.keys():
-                            info_update.index_price = Decimal(market_info["indexPrice"])
                         if "oraclePrice" in market_info.keys():
+                            info_update.index_price = Decimal(market_info["oraclePrice"])
                             info_update.mark_price = Decimal(market_info["oraclePrice"])
                         if "nextFundingRate" in market_info.keys():
                             info_update.rate = Decimal(market_info["nextFundingRate"])
-                        if "nextFundingAt" in market_info.keys():
-                            info_update.next_funding_utc_timestamp = dp.parse(market_info["nextFundingAt"]).timestamp()
+                            info_update.next_funding_utc_timestamp = self._next_funding_time(),
 
                         message_queue.put_nowait(info_update)
 
     async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
+        ex_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
         params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "limit": 1,
+            "ticker": ex_symbol
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -248,7 +249,8 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         rest_assistant = await self._api_factory.get_rest_assistant()
         endpoint = CONSTANTS.PATH_SNAPSHOT
-        url = web_utils.public_rest_url(path_url=endpoint + "/" + trading_pair)
+        ex_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        url = web_utils.public_rest_url(path_url=endpoint + "/" + ex_symbol)
         data = await rest_assistant.execute_request(
             url=url,
             throttler_limit_id=endpoint,
@@ -272,15 +274,21 @@ class DydxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         diff: Dict[str, List[Dict[str, Union[str, int, float]]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
 
-        bids = [(Decimal(bid[0]), Decimal(bid[1])) for bid in diff["bids"]]
-        asks = [(Decimal(ask[0]), Decimal(ask[1])) for ask in diff["asks"]]
+        bids = [(Decimal(bid[0]), Decimal(bid[1])) for bid in diff.get("bids",[])]
+        asks = [(Decimal(ask[0]), Decimal(ask[1])) for ask in diff.get("asks",[])]
 
         return bids, asks
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.DYDX_WS_URL, ping_timeout=CONSTANTS.HEARTBEAT_INTERVAL)
+        await ws.connect(ws_url=CONSTANTS.DYDX_V4_WS_URL, ping_timeout=CONSTANTS.HEARTBEAT_INTERVAL)
         return ws
 
     async def _request_order_book_snapshots(self, output: asyncio.Queue):
         pass  # unused
+
+    def _next_funding_time(self) -> int:
+        """
+        Funding settlement occurs every 1 hours as mentioned in https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
+        """
+        return ((time.time() // 3600) + 1) * 3600
