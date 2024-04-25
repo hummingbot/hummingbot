@@ -10,21 +10,21 @@ if TYPE_CHECKING:
     from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 
 
-class BinanceRateSource(RateSourceBase):
+class BinanceUSRateSource(RateSourceBase):
     def __init__(self):
         super().__init__()
-        self._binance_exchange: Optional[BinanceExchange] = None  # delayed because of circular reference
+        self._binance_us_exchange: Optional[BinanceExchange] = None  # delayed because of circular reference
 
     @property
     def name(self) -> str:
-        return "binance"
+        return "binance_us"
 
     @async_ttl_cache(ttl=30, maxsize=1)
     async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
         self._ensure_exchanges()
         results = {}
         tasks = [
-            self._get_binance_prices(exchange=self._binance_exchange),
+            self._get_binance_prices(exchange=self._binance_us_exchange, quote_token="USD"),
         ]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
@@ -39,8 +39,8 @@ class BinanceRateSource(RateSourceBase):
         return results
 
     def _ensure_exchanges(self):
-        if self._binance_exchange is None:
-            self._binance_exchange = self._build_binance_connector_without_private_keys(domain="com")
+        if self._binance_us_exchange is None:
+            self._binance_us_exchange = self._build_binance_connector_without_private_keys(domain="us")
 
     @staticmethod
     async def _get_binance_prices(exchange: 'BinanceExchange', quote_token: str = None) -> Dict[str, Decimal]:
