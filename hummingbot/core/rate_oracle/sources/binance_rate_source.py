@@ -14,7 +14,7 @@ class BinanceRateSource(RateSourceBase):
     def __init__(self):
         super().__init__()
         self._binance_exchange: Optional[BinanceExchange] = None  # delayed because of circular reference
-        self._binance_us_exchange: Optional[BinanceExchange] = None  # delayed because of circular reference
+        # self._binance_us_exchange: Optional[BinanceExchange] = None  # delayed because of circular reference
 
     @property
     def name(self) -> str:
