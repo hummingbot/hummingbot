@@ -48,11 +48,10 @@ from hummingbot.connector.derivative.dydx_perpetual import (
 )
 
 AERIAL_GRPC_OR_REST_PREFIX = "grpc"
-# AERIAL_CONFIG_URL = 'https://dydx-grpc.publicnode.com:443'
-AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
+AERIAL_CONFIG_URL = 'https://dydx-grpc.publicnode.com:443'
+# QUERY_AERIAL_CONFIG_URL = 'https://dydx-grpc.publicnode.com:443'
+QUERY_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
 
-if TYPE_CHECKING:
-    from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 
 
 class MsgPlaceOrder(_message.Message):
@@ -102,8 +101,12 @@ class DydxPerpetualV4Client:
             grpc.aio.secure_channel(host_and_port, credentials)
             if credentials is not None else grpc.aio.insecure_channel(host_and_port)
         )
+        query_grpc_client = (
+            grpc.aio.secure_channel(QUERY_AERIAL_CONFIG_URL, credentials)
+            if credentials is not None else grpc.aio.insecure_channel(host_and_port)
+        )
         self.stubBank = bank_query_grpc.QueryStub(grpc_client)
-        self.auth_client = AuthGrpcClient(grpc_client)
+        self.auth_client = AuthGrpcClient(query_grpc_client)
         self.txs = TxGrpcClient(grpc_client)
         self.stubCosmosTendermint = tendermint_query_grpc.ServiceStub(
             grpc_client
@@ -117,7 +120,7 @@ class DydxPerpetualV4Client:
     ):
         raw_quantums = size * 10 ** (-1 * atomic_resolution)
         quantums = round(raw_quantums, step_base_quantums)
-        return max(quantums, step_base_quantums)
+        return int(max(quantums, step_base_quantums))
 
     @staticmethod
     def calculate_subticks(
@@ -129,7 +132,7 @@ class DydxPerpetualV4Client:
         exponent = atomic_resolution - quantum_conversion_exponent - CONSTANTS.QUOTE_QUANTUMS_ATOMIC_RESOLUTION
         raw_subticks = price * 10 ** (exponent)
         subticks = round(raw_subticks, subticks_per_tick)
-        return max(subticks, subticks_per_tick)
+        return int(max(subticks, subticks_per_tick))
 
     def calculate_good_til_block_time(self, good_til_time_in_seconds: int) -> int:
         now = datetime.now()
@@ -267,6 +270,13 @@ class DydxPerpetualV4Client:
             order_flags=order_flags,
             clob_pair_id=int(clob_pair_id)
         )
+        print(order_id)
+        print(order_side)
+        print(quantums)
+        print(subticks)
+        print(good_til_block)
+        print(good_til_block_time)
+        print(time_in_force)
         order = Order(
             order_id=order_id,
             side=order_side,
@@ -303,6 +313,7 @@ class DydxPerpetualV4Client:
             raise RuntimeError("Unexpected account type returned from query")
         response.account.Unpack(account)
         sequence = account.sequence
+        print(sequence)
         return sequence
 
     async def prepare_and_broadcast_basic_transaction(
