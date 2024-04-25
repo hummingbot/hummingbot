@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 from dateutil.parser import parse as dateparse
-from dydx3.helpers.request_helpers import epoch_seconds_to_iso, generate_now_iso, iso_to_epoch_seconds
 
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_constants as CONSTANTS
 from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
@@ -347,7 +346,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         if "order" not in resp:
             raise IOError(f"Error submitting order {order_id}.")
 
-        return str(resp["order"]["id"]), iso_to_epoch_seconds(resp["order"]["createdAt"])
+        return str(resp["order"]["id"]), dateparse.parse(resp["order"]["createdAt"]).timestamp()
 
     def _get_fee(
             self,
