@@ -1,6 +1,7 @@
 import sys
 
 from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 CLIENT_ID_PREFIX = "93027a12dac34fBC"
@@ -52,6 +53,11 @@ ORDER_STATE = {
     "filled": OrderState.FILLED,
     "partially_filled": OrderState.PARTIALLY_FILLED,
     "canceled": OrderState.CANCELED,
+}
+
+ORDER_TYPE_MAP = {
+    OrderType.LIMIT: "limit",
+    OrderType.MARKET: "market",
 }
 
 NO_LIMIT = sys.maxsize

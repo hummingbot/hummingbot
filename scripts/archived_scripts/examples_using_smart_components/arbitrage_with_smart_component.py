@@ -2,14 +2,15 @@ from decimal import Decimal
 
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig, ExchangePair
+from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.smart_components.executors.data_types import ConnectorPair
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class ArbitrageWithSmartComponent(ScriptStrategyBase):
     # Parameters
-    exchange_pair_1 = ExchangePair(connector_name="binance", trading_pair="MATIC-USDT")
-    exchange_pair_2 = ExchangePair(connector_name="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
+    exchange_pair_1 = ConnectorPair(connector_name="binance", trading_pair="MATIC-USDT")
+    exchange_pair_2 = ConnectorPair(connector_name="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
     order_amount = Decimal("50")  # in base asset
     min_profitability = Decimal("0.004")
 
@@ -42,7 +43,7 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
         for arbitrage in self.active_sell_arbitrages:
             arbitrage.stop()
 
-    def create_arbitrage_executor(self, buying_exchange_pair: ExchangePair, selling_exchange_pair: ExchangePair):
+    def create_arbitrage_executor(self, buying_exchange_pair: ConnectorPair, selling_exchange_pair: ConnectorPair):
         try:
             base_asset_for_selling_exchange = self.connectors[selling_exchange_pair.exchange].get_available_balance(
                 selling_exchange_pair.trading_pair.split("-")[0])
