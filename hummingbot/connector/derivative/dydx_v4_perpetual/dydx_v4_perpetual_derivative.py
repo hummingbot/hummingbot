@@ -163,17 +163,17 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         try:
-        #     body_params = {
-        #         "market": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
-        #         "client_order_id": tracked_order.client_order_id,
-        #         "clob_pair_id": self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
-        #         "dydx_perpetual_ethereum_address": self.dydx_perpetual_ethereum_address,
-        #         "subaccount_num": self.subaccount_id,
-        #         "order_flags": CONSTANTS.ORDER_FLAGS,
-        #         "good_til_time_in_seconds": 120,
-        #         "good_til_block": 0,
-        #         # "good_til_block_time": 0,
-        #     }
+            #     body_params = {
+            #         "market": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
+            #         "client_order_id": tracked_order.client_order_id,
+            #         "clob_pair_id": self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
+            #         "dydx_perpetual_ethereum_address": self.dydx_perpetual_ethereum_address,
+            #         "subaccount_num": self.subaccount_id,
+            #         "order_flags": CONSTANTS.ORDER_FLAGS,
+            #         "good_til_time_in_seconds": 120,
+            #         "good_til_block": 0,
+            #         # "good_til_block_time": 0,
+            #     }
             gas_limit = 0
             fee = 0
             broadcast_mode = 0  # "BroadcastMode.BroadcastTxSync"
@@ -524,18 +524,17 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     ##
     async def _update_balances(self):
-        path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self._dydx_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
+        path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self._dydx_v4_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
         response: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=path, params={},limit_id=CONSTANTS.PATH_SUBACCOUNT
+            path_url=path, params={}, limit_id=CONSTANTS.PATH_SUBACCOUNT
         )
-        # print(response)
+        print(response)
         quote = CONSTANTS.CURRENCY
         self._account_available_balances.clear()
         self._account_balances.clear()
 
         self._account_balances[quote] = Decimal(response["subaccount"]["equity"])
         self._account_available_balances[quote] = Decimal(response["subaccount"]["freeCollateral"])
-
 
     # todo
     def _process_ws_fills(self, fills_data: List) -> List[TradeUpdate]:
@@ -549,7 +548,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
 
             if tracked_order is None:
-                self.logger().debug(f"Ignoring trade message with exchange id {exchange_order_id}: not in in_flight_orders.")
+                self.logger().debug(
+                    f"Ignoring trade message with exchange id {exchange_order_id}: not in in_flight_orders.")
             else:
                 trade_update = self._process_order_fills(fill_data=fill_data, order=tracked_order)
                 if trade_update is not None:
@@ -771,7 +771,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return DydxV4PerpetualUserStreamDataSource(api_factory=self._web_assistants_factory,
-                                                 connector=self)
+                                                   connector=self)
 
     ##
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
@@ -841,7 +841,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         # }
         path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self._dydx_v4_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
         response: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=path, params=params,limit_id=CONSTANTS.PATH_SUBACCOUNT
+            path_url=path, params=params, limit_id=CONSTANTS.PATH_SUBACCOUNT
         )
 
         # account = await self._get_account()
