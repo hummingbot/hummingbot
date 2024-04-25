@@ -15,7 +15,10 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
 
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.BASE_URLS[domain] + path_url
+    if "/indexer" in path_url:
+        return CONSTANTS.ARCHIVE_INDEXER_URLS[domain]
+    else:
+        return CONSTANTS.BASE_URLS[domain] + path_url
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
