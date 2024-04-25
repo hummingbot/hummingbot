@@ -1,20 +1,13 @@
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel
-
-from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
-
-
-class ExchangePair(BaseModel):
-    connector_name: str
-    trading_pair: str
+from hummingbot.smart_components.executors.data_types import ConnectorPair, ExecutorConfigBase
 
 
 class ArbitrageExecutorConfig(ExecutorConfigBase):
     type = "arbitrage_executor"
-    buying_market: ExchangePair
-    selling_market: ExchangePair
+    buying_market: ConnectorPair
+    selling_market: ConnectorPair
     order_amount: Decimal
     min_profitability: Decimal
     max_retries: int = 3

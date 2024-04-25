@@ -12,6 +12,7 @@ HB_PARTNER_KEY = "8fb50686-81a8-408a-901c-07c5ac5bd758"
 # REST endpoints
 BASE_PATH_URL = {
     "main": "https://api.kucoin.com",
+    "hft": "https://api.kucoin.com",
 }
 PUBLIC_WS_DATA_PATH_URL = "/api/v1/bullet-public"
 PRIVATE_WS_DATA_PATH_URL = "/api/v1/bullet-private"
@@ -21,9 +22,11 @@ ACCOUNTS_PATH_URL = "/api/v1/accounts"
 SERVER_TIME_PATH_URL = "/api/v1/timestamp"
 SYMBOLS_PATH_URL = "/api/v2/symbols"
 ORDERS_PATH_URL = "/api/v1/orders"
+ORDERS_PATH_URL_HFT = "/api/v1/hf/orders"
 FEE_PATH_URL = "/api/v1/trade-fees"
 ALL_TICKERS_PATH_URL = "/api/v1/market/allTickers"
 FILLS_PATH_URL = "/api/v1/fills"
+FILLS_PATH_URL_HFT = "/api/v1/hf/fills"
 LIMIT_FILLS_PATH_URL = "/api/v1/limit/fills"
 ORDER_CLIENT_ORDER_PATH_URL = "/api/v1/order/client-order"
 
@@ -61,5 +64,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=POST_ORDER_LIMIT_ID, limit=45, time_interval=3),
     RateLimit(limit_id=DELETE_ORDER_LIMIT_ID, limit=60, time_interval=3),
     RateLimit(limit_id=ORDERS_PATH_URL, limit=45, time_interval=3),
+    RateLimit(limit_id=ORDERS_PATH_URL_HFT, limit=45, time_interval=3),
     RateLimit(limit_id=FILLS_PATH_URL, limit=9, time_interval=3),
+    RateLimit(limit_id=FILLS_PATH_URL_HFT, limit=9, time_interval=3),
 ]

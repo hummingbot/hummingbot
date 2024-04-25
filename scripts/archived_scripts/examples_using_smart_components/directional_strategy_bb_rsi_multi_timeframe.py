@@ -69,7 +69,7 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
             # -1 --> short | 1 --> long, so in the normalization we also need to switch side by changing the sign
             sma_rsi_normalized = -1 * (last_row["RSI_21_SMA_10"].item() - 50) / 50
             bb_percentage_normalized = -1 * (last_row["BBP_21_2.0"].item() - 0.5) / 0.5
-            # we assume that the weigths of sma of rsi and bb are equal
+            # we assume that the weights of sma of rsi and bb are equal
             signal_value = (sma_rsi_normalized + bb_percentage_normalized) / 2
             signals.append(signal_value)
         # Here we have a list with the values of the signals for each candle
