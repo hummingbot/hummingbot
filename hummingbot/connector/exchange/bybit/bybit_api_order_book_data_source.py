@@ -103,7 +103,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
             raw_message['data'],
-            raw_message["ts"],
+            raw_message["ts"] * 1e-3,
             {"trading_pair": trading_pair}
         )
         message_queue.put_nowait(order_book_message)
