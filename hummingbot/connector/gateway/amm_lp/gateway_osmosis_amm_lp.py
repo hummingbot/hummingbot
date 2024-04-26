@@ -850,9 +850,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                                     f"{update_result}.")
                 continue
 
-            # Print update_result
-            print(update_result)
-
             if update_result["txStatus"] == 1:
                 gas_used: int = update_result["gasUsed"]
                 gas_price: Decimal = tracked_order.gas_price
