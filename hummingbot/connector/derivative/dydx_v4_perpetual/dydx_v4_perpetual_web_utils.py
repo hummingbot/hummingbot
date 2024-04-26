@@ -45,12 +45,10 @@ def build_api_factory(
         throttler: AsyncThrottler,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
-    # time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler))
     api_factory = WebAssistantsFactory(
         throttler=throttler,
         rest_pre_processors=[
             DydxV4PerpetualRESTPreProcessor(),
-            # TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
         ],
     )
     return api_factory

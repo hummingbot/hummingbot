@@ -9,6 +9,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 from google.protobuf import message as _message
 from google.protobuf import json_format
 
+from v4_proto.dydxprotocol.clob.tx_pb2 import MsgPlaceOrder, MsgCancelOrder
 from v4_proto.dydxprotocol.clob.order_pb2 import Order, OrderId
 from v4_proto.dydxprotocol.subaccounts.subaccount_pb2 import SubaccountId
 
@@ -48,30 +49,29 @@ from hummingbot.connector.derivative.dydx_v4_perpetual import (
 
 AERIAL_GRPC_OR_REST_PREFIX = "grpc"
 AERIAL_CONFIG_URL = 'https://dydx-grpc.publicnode.com:443'
-# QUERY_AERIAL_CONFIG_URL = 'https://dydx-grpc.publicnode.com:443'
 QUERY_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
 
 
 
-class MsgPlaceOrder(_message.Message):
-    __slots__ = ("order",)
-    ORDER_FIELD_NUMBER: _ClassVar[int]
-    order: Order
-
-    def __init__(self, order: _Optional[_Union[Order, _Mapping]] = ...) -> None: ...
-
-
-class MsgCancelOrder(_message.Message):
-    __slots__ = ("order_id", "good_til_block", "good_til_block_time")
-    ORDER_ID_FIELD_NUMBER: _ClassVar[int]
-    GOOD_TIL_BLOCK_FIELD_NUMBER: _ClassVar[int]
-    GOOD_TIL_BLOCK_TIME_FIELD_NUMBER: _ClassVar[int]
-    order_id: OrderId
-    good_til_block: int
-    good_til_block_time: int
-
-    def __init__(self, order_id: _Optional[_Union[OrderId, _Mapping]] = ..., good_til_block: _Optional[int] = ...,
-                 good_til_block_time: _Optional[int] = ...) -> None: ...
+# class MsgPlaceOrder(_message.Message):
+#     __slots__ = ("order",)
+#     ORDER_FIELD_NUMBER: _ClassVar[int]
+#     order: Order
+#
+#     def __init__(self, order: _Optional[_Union[Order, _Mapping]] = ...) -> None: ...
+#
+#
+# class MsgCancelOrder(_message.Message):
+#     __slots__ = ("order_id", "good_til_block", "good_til_block_time")
+#     ORDER_ID_FIELD_NUMBER: _ClassVar[int]
+#     GOOD_TIL_BLOCK_FIELD_NUMBER: _ClassVar[int]
+#     GOOD_TIL_BLOCK_TIME_FIELD_NUMBER: _ClassVar[int]
+#     order_id: OrderId
+#     good_til_block: int
+#     good_til_block_time: int
+#
+#     def __init__(self, order_id: _Optional[_Union[OrderId, _Mapping]] = ..., good_til_block: _Optional[int] = ...,
+#                  good_til_block_time: _Optional[int] = ...) -> None: ...
 
 
 class DydxPerpetualV4Client:

@@ -42,7 +42,7 @@ PATH_TICKER = "/stats"
 PATH_SNAPSHOT = "/orderbooks/perpetualMarket"
 PATH_TIME = "/time"
 ##
-PATH_ACTIVE_ORDERS = "/active-orders"
+PATH_ORDERS = "/orders"
 ##
 PATH_FILLS = "/fills"
 PATH_POSITIONS = "/perpetualPositions"
@@ -135,6 +135,12 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=PATH_FILLS,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(LIMIT_ID_GET)],
+    ),
+    RateLimit(
+        limit_id=PATH_ORDERS,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
         linked_limits=[LinkedLimitWeightPair(LIMIT_ID_GET)],
