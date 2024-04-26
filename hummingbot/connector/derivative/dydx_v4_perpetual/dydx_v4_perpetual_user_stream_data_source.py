@@ -34,7 +34,7 @@ class DydxV4PerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         pass
-
+    # ping的回调还没写，不然会断掉
     async def _connected_websocket_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
             self.logger().info(f"Connecting to {CONSTANTS.DYDX_V4_WS_URL}")
