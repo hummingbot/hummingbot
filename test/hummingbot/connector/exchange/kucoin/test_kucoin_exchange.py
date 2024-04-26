@@ -812,7 +812,6 @@ class KucoinExchangeTests(unittest.TestCase):
     def test_cancel_order_successfully(self, mock_api):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="4",
@@ -833,7 +832,7 @@ class KucoinExchangeTests(unittest.TestCase):
             "code": "200000",
             "data": {
                 "cancelledOrderIds": [
-                    [order.exchange_order_id]
+                    order.exchange_order_id
                 ]
             }
         }
@@ -988,7 +987,7 @@ class KucoinExchangeTests(unittest.TestCase):
             "code": "200000",
             "data": {
                 "cancelledOrderIds": [
-                    [order1.exchange_order_id]
+                    order1.exchange_order_id
                 ]
             }
         }
