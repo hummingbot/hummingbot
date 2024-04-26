@@ -582,10 +582,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 endpoint = web_utils.endpoint_from_message(event_message)
                 payload = web_utils.payload_from_message(event_message)
-
                 if endpoint == CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME:
                     for position_msg in payload:
-                        await self._process_account_position_event(position_msg)
+                        await self._process_position_event(position_msg)
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
                     for order_msg in payload:
                         self._process_order_event_message(order_msg)
@@ -604,7 +603,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().exception("Unexpected error in user stream listener loop.")
                 await self._sleep(5.0)
 
-    async def _process_account_position_event(self, position_msg: Dict[str, Any]):
+    async def _process_position_event(self, position_msg: Dict[str, Any]):
         """
         Updates position
         :param position_msg: The position event message payload
@@ -708,15 +707,19 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _process_wallet_event_message(self, wallet_msg: Dict[str, Any]):
         """
-        Updates account balances.
+        Process wallet ws message
         :param wallet_msg: The account balance update message payload
         """
-        if "coin" in wallet_msg:  # non-linear
-            symbol = wallet_msg["coin"]
-        else:  # linear
-            symbol = "USDT"
-        self._account_balances[symbol] = Decimal(str(wallet_msg["walletBalance"]))
-        self._account_available_balances[symbol] = Decimal(str(wallet_msg["availableBalance"]))
+        account_type = self._account_type
+        balances = []
+        if wallet_msg["accountType"] == account_type:
+            balances = wallet_msg["coin"]
+        for balance_entry in balances:
+            asset_name = balance_entry["coin"]
+            free_balance = Decimal(balance_entry["availableToWithdraw"])
+            total_balance = Decimal(balance_entry["walletBalance"])
+            self._account_available_balances[asset_name] = free_balance
+            self._account_balances[asset_name] = total_balance
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         trading_pair_rules = exchange_info_dict.get("result", []).get("list", [])

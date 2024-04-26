@@ -83,8 +83,6 @@ SET_POSITION_MODE_PATH_URL = "/v5/position/switch-mode"
 SET_LEVERAGE_PATH_URL = "/v5/position/set-leverage"
 TRADE_HISTORY_PATH_URL = "/v5/execution/list"
 GET_POSITIONS_PATH_URL = "/v5/position/list"
-# SET_LEVERAGE_PATH_URL = "/v5/position/switch-isolated"
-# SET_POSITION_MODE_PATH_URL = "/v5/position/switch-isolated"
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
@@ -99,6 +97,11 @@ WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME = "position"
 WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
 WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
 WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME = "wallet"
+
+PRIVATE_ORDER_CHANNEL = "order"
+PRIVATE_TRADE_CHANNEL = "trade"
+PRIVATE_WALLET_CHANNEL = "wallet"
+PRIVATE_POSITIONS_CHANNEL = "position"
 
 # Websocket event types
 # https://bybit-exchange.github.io/docs/v5/websocket/public/trade
@@ -115,9 +118,16 @@ TICKERS_DIFF_EVENT_TYPE = "delta"
 ORDER_STATE = {
     "New": OrderState.OPEN,
     "PartiallyFilled": OrderState.PARTIALLY_FILLED,
+    "PartiallyFilledCanceled": OrderState.CANCELED,
     "Filled": OrderState.FILLED,
     "Cancelled": OrderState.CANCELED,
-    "Rejected": OrderState.FAILED,
+    "Rejected": OrderState.FAILED
+}
+
+ACCOUNT_TYPE = {
+    "REGULAR": 1,
+    "UNIFIED": 3,
+    "UTA_PRO": 4
 }
 
 WS_HEARTBEAT_TIME_INTERVAL = 20

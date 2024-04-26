@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Optional
 
-from hummingbot.connector.derivative.bybit_perpetual import (
+from hummingbot.connector.derivative.bybit_perpetual import (  # bybit_perpetual_utils as bybit_utils,
     bybit_perpetual_constants as CONSTANTS,
     bybit_perpetual_web_utils as web_utils,
 )
@@ -69,13 +69,18 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 ws: WSAssistant = await self._get_ws_assistant()
                 await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL[self._domain])
                 await self._authenticate_connection(ws)
+                await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
                     try:
-                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
-                                                   (self._time() - self._last_ws_message_sent_timestamp))
+                        seconds_until_next_ping = (
+                            CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
+                            (self._time() - self._last_ws_message_sent_timestamp)
+                        )
                         await asyncio.wait_for(
-                            self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
+                            self._process_ws_messages(ws=ws, output=output),
+                            timeout=seconds_until_next_ping
+                        )
                     except asyncio.TimeoutError:
                         await self._ping_server(ws)
             except asyncio.CancelledError:
@@ -86,6 +91,52 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 # Make sure no background task is leaked.
                 ws and await ws.disconnect()
                 await self._sleep(5)
+
+    async def _get_connected_websocket_assistant(self, ws_url: str) -> WSAssistant:
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
+        await ws.connect(
+            ws_url=ws_url, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
+        )
+        return ws
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        try:
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME}"],
+            }
+            subscribe_positions_request = WSJSONRequest(payload)
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME}"],
+            }
+            subscribe_orders_request = WSJSONRequest(payload)
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME}"],
+            }
+            subscribe_executions_request = WSJSONRequest(payload)
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME}"],
+            }
+            subscribe_wallet_request = WSJSONRequest(payload)
+
+            await ws.send(subscribe_positions_request)
+            await ws.send(subscribe_orders_request)
+            await ws.send(subscribe_executions_request)
+            await ws.send(subscribe_wallet_request)
+
+            self.logger().info(
+                "Subscribed to private channels..."
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(
+                "Unexpected error occurred subscribing to private channels..."
+            )
+            raise
 
     async def _ping_server(self, ws: WSAssistant):
         ping_time = self._time()
@@ -115,6 +166,28 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     await self._process_ws_auth_msg(data, output)
                 elif data.get("op") == "pong":
                     await self._process_ws_pingpong_msg(data, output)
+                elif data.get("op") == "subscribe":
+                    if data.get("success") is False:
+                        self.logger().error(
+                            "Unexpected error occurred subscribing to private channels...",
+                            exc_info=True
+                        )
+                continue
+            topic = data.get("topic")
+            channel = ""
+            if topic == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_ORDER_CHANNEL
+            elif topic == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_TRADE_CHANNEL
+            elif topic == CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_POSITIONS_CHANNEL
+            elif topic == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_WALLET_CHANNEL
+            else:
+                pass
+            if channel:
+                data["channel"] = channel
+                output.put_nowait(data)
 
     async def _process_ws_auth_msg(self, data: dict, output: asyncio.Queue):
         # {
@@ -135,16 +208,6 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         #     "conn_id": "XXXX",
         #     "op": "ping"
         # }
-        pass
-
-    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
-        """
-        Subscribes to the trade events and diff orders events through the provided websocket connection.
-
-        ByBit does not require any channel subscription.
-
-        :param websocket_assistant: the websocket assistant used to connect to the exchange
-        """
         pass
 
     async def _get_ws_assistant(self) -> WSAssistant:
