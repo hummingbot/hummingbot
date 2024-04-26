@@ -768,6 +768,17 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
         title = "binance"
 
 
+class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="binance_us",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "binance_us"
+
+
 class CubeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="cube",
@@ -935,6 +946,7 @@ class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
+    BinanceUSRateSourceMode.Config.title: BinanceUSRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
     CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
