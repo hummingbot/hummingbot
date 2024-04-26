@@ -121,18 +121,11 @@ class KucoinExchange(ExchangePyBase):
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        return not (str(CONSTANTS.RET_CODE_OK) in str(status_update_exception))
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        return not (str(CONSTANTS.RET_CODE_OK) or str(CONSTANTS.RET_CODE_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL) in
+                    str(cancelation_exception))
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -240,8 +233,13 @@ class KucoinExchange(ExchangePyBase):
         )
         response_param = "orderId" if self.domain == "hft" else "cancelledOrderIds"
         if tracked_order.exchange_order_id in cancel_result["data"].get(response_param, []):
+        cancel_code = cancel_result.get("code")
+        ret_code_ok = cancel_code == str(CONSTANTS.RET_CODE_OK)
+        ret_code_order_not_exist_or_not_allow_to_cancel = cancel_code == str(CONSTANTS.RET_CODE_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL)
+        if ret_code_ok or ret_code_order_not_exist_or_not_allow_to_cancel:
             return True
-        return False
+        else:
+            raise IOError(f"Error cancelling order on Kucoin: {cancel_result}. Error {cancel_code} - {cancel_result.get('msg')}")
 
     async def _user_stream_event_listener(self):
         """
