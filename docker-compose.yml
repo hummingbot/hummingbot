@@ -2,9 +2,10 @@ version: "3.9"
 services:
   hummingbot:
     container_name: hummingbot
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: hummingbot/hummingbot:latest
+#    build: Uncomment this and comment image if you want to build it locally
+#      context: .
+#      dockerfile: Dockerfile
     volumes:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors
@@ -27,25 +28,18 @@ services:
     #  environment:
     #    - CONFIG_PASSWORD=a
     #    - CONFIG_FILE_NAME=simple_pmm_example.py
+    #    - SCRIPT_CONFIG=conf_simple_pmm_example.yaml
 
-  dashboard:
-   container_name: dashboard
-   image: hummingbot/dashboard:latest
-   volumes:
-     - ./data:/home/dashboard/data
-   ports:
-     - "8501:8501"
-
-  gateway:
-   container_name: gateway
-   image: hummingbot/gateway:latest
-   ports:
-     - "15888:15888"
-     - "8080:8080"
-   volumes:
-     - "./gateway_files/conf:/home/gateway/conf"
-     - "./gateway_files/logs:/home/gateway/logs"
-     - "./gateway_files/db:/home/gateway/db"
-     - "./certs:/home/gateway/certs"
-   environment:
-     - GATEWAY_PASSPHRASE=a
+  # gateway:
+  #  container_name: gateway
+  #  image: hummingbot/gateway:latest
+  #  ports:
+  #    - "15888:15888"
+  #    - "8080:8080"
+  #  volumes:
+  #    - "./gateway_files/conf:/home/gateway/conf"
+  #    - "./gateway_files/logs:/home/gateway/logs"
+  #    - "./gateway_files/db:/home/gateway/db"
+  #    - "./certs:/home/gateway/certs"
+  #  environment:
+  #    - GATEWAY_PASSPHRASE=a

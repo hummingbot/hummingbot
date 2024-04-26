@@ -93,6 +93,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                           'max_retries': 15,
                           'min_price': Decimal('60'),
                           'n_levels': 3,
+                          'order_ids': [],
                           'side': TradeType.BUY,
                           'target_position_average_price': Decimal('73.33333333333333333333333333'),
                           'total_executed_amount_backup': Decimal('0'),
