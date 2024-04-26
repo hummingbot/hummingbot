@@ -21,13 +21,23 @@ TESTNET_DOMAIN = "vertex_testnet"
 QUOTE = "USDC"
 
 BASE_URLS = {
-    DEFAULT_DOMAIN: "https://prod.vertexprotocol-backend.com",
-    TESTNET_DOMAIN: "https://test.vertexprotocol-backend.com",
+    DEFAULT_DOMAIN: "https://gateway.prod.vertexprotocol.com/v1",
+    TESTNET_DOMAIN: "https://gateway.sepolia-test.vertexprotocol.com/v1",
 }
 
 WSS_URLS = {
-    DEFAULT_DOMAIN: "wss://prod.vertexprotocol-backend.com",
-    TESTNET_DOMAIN: "wss://test.vertexprotocol-backend.com",
+    DEFAULT_DOMAIN: "wss://gateway.prod.vertexprotocol.com/v1/ws",
+    TESTNET_DOMAIN: "wss://gateway.sepolia-test.vertexprotocol.com/v1/ws",
+}
+
+ARCHIVE_INDEXER_URLS = {
+    DEFAULT_DOMAIN: "https://archive.prod.vertexprotocol.com/v1",
+    TESTNET_DOMAIN: "https://archive.sepolia-test.vertexprotocol.com/v1",
+}
+
+WS_SUBSCRIBE_URLS = {
+    DEFAULT_DOMAIN: "wss://gateway.prod.vertexprotocol.com/v1/subscribe",
+    TESTNET_DOMAIN: "wss://gateway.vertexprotocol-vertexprotocol.com/v1/subscribe",
 }
 
 CONTRACTS = {
@@ -55,8 +65,6 @@ POST_PATH_URL = "/execute"
 QUERY_PATH_URL = "/query"
 INDEXER_PATH_URL = "/indexer"
 SYMBOLS_PATH_URL = "/symbols"
-WS_PATH_URL = "/ws"
-WS_SUBSCRIBE_PATH_URL = "/subscribe"
 
 # POST METHODS
 PLACE_ORDER_METHOD = "place_order"
