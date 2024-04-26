@@ -208,7 +208,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         if len(self.stored_executors) > 0:
             lines.extend(["\n################################## Closed Executors ##################################"])
         for executor in self.stored_executors:
-            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
+            lines.extend([f"|Signal id: {executor.config.timestamp}"])
             lines.extend(executor.to_format_status())
             lines.extend([
                 "-----------------------------------------------------------------------------------------------------------"])
@@ -217,7 +217,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             lines.extend(["\n################################## Active Executors ##################################"])
 
         for executor in self.active_executors:
-            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
+            lines.extend([f"|Signal id: {executor.config.timestamp}"])
             lines.extend(executor.to_format_status())
         if self.all_candles_ready:
             lines.extend(["\n################################## Market Data ##################################\n"])
