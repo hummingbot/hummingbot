@@ -250,6 +250,8 @@ class StrategyV2Base(ScriptStrategyBase):
                 controller = self.controllers.get(controller_id)
                 controller.executors_info = self.executors_info.get(controller_id, [])
                 controller.executors_update_event.set()
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 self.logger().error(f"Error executing action: {e}", exc_info=True)
 
