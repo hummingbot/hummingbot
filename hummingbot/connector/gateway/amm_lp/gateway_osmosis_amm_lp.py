@@ -31,7 +31,6 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.market_price import calculate_median_after_removing_outliers
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.logger import HummingbotLogger
 
@@ -372,8 +371,8 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                 self.logger().info(f"Unable to get price data. {resp['info']}")
                 return ["0"]
 
-            # Remove outliers and calculate median
-            price = calculate_median_after_removing_outliers(resp.get("prices", []))
+            # Get the first price in the list
+            price = resp.get("prices", [])[0]
 
             return [Decimal(price)]
         except asyncio.CancelledError:
