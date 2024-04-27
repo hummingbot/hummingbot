@@ -52,7 +52,7 @@ class BinancePerpetualLiquidations(LiquidationsBase):
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
-        return trading_pair.replace("-", "")
+        return self._trading_pairs_map.inverse.get(trading_pair)
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
