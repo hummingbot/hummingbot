@@ -274,6 +274,11 @@ class TestBinanceLiquidations(unittest.TestCase):
         self.assertEqual(ctsi_liquidations_df["trading_pair"][0], "CTSI-USDT")
         self.assertEqual(ctsi_liquidations_df["quantity"][0], 975.0)
 
+        # test the time based cleanup which should clear all liquidations since they are in the past
+        self.liquidations_feed._cleanup_old_liquidations()
+        all_liquidations_df = self.liquidations_feed.liquidations_df()
+        self.assertEqual(len(all_liquidations_df), 0)
+
     @aioresponses()
     def test_get_exchange_info(self, mock_api: aioresponses):
         url = f"{CONSTANTS.REST_URL}{CONSTANTS.EXCHANGE_INFO}"

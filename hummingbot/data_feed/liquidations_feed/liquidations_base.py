@@ -52,7 +52,7 @@ class LiquidationsBase(NetworkBase):
         await self.stop_network()
         await self._fetch_and_map_trading_pairs()
         self._listen_liquidations_task = safe_ensure_future(self.listen_for_subscriptions())
-        self._cleanup_task = safe_ensure_future(self._cleanup_old_liquidations())
+        self._cleanup_task = safe_ensure_future(self._cleanup_old_liquidations_loop())
         self.logger().info("Liquidations feed ({}) started, keeping the last {}s of data".format(self.name,
                                                                                                  self._max_retention_seconds))
         self._subscribed_to_channels = True
@@ -99,21 +99,24 @@ class LiquidationsBase(NetworkBase):
     async def check_network(self) -> NetworkStatus:
         raise NotImplementedError
 
-    async def _cleanup_old_liquidations(self):
+    async def _cleanup_old_liquidations_loop(self):
         while True:
-            try:
-                current_time_ms = int(time.time() * 1000)
-                if self._liquidations:
-                    for trading_pair, liquidations in list(self._liquidations.items()):
-                        self._liquidations[trading_pair] = [
-                            liq for liq in liquidations if
-                            current_time_ms - liq.timestamp < self._max_retention_seconds * 1000
-                        ]
-            except Exception:
-                self.logger().exception(
-                    "Unexpected error occurred when cleaning up outdated liquidations. Retrying in 1 seconds...",
-                )
+            self._cleanup_old_liquidations()
             await self._sleep(1.0)
+
+    def _cleanup_old_liquidations(self):
+        try:
+            current_time_ms = int(time.time() * 1000)
+            if self._liquidations:
+                for trading_pair, liquidations in list(self._liquidations.items()):
+                    self._liquidations[trading_pair] = [
+                        liq for liq in liquidations if
+                        current_time_ms - liq.timestamp < self._max_retention_seconds * 1000
+                    ]
+        except Exception:
+            self.logger().exception(
+                "Unexpected error occurred when cleaning up outdated liquidations. Retrying in 1 seconds...",
+            )
 
     def liquidations_df(self, trading_pair=None) -> DataFrame:
         """
