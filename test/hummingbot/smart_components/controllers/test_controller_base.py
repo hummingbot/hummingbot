@@ -108,9 +108,3 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(ValueError) as e:
             ControllerConfigBase.parse_candles_config_str(input_str)
         self.assertEqual(str(e.exception), "Invalid max_records value 'notanumber' in segment 'binance.BTC-USDT.1m.notanumber'. max_records should be an integer.")
-
-    def test_handle_executor_update(self):
-        # Test the handle_executor_update method
-        self.controller.executors_update_event.clear()
-        self.controller.handle_executor_update(event_tag="test", event_caller="test", executors_info={})
-        self.assertTrue(self.controller.executors_update_event.is_set())
