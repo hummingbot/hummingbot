@@ -15,8 +15,6 @@ from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import PositionMode
-from hummingbot.core.event.events import ExecutorEvent
-from hummingbot.core.pubsub import PubSub
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.exceptions import InvalidController
@@ -175,10 +173,9 @@ class StrategyV2Base(ScriptStrategyBase):
     """
     V2StrategyBase is a base class for strategies that use the new smart components architecture.
     """
-    pubsub: PubSub = PubSub()
     markets: Dict[str, Set[str]]
     _last_config_update_ts: float = 0
-    closed_executors_buffer: int = 5
+    closed_executors_buffer: int = 100
 
     @classmethod
     def init_markets(cls, config: StrategyV2ConfigBase):
@@ -223,7 +220,6 @@ class StrategyV2Base(ScriptStrategyBase):
         try:
             controller = config.get_controller_class()(config, self.market_data_provider, self.actions_queue)
             controller.start()
-            self.pubsub.add_listener(ExecutorEvent.EXECUTOR_INFO_UPDATE, controller.executors_update_listener)
             self.controllers[config.id] = controller
         except Exception as e:
             self.logger().error(f"Error adding controller: {e}", exc_info=True)
@@ -247,19 +243,28 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         while True:
             try:
-                action = await self.actions_queue.get()
-                self.executor_orchestrator.execute_actions(action)
+                actions = await self.actions_queue.get()
+                self.executor_orchestrator.execute_actions(actions)
                 self.update_executors_info()
+                controller_id = actions[0].controller_id
+                controller = self.controllers.get(controller_id)
+                controller.executors_info = self.executors_info.get(controller_id, [])
+                controller.executors_update_event.set()
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 self.logger().error(f"Error executing action: {e}", exc_info=True)
 
     def update_executors_info(self):
         """
         Update the local state of the executors and publish the updates to the active controllers.
+        In this case we are going to update the controllers directly with the executors info so the event is not
+        set and is managed with the async queue.
         """
         try:
             self.executors_info = self.executor_orchestrator.get_executors_report()
-            self.pubsub.trigger_event(ExecutorEvent.EXECUTOR_INFO_UPDATE, self.executors_info)
+            for controllers in self.controllers.values():
+                controllers.executors_info = self.executors_info.get(controllers.config.id, [])
         except Exception as e:
             self.logger().error(f"Error updating executors info: {e}", exc_info=True)
 
