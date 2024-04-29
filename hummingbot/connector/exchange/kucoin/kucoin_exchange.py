@@ -121,10 +121,12 @@ class KucoinExchange(ExchangePyBase):
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return not (str(CONSTANTS.RET_CODE_OK) in str(status_update_exception))
+        return (str(CONSTANTS.RET_CODE_RESOURCE_NOT_FOUND) in str(status_update_exception) and
+                str(CONSTANTS.RET_MSG_RESOURCE_NOT_FOUND) in str(status_update_exception))
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return str(CONSTANTS.RET_CODE_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL) in str(cancelation_exception)
+        return (str(CONSTANTS.RET_CODE_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL) in str(cancelation_exception)
+                and str(CONSTANTS.RET_MSG_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL) in str(cancelation_exception))
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
