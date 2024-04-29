@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
@@ -15,6 +16,7 @@ from hummingbot.smart_components.executors.position_executor.data_types import (
     TripleBarrierConfig,
 )
 from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.models.executor_actions import CreateExecutorAction
 from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.smart_components.models.executors_info import ExecutorInfo, PerformanceReport
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
@@ -341,6 +343,28 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.assertIn("Realized PNL (Quote): 100.00", status)
         self.assertIn("Unrealized PNL (Quote): 50.00", status)
         self.assertIn("Global PNL (Quote): 150", status)
+
+    async def test_listen_to_executor_actions(self):
+        self.strategy.actions_queue = MagicMock()
+        # Simulate some actions being returned, followed by an exception to break the loop.
+        self.strategy.actions_queue.get = AsyncMock(side_effect=[
+            [CreateExecutorAction(controller_id="controller_1",
+                                  executor_config=self.get_position_config_market_short())],
+            Exception,
+            asyncio.CancelledError,
+        ])
+        self.strategy.executor_orchestrator.execute_actions = AsyncMock()
+        controller_mock = MagicMock()
+        self.strategy.controllers = {"controller_1": controller_mock}
+
+        # Test for exception handling inside the method.
+        try:
+            await self.strategy.listen_to_executor_actions()
+        except asyncio.CancelledError:
+            pass
+
+        # Check assertions here to verify the actions were handled as expected.
+        self.assertEqual(self.strategy.executor_orchestrator.execute_actions.call_count, 1)
 
     def get_position_config_market_short(self):
         return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT",

@@ -8,7 +8,6 @@ from typing import Callable, Dict, List, Set
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
-from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
@@ -124,16 +123,7 @@ class ControllerBase(SmartComponentBase):
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
         self.executors_update_event = asyncio.Event()
-        self.executors_update_listener = SourceInfoEventForwarder(to_function=self.handle_executor_update)
-
-    def handle_executor_update(self, event_tag, event_caller, executors_info):
-        """
-        Handle executors updates, by default we are going to store the executors related to this controller, but
-        this method can be overridden to implement custom behavior.
-        """
-        self.logger().debug(f"Received executors update: {executors_info}, event_tag: {event_tag}, event_caller: {event_caller}")
-        self.executors_info = executors_info.get(self.config.id, [])
-        self.executors_update_event.set()
+        self.executors_info_queue = asyncio.Queue()
 
     def start(self):
         """
@@ -142,6 +132,7 @@ class ControllerBase(SmartComponentBase):
         if self._status != SmartComponentStatus.RUNNING:
             self.terminated.clear()
             self._status = SmartComponentStatus.RUNNING
+            self.executors_update_event.set()
             safe_ensure_future(self.control_loop())
         self.initialize_candles()
 
@@ -163,7 +154,9 @@ class ControllerBase(SmartComponentBase):
         if self.market_data_provider.ready and self.executors_update_event.is_set():
             await self.update_processed_data()
             executor_actions: List[ExecutorAction] = self.determine_executor_actions()
-            await self.send_actions(executor_actions)
+            if len(executor_actions) > 0:
+                self.logger().debug(f"Sending actions: {executor_actions}")
+                await self.send_actions(executor_actions)
 
     async def send_actions(self, executor_actions: List[ExecutorAction]):
         if len(executor_actions) > 0:
