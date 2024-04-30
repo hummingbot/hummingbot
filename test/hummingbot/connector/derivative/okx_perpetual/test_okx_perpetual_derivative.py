@@ -1211,8 +1211,74 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             ]
         }
 
+    @aioresponses()
+    def test_update_trade_history(self, mock_api):
+        amount = Decimal("100")
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id="4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=amount,
+            order_type=OrderType.LIMIT,
+        )
+        response = self._order_fills_request_full_fill_mock_response(self.exchange.in_flight_orders["11"])
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT])
+        url = f"{url}?instId={self.exchange_trading_pair}&limit=100"
+        regex_url = re.compile(f"^{url}")
+        mock_api.get(regex_url, body=json.dumps(response))
+        asyncio.get_event_loop().run_until_complete(self.exchange._update_trade_history())
+        # Assert that self._trading_pairs is not empty
+        self.assertNotEqual(len(self.exchange._trading_pairs), 0, "No trading pairs fetched")
+
+        # Assert that each parsed response is a dictionary
+        for data in response["data"]:
+            self.assertIsInstance(data, dict, "Parsed response is not a dictionary")
+
+            # Assert that each parsed response has 'ts', 'tradeId', 'fillSz', and 'fillPx' keys
+            self.assertTrue(all(key in data for key in ["ts", "tradeId", "fillSz", "fillPx"]),
+                            "Parsed response does not contain expected keys")
+
+            # Assert that amount is not None and is a Decimal
+            self.assertIsNotNone(amount, "Amount is None")
+            self.assertIsInstance(amount, Decimal, "Amount is not a Decimal")
+
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {}
+
+    @aioresponses()
+    def test_update_positions(self, mock_api):
+        amount = Decimal("100")
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id="4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=amount,
+            order_type=OrderType.LIMIT,
+        )
+        response = self.position_event_for_full_fill_websocket_update(self.exchange.in_flight_orders["11"], 0.1)
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT])
+        url = f"{url}?instId={self.exchange_trading_pair}"
+        regex_url = re.compile(f"^{url}")
+        mock_api.get(regex_url, body=json.dumps(response))
+        asyncio.get_event_loop().run_until_complete(self.exchange._update_positions())
+        # Assert that self._trading_pairs is not empty
+        self.assertNotEqual(len(self.exchange._trading_pairs), 0, "No trading pairs fetched")
+
+        # Assert that each parsed response is a dictionary
+        for data in response["data"]:
+            self.assertIsInstance(data, dict, "Parsed response is not a dictionary")
+
+            # Assert that each parsed response has 'instId', 'upl', 'avgPx', and 'lever' keys
+            self.assertTrue(all(key in data for key in ["instId", "upl", "avgPx", "lever"]),
+                            "Parsed response does not contain expected keys")
+
+            # Assert that amount is not None and is a Decimal
+            self.assertIsNotNone(amount, "Amount is None")
+            self.assertIsInstance(amount, Decimal, "Amount is not a Decimal")
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         # position_value = unrealized_pnl + order.amount * order.price * order.leverage
