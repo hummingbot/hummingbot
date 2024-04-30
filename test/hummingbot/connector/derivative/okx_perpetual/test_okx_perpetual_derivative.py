@@ -51,7 +51,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def latest_prices_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -2508,3 +2509,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
             )
         )
+
+    @aioresponses()
+    def test_get_last_traded_price(self, mock_api):
+        mock_api.get(self.latest_prices_url, body=json.dumps(self.latest_prices_request_mock_response))
+        lastprice_response = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
+        self.assertEqual(lastprice_response, 9999.9)
