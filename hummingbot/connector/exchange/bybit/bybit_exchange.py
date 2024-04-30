@@ -218,11 +218,6 @@ class BybitExchange(ExchangePyBase):
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-        for tp, tpr in self._trading_rules.items():
-            if tp == trading_pair:
-                precision = f"{tpr.min_base_amount_increment}"[::-1].find('.')
-                price = round(price, precision)
-
         api_params = {
             "category": self._category,
             "symbol": symbol,
@@ -284,20 +279,17 @@ class BybitExchange(ExchangePyBase):
                 lot_size_filter = rule.get("lotSizeFilter", {})
                 price_filter = rule.get("priceFilter", {})
 
-                min_order_size = lot_size_filter.get("minOrderQty")
-                min_price_increment = price_filter.get("tickSize")
-                min_base_amount_increment = lot_size_filter.get("basePrecision")
-                min_notional_size = lot_size_filter.get("minOrderAmt")
                 retval.append(
                     TradingRule(
                         trading_pair,
-                        min_order_size=Decimal(min_order_size),
-                        min_price_increment=Decimal(min_price_increment),
-                        min_base_amount_increment=Decimal(min_base_amount_increment),
-                        min_notional_size=Decimal(min_notional_size)
+                        min_order_size=Decimal(lot_size_filter.get("minOrderAmt")),
+                        max_order_size=Decimal(lot_size_filter.get("maxOrderAmt")),
+                        min_price_increment=Decimal(price_filter.get("tickSize")),
+                        min_base_amount_increment=Decimal(lot_size_filter.get("basePrecision")),
+                        min_quote_amount_increment=Decimal(lot_size_filter.get('quotePrecision')),
+                        min_notional_size=Decimal(lot_size_filter.get("minOrderAmt"))
                     )
                 )
-
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {rule.get('name')}. Skipping.")
         return retval
