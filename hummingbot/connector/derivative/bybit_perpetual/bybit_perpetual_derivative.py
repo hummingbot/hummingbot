@@ -729,19 +729,21 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 trading_pair = combine_to_hb_trading_pair(rule.get('baseCoin'), rule.get('quoteCoin'))
                 is_linear = bybit_utils.is_linear_perpetual(trading_pair)
                 collateral_token = rule["quoteCoin"] if is_linear else rule["baseCoin"]
-
                 lot_size_filter = rule.get("lotSizeFilter", {})
                 price_filter = rule.get("priceFilter", {})
-
-                min_order_size = lot_size_filter.get("minOrderQty")
-                min_price_increment = price_filter.get("tickSize")
-                min_base_amount_increment = lot_size_filter.get("qtyStep")
+                # It happens that markets return rules without minNotionalValue.
+                # Such is the case of ADAUSD.
+                # Setting to 0 to avoid crashes
+                if not lot_size_filter.get("minNotionalValue"):
+                    lot_size_filter["minNotionalValue"] = 0
                 retval.append(
                     TradingRule(
                         trading_pair,
-                        min_order_size=Decimal(min_order_size),
-                        min_price_increment=Decimal(min_price_increment),
-                        min_base_amount_increment=Decimal(min_base_amount_increment),
+                        min_order_size=Decimal(lot_size_filter.get("minOrderQty")),
+                        max_order_size=Decimal(lot_size_filter.get("maxOrderQty")),
+                        min_price_increment=Decimal(price_filter.get("tickSize")),
+                        min_base_amount_increment=Decimal(lot_size_filter.get("qtyStep")),
+                        min_notional_size=Decimal(lot_size_filter.get("minNotionalValue")),
                         buy_order_collateral_token=collateral_token,
                         sell_order_collateral_token=collateral_token,
                     )
