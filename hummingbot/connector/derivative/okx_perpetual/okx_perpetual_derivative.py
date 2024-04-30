@@ -298,8 +298,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         return final_result
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {"uly": exchange_symbol}
+        params = {"uly": trading_pair, "instType": "SWAP"}
 
         resp_json = await self._api_get(
             path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
