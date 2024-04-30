@@ -282,8 +282,8 @@ class BybitExchange(ExchangePyBase):
                 retval.append(
                     TradingRule(
                         trading_pair,
-                        min_order_size=Decimal(lot_size_filter.get("minOrderAmt")),
-                        max_order_size=Decimal(lot_size_filter.get("maxOrderAmt")),
+                        min_order_size=Decimal(lot_size_filter.get("minOrderQty")),
+                        max_order_size=Decimal(lot_size_filter.get("maxOrderQty")),
                         min_price_increment=Decimal(price_filter.get("tickSize")),
                         min_base_amount_increment=Decimal(lot_size_filter.get("basePrecision")),
                         min_quote_amount_increment=Decimal(lot_size_filter.get('quotePrecision')),
