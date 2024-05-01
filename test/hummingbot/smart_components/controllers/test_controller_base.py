@@ -2,7 +2,7 @@ import asyncio
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
 
