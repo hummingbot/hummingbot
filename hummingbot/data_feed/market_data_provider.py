@@ -5,7 +5,8 @@ import pandas as pd
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 
 
 class MarketDataProvider:

@@ -2,9 +2,11 @@ import time
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
+import pandas as pd
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
+from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.smart_components.executors.position_executor.data_types import (
@@ -31,7 +33,7 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             prompt_on_new=True,
             prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
 
-    executor_amount_quote: Decimal = Field(
+    total_amount_quote: Decimal = Field(
         default=100.0,
         client_data=ClientFieldData(
             prompt_on_new=True,
@@ -172,16 +174,9 @@ class DirectionalTradingControllerBase(ControllerBase):
 
     async def update_processed_data(self):
         """
-        Update the processed data based on the current state of the strategy.
+        Update the processed data based on the current state of the strategy. Default signal 0
         """
-        signal = self.get_signal()
-        self.processed_data = {"signal": signal}
-
-    def get_signal(self) -> int:
-        """
-        Get the signal for the strategy.
-        """
-        raise NotImplementedError
+        self.processed_data = {"signal": 0, "features": pd.DataFrame()}
 
     def create_actions_proposal(self) -> List[ExecutorAction]:
         """
@@ -192,7 +187,8 @@ class DirectionalTradingControllerBase(ControllerBase):
         if signal != 0 and self.can_create_executor(signal):
             price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair,
                                                                 PriceType.MidPrice)
-            amount = self.config.executor_amount_quote / price
+            # Default implementation distribute the total amount equally among the executors
+            amount = self.config.total_amount_quote / price / self.config.max_executors_per_side
             trade_type = TradeType.BUY if signal > 0 else TradeType.SELL
             create_actions.append(CreateExecutorAction(
                 controller_id=self.config.id,
@@ -234,3 +230,9 @@ class DirectionalTradingControllerBase(ControllerBase):
             triple_barrier_config=self.config.triple_barrier_config,
             leverage=self.config.leverage,
         )
+
+    def to_format_status(self) -> List[str]:
+        df = self.processed_data.get("features", pd.DataFrame())
+        if df.empty:
+            return []
+        return [format_df_for_printout(df.tail(5), table_format="psql",)]
