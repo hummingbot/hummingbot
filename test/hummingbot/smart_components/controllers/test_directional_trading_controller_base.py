@@ -22,7 +22,7 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
             controller_name="directional_trading_test_controller",
             connector_name="binance_perpetual",
             trading_pair="ETH-USDT",
-            executor_amount_quote=Decimal(100.0),
+            total_amount_quote=Decimal(100.0),
             max_executors_per_side=2,
             cooldown_time=60 * 5,
             leverage=20,
