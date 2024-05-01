@@ -3,6 +3,7 @@ import unittest
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
+from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles import CoinbaseAdvancedTradeSpotCandles
 
 
 class TestCandlesFactory(unittest.TestCase):
@@ -13,6 +14,15 @@ class TestCandlesFactory(unittest.TestCase):
             interval="1m"
         ))
         self.assertIsInstance(candles, BinanceSpotCandles)
+        candles.stop()
+
+    def test_get_coinbase_advanced_trade_candles_spot(self):
+        candles = CandlesFactory.get_candle(CandlesConfig(
+            connector="coinbase_advanced_trade",
+            trading_pair="BTC-USDT",
+            interval="1m"
+        ))
+        self.assertIsInstance(candles, CoinbaseAdvancedTradeSpotCandles)
         candles.stop()
 
     def test_get_binance_candles_perpetuals(self):
