@@ -7,7 +7,7 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import PriceType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.smart_components.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
@@ -105,7 +105,8 @@ class PMMDynamicController(MarketMakingControllerBase):
                                                            interval=self.config.interval,
                                                            max_records=self.max_records)
         natr = ta.natr(candles["high"], candles["low"], candles["close"], length=self.config.natr_length) / 100
-        macd_output = ta.macd(candles["close"], fast=self.config.macd_fast, slow=self.config.macd_slow, signal=self.config.macd_signal)
+        macd_output = ta.macd(candles["close"], fast=self.config.macd_fast,
+                              slow=self.config.macd_slow, signal=self.config.macd_signal)
         macd = macd_output[f"MACD_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
         macd_signal = - (macd - macd.mean()) / macd.std()
         macdh = macd_output[f"MACDh_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]

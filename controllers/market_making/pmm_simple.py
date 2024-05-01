@@ -5,7 +5,7 @@ from typing import List, Optional
 from pydantic import Field
 
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.smart_components.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
