@@ -246,10 +246,12 @@ class MarketMakingControllerBase(ControllerBase):
         levels_to_execute = self.get_levels_to_execute()
         for level_id in levels_to_execute:
             price, amount = self.get_price_and_amount(level_id)
-            create_actions.append(CreateExecutorAction(
-                controller_id=self.config.id,
-                executor_config=self.get_executor_config(level_id, price, amount)
-            ))
+            executor_config = self.get_executor_config(level_id, price, amount)
+            if executor_config is not None:
+                create_actions.append(CreateExecutorAction(
+                    controller_id=self.config.id,
+                    executor_config=executor_config
+                ))
         return create_actions
 
     def get_levels_to_execute(self) -> List[str]:

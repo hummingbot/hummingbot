@@ -9,7 +9,7 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import PositionMode, TradeType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
 from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
