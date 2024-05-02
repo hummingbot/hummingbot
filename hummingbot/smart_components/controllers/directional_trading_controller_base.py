@@ -1,4 +1,3 @@
-import time
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
@@ -188,7 +187,7 @@ class DirectionalTradingControllerBase(ControllerBase):
             price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair,
                                                                 PriceType.MidPrice)
             # Default implementation distribute the total amount equally among the executors
-            amount = self.config.total_amount_quote / price / self.config.max_executors_per_side
+            amount = self.config.total_amount_quote / price / Decimal(self.config.max_executors_per_side)
             trade_type = TradeType.BUY if signal > 0 else TradeType.SELL
             create_actions.append(CreateExecutorAction(
                 controller_id=self.config.id,
@@ -205,7 +204,7 @@ class DirectionalTradingControllerBase(ControllerBase):
             filter_func=lambda x: x.is_active and (x.side == TradeType.BUY if signal > 0 else TradeType.SELL))
         max_timestamp = max([executor.timestamp for executor in active_executors_by_signal_side], default=0)
         active_executors_condition = len(active_executors_by_signal_side) < self.config.max_executors_per_side
-        cooldown_condition = time.time() - max_timestamp > self.config.cooldown_time
+        cooldown_condition = (self.market_data_provider.time() - max_timestamp) / 1000 > self.config.cooldown_time
         return active_executors_condition and cooldown_condition
 
     def stop_actions_proposal(self) -> List[ExecutorAction]:
@@ -221,7 +220,7 @@ class DirectionalTradingControllerBase(ControllerBase):
         subclasses if required.
         """
         return PositionExecutorConfig(
-            timestamp=time.time(),
+            timestamp=self.market_data_provider.time(),
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             side=trade_type,
