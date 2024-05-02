@@ -1,3 +1,4 @@
+import time
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -25,6 +26,9 @@ class MarketDataProvider:
         all_connectors_running = all(connector.ready for connector in self.connectors.values())
         all_candles_feeds_running = all(feed.ready for feed in self.candles_feeds.values())
         return all_connectors_running and all_candles_feeds_running
+
+    def time(self):
+        return time.time()
 
     def initialize_candles_feed(self, config: CandlesConfig):
         """
