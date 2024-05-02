@@ -1,39 +1,66 @@
 import logging
+import os
 import math
 from decimal import Decimal
 from typing import Dict
+from pydantic import Field
 
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.connector.connector_base import ConnectorBase
+
+
+class VWAPConfig(BaseClientModel):
+    """
+    Configuration parameters for the VWAP strategy.
+    """
+
+    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    connector_name: str = Field("binance_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange where the bot will place orders:"))
+    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair:"))
+    is_buy: bool = Field(True, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Are you buying or selling the base asset? (True for buy, False for sell):"))
+    total_volume_quote: Decimal = Field(1000, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the total amount to buy/sell (in quote asset):"))
+    price_spread: float = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the spread used to calculate the order price:"))
+    volume_perc: float = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the maximum percentage of the order book volume to buy/sell:"))
+    order_delay_time: int = Field(10, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the delay time between orders (in seconds):"))
 
 
 class VWAPExample(ScriptStrategyBase):
-    """
-    BotCamp Cohort: Sept 2022
-    Design Template: https://hummingbot-foundation.notion.site/Simple-VWAP-Example-d43a929cc5bd45c6b1a72f63e6635618
-    Video: -
+    """    
+    BotCamp Cohort: 7 (Apr 2024)
     Description:
-    This example lets you create one VWAP in a market using a percentage of the sum volume of the order book
-    until a spread from the mid price.
-    This example demonstrates:
-      - How to get the account balance
-      - How to get the bids and asks of a market
-      - How to code a "utility" strategy
+    This is an updated version of simple_vwap_example.py. Changes include:
+    - Users can define script configuration parameters
+    - Total volume is expressed in quote asset rather than USD
+    - Use of the rate oracle has been removed
     """
+
+    @classmethod
+    def init_markets(cls, config: VWAPConfig):
+        cls.markets = {config.connector_name: {config.trading_pair}}
+
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: VWAPConfig):
+        super().__init__(connectors)
+        self.config = config
+        self.initialized = False
+        self.vwap: Dict = {"connector_name": self.config.connector_name, 
+                           "trading_pair": self.config.trading_pair, 
+                           "is_buy": self.config.is_buy, 
+                           "total_volume_quote": self.config.total_volume_quote, 
+                           "price_spread": self.config.price_spread, 
+                           "volume_perc": self.config.volume_perc, 
+                           "order_delay_time": self.config.order_delay_time}
+
     last_ordered_ts = 0
-    vwap: Dict = {"connector_name": "binance_paper_trade", "trading_pair": "ETH-USDT", "is_buy": True,
-                  "total_volume_usd": 1000, "price_spread": 0.001, "volume_perc": 0.001, "order_delay_time": 10}
-    markets = {vwap["connector_name"]: {vwap["trading_pair"]}}
 
     def on_tick(self):
         """
          Every order delay time the strategy will buy or sell the base asset. It will compute the cumulative order book
          volume until the spread and buy a percentage of that.
-         The input of the strategy is in USD, but we will use the rate oracle to get a target base that will be static.
-         - Use the Rate Oracle to get a conversion rate
+         The input of the strategy is in quote, and we will convert at initial price to get a target base that will be static.
          - Create proposal (a list of order candidates)
          - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
          - Lastly, execute the proposal on the exchange
@@ -64,16 +91,8 @@ class VWAPExample(ScriptStrategyBase):
         vwap["trades"] = []
         vwap["status"] = "ACTIVE"
         vwap["trade_type"] = TradeType.BUY if self.vwap["is_buy"] else TradeType.SELL
-        base_asset, quote_asset = split_hb_trading_pair(vwap["trading_pair"])
-
-        # USD conversion to quote and base asset
-        conversion_base_asset = f"{base_asset}-USD"
-        conversion_quote_asset = f"{quote_asset}-USD"
-        base_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_base_asset)
-        quote_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_quote_asset)
         vwap["start_price"] = vwap["connector"].get_price(vwap["trading_pair"], vwap["is_buy"])
-        vwap["target_base_volume"] = vwap["total_volume_usd"] / base_conversion_rate
-        vwap["ideal_quote_volume"] = vwap["total_volume_usd"] / quote_conversion_rate
+        vwap["target_base_volume"] = vwap["total_volume_quote"] / vwap["start_price"]
 
         # Compute market order scenario
         orderbook_query = vwap["connector"].get_quote_volume_for_base_amount(vwap["trading_pair"], vwap["is_buy"],

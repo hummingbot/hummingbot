@@ -45,10 +45,10 @@ class SimpleOrder(ScriptStrategyBase):
 
             # applies spread to price if order type is limit
             order_type = OrderType.MARKET if self.order_type == "market" else OrderType.LIMIT_MAKER
-            if order_type == "limit" and self.side == "buy":
+            if order_type == OrderType.LIMIT_MAKER and self.side == "buy":
                 price = price * (1 - self.spread)
             else:
-                if order_type == "limit" and self.side == "sell":
+                if order_type == OrderType.LIMIT_MAKER and self.side == "sell":
                     price = price * (1 + self.spread)
 
             # places order
