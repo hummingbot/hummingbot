@@ -4,22 +4,16 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from hummingbot.smart_components.controllers.controller_base import ControllerBase
+from hummingbot.core.data_type.common import TradeType
+from hummingbot.smart_components.backtesting.backtesting_data_provider import BacktestingDataProvider
+from hummingbot.smart_components.controllers.controller_base import ControllerConfigBase
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.smart_components.models.executors import CloseType
 
 
 class BacktestingEngineBase:
-    def __init__(self, controller: ControllerBase):
-        """
-        Initialize the BacktestExecutorBase.
-
-        :param controller: The controller instance.
-        :param start_date: Start date for backtesting.
-        :param end_date: End date for backtesting.
-        """
-        self.controller = controller
-        self.processed_data = None
-        self.executors_df = None
-        self.results = None
+    def __init__(self):
+        self.controller = None
 
     @staticmethod
     def filter_df_by_time(df, start: Optional[str] = None, end: Optional[str] = None):
@@ -86,68 +80,125 @@ class BacktestingEngineBase:
         df["close_type"].replace({"take_profit_time": "tp", "stop_loss_time": "sl"}, inplace=True)
         return df
 
-    def run_backtesting(self, initial_portfolio_usd=1000, trade_cost=0.0006,
-                        start: Optional[str] = None, end: Optional[str] = None):
-        # Load historical candles
-        processed_data = self.get_data(start=start, end=end)
-
-        # Apply the specific execution logic of the executor handler vectorized
-        executors_df = self.simulate_execution(processed_data, initial_portfolio_usd=initial_portfolio_usd, trade_cost=trade_cost)
-
-        # Store data for further analysis
-        self.processed_data = processed_data
-        self.executors_df = executors_df
-        self.results = self.summarize_results(executors_df)
+    @staticmethod
+    def simulate_position_executor(df: pd.DataFrame, position_executor_config: PositionExecutorConfig, trade_cost: float):
+        # TODO: add order type limit support modifying the start time to compute the returns
+        start_timestamp = df["timestamp"].min()
+        last_timestamp = df["timestamp"].max()
+        tp = float(position_executor_config.triple_barrier_config.take_profit)
+        sl = float(position_executor_config.triple_barrier_config.stop_loss)
+        tl = float(position_executor_config.triple_barrier_config.time_limit)
+        if tl:
+            tl_timestamp = start_timestamp + tl * 1000
+            first_tl_timestamp = df[df["timestamp"] > tl_timestamp]["timestamp"].min()
+            last_timestamp = first_tl_timestamp if not pd.isna(first_tl_timestamp) else first_tl_timestamp
+        df_filtered = df.loc[df["timestamp"] <= last_timestamp].copy()
+        returns = df_filtered["close"].pct_change().fillna(0).values
+        cumulative_returns = (1 + returns).cumprod() - 1
+        df_filtered.loc[:, "net_pnl_pct"] = cumulative_returns if position_executor_config.side == TradeType.BUY else - cumulative_returns
+        first_tp_timestamp = last_timestamp
+        first_sl_timestamp = last_timestamp
+        if tp:
+            first_tp_timestamp = df_filtered[df_filtered["net_pnl_pct"] > tp]["timestamp"].min()
+            first_tp_timestamp = first_tp_timestamp if not pd.isna(first_tp_timestamp) else last_timestamp
+        if sl:
+            first_sl_timestamp = df_filtered[df_filtered["net_pnl_pct"] < -sl]["timestamp"].min()
+            first_sl_timestamp = first_sl_timestamp if not pd.isna(first_sl_timestamp) else last_timestamp
+        close_timestamp = min(first_tp_timestamp, first_sl_timestamp, last_timestamp)
+        if close_timestamp == last_timestamp:
+            close_type = CloseType.TIME_LIMIT
+        elif close_timestamp == first_tp_timestamp:
+            close_type = CloseType.TAKE_PROFIT
+        else:
+            close_type = CloseType.STOP_LOSS
+        processed_df = df_filtered.loc[df_filtered["timestamp"] <= close_timestamp][["timestamp", "close", "net_pnl_pct"]]
+        amount = float(position_executor_config.amount)
+        try:
+            processed_df["net_pnl_quote"] = processed_df["net_pnl_pct"] * amount * processed_df["close"]
+            processed_df["cum_fees_quote"] = trade_cost * amount * processed_df["close"].iloc[0]
+            processed_df["filled_amount_quote"] = amount * processed_df["close"].iloc[0]
+        except Exception as e:
+            print(e)
+            print(processed_df)
+            processed_df["net_pnl_quote"] = 0
+            processed_df["cum_fees_quote"] = 0
+            processed_df["filled_amount_quote"] = 0
+            close_type = CloseType.FAILED
         return {
-            "processed_data": processed_data,
-            "executors_df": executors_df,
-            "results": self.results
+            "processed_df": processed_df,
+            "close_timestamp": close_timestamp,
+            "close_type": close_type,
+            "config": position_executor_config,
         }
 
-    def simulate_execution(self, df: pd.DataFrame, initial_portfolio_usd: float, trade_cost: float):
+    async def run_backtesting(self, controller_config: ControllerConfigBase, start: int, end: int, trade_cost=0.0006):
+        # Load historical candles
+        controller_class = controller_config.get_controller_class()
+        backtesting_data_provider = BacktestingDataProvider(connectors={}, start_time=start, end_time=end)
+        self.controller = controller_class(config=controller_config, market_data_provider=backtesting_data_provider,
+                                           actions_queue=None)
+
+        await self.initialize_backtesting_data_provider()
+        await self.controller.update_processed_data()
+        executors_info = self.simulate_execution(trade_cost=trade_cost)
+        results = self.summarize_results(executors_info)
+        return {
+            "executors": executors_info,
+            "results": results,
+            "processed_data": self.controller.processed_data,
+        }
+
+    async def initialize_backtesting_data_provider(self):
+        for config in self.controller.config.candles_config:
+            await self.controller.market_data_provider.initialize_candles_feed(config)
+
+    def simulate_execution(self, trade_cost: float):
         raise NotImplementedError
 
     def get_data(self, start: Optional[str] = None, end: Optional[str] = None):
         raise NotImplementedError
 
     @staticmethod
-    def summarize_results(executors_df):
-        if len(executors_df) > 0:
-            net_pnl = executors_df["net_pnl"].sum()
+    def summarize_results(executors_info, total_amount_quote=1000):
+        if len(executors_info) > 0:
+            executors_df = pd.DataFrame([ei.to_dict() for ei in executors_info])
             net_pnl_quote = executors_df["net_pnl_quote"].sum()
             total_executors = executors_df.shape[0]
-            executors_with_position = executors_df[executors_df["net_pnl"] != 0]
+            executors_with_position = executors_df[executors_df["net_pnl_quote"] != 0]
             total_executors_with_position = executors_with_position.shape[0]
-            total_volume = executors_with_position["amount"].sum() * 2
-            total_long = (executors_with_position["side"] == "BUY").sum()
-            total_short = (executors_with_position["side"] == "SELL").sum()
-            correct_long = ((executors_with_position["side"] == "BUY") & (executors_with_position["net_pnl"] > 0)).sum()
-            correct_short = ((executors_with_position["side"] == "SELL") & (executors_with_position["net_pnl"] > 0)).sum()
+            total_volume = executors_with_position["filled_amount_quote"].sum() * 2
+            total_long = (executors_with_position["side"] == TradeType.BUY).sum()
+            total_short = (executors_with_position["side"] == TradeType.SELL).sum()
+            correct_long = ((executors_with_position["side"] == TradeType.BUY) & (executors_with_position["net_pnl_quote"] > 0)).sum()
+            correct_short = ((executors_with_position["side"] == TradeType.SELL) & (executors_with_position["net_pnl_quote"] > 0)).sum()
             accuracy_long = correct_long / total_long if total_long > 0 else 0
             accuracy_short = correct_short / total_short if total_short > 0 else 0
-            close_types = executors_df.groupby("close_type")["timestamp"].count()
+            executors_df["close_type_name"] = executors_df["close_type"].apply(lambda x: x.name)
+            close_types = executors_df.groupby("close_type_name")["timestamp"].count()
 
             # Additional metrics
             total_positions = executors_df.shape[0]
-            win_signals = executors_df.loc[(executors_df["profitable"] > 0) & (executors_df["signal"] != 0)]
-            loss_signals = executors_df.loc[(executors_df["profitable"] < 0) & (executors_df["signal"] != 0)]
+            win_signals = executors_df[executors_df["net_pnl_quote"] > 0]
+            loss_signals = executors_df[executors_df["net_pnl_quote"] < 0]
             accuracy = win_signals.shape[0] / total_positions
             cumulative_returns = executors_df["net_pnl_quote"].cumsum()
+            executors_df["cumulative_returns"] = cumulative_returns
+            executors_df["cumulative_volume"] = executors_df["filled_amount_quote"].cumsum()
+            executors_df["inventory"] = total_amount_quote + cumulative_returns
+
             peak = np.maximum.accumulate(cumulative_returns)
             drawdown = (cumulative_returns - peak)
             max_draw_down = np.min(drawdown)
             max_drawdown_pct = max_draw_down / executors_df["inventory"].iloc[0]
-            returns = executors_df["net_pnl_quote"] / net_pnl
+            returns = pd.to_numeric(executors_df["cumulative_returns"] / executors_df["cumulative_volume"])
             sharpe_ratio = returns.mean() / returns.std()
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
             total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
             profit_factor = total_won / total_loss if total_loss > 0 else 1
-            duration_minutes = (executors_df.close_time.max() - executors_df.index.min()).total_seconds() / 60
-            avg_trading_time_minutes = (pd.to_datetime(executors_df["close_time"]) - executors_df.index).dt.total_seconds() / 60
-            avg_trading_time = avg_trading_time_minutes.mean()
+            net_pnl_pct = net_pnl_quote / total_amount_quote
 
             return {
-                "net_pnl": net_pnl,
+                "net_pnl": net_pnl_pct,
                 "net_pnl_quote": net_pnl_quote,
                 "total_executors": total_executors,
                 "total_executors_with_position": total_executors_with_position,
@@ -163,8 +214,6 @@ class BacktestingEngineBase:
                 "max_drawdown_pct": max_drawdown_pct,
                 "sharpe_ratio": sharpe_ratio,
                 "profit_factor": profit_factor,
-                "duration_minutes": duration_minutes,
-                "avg_trading_time_minutes": avg_trading_time,
                 "win_signals": win_signals.shape[0],
                 "loss_signals": loss_signals.shape[0],
             }
@@ -185,8 +234,6 @@ class BacktestingEngineBase:
             "max_drawdown_pct": 0,
             "sharpe_ratio": 0,
             "profit_factor": 0,
-            "duration_minutes": 0,
-            "avg_trading_time_minutes": 0,
             "win_signals": 0,
             "loss_signals": 0,
         }
