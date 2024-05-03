@@ -4,10 +4,10 @@ from abc import ABC
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.strategy_v2.models.base import RunnableStatus
 
 
-class SmartComponentBase(ABC):
+class RunnableBase(ABC):
     """
     Base class for smart components in the Hummingbot application.
     This class provides a basic structure for components that need to perform tasks at regular intervals.
@@ -27,7 +27,7 @@ class SmartComponentBase(ABC):
         :param update_interval: The interval at which the control loop should be executed, in seconds.
         """
         self.update_interval = update_interval
-        self._status: SmartComponentStatus = SmartComponentStatus.NOT_STARTED
+        self._status: RunnableStatus = RunnableStatus.NOT_STARTED
         self.terminated = asyncio.Event()
 
     @property
@@ -44,9 +44,9 @@ class SmartComponentBase(ABC):
         Start the control loop of the smart component.
         If the component is not already started, it will start the control loop.
         """
-        if self._status == SmartComponentStatus.NOT_STARTED:
+        if self._status == RunnableStatus.NOT_STARTED:
             self.terminated.clear()
-            self._status = SmartComponentStatus.RUNNING
+            self._status = RunnableStatus.RUNNING
             safe_ensure_future(self.control_loop())
 
     def stop(self):
@@ -54,8 +54,8 @@ class SmartComponentBase(ABC):
         Stop the control loop of the smart component.
         If the component is active or not started, it will stop the control loop.
         """
-        if self._status != SmartComponentStatus.TERMINATED:
-            self._status = SmartComponentStatus.TERMINATED
+        if self._status != RunnableStatus.TERMINATED:
+            self._status = RunnableStatus.TERMINATED
             self.terminated.set()
 
     async def control_loop(self):
