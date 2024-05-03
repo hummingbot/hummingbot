@@ -1,11 +1,11 @@
 from decimal import Decimal
 
-from hummingbot.smart_components.backtesting.backtesting_engine_base import BacktestingEngineBase
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, StopExecutorAction
-from hummingbot.smart_components.models.executors import CloseType
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.backtesting.backtesting_engine_base import BacktestingEngineBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
+from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class DirectionalTradingBacktesting(BacktestingEngineBase):
@@ -50,7 +50,7 @@ class DirectionalTradingBacktesting(BacktestingEngineBase):
                                 type=executor["config"].type,
                                 close_timestamp=executor["close_timestamp"],
                                 close_type=executor["close_type"],
-                                status=SmartComponentStatus.TERMINATED,
+                                status=RunnableStatus.TERMINATED,
                                 config=executor["config"],
                                 net_pnl_pct=final_result["net_pnl_pct"].values[0],
                                 net_pnl_quote=final_result["net_pnl_quote"].values[0],
@@ -72,7 +72,7 @@ class DirectionalTradingBacktesting(BacktestingEngineBase):
                         type=executor["config"].type,
                         close_timestamp=executor["close_timestamp"],
                         close_type=executor["close_type"],
-                        status=SmartComponentStatus.TERMINATED,
+                        status=RunnableStatus.TERMINATED,
                         config=executor["config"],
                         net_pnl_pct=final_result["net_pnl_pct"],
                         net_pnl_quote=final_result["net_pnl_quote"],
@@ -91,7 +91,7 @@ class DirectionalTradingBacktesting(BacktestingEngineBase):
                         type=executor["config"].type,
                         close_timestamp=None,
                         close_type=None,
-                        status=SmartComponentStatus.RUNNING,
+                        status=RunnableStatus.RUNNING,
                         config=executor["config"],
                         net_pnl_pct=current_stats["net_pnl_pct"].values[0],
                         net_pnl_quote=current_stats["net_pnl_quote"].values[0],
