@@ -19,10 +19,10 @@
 
 """Interface for a Signer."""
 
-from abc import ABC, abstractmethod
 import base64
 import hashlib
 from typing import Callable, Optional, Union
+from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins  # type: ignore
 
 import ecdsa
 from ecdsa.curves import Curve
@@ -132,6 +132,20 @@ class PublicKey:
 
 class PrivateKey(PublicKey):
     """Private key class."""
+
+    @staticmethod
+    def from_mnemonic(mnemonic: str) -> "PrivateKey":
+        """Generate local wallet from mnemonic.
+
+        :param mnemonic: mnemonic
+        :param prefix: prefix, defaults to None
+        :return: local wallet
+        """
+        seed_bytes = Bip39SeedGenerator(mnemonic).Generate()
+        bip44_def_ctx = Bip44.FromSeed(
+            seed_bytes, Bip44Coins.COSMOS
+        ).DeriveDefaultPath()
+        return PrivateKey(bip44_def_ctx.PrivateKey().Raw().ToBytes())
 
     def __init__(self, private_key: Optional[Union[bytes, str]] = None):
         """

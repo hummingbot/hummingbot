@@ -1,8 +1,6 @@
 import asyncio
 import time
-from copy import deepcopy
 from decimal import Decimal
-from math import ceil
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
@@ -18,15 +16,14 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_user_stream_data_source import (
     DydxV4PerpetualUserStreamDataSource,
 )
-from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_utils import clamp
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -46,13 +43,13 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     def __init__(
             self,
             client_config_map: "ClientConfigAdapter",
-            dydx_v4_perpetual_api_secret: str,
+            dydx_v4_perpetual_secret_phrase: str,
             dydx_v4_perpetual_chain_address: str,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
-        self._dydx_v4_perpetual_api_secret = dydx_v4_perpetual_api_secret
+        self._dydx_v4_perpetual_secret_phrase = dydx_v4_perpetual_secret_phrase
         self._dydx_v4_perpetual_chain_address = dydx_v4_perpetual_chain_address
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
@@ -281,7 +278,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         size = float(amount)
         price = float(price)
         side = "BUY" if trade_type == TradeType.BUY else "SELL"
-        expiration = int(time.time()) + CONSTANTS.ORDER_EXPIRATION
+        expiration =CONSTANTS.ORDER_EXPIRATION
         reduce_only = False
 
         post_only = order_type is OrderType.LIMIT_MAKER
@@ -335,9 +332,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         )
         return fee
 
-    async def start_network(self):
-        await super().start_network()
-
     async def _update_trading_fees(self):
         pass
 
@@ -347,8 +341,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 event: Dict[str, Any] = event_message
                 data: Dict[str, Any] = event["contents"]
+                quote = "USD"
                 if "subaccount" in data.keys() and len(data["subaccount"]) > 0:
-                    quote = "USD"
                     self._account_balances[quote] = Decimal(data["subaccount"]["equity"])
                     self._account_available_balances[quote] = Decimal(data["subaccount"]["freeCollateral"])
                     if "openPerpetualPositions" in data["subaccount"]:
@@ -357,8 +351,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     for order in data["orders"]:
                         client_order_id: str = order["clientId"]
                         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+                        trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["ticker"])
                         if tracked_order is not None:
-                            trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["ticker"])
                             state = CONSTANTS.ORDER_STATE[order["status"]]
                             new_order_update: OrderUpdate = OrderUpdate(
                                 trading_pair=tracked_order.trading_pair,
@@ -689,7 +683,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     def _create_tx_client(self) -> DydxPerpetualV4Client:
         return DydxPerpetualV4Client(
-            self._dydx_v4_perpetual_api_secret,
+            self._dydx_v4_perpetual_secret_phrase,
             self._dydx_v4_perpetual_chain_address,
             connector=self
         )
