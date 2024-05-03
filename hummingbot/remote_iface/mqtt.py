@@ -1142,3 +1142,66 @@ class ExternalTopicFactory:
     @classmethod
     def remove_listener(cls, listener):
         return ETopicListenerFactory.remove(listener)
+
+
+class ETopicPublisher:
+    def __init__(self,
+                 topic: str,
+                 use_bot_prefix: Optional[bool] = False):
+        self._node = MQTTGateway.main()
+        if self._node is None:
+            raise Exception('MQTT Gateway not yet initialized')
+        self._topic_prefix = TopicSpecs.PREFIX.format(
+            namespace=self._node.namespace,
+            instance_id=self._node._hb_app.instance_id
+        )
+        if use_bot_prefix:
+            self._topic = f'{self._topic_prefix}/{topic}'
+        else:
+            self._topic = topic
+        self._pub = self._node.create_mpublisher()
+        if self._node.state == NodeState.RUNNING:
+            self._pub.run()
+
+    def send(self, msg: Dict[str, Any]):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            asyncio.get_event_loop().call_soon_threadsafe(self.send, msg)
+            return
+        self._pub.publish(msg, self._topic)
+
+    def __call__(self, msg: Dict[str, Any]):
+        self.send(msg)
+
+
+class EMTopicPublisher:
+    def __init__(self,
+                 use_bot_prefix: Optional[bool] = False):
+        self._use_bot_prefix = use_bot_prefix
+        self._node = MQTTGateway.main()
+        if self._node is None:
+            raise Exception('MQTT Gateway not yet initialized')
+        self._topic_prefix = TopicSpecs.PREFIX.format(
+            namespace=self._node.namespace,
+            instance_id=self._node._hb_app.instance_id
+        )
+
+        self._pub = self._node.create_mpublisher()
+        if self._node.state == NodeState.RUNNING:
+            self._pub.run()
+
+    def send(self, topic: str, msg: Dict[str, Any]):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            asyncio.get_event_loop().call_soon_threadsafe(self.send, msg)
+            return
+        _topic = self._make_topic(topic)
+        self._pub.publish(msg, _topic)
+
+    def _make_topic(self, topic: str):
+        if self._use_bot_prefix:
+            _topic = f'{self._topic_prefix}/{topic}'
+        else:
+            _topic = topic
+        return _topic
+
+    def __call__(self, topic: str, msg: Dict[str, Any]):
+        self.send(topic, msg)
