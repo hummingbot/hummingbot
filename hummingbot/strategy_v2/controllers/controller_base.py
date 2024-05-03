@@ -11,11 +11,11 @@ from hummingbot.client.config.config_data_types import BaseClientModel, ClientFi
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import ExecutorAction
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
-from hummingbot.smart_components.smart_component_base import SmartComponentBase
-from hummingbot.smart_components.utils.common import generate_unique_id
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.runnable_base import RunnableBase
+from hummingbot.strategy_v2.utils.common import generate_unique_id
 
 
 class ControllerConfigBase(BaseClientModel):
@@ -110,7 +110,7 @@ class ControllerConfigBase(BaseClientModel):
         raise ValueError(f"No valid controller class found for module: {self.__module__}")
 
 
-class ControllerBase(SmartComponentBase):
+class ControllerBase(RunnableBase):
     """
     Base class for controllers.
     """
@@ -129,9 +129,9 @@ class ControllerBase(SmartComponentBase):
         """
         Allow controllers to be restarted after being stopped.=
         """
-        if self._status != SmartComponentStatus.RUNNING:
+        if self._status != RunnableStatus.RUNNING:
             self.terminated.clear()
-            self._status = SmartComponentStatus.RUNNING
+            self._status = RunnableStatus.RUNNING
             self.executors_update_event.set()
             safe_ensure_future(self.control_loop())
         self.initialize_candles()

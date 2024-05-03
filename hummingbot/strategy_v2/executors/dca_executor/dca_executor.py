@@ -14,11 +14,11 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
-from hummingbot.smart_components.executors.executor_base import ExecutorBase
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
+from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class DCAExecutor(ExecutorBase):
@@ -156,7 +156,7 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for getting the close price, if the executor is active, it will return the current
         market price, otherwise it will return the average price of the closed orders
         """
-        if self.status == SmartComponentStatus.TERMINATED and len(self._close_orders) > 0:
+        if self.status == RunnableStatus.TERMINATED and len(self._close_orders) > 0:
             # for now we will consider just one close order, in the future we can have multiple close orders
             return self._close_orders[0].average_executed_price
         else:
@@ -268,10 +268,10 @@ class DCAExecutor(ExecutorBase):
         """
         This task is responsible for creating and closing position executors
         """
-        if self.status == SmartComponentStatus.RUNNING:
+        if self.status == RunnableStatus.RUNNING:
             self.control_open_order_process()
             self.control_barriers()
-        elif self.status == SmartComponentStatus.SHUTTING_DOWN:
+        elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.control_shutdown_process()
         self.evaluate_max_retries()
 
@@ -375,7 +375,7 @@ class DCAExecutor(ExecutorBase):
         """
         self.cancel_open_orders()
         self.place_close_order(price)
-        self._status = SmartComponentStatus.SHUTTING_DOWN
+        self._status = RunnableStatus.SHUTTING_DOWN
         self.close_timestamp = self._strategy.current_timestamp
 
     def close_execution_by(self, close_type):

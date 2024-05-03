@@ -6,7 +6,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 
 
 class TrailingStop(BaseModel):

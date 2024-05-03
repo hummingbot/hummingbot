@@ -3,8 +3,8 @@ from enum import Enum
 from typing import List, Optional
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
+from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop
 
 
 class DCAMode(Enum):

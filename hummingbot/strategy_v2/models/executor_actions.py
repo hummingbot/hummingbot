@@ -2,11 +2,11 @@ from typing import Optional, Union
 
 from pydantic import BaseModel
 
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig
-from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
+from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
 
 
 class ExecutorAction(BaseModel):
