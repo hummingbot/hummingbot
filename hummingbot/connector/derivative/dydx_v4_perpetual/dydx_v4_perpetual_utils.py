@@ -21,10 +21,10 @@ def clamp(value, minvalue, maxvalue):
 
 class DydxV4PerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="dydx_v4_perpetual", client_data=None)
-    dydx_v4_perpetual_api_secret: SecretStr = Field(
+    dydx_v4_perpetual_secret_phrase: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Ethereum wallet private key",
+            prompt=lambda cm: "Enter your dydx v4 secret_phrase(24 words)",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,

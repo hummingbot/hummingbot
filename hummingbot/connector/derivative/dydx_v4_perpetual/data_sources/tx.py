@@ -3,18 +3,18 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Union
 
 from google.protobuf.any_pb2 import Any as ProtoAny
 
 import re
 from typing import List
 
-from pyinjective.proto.cosmos.base.v1beta1.coin_pb2 import Coin
+from v4_proto.cosmos.base.v1beta1.coin_pb2 import Coin
 
-from pyinjective.proto.injective.crypto.v1beta1.ethsecp256k1.keys_pb2 import PubKey as ProtoPubKey
-from pyinjective.proto.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
-from pyinjective.proto.cosmos.tx.v1beta1.tx_pb2 import (
+from v4_proto.cosmos.crypto.secp256k1.keys_pb2 import PubKey as ProtoPubKey
+from v4_proto.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
+from v4_proto.cosmos.tx.v1beta1.tx_pb2 import (
     AuthInfo,
     Fee,
     ModeInfo,

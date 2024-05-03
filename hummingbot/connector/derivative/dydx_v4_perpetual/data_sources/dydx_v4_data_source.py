@@ -1,11 +1,7 @@
 import certifi
 import grpc
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 from datetime import datetime, timedelta
-
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, \
-    Union as _Union
-
 from google.protobuf import message as _message
 from google.protobuf import json_format
 
@@ -13,33 +9,23 @@ from v4_proto.dydxprotocol.clob.tx_pb2 import MsgPlaceOrder, MsgCancelOrder
 from v4_proto.dydxprotocol.clob.order_pb2 import Order, OrderId
 from v4_proto.dydxprotocol.subaccounts.subaccount_pb2 import SubaccountId
 
-# from v4_proto.cosmos.tx.v1beta1.service_pb2_grpc import ServiceStub as TxGrpcClient
-from pyinjective.proto.cosmos.tx.v1beta1.service_pb2_grpc import ServiceStub as TxGrpcClient
+from v4_proto.cosmos.tx.v1beta1.service_pb2_grpc import ServiceStub as TxGrpcClient
 
-# from v4_proto.cosmos.bank.v1beta1 import (
-#     query_pb2_grpc as bank_query_grpc,
-#     query_pb2 as bank_query,
-# )
-from pyinjective.proto.cosmos.bank.v1beta1 import query_pb2 as bank_query, query_pb2_grpc as bank_query_grpc
-from pyinjective.proto.cosmos.base.tendermint.v1beta1 import (
-    query_pb2 as tendermint_query,
-    query_pb2_grpc as tendermint_query_grpc,
+from v4_proto.cosmos.bank.v1beta1 import (
+    query_pb2_grpc as bank_query_grpc,
 )
-# from v4_proto.cosmos.base.tendermint.v1beta1 import (
-#     query_pb2_grpc as tendermint_query_grpc,
-#     query_pb2 as tendermint_query,
-# )
+from v4_proto.cosmos.base.tendermint.v1beta1 import (
+    query_pb2_grpc as tendermint_query_grpc,
+    query_pb2 as tendermint_query,
+)
 
-from pyinjective.proto.cosmos.auth.v1beta1.query_pb2_grpc import QueryStub as AuthGrpcClient
-from pyinjective.proto.cosmos.auth.v1beta1.query_pb2 import QueryAccountRequest
-from pyinjective.proto.cosmos.auth.v1beta1.auth_pb2 import BaseAccount
-
-
-from pyinjective.proto.cosmos.tx.v1beta1.service_pb2 import (
+from v4_proto.cosmos.auth.v1beta1.query_pb2_grpc import QueryStub as AuthGrpcClient
+from v4_proto.cosmos.auth.v1beta1.query_pb2 import QueryAccountRequest
+from v4_proto.cosmos.auth.v1beta1.auth_pb2 import BaseAccount
+from v4_proto.cosmos.tx.v1beta1.service_pb2 import (
     BroadcastMode,
     BroadcastTxRequest,
 )
-
 from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.tx import Transaction, SigningCfg
 from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.keypairs import PrivateKey, PublicKey
 
@@ -48,42 +34,20 @@ from hummingbot.connector.derivative.dydx_v4_perpetual import (
 )
 
 AERIAL_GRPC_OR_REST_PREFIX = "grpc"
-AERIAL_CONFIG_URL = 'https://dydx-grpc.publicnode.com:443'
+AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
 QUERY_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
-
-
-
-# class MsgPlaceOrder(_message.Message):
-#     __slots__ = ("order",)
-#     ORDER_FIELD_NUMBER: _ClassVar[int]
-#     order: Order
-#
-#     def __init__(self, order: _Optional[_Union[Order, _Mapping]] = ...) -> None: ...
-#
-#
-# class MsgCancelOrder(_message.Message):
-#     __slots__ = ("order_id", "good_til_block", "good_til_block_time")
-#     ORDER_ID_FIELD_NUMBER: _ClassVar[int]
-#     GOOD_TIL_BLOCK_FIELD_NUMBER: _ClassVar[int]
-#     GOOD_TIL_BLOCK_TIME_FIELD_NUMBER: _ClassVar[int]
-#     order_id: OrderId
-#     good_til_block: int
-#     good_til_block_time: int
-#
-#     def __init__(self, order_id: _Optional[_Union[OrderId, _Mapping]] = ..., good_til_block: _Optional[int] = ...,
-#                  good_til_block_time: _Optional[int] = ...) -> None: ...
 
 
 class DydxPerpetualV4Client:
 
     def __init__(
             self,
-            private_key: str,
+            secret_phrase: str,
             dydx_v4_chain_address: str,
             connector,
             subaccount_num=0,
     ):
-        self._private_key = PrivateKey(bytes.fromhex(private_key))
+        self._private_key = PrivateKey.from_mnemonic(secret_phrase)
         self._dydx_v4_chain_address = dydx_v4_chain_address
         self._connector = connector
         self._subaccount_num = subaccount_num
@@ -174,22 +138,6 @@ class DydxPerpetualV4Client:
             tx=tx,
             memo=None,
         )
-    #
-    # async def bank_balances(self, address: str):
-    #     '''
-    #     Get wallet account balances
-    #
-    #     :returns: All assets in the wallet
-    #     '''
-    #     resp = await self.stubBank.AllBalances(
-    #         bank_query.QueryAllBalancesRequest(address=address)
-    #     )
-    #     resp = [Coin(amount=coin.amount, denom=coin.denom) for coin in resp.balances]
-    #     # result = json_format.MessageToDict(
-    #     #     message=resp,
-    #     #     including_default_value_fields=True,
-    #     # )
-    #     return resp
 
     # order_flags要改
     async def cancel_order(
@@ -211,9 +159,7 @@ class DydxPerpetualV4Client:
             order_id=order_id,
             good_til_block_time=good_til_block_time
         )
-        async with self._connector.throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
-            result = await self.send_message(msg)
-
+        result = await self.send_message(msg)
         return result
 
     async def place_order(
@@ -269,13 +215,6 @@ class DydxPerpetualV4Client:
             order_flags=order_flags,
             clob_pair_id=int(clob_pair_id)
         )
-        print(order_id)
-        print(order_side)
-        print(quantums)
-        print(subticks)
-        print(good_til_block)
-        print(good_til_block_time)
-        print(time_in_force)
         order = Order(
             order_id=order_id,
             side=order_side,
@@ -312,8 +251,8 @@ class DydxPerpetualV4Client:
             raise RuntimeError("Unexpected account type returned from query")
         response.account.Unpack(account)
         sequence = account.sequence
-        print(sequence)
-        return sequence
+        account_num = account.account_number
+        return sequence, account_num
 
     async def prepare_and_broadcast_basic_transaction(
             self,
@@ -322,7 +261,7 @@ class DydxPerpetualV4Client:
     ):
         # query the account information for the sender
         # if account is None:
-        sequence = await self.query_account()
+        sequence, _acocunt_num = await self.query_account()
 
         # 这些可以写死在 constants里
         fee = 0
@@ -331,24 +270,21 @@ class DydxPerpetualV4Client:
         chain_id = 'dydx-mainnet-1'
         # finally, build the final transaction that will be executed with the correct gas and fee values
         tx.seal(
-            # SigningCfg.direct(sender.public_key(), account.sequence),
-            # 这里注意一下，ender.public_key() 应该指的是 keypairs.py中的 PublicKey
             SigningCfg.direct(self._private_key, sequence),
             fee=f"{fee}{fee_denomination}",
             gas_limit=gas_limit,
             memo=memo,
         )
-        tx.sign(self._private_key, chain_id, self._subaccount_num)
+        tx.sign(self._private_key, chain_id, _acocunt_num)
         tx.complete()
 
         broadcast_req = BroadcastTxRequest(
             tx_bytes=tx.tx.SerializeToString(), mode=BroadcastMode.BROADCAST_MODE_SYNC
         )
         resp = await self.txs.BroadcastTx(broadcast_req)
-
+        print(resp)
         result = json_format.MessageToDict(
             message=resp,
-            including_default_value_fields=True,
         )
 
         return result
