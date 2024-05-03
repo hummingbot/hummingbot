@@ -226,7 +226,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
             data=data,
             is_auth_required=True,
-            trading_pair=trading_pair,
             headers={"referer": CONSTANTS.HBOT_BROKER_ID},
             **kwargs,
         )
@@ -335,7 +334,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     path_url=CONSTANTS.TRADE_HISTORY_PATH_URL,
                     params=params,
                     is_auth_required=True,
-                    trading_pair=trading_pair,
                 ))
             )
 
@@ -450,7 +448,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
                     params=params,
                     is_auth_required=True,
-                    trading_pair=trading_pair,
                 ))
             )
 
@@ -520,7 +517,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.TRADE_HISTORY_PATH_URL,
             params=api_params,
             is_auth_required=True,
-            trading_pair=order.trading_pair,
         )
         result = response["result"]
         return result
@@ -569,7 +565,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.GET_ORDERS_PATH_URL,
             params=api_params,
             is_auth_required=True,
-            trading_pair=tracked_order.trading_pair,
         )
 
         return resp
@@ -669,13 +664,14 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         exec_price = Decimal(trade_msg["execPrice"]) if "execPrice" in trade_msg else Decimal(trade_msg["price"])
         exec_time = (
-            trade_msg["execTime"] if "execTime" in trade_msg else pd.Timestamp(trade_msg["trade_time"]).timestamp()
+            int(trade_msg["execTime"]) * 1e-3 if "execTime" in trade_msg else
+            pd.Timestamp(trade_msg["trade_time"]).timestamp() * 1e-3
         )
 
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=trade_id,
-            client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(trade_msg["orderId"]),
+            client_order_id=str(tracked_order.client_order_id or trade_msg["orderLinkId"]),
+            exchange_order_id=str(tracked_order.exchange_order_id or trade_msg["orderId"]),
             trading_pair=tracked_order.trading_pair,
             fill_timestamp=exec_time,
             fill_price=exec_price,
@@ -843,7 +839,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
             data=data,
             is_auth_required=True,
-            trading_pair=trading_pair,
         )
         success = False
         msg = ""
@@ -886,7 +881,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.TRADE_HISTORY_PATH_URL,
             params=params,
             is_auth_required=True,
-            trading_pair=trading_pair,
         )
         result: Dict[str, Any] = response["result"]
         if len(result["list"]) == 0:
