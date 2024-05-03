@@ -1294,3 +1294,21 @@ class RemoteIfaceMQTTTests(TestCase):
         gw.stop()
         del gw
         self.gateway._hb_app.client_config_map.mqtt_bridge.mqtt_namespace = prev_ns
+
+    def test_etopic_publisher(self):
+        self.start_mqtt()
+        from hummingbot.remote_iface.mqtt import EMTopicPublisher, ETopicPublisher
+        test_msg = {
+            "a": "test",
+            "b": 1,
+            "c": False,
+            "d": {},
+            "e": []
+        }
+        pub = ETopicPublisher('test/a/b', use_bot_prefix=False)
+        pub.send(test_msg)
+        self.assertTrue(1)
+        pub2 = EMTopicPublisher(use_bot_prefix=False)
+        pub2.send("test/a/b", test_msg)
+        pub2.send("test/c/d", test_msg)
+        self.assertTrue(1)
