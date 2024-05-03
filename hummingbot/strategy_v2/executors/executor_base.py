@@ -18,15 +18,15 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
-from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
-from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.runnable_base import RunnableBase
 
 
-class ExecutorBase(SmartComponentBase):
+class ExecutorBase(RunnableBase):
     """
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
     """
@@ -93,14 +93,14 @@ class ExecutorBase(SmartComponentBase):
         """
         Returns whether the executor is open or trading.
         """
-        return self._status in [SmartComponentStatus.RUNNING, SmartComponentStatus.NOT_STARTED]
+        return self._status in [RunnableStatus.RUNNING, RunnableStatus.NOT_STARTED]
 
     @property
     def is_closed(self):
         """
         Returns whether the executor is closed.
         """
-        return self._status == SmartComponentStatus.TERMINATED
+        return self._status == RunnableStatus.TERMINATED
 
     @property
     def executor_info(self) -> ExecutorInfo:

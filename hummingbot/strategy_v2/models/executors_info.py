@@ -4,14 +4,14 @@ from typing import Dict, Optional, Union
 from pydantic import BaseModel
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
-from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig
-from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType
+from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
+from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType
 
 
 class ExecutorInfo(BaseModel):
@@ -20,7 +20,7 @@ class ExecutorInfo(BaseModel):
     type: str
     close_timestamp: Optional[float]
     close_type: Optional[CloseType]
-    status: SmartComponentStatus
+    status: RunnableStatus
     config: Union[PositionExecutorConfig, XEMMExecutorConfig, ArbitrageExecutorConfig, DCAExecutorConfig, TWAPExecutorConfig, ExecutorConfigBase]
     net_pnl_pct: Decimal
     net_pnl_quote: Decimal
@@ -33,7 +33,7 @@ class ExecutorInfo(BaseModel):
 
     @property
     def is_done(self):
-        return self.status in [SmartComponentStatus.TERMINATED]
+        return self.status in [RunnableStatus.TERMINATED]
 
     @property
     def side(self) -> Optional[TradeType]:
@@ -56,7 +56,7 @@ class ExecutorInfo(BaseModel):
 class ExecutorHandlerInfo(BaseModel):
     controller_id: str
     timestamp: float
-    status: SmartComponentStatus
+    status: RunnableStatus
     active_position_executors: list[ExecutorInfo]
     closed_position_executors: list[ExecutorInfo]
     active_dca_executors: list[ExecutorInfo]

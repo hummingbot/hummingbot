@@ -15,11 +15,11 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.executor_base import ExecutorBase
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class PositionExecutor(ExecutorBase):
@@ -76,7 +76,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: True if the position is trading, False otherwise.
         """
-        return self.status == SmartComponentStatus.RUNNING and self.open_filled_amount > Decimal("0")
+        return self.status == RunnableStatus.RUNNING and self.open_filled_amount > Decimal("0")
 
     @property
     def open_filled_amount(self) -> Decimal:
@@ -254,10 +254,10 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if self.status == SmartComponentStatus.RUNNING:
+        if self.status == RunnableStatus.RUNNING:
             self.control_open_order()
             self.control_barriers()
-        elif self.status == SmartComponentStatus.SHUTTING_DOWN:
+        elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.control_shutdown_process()
         self.evaluate_max_retries()
 
@@ -406,7 +406,7 @@ class PositionExecutor(ExecutorBase):
         self.cancel_open_orders()
         self.close_type = close_type
         self.close_timestamp = self._strategy.current_timestamp
-        self._status = SmartComponentStatus.SHUTTING_DOWN
+        self._status = RunnableStatus.SHUTTING_DOWN
 
     def cancel_open_orders(self):
         """
@@ -555,7 +555,7 @@ class PositionExecutor(ExecutorBase):
             self.close_timestamp = event.timestamp
             self._close_order = self._take_profit_limit_order
             self.cancel_open_orders()
-            self._status = SmartComponentStatus.SHUTTING_DOWN
+            self._status = RunnableStatus.SHUTTING_DOWN
 
     def process_order_filled_event(self, _, market, event: OrderFilledEvent):
         """

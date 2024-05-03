@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class SmartComponentStatus(Enum):
+class RunnableStatus(Enum):
     NOT_STARTED = 1
     RUNNING = 2
     SHUTTING_DOWN = 3

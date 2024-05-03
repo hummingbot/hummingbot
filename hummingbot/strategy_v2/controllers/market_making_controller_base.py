@@ -1,4 +1,3 @@
-import time
 from decimal import Decimal
 from typing import Dict, List, Optional, Set, Tuple, Union
 
@@ -6,10 +5,10 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
-from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
-from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
-from hummingbot.smart_components.models.executors import CloseType
+from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
+from hummingbot.strategy_v2.models.executors import CloseType
 
 
 class MarketMakingControllerConfigBase(ControllerConfigBase):
@@ -274,7 +273,7 @@ class MarketMakingControllerBase(ControllerBase):
     def executors_to_refresh(self) -> List[ExecutorAction]:
         executors_to_refresh = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: not x.is_trading and x.is_active and time.time() - x.timestamp > self.config.executor_refresh_time)
+            filter_func=lambda x: not x.is_trading and x.is_active and self.market_data_provider.time() - x.timestamp > self.config.executor_refresh_time)
 
         return [StopExecutorAction(
             controller_id=self.config.id,
@@ -295,7 +294,7 @@ class MarketMakingControllerBase(ControllerBase):
         """
         reference_price = self.market_data_provider.get_price_by_type(self.config.connector_name,
                                                                       self.config.trading_pair, PriceType.MidPrice)
-        self.processed_data = {"reference_price": reference_price, "spread_multiplier": Decimal("1")}
+        self.processed_data = {"reference_price": Decimal(reference_price), "spread_multiplier": Decimal("1")}
 
     def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         """

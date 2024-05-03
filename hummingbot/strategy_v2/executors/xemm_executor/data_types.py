@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.data_types import ConnectorPair, ExecutorConfigBase
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair, ExecutorConfigBase
 
 
 class XEMMExecutorConfig(ExecutorConfigBase):

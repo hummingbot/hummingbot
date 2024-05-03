@@ -14,11 +14,11 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.executor_base import ExecutorBase
-from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class TWAPExecutor(ExecutorBase):
@@ -89,12 +89,12 @@ class TWAPExecutor(ExecutorBase):
             self.stop()
 
     async def control_task(self):
-        if self.status == SmartComponentStatus.RUNNING:
+        if self.status == RunnableStatus.RUNNING:
             self.evaluate_create_order()
             self.evaluate_refresh_orders()
             self.evaluate_all_orders_completed()
             self.evaluate_max_retries()
-        elif self.status == SmartComponentStatus.SHUTTING_DOWN:
+        elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.evaluate_all_orders_closed()
 
     def evaluate_create_order(self):
@@ -193,7 +193,7 @@ class TWAPExecutor(ExecutorBase):
     def evaluate_all_orders_completed(self):
         if self.evaluate_all_orders_created():
             if all([order.order.is_filled for order in self._order_plan.values() if order and order.order]):
-                self._status = SmartComponentStatus.SHUTTING_DOWN
+                self._status = RunnableStatus.SHUTTING_DOWN
 
     def evaluate_all_orders_created(self):
         return all([order for order in self._order_plan.values()])
@@ -203,7 +203,7 @@ class TWAPExecutor(ExecutorBase):
         failed_orders_done = all([order.is_done for order in self._failed_orders])
         if refreshed_orders_done and failed_orders_done:
             self.close_execution_by(CloseType.COMPLETED)
-            self._status = SmartComponentStatus.TERMINATED
+            self._status = RunnableStatus.TERMINATED
         else:
             self._current_retries += 1
             await asyncio.sleep(5)
@@ -216,7 +216,7 @@ class TWAPExecutor(ExecutorBase):
     def early_stop(self):
         self.close_execution_by(CloseType.EARLY_STOP)
         self.cancel_open_orders()
-        self._status = SmartComponentStatus.SHUTTING_DOWN
+        self._status = RunnableStatus.SHUTTING_DOWN
         self.logger().info("Executor stopped early.")
 
     @property

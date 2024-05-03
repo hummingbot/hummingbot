@@ -15,11 +15,11 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.executor_base import ExecutorBase
-from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class XEMMExecutor(ExecutorBase):
@@ -117,10 +117,10 @@ class XEMMExecutor(ExecutorBase):
             self.stop()
 
     async def control_task(self):
-        if self.status == SmartComponentStatus.RUNNING:
+        if self.status == RunnableStatus.RUNNING:
             await self.update_prices_and_tx_costs()
             await self.control_maker_order()
-        elif self.status == SmartComponentStatus.SHUTTING_DOWN:
+        elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.control_shutdown_process()
 
     async def control_maker_order(self):
@@ -247,7 +247,7 @@ class XEMMExecutor(ExecutorBase):
         if self.maker_order and event.order_id == self.maker_order.order_id:
             self.logger().info(f"Maker order {event.order_id} completed. Executing taker order.")
             self.place_taker_order()
-            self._status = SmartComponentStatus.SHUTTING_DOWN
+            self._status = RunnableStatus.SHUTTING_DOWN
 
     def place_taker_order(self):
         taker_order_id = self.place_order(
