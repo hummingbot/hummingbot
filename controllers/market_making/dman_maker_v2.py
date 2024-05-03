@@ -8,12 +8,12 @@ from pydantic import Field, validator
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-from hummingbot.smart_components.controllers.market_making_controller_base import (
+from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
-from hummingbot.smart_components.models.executor_actions import ExecutorAction, StopExecutorAction
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
+from hummingbot.strategy_v2.models.executor_actions import ExecutorAction, StopExecutorAction
 
 
 class DManMakerV2Config(MarketMakingControllerConfigBase):

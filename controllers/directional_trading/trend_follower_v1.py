@@ -4,7 +4,7 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
 )
