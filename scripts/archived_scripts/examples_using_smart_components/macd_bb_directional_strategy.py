@@ -12,12 +12,9 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-from hummingbot.smart_components.executors.position_executor.data_types import (
-    PositionExecutorConfig,
-    TripleBarrierConfig,
-)
-from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
+from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 
 
 class MACDBBDirectionalStrategy(ScriptStrategyBase):
