@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
 import asyncio
-from aiohttp import web
 import logging
 import random
-from typing import Optional
-from yarl import URL
 from collections import namedtuple
-import requests
 from threading import Thread
+from typing import Optional
+
+import requests
+from aiohttp import web
+from yarl import URL
 
 StockResponse = namedtuple("StockResponse", "method host path params is_json response")
 
@@ -102,7 +103,7 @@ class MockWebServer:
         is_json, response = resps[0].is_json, resps[0].response
         if is_json:
             return web.json_response(data=response)
-        elif type(response) == str:
+        elif isinstance(response, str):
             return web.Response(text=response)
         else:
             return response
