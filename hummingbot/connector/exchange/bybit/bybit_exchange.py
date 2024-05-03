@@ -382,19 +382,18 @@ class BybitExchange(ExchangePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
-        exchange_order_id = order.exchange_order_id
-        client_order_id = order.client_order_id
+        exchange_order_id = str(order.exchange_order_id)
+        client_order_id = str(order.client_order_id)
         trading_pair = order.trading_pair
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {
             "category": self._category,
-            "symbol": trading_pair
+            "symbol": symbol
         }
         if exchange_order_id:
             api_params["orderId"] = exchange_order_id
         else:
             api_params["orderLinkId"] = client_order_id
-
         all_fills_response = await self._api_get(
             path_url=CONSTANTS.TRADE_HISTORY_PATH_URL,
             params=api_params,
@@ -404,7 +403,7 @@ class BybitExchange(ExchangePyBase):
         result = all_fills_response.get("result", [])
         if result not in (None, {}):
             for trade in result["list"]:
-                exchange_order_id = trade["orderId"]
+                # exchange_order_id = trade["orderId"]
                 ptoken = trading_pair.split("-")[1]
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
@@ -418,15 +417,15 @@ class BybitExchange(ExchangePyBase):
                     ]
                 )
                 trade_update = TradeUpdate(
-                    trade_id=str(trade["blockTradeId"]),
+                    trade_id=str(trade["execId"]),
                     client_order_id=client_order_id,
                     exchange_order_id=exchange_order_id,
-                    trading_pair=symbol,
+                    trading_pair=trading_pair,
                     fee=fee,
-                    fill_base_amount=Decimal(trade["qty"]),
-                    fill_quote_amount=Decimal(trade["price"]) * Decimal(trade["qty"]),
-                    fill_price=Decimal(trade["price"]),
-                    fill_timestamp=int(trade["updatedTime"]) * 1e-3,
+                    fill_base_amount=Decimal(trade["execQty"]),
+                    fill_quote_amount=Decimal(trade["execPrice"]) * Decimal(trade["execQty"]),
+                    fill_price=Decimal(trade["execPrice"]),
+                    fill_timestamp=int(trade["execTime"]) * 1e-3,
                 )
                 trade_updates.append(trade_update)
         return trade_updates
