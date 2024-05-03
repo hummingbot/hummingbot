@@ -23,10 +23,12 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
     FundingPaymentCompletedEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
+    SellOrderCreatedEvent,
 )
 
 
@@ -49,7 +51,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def latest_prices_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -559,18 +562,18 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
         return exchange
 
+    def _simulate_contract_sizes_initialized(self):
+        self.exchange._contract_sizes = {
+            self.trading_pair: Decimal("1")
+        }
+
     def _format_amount_to_size(self, amount: Decimal) -> Decimal:
-        # trading_rule = self.trading_rules_request_mock_response[0]
-        trading_rule = self.exchange._trading_rules[self.trading_pair]
-        size = amount / Decimal(str(trading_rule.min_base_amount_increment))
-        return size
+        self._simulate_contract_sizes_initialized()
+        return amount / self.exchange._contract_sizes[self.trading_pair]
 
     def _format_size_to_amount(self, size: Decimal) -> Decimal:
-        self._simulate_trading_rules_initialized()
-        # trading_rule = self.trading_rules_request_mock_response[0]
-        trading_rule = self.exchange._trading_rules[self.trading_pair]
-        amount = Decimal(str(size)) * Decimal(str(trading_rule.min_base_amount_increment))
-        return amount
+        self._simulate_contract_sizes_initialized()
+        return size * self.exchange._contract_sizes[self.trading_pair]
 
     @property
     def empty_funding_payment_mock_response(self):
@@ -1208,8 +1211,74 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             ]
         }
 
+    @aioresponses()
+    def test_update_trade_history(self, mock_api):
+        amount = Decimal("100")
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id="4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=amount,
+            order_type=OrderType.LIMIT,
+        )
+        response = self._order_fills_request_full_fill_mock_response(self.exchange.in_flight_orders["11"])
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT])
+        url = f"{url}?instId={self.exchange_trading_pair}&limit=100"
+        regex_url = re.compile(f"^{url}")
+        mock_api.get(regex_url, body=json.dumps(response))
+        asyncio.get_event_loop().run_until_complete(self.exchange._update_trade_history())
+        # Assert that self._trading_pairs is not empty
+        self.assertNotEqual(len(self.exchange._trading_pairs), 0, "No trading pairs fetched")
+
+        # Assert that each parsed response is a dictionary
+        for data in response["data"]:
+            self.assertIsInstance(data, dict, "Parsed response is not a dictionary")
+
+            # Assert that each parsed response has 'ts', 'tradeId', 'fillSz', and 'fillPx' keys
+            self.assertTrue(all(key in data for key in ["ts", "tradeId", "fillSz", "fillPx"]),
+                            "Parsed response does not contain expected keys")
+
+            # Assert that amount is not None and is a Decimal
+            self.assertIsNotNone(amount, "Amount is None")
+            self.assertIsInstance(amount, Decimal, "Amount is not a Decimal")
+
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {}
+
+    @aioresponses()
+    def test_update_positions(self, mock_api):
+        amount = Decimal("100")
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id="4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=amount,
+            order_type=OrderType.LIMIT,
+        )
+        response = self.position_event_for_full_fill_websocket_update(self.exchange.in_flight_orders["11"], 0.1)
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT])
+        url = f"{url}?instId={self.exchange_trading_pair}"
+        regex_url = re.compile(f"^{url}")
+        mock_api.get(regex_url, body=json.dumps(response))
+        asyncio.get_event_loop().run_until_complete(self.exchange._update_positions())
+        # Assert that self._trading_pairs is not empty
+        self.assertNotEqual(len(self.exchange._trading_pairs), 0, "No trading pairs fetched")
+
+        # Assert that each parsed response is a dictionary
+        for data in response["data"]:
+            self.assertIsInstance(data, dict, "Parsed response is not a dictionary")
+
+            # Assert that each parsed response has 'instId', 'upl', 'avgPx', and 'lever' keys
+            self.assertTrue(all(key in data for key in ["instId", "upl", "avgPx", "lever"]),
+                            "Parsed response does not contain expected keys")
+
+            # Assert that amount is not None and is a Decimal
+            self.assertIsNotNone(amount, "Amount is None")
+            self.assertIsInstance(amount, Decimal, "Amount is not a Decimal")
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         # position_value = unrealized_pnl + order.amount * order.price * order.leverage
@@ -1914,6 +1983,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @aioresponses()
     def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
+        self._simulate_contract_sizes_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
         url = self.order_creation_url
@@ -2275,3 +2345,239 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         self.assertFalse(order.is_done)
 
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+    @aioresponses()
+    def test_create_order_to_close_short_position(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self._simulate_contract_sizes_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+        leverage = 4
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
+        order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp,
+                         create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id),
+                         create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.CLOSE.value, create_event.position)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
+                f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position."
+            )
+        )
+
+    @aioresponses()
+    def test_create_order_to_close_long_position(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self._simulate_contract_sizes_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+        leverage = 5
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
+        order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.CLOSE.value, create_event.position)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
+                f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position."
+            )
+        )
+
+    @aioresponses()
+    def test_create_buy_limit_order_successfully(self, mock_api):
+        """Open long position"""
+        self._simulate_trading_rules_initialized()
+        self._simulate_contract_sizes_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        leverage = 2
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
+        order_id = self.place_buy_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp,
+                         create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id),
+                         create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.OPEN.value, create_event.position)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
+                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
+            )
+        )
+
+    @aioresponses()
+    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self._simulate_contract_sizes_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id_for_invalid_order = self.place_buy_order(
+            amount=Decimal("0.0001"), price=Decimal("0.0001")
+        )
+        # The second order is used only to have the event triggered and avoid using timeouts for tests
+        order_id = self.place_buy_order()
+        self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
+
+        self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+
+        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "WARNING",
+                "Buy order amount 0.0001 is lower than the minimum order "
+                "size 0.01. The order will not be created, increase the "
+                "amount to be higher than the minimum order size."
+            )
+        )
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+            )
+        )
+
+    @aioresponses()
+    def test_create_sell_limit_order_successfully(self, mock_api):
+        """Open short position"""
+        self._simulate_trading_rules_initialized()
+        self._simulate_contract_sizes_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+        leverage = 3
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
+        order_id = self.place_sell_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.OPEN.value, create_event.position)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
+                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
+            )
+        )
+
+    @aioresponses()
+    def test_get_last_traded_price(self, mock_api):
+        mock_api.get(self.latest_prices_url, body=json.dumps(self.latest_prices_request_mock_response))
+        lastprice_response = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
+        self.assertEqual(lastprice_response, 9999.9)
