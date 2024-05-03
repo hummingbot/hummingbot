@@ -363,7 +363,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         message_as_dictionary = json_format.MessageToDict(
             message=message,
-            including_default_value_fields=True,
+            always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
         )
@@ -394,7 +394,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         message_as_dictionary = json_format.MessageToDict(
             message=message,
-            including_default_value_fields=True,
+            always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
         )
@@ -426,7 +426,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         message_as_dictionary = json_format.MessageToDict(
             message=message,
-            including_default_value_fields=True,
+            always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
         )
