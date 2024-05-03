@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 from pandas._testing import assert_frame_equal
 
-from hummingbot.smart_components.backtesting.backtesting_engine_base import BacktestingEngineBase
+from hummingbot.strategy_v2.backtesting.backtesting_engine_base import BacktestingEngineBase
 
 
 class TestBacktestingEngineBase(unittest.TestCase):
 
-    @patch("hummingbot.smart_components.controllers.controller_base.ControllerBase")
+    @patch("hummingbot.strategy_v2.controllers.controller_base.ControllerBase")
     def setUp(self, MockControllerBase):
         self.controller = MockControllerBase()
         self.backtesting_engine = BacktestingEngineBase(self.controller)
@@ -100,8 +100,8 @@ class TestBacktestingEngineBase(unittest.TestCase):
         self.assertTrue("stop_loss_time" in result_df.columns)
         self.assertTrue("take_profit_time" in result_df.columns)
 
-    @patch("hummingbot.smart_components.backtesting.backtesting_engine_base.BacktestingEngineBase.simulate_execution")
-    @patch("hummingbot.smart_components.backtesting.backtesting_engine_base.BacktestingEngineBase.get_data")
+    @patch("hummingbot.strategy_v2.backtesting.backtesting_engine_base.BacktestingEngineBase.simulate_execution")
+    @patch("hummingbot.strategy_v2.backtesting.backtesting_engine_base.BacktestingEngineBase.get_data")
     def test_run_backtesting(self, mock_get_data, mock_simulate_execution):
         # Setup test data
         processed_data = pd.DataFrame()

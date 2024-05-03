@@ -9,12 +9,12 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import BuyOrderCompletedEvent, BuyOrderCreatedEvent, MarketOrderFailureEvent
-from hummingbot.smart_components.executors.data_types import ConnectorPair
-from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
-from hummingbot.smart_components.executors.xemm_executor.xemm_executor import XEMMExecutor
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
+from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.strategy_v2.executors.xemm_executor.xemm_executor import XEMMExecutor
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
@@ -82,7 +82,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
 
     def test_net_pnl_long(self):
-        self.executor._status = SmartComponentStatus.TERMINATED
+        self.executor._status = RunnableStatus.TERMINATED
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.taker_order = Mock(spec=TrackedOrder)
         self.executor.maker_order.executed_amount_base = Decimal('1')
@@ -95,7 +95,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor.net_pnl_pct, Decimal('0.98'))
 
     def test_net_pnl_short(self):
-        self.executor._status = SmartComponentStatus.TERMINATED
+        self.executor._status = RunnableStatus.TERMINATED
         self.executor.config = self.base_config_short
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.taker_order = Mock(spec=TrackedOrder)
@@ -133,16 +133,16 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_adjust_order_candidates.return_value = [order_candidate]
         self.executor.validate_sufficient_balance()
         self.assertEqual(self.executor.close_type, CloseType.INSUFFICIENT_BALANCE)
-        self.assertEqual(self.executor.status, SmartComponentStatus.TERMINATED)
+        self.assertEqual(self.executor.status, RunnableStatus.TERMINATED)
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
     @patch.object(XEMMExecutor, "get_tx_cost_in_asset")
     async def test_control_task_running_order_not_placed(self, tx_cost_mock, resulting_price_mock):
         tx_cost_mock.return_value = Decimal('0.01')
         resulting_price_mock.return_value = Decimal("100")
-        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor._status = RunnableStatus.RUNNING
         await self.executor.control_task()
-        self.assertEqual(self.executor._status, SmartComponentStatus.RUNNING)
+        self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
         self.assertEqual(self.executor.maker_order.order_id, "OID-BUY-1")
         self.assertEqual(self.executor._maker_target_price, Decimal("98.48"))
 
@@ -152,7 +152,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                                                                          resulting_price_mock):
         tx_cost_mock.return_value = Decimal('0.01')
         resulting_price_mock.return_value = Decimal("100")
-        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor._status = RunnableStatus.RUNNING
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.maker_order.order_id = "OID-BUY-1"
         self.executor.maker_order.order = InFlightOrder(
@@ -166,7 +166,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             initial_state=OrderState.OPEN,
         )
         await self.executor.control_task()
-        self.assertEqual(self.executor._status, SmartComponentStatus.RUNNING)
+        self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
         self.assertEqual(self.executor.maker_order, None)
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
@@ -175,7 +175,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                                                                          resulting_price_mock):
         tx_cost_mock.return_value = Decimal('0.01')
         resulting_price_mock.return_value = Decimal("103")
-        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor._status = RunnableStatus.RUNNING
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.maker_order.order_id = "OID-BUY-1"
         self.executor.maker_order.order = InFlightOrder(
@@ -189,7 +189,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             initial_state=OrderState.OPEN,
         )
         await self.executor.control_task()
-        self.assertEqual(self.executor._status, SmartComponentStatus.RUNNING)
+        self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
         self.assertEqual(self.executor.maker_order, None)
 
     async def test_control_task_shut_down_process(self):
@@ -197,13 +197,13 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.executor.maker_order.is_done = True
         self.executor.taker_order = Mock(spec=TrackedOrder)
         self.executor.taker_order.is_done = True
-        self.executor._status = SmartComponentStatus.SHUTTING_DOWN
+        self.executor._status = RunnableStatus.SHUTTING_DOWN
         await self.executor.control_task()
-        self.assertEqual(self.executor._status, SmartComponentStatus.TERMINATED)
+        self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
 
     @patch.object(XEMMExecutor, "get_in_flight_order")
     def test_process_order_created_event(self, in_flight_order_mock):
-        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor._status = RunnableStatus.RUNNING
         in_flight_order_mock.side_effect = [
             InFlightOrder(
                 client_order_id="OID-BUY-1",
@@ -253,7 +253,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor.taker_order.order.client_order_id, "OID-SELL-1")
 
     def test_process_order_completed_event(self):
-        self.executor._status = SmartComponentStatus.RUNNING
+        self.executor._status = RunnableStatus.RUNNING
         self.executor.maker_order = TrackedOrder(order_id="OID-BUY-1")
         self.assertEqual(self.executor.taker_order, None)
         buy_order_created_event = BuyOrderCompletedEvent(
@@ -266,7 +266,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             order_id="OID-BUY-1",
         )
         self.executor.process_order_completed_event(1, MagicMock(), buy_order_created_event)
-        self.assertEqual(self.executor.status, SmartComponentStatus.SHUTTING_DOWN)
+        self.assertEqual(self.executor.status, RunnableStatus.SHUTTING_DOWN)
         self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
 
     def test_process_order_failed_event(self):

@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
-from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class TestPositionExecutorDataTypes(TestCase):

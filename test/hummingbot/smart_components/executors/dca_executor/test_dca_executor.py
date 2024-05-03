@@ -9,12 +9,12 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import MarketOrderFailureEvent
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
-from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
+from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
+from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import TrackedOrder
 
 
 class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
@@ -54,7 +54,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    amounts_quote=[Decimal(10), Decimal(20), Decimal(30)],
                                    prices=[Decimal(100), Decimal(80), Decimal(60)])
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-BUY-1")
         await executor.control_task()
@@ -109,7 +109,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(80), Decimal(60)],
                                    activation_bounds=[Decimal("0.01")], )
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders, [])
         self.assertEqual(executor.max_amount_quote, Decimal("60"))
@@ -123,7 +123,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(80), Decimal(60)],
                                    activation_bounds=[Decimal("0.1")], )
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-BUY-1")
 
@@ -136,7 +136,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(120), Decimal(140)],
                                    activation_bounds=[Decimal("0.1")], )
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-SELL-1")
 
@@ -149,7 +149,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(120), Decimal(140)],
                                    activation_bounds=[Decimal("0.01")], )
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders, [])
 
@@ -162,7 +162,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(80)],
                                    stop_loss=Decimal("0.1"))
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-BUY-1")
 
@@ -229,7 +229,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(120)],
                                    stop_loss=Decimal("0.1"))
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-SELL-1")
 
@@ -296,7 +296,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(80)],
                                    take_profit=Decimal("0.1"))
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-BUY-1")
         executor.active_open_orders[0].order = InFlightOrder(
@@ -349,7 +349,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    prices=[Decimal(100), Decimal(90)],
                                    take_profit=Decimal("0.05"))
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-BUY-1")
         executor.active_open_orders[0].order = InFlightOrder(
@@ -415,7 +415,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
                                                               trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor.active_open_orders[0].order_id, "OID-BUY-1")
         executor.active_open_orders[0].order = InFlightOrder(
@@ -480,7 +480,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
                                                               trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
 
         # Simulate an open order
         open_order_id = "OID-OPEN-FAIL"
@@ -518,7 +518,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                    trailing_stop=TrailingStop(activation_price=Decimal("0.05"),
                                                               trailing_delta=Decimal("0.01")))
         executor = self.get_dca_executor_from_config(config)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
 
         # Simulate a close order
         close_order_id = "OID-CLOSE-FAIL"

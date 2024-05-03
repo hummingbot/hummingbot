@@ -14,10 +14,10 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
 )
-from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
-from hummingbot.smart_components.executors.executor_base import ExecutorBase
-from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.models.base import RunnableStatus
 
 
 class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
@@ -143,11 +143,11 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(sell_order_id, "OID-SELL-1")
 
     async def test_executor_starts_and_stops(self):
-        self.assertEqual(SmartComponentStatus.NOT_STARTED, self.component.status)
+        self.assertEqual(RunnableStatus.NOT_STARTED, self.component.status)
         self.component.start()
-        self.assertEqual(SmartComponentStatus.RUNNING, self.component.status)
+        self.assertEqual(RunnableStatus.RUNNING, self.component.status)
         self.component.stop()
-        self.assertEqual(SmartComponentStatus.TERMINATED, self.component.status)
+        self.assertEqual(RunnableStatus.TERMINATED, self.component.status)
 
     @patch.object(ExecutorBase, "get_net_pnl_pct")
     @patch.object(ExecutorBase, "get_net_pnl_quote")

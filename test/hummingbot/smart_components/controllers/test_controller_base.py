@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
-from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 
 
 class TestControllerBase(IsolatedAsyncioWrapperTestCase):

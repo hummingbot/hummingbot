@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
-from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
-from hummingbot.smart_components.models.executor_actions import ExecutorAction
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
+from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
 
 
 class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):

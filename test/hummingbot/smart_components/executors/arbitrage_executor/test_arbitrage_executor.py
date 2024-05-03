@@ -6,14 +6,14 @@ from unittest.mock import MagicMock, Mock, PropertyMock, patch
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import MarketOrderFailureEvent
-from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import (
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
+from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import (
     ArbitrageExecutorConfig,
     ArbitrageExecutorStatus,
 )
-from hummingbot.smart_components.executors.data_types import ConnectorPair
-from hummingbot.smart_components.models.executors import TrackedOrder
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
+from hummingbot.strategy_v2.models.executors import TrackedOrder
 
 
 class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):

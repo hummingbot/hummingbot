@@ -10,11 +10,11 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent
-from hummingbot.smart_components.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
-from hummingbot.smart_components.executors.twap_executor.twap_executor import TWAPExecutor
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
+from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
@@ -107,21 +107,21 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     @patch.object(TWAPExecutor, "get_price", MagicMock(return_value=Decimal("120")))
     async def test_control_task_create_order_taker(self):
         executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-1")
 
     @patch.object(TWAPExecutor, "get_price", MagicMock(return_value=Decimal("120")))
     async def test_control_task_create_order_maker(self):
         executor = self.get_twap_executor_from_config(self.twap_config_long_maker)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-1")
 
     @patch.object(TWAPExecutor, "get_price", MagicMock(return_value=Decimal("120")))
     async def test_control_refresh_order(self):
         executor = self.get_twap_executor_from_config(self.twap_config_long_maker)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         await executor.control_task()
         executor._order_plan[1].order = self.in_flight_order_maker
         await executor.control_task()
@@ -154,18 +154,18 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_adjust_order_candidates.return_value = [order_candidate]
         executor.validate_sufficient_balance()
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
-        self.assertEqual(executor.status, SmartComponentStatus.TERMINATED)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
     async def test_evaluate_all_orders_closed(self):
         executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
         await executor.evaluate_all_orders_closed()
-        self.assertEqual(executor.status, SmartComponentStatus.TERMINATED)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
     async def test_early_stop(self):
         executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         executor.early_stop()
-        self.assertEqual(executor.status, SmartComponentStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
 
     @patch.object(TWAPExecutor, "get_in_flight_order")
     def test_process_order_created_event(self, mock_get_in_flight_order):
@@ -180,7 +180,7 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             creation_timestamp=1
         )
         executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         executor._order_plan[1] = TrackedOrder("OID-BUY-1")
         executor.process_order_created_event(1, self.strategy.connectors["binance"], event)
         self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-1")
@@ -189,7 +189,7 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def test_process_order_failed_event(self):
         executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
         event = MarketOrderFailureEvent(timestamp=1, order_id="OID-BUY-1", order_type=OrderType.MARKET)
-        executor._status = SmartComponentStatus.RUNNING
+        executor._status = RunnableStatus.RUNNING
         executor._order_plan[1] = TrackedOrder("OID-BUY-1")
         executor.process_order_failed_event(1, self.strategy.connectors["binance"], event)
         self.assertEqual(executor._order_plan[1], None)
