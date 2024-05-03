@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
-from hummingbot.smart_components.controllers.market_making_controller_base import (
+from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
-from hummingbot.smart_components.models.executor_actions import ExecutorAction, StopExecutorAction
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
+from hummingbot.strategy_v2.models.executor_actions import ExecutorAction, StopExecutorAction
 
 
 class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
@@ -50,7 +50,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.controller.processed_data["reference_price"], Decimal("100"))
         self.assertEqual(self.controller.processed_data["spread_multiplier"], Decimal("1"))
 
-    @patch("hummingbot.smart_components.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config", new_callable=MagicMock)
+    @patch("hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config", new_callable=MagicMock)
     async def test_determine_executor_actions(self, executor_config_mock: MagicMock):
         executor_config_mock.return_value = PositionExecutorConfig(
             timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
