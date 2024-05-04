@@ -7,12 +7,14 @@ from pydantic import BaseModel, validator
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class ExecutorSimulation(BaseModel):
     config: Union[PositionExecutorConfig, DCAExecutorConfig]
     executor_simulation: pd.DataFrame
+    close_type: CloseType
 
     class Config:
         arbitrary_types_allowed = True  # Allow arbitrary types
@@ -23,7 +25,7 @@ class ExecutorSimulation(BaseModel):
             raise ValueError("executor_simulation must be a pandas DataFrame")
         return v
 
-    def get_executor_info_at_timestamp(self, timestamp: pd.Timestamp) -> ExecutorInfo:
+    def get_executor_info_at_timestamp(self, timestamp: float) -> ExecutorInfo:
         # Filter the DataFrame up to the specified timestamp
         df_up_to_timestamp = self.executor_simulation[self.executor_simulation['timestamp'] <= timestamp]
         if df_up_to_timestamp.empty:
@@ -43,13 +45,13 @@ class ExecutorSimulation(BaseModel):
             )
 
         last_entry = df_up_to_timestamp.iloc[-1]
-        is_active = last_entry['timestamp'] == self.executor_simulation['timestamp'].max()
+        is_active = last_entry['timestamp'] < self.executor_simulation['timestamp'].max()
         return ExecutorInfo(
             id=self.config.id,
             timestamp=self.config.timestamp,
             type=self.config.type,
             close_timestamp=None if is_active else float(last_entry['timestamp']),
-            close_type=None if is_active else last_entry['close_type'],
+            close_type=None if is_active else self.close_type,
             status=RunnableStatus.RUNNING if is_active else RunnableStatus.TERMINATED,
             config=self.config,
             net_pnl_pct=Decimal(last_entry['net_pnl_pct']),
@@ -65,6 +67,7 @@ class ExecutorSimulation(BaseModel):
         return {
             "close_price": last_entry['close'],
             "level_id": self.config.level_id,
+            "side": self.config.side
         }
 
 
