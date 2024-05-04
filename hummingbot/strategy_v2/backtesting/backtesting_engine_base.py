@@ -13,6 +13,7 @@ from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigB
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
+from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
@@ -72,11 +73,10 @@ class BacktestingEngineBase:
             self.update_processed_data(row)
             self.update_executors_info(row["timestamp"])
             for action in self.controller.determine_executor_actions():
-                config = action.executor_config
-                if isinstance(action, CreateExecutorAction) and isinstance(config, PositionExecutorConfig):
+                if isinstance(action, CreateExecutorAction) and isinstance(action.executor_config, PositionExecutorConfig):
                     executor_simulation = self.position_executor_simulator.simulate(
                         df=processed_features.loc[i:],
-                        config=config,
+                        config=action.executor_config,
                         trade_cost=trade_cost)
                     self.manage_active_executors(executor_simulation)
                 elif isinstance(action, StopExecutorAction):
@@ -84,7 +84,7 @@ class BacktestingEngineBase:
 
         return self.controller.executors_info
 
-    def update_executors_info(self, timestamp: pd.Timestamp):
+    def update_executors_info(self, timestamp: float):
         active_executors_info = []
         for executor in self.active_executor_simulations:
             executor_info = executor.get_executor_info_at_timestamp(timestamp)
@@ -178,6 +178,8 @@ class BacktestingEngineBase:
             executor_info = executor.get_executor_info_at_timestamp(timestamp)
             if executor_info.config.id == action.executor_id:
                 executor_info.status = RunnableStatus.TERMINATED
+                executor_info.close_type = CloseType.EARLY_STOP
+                executor_info.is_active = False
                 executor_info.close_timestamp = timestamp
                 self.stopped_executors_info.append(executor_info)
                 self.active_executor_simulations.remove(executor)
@@ -199,22 +201,22 @@ class BacktestingEngineBase:
             accuracy_short = correct_short / total_short if total_short > 0 else 0
             executors_df["close_type_name"] = executors_df["close_type"].apply(lambda x: x.name)
             close_types = executors_df.groupby("close_type_name")["timestamp"].count()
-
+            executors_with_position = executors_df[executors_df["net_pnl_quote"] != 0].copy()
             # Additional metrics
-            total_positions = executors_df.shape[0]
-            win_signals = executors_df[executors_df["net_pnl_quote"] > 0]
-            loss_signals = executors_df[executors_df["net_pnl_quote"] < 0]
+            total_positions = executors_with_position.shape[0]
+            win_signals = executors_with_position[executors_with_position["net_pnl_quote"] > 0]
+            loss_signals = executors_with_position[executors_with_position["net_pnl_quote"] < 0]
             accuracy = win_signals.shape[0] / total_positions
-            cumulative_returns = executors_df["net_pnl_quote"].cumsum()
-            executors_df["cumulative_returns"] = cumulative_returns
-            executors_df["cumulative_volume"] = executors_df["filled_amount_quote"].cumsum()
-            executors_df["inventory"] = total_amount_quote + cumulative_returns
+            cumulative_returns = executors_with_position["net_pnl_quote"].cumsum()
+            executors_with_position["cumulative_returns"] = cumulative_returns
+            executors_with_position["cumulative_volume"] = executors_with_position["filled_amount_quote"].cumsum()
+            executors_with_position["inventory"] = total_amount_quote + cumulative_returns
 
             peak = np.maximum.accumulate(cumulative_returns)
             drawdown = (cumulative_returns - peak)
             max_draw_down = np.min(drawdown)
-            max_drawdown_pct = max_draw_down / executors_df["inventory"].iloc[0]
-            returns = pd.to_numeric(executors_df["cumulative_returns"] / executors_df["cumulative_volume"])
+            max_drawdown_pct = max_draw_down / executors_with_position["inventory"].iloc[0]
+            returns = pd.to_numeric(executors_with_position["cumulative_returns"] / executors_with_position["cumulative_volume"])
             sharpe_ratio = returns.mean() / returns.std()
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
             total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
