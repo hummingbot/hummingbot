@@ -112,9 +112,14 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
+        parts = market_name.split('_')
+        connector = parts[0]
+        chain = parts[1]
+        # Join all remaining parts as network
+        network = '_'.join(parts[2:])
+
         for chain_name in SUPPORTED_CHAINS:
-            if chain_name in market_name:
-                connector, network = market_name.split(f"_{chain_name}_")
+            if chain_name == chain:
                 return GatewayConnectionSetting.get_connector_spec(connector, chain_name, network)
         return None
 
