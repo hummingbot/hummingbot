@@ -5,6 +5,7 @@ import pandas as pd
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.strategy_v2.backtesting.executor_simulator_base import ExecutorSimulation, ExecutorSimulatorBase
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.strategy_v2.models.executors import CloseType
 
 
 class PositionExecutorSimulator(ExecutorSimulatorBase):
@@ -30,7 +31,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         df_filtered['filled_amount_quote'] = 0
 
         if pd.isna(start_timestamp):
-            return ExecutorSimulation(config=config, executor_simulation=df_filtered)
+            return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.FAILED)
 
         entry_price = df.loc[df['timestamp'] == start_timestamp, 'close'].values[0]
 
@@ -45,7 +46,15 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         # Determine the earliest close event
         first_tp_timestamp = df_filtered[df_filtered['net_pnl_pct'] > tp]['timestamp'].min() if tp else None
         first_sl_timestamp = df_filtered[df_filtered['net_pnl_pct'] < -sl]['timestamp'].min() if sl else None
-        close_timestamp = min(filter(None, [first_tp_timestamp, first_sl_timestamp, tl_timestamp]))
+        close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp] if not pd.isna(timestamp)])
+
+        # Determine the close type
+        if close_timestamp == first_tp_timestamp:
+            close_type = CloseType.TAKE_PROFIT
+        elif close_timestamp == first_sl_timestamp:
+            close_type = CloseType.STOP_LOSS
+        else:
+            close_type = CloseType.TIME_LIMIT
 
         # Set the final state of the DataFrame
         df_filtered = df_filtered[df_filtered['timestamp'] <= close_timestamp]
@@ -53,6 +62,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         # Construct and return ExecutorSimulation object
         simulation = ExecutorSimulation(
             config=config,
-            executor_simulation=df_filtered
+            executor_simulation=df_filtered,
+            close_type=close_type
         )
         return simulation
