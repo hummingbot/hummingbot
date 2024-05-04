@@ -20,42 +20,63 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class SimpleDirectionalRSIConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    # markets: Dict[str, List[str]] = {}
     candles_config: List[CandlesConfig] = []
     controllers_config: List[str] = []
-    rsi_period: int = Field(
-        default=14, gt=0,
+    exchange: str = Field(
+        default="hyperliquid_perpetual",
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the RSI period (e.g. 14): ",
+            prompt_on_new=True,
+            prompt=lambda mi: "Exchange where the bot will trade"))
+    trading_pair: str = Field(
+        default="ETH-USD",
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Trading pair where the bot will trade"))
+    candles_exchange: str = Field(
+        default="binance_perpetual",
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Candles exchange used to calculate RSI"))
+    candles_pair: str = Field(
+        default="ETH-USDT",
+        client_data=ClientFieldData(
+            prompt_on_new=True,
+            prompt=lambda mi: "Candles trading pair used to calculate RSI"))
+    candles_interval: str = Field(
+        default="1m",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Candle interval (e.g. 1m for 1 minute)",
+            prompt_on_new=False))
+    candles_length: int = Field(
+        default=60, gt=0,
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Number of candles used to calculate RSI (e.g. 60)",
             prompt_on_new=True))
     rsi_low: float = Field(
         default=30, gt=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the RSI low (e.g. 30): ",
+            prompt=lambda mi: "RSI lower bound to enter long position (e.g. 30)",
             prompt_on_new=True))
     rsi_high: float = Field(
         default=70, gt=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the RSI high (e.g. 70): ",
-            prompt_on_new=True))
-    interval: str = Field(
-        default="3m",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the interval (e.g. 1m): ",
+            prompt=lambda mi: "RSI upper bound to enter short position (e.g. 70)",
             prompt_on_new=True))
     order_amount_quote: Decimal = Field(
         default=30, gt=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the amount of quote asset to be used per order (e.g. 30): ",
+            prompt=lambda mi: "Order amount in quote asset",
             prompt_on_new=True))
     leverage: int = Field(
-        default=20, gt=0,
+        default=10, gt=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the leverage (e.g. 20): ",
+            prompt=lambda mi: "Leverage (e.g. 10 for 10x)",
             prompt_on_new=True))
     position_mode: PositionMode = Field(
-        default="HEDGE",
+        default="ONEWAY",
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
+            prompt=lambda mi: "Position mode (HEDGE/ONEWAY)",
             prompt_on_new=True
         )
     )
@@ -63,17 +84,17 @@ class SimpleDirectionalRSIConfig(StrategyV2ConfigBase):
     stop_loss: Decimal = Field(
         default=Decimal("0.03"), gt=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
+            prompt=lambda mi: "Position stop loss (e.g. 0.03 for 3%)",
             prompt_on_new=True))
     take_profit: Decimal = Field(
         default=Decimal("0.01"), gt=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
+            prompt=lambda mi: "Position take profit (e.g. 0.01 for 1%)",
             prompt_on_new=True))
     time_limit: int = Field(
         default=60 * 45, gt=0,
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
+            prompt=lambda mi: "Position time limit in seconds (e.g. 300 for 5 minutes)",
             prompt_on_new=True))
 
     @property
@@ -98,17 +119,17 @@ class SimpleDirectionalRSIConfig(StrategyV2ConfigBase):
 class SimpleDirectionalRSI(StrategyV2Base):
     account_config_set = False
 
+    @classmethod
+    def init_markets(cls, config: SimpleDirectionalRSIConfig):
+        cls.markets = {config.exchange: {config.trading_pair}}
+
     def __init__(self, connectors: Dict[str, ConnectorBase], config: SimpleDirectionalRSIConfig):
-        if len(config.candles_config) == 0:
-            self.max_records = config.rsi_period + 10
-            for connector_name, trading_pairs in config.markets.items():
-                for trading_pair in trading_pairs:
-                    config.candles_config.append(CandlesConfig(
-                        connector=connector_name,
-                        trading_pair=trading_pair,
-                        interval=config.interval,
-                        max_records=self.max_records
-                    ))
+        config.candles_config.append(CandlesConfig(
+            connector=config.candles_exchange,
+            trading_pair=config.candles_pair,
+            interval=config.candles_interval,
+            max_records=config.candles_length + 10
+        ))
         super().__init__(connectors, config)
         self.config = config
 
@@ -123,50 +144,49 @@ class SimpleDirectionalRSI(StrategyV2Base):
 
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         create_actions = []
-
-        for connector_name, trading_pairs in self.config.markets.items():
-            for trading_pair in trading_pairs:
-                signal = self.get_signal(connector_name, trading_pair)
-                active_longs, active_shorts = self.get_active_executors_by_side(connector_name, trading_pair)
-                if signal is not None:
-                    mid_price = self.market_data_provider.get_price_by_type(connector_name, trading_pair, PriceType.MidPrice)
-                    if signal == 1 and len(active_longs) == 0:
-                        create_actions.append(CreateExecutorAction(
-                            executor_config=PositionExecutorConfig(
-                                timestamp=self.current_timestamp,
-                                connector_name=connector_name,
-                                trading_pair=trading_pair,
-                                side=TradeType.BUY,
-                                entry_price=mid_price,
-                                amount=self.config.order_amount_quote / mid_price,
-                                triple_barrier_config=self.config.triple_barrier_config,
-                                leverage=self.config.leverage
-                            )))
-                    elif signal == -1 and len(active_shorts) == 0:
-                        create_actions.append(CreateExecutorAction(
-                            executor_config=PositionExecutorConfig(
-                                timestamp=self.current_timestamp,
-                                connector_name=connector_name,
-                                trading_pair=trading_pair,
-                                side=TradeType.SELL,
-                                entry_price=mid_price,
-                                amount=self.config.order_amount_quote / mid_price,
-                                triple_barrier_config=self.config.triple_barrier_config,
-                                leverage=self.config.leverage
-                            )))
+        signal = self.get_signal(self.config.candles_exchange, self.config.candles_pair)
+        active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange,
+                                                                        self.config.trading_pair)
+        if signal is not None:
+            mid_price = self.market_data_provider.get_price_by_type(self.config.candles_exchange,
+                                                                    self.config.candles_pair,
+                                                                    PriceType.MidPrice)
+            if signal == 1 and len(active_longs) == 0:
+                create_actions.append(CreateExecutorAction(
+                    executor_config=PositionExecutorConfig(
+                        timestamp=self.current_timestamp,
+                        connector_name=self.config.exchange,
+                        trading_pair=self.config.trading_pair,
+                        side=TradeType.BUY,
+                        entry_price=mid_price,
+                        amount=self.config.order_amount_quote / mid_price,
+                        triple_barrier_config=self.config.triple_barrier_config,
+                        leverage=self.config.leverage
+                    )))
+            elif signal == -1 and len(active_shorts) == 0:
+                create_actions.append(CreateExecutorAction(
+                    executor_config=PositionExecutorConfig(
+                        timestamp=self.current_timestamp,
+                        connector_name=self.config.exchange,
+                        trading_pair=self.config.trading_pair,
+                        side=TradeType.SELL,
+                        entry_price=mid_price,
+                        amount=self.config.order_amount_quote / mid_price,
+                        triple_barrier_config=self.config.triple_barrier_config,
+                        leverage=self.config.leverage
+                    )))
         return create_actions
 
     def stop_actions_proposal(self) -> List[StopExecutorAction]:
         stop_actions = []
-        for connector_name, trading_pairs in self.config.markets.items():
-            for trading_pair in trading_pairs:
-                signal = self.get_signal(connector_name, trading_pair)
-                active_longs, active_shorts = self.get_active_executors_by_side(connector_name, trading_pair)
-                if signal is not None:
-                    if signal == -1 and len(active_longs) > 0:
-                        stop_actions.extend([StopExecutorAction(executor_id=e.id) for e in active_longs])
-                    elif signal == 1 and len(active_shorts) > 0:
-                        stop_actions.extend([StopExecutorAction(executor_id=e.id) for e in active_shorts])
+        signal = self.get_signal(self.config.candles_exchange, self.config.candles_pair)
+        active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange,
+                                                                        self.config.trading_pair)
+        if signal is not None:
+            if signal == -1 and len(active_longs) > 0:
+                stop_actions.extend([StopExecutorAction(executor_id=e.id) for e in active_longs])
+            elif signal == 1 and len(active_shorts) > 0:
+                stop_actions.extend([StopExecutorAction(executor_id=e.id) for e in active_shorts])
         return stop_actions
 
     def get_active_executors_by_side(self, connector_name: str, trading_pair: str):
@@ -179,11 +199,14 @@ class SimpleDirectionalRSI(StrategyV2Base):
         return active_longs, active_shorts
 
     def get_signal(self, connector_name: str, trading_pair: str) -> Optional[float]:
-        candles = self.market_data_provider.get_candles_df(connector_name, trading_pair, self.config.interval, self.max_records)
-        candles.ta.rsi(length=self.config.rsi_period, append=True)
+        candles = self.market_data_provider.get_candles_df(connector_name,
+                                                           trading_pair,
+                                                           self.config.candles_interval,
+                                                           self.config.candles_length + 10)
+        candles.ta.rsi(length=self.config.candles_length, append=True)
         candles["signal"] = 0
-        candles.loc[candles[f"RSI_{self.config.rsi_period}"] < self.config.rsi_low, "signal"] = 1
-        candles.loc[candles[f"RSI_{self.config.rsi_period}"] > self.config.rsi_high, "signal"] = -1
+        candles.loc[candles[f"RSI_{self.config.candles_length}"] < self.config.rsi_low, "signal"] = 1
+        candles.loc[candles[f"RSI_{self.config.candles_length}"] > self.config.rsi_high, "signal"] = -1
         return candles.iloc[-1]["signal"] if not candles.empty else None
 
     def apply_initial_setting(self):
