@@ -4,7 +4,6 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
-from dateutil.parser import parse as dateparse
 
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_constants as CONSTANTS
 from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
@@ -17,14 +16,12 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_user_st
     DydxV4PerpetualUserStreamDataSource,
 )
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
@@ -162,30 +159,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await super().start_network()
         await self._tx_client.initialize_trading_account()
-
-    def start_tracking_order(
-            self,
-            order_id: str,
-            exchange_order_id: Optional[str],
-            trading_pair: str,
-            trade_type: TradeType,
-            price: Decimal,
-            amount: Decimal,
-            order_type: OrderType,
-            **kwargs,
-    ):
-        self._order_tracker.start_tracking_order(
-            GatewayInFlightOrder(
-                client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
-                trading_pair=trading_pair,
-                order_type=order_type,
-                trade_type=trade_type,
-                amount=amount,
-                price=price,
-                creation_timestamp=self.current_timestamp,
-            )
-        )
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
