@@ -26,6 +26,7 @@ requried_connector_trading_pairs: Dict[str, List[str]] = {}
 # Set these two variables if a strategy uses oracle for rate conversion
 required_rate_oracle: bool = False
 rate_oracle_pairs: List[str] = []
+CONNECTORS_WITH_UNDERSCORES = ["mad_meerkat"]
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
@@ -117,6 +118,12 @@ class GatewayConnectionSetting:
         chain = parts[1]
         # Join all remaining parts as network
         network = '_'.join(parts[2:])
+        for i in CONNECTORS_WITH_UNDERSCORES:
+            if i in market_name:
+                connector = '_'.join(parts[:2])
+                chain = parts[2]
+                network = '_'.join(parts[3:])
+                break
 
         for chain_name in SUPPORTED_CHAINS:
             if chain_name == chain:
