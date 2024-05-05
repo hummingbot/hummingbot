@@ -381,9 +381,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                         # Processing all orders of the account, not just the client's
                         if order["status"] in ["OPEN"]:
                             initial_margin_requirement = (
-                                    Decimal(order["price"])
-                                    * Decimal(order["size"])
-                                    * self._margin_fractions[trading_pair]["initial"]
+                                Decimal(order["price"])
+                                * Decimal(order["size"])
+                                * self._margin_fractions[trading_pair]["initial"]
                             )
                             initial_margin_requirement = abs(initial_margin_requirement)
                             self._allocated_collateral[order["id"]] = initial_margin_requirement
@@ -499,7 +499,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     trade_updates.append(trade_update)
         return trade_updates
 
-    # 
     # async def _process_funding_payments(self, funding_payments: List):
     #     data = {}
     #     for trading_pair in self._trading_pairs:
@@ -593,16 +592,11 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             fee_amount = Decimal(fill_data["fee"])
             flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
             position_side = fill_data["side"]
-            position_action = (
-                PositionAction.OPEN
-                if (
-                        order.trade_type is TradeType.BUY
-                        and position_side == "BUY"
-                        or order.trade_type is TradeType.SELL
-                        and position_side == "SELL"
-                )
-                else PositionAction.CLOSE
-            )
+
+            position_action = (PositionAction.OPEN
+                               if (order.trade_type is TradeType.BUY and position_side == "BUY"
+                                   or order.trade_type is TradeType.SELL and position_side == "SELL")
+                               else PositionAction.CLOSE)
 
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
@@ -831,9 +825,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=leverage)
         return success, msg
-
-    todo
-    没有接口
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         pass
