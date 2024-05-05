@@ -34,6 +34,7 @@ class DydxV4PerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         pass
+
     # ping的回调还没写，不然会断掉
     async def _connected_websocket_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
@@ -58,4 +59,3 @@ class DydxV4PerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("type", "") in [CONSTANTS.WS_TYPE_SUBSCRIBED, CONSTANTS.WS_TYPE_CHANNEL_DATA]:
             await super()._process_event_message(event_message=event_message, queue=queue)
-

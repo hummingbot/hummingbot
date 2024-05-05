@@ -22,13 +22,11 @@
 import base64
 import hashlib
 from typing import Callable, Optional, Union
-from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins  # type: ignore
 
 import ecdsa
+from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins  # type: ignore
 from ecdsa.curves import Curve
 from ecdsa.util import sigencode_string, sigencode_string_canonize
-
-
 
 # """Crypto KeyPairs (Public Key and Private Key)."""
 

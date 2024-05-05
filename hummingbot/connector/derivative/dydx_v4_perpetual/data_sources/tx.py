@@ -1,28 +1,16 @@
-
 """Transaction."""
 
+import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 from google.protobuf.any_pb2 import Any as ProtoAny
-
-import re
-from typing import List
-
 from v4_proto.cosmos.base.v1beta1.coin_pb2 import Coin
-
 from v4_proto.cosmos.crypto.secp256k1.keys_pb2 import PubKey as ProtoPubKey
 from v4_proto.cosmos.tx.signing.v1beta1.signing_pb2 import SignMode
-from v4_proto.cosmos.tx.v1beta1.tx_pb2 import (
-    AuthInfo,
-    Fee,
-    ModeInfo,
-    SignDoc,
-    SignerInfo,
-    Tx,
-    TxBody,
-)
+from v4_proto.cosmos.tx.v1beta1.tx_pb2 import AuthInfo, Fee, ModeInfo, SignDoc, SignerInfo, Tx, TxBody
+
 from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.keypairs import PublicKey
 
 
@@ -50,6 +38,7 @@ def parse_coins(value: str) -> List[Coin]:
         coins.append(Coin(amount=amount, denom=denom))
 
     return coins
+
 
 class TxState(Enum):
     """Transaction state.
@@ -183,11 +172,11 @@ class Transaction:
         return self
 
     def seal(
-        self,
-        signing_cfgs: Union[SigningCfg, List[SigningCfg]],
-        fee: str,
-        gas_limit: int,
-        memo: Optional[str] = None,
+            self,
+            signing_cfgs: Union[SigningCfg, List[SigningCfg]],
+            fee: str,
+            gas_limit: int,
+            memo: Optional[str] = None,
     ) -> "Transaction":
         """Seal the transaction.
 
@@ -234,11 +223,11 @@ class Transaction:
         return self
 
     def sign(
-        self,
-        signer,
-        chain_id: str,
-        account_number: int,
-        deterministic: bool = False,
+            self,
+            signer,
+            chain_id: str,
+            account_number: int,
+            deterministic: bool = False,
     ) -> "Transaction":
         """Sign the transaction.
 

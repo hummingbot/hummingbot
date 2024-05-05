@@ -1,5 +1,3 @@
-import sys
-
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import OrderState
@@ -8,7 +6,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "dydx_v4_perpetual"
 DEFAULT_DOMAIN = "com"
-##
+
 API_VERSION = "v4"
 CURRENCY = "USD"
 
@@ -22,11 +20,9 @@ TX_MAX_HEIGHT = 2147483647
 LIMIT_FEE = 0.015
 
 # API Base URLs
-##
 MAX_ID_BIT_COUNT = 31
 
-
-#data_source grpc
+# data_source grpc
 DYDX_V4_AERIAL_GRPC_OR_REST_PREFIX = "grpc"
 DYDX_V4_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
 DYDX_V4_QUERY_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
@@ -35,45 +31,41 @@ FEE_DENOMINATION = "afet"
 TX_FEE = 0
 TX_GAS_LIMIT = 0
 
-
-##
 DYDX_V4_VALIDATOR_REST_BASE_URL = "https://dydx-grpc.publicnode.com:443"
-##
+
 DYDX_V4_INDEXER_REST_BASE_URL = "https://indexer.dydx.trade"
-##
+
 DYDX_V4_REST_URL = "{}/{}".format(DYDX_V4_INDEXER_REST_BASE_URL, API_VERSION)
-##
+
 DYDX_V4_WS_URL = "wss://indexer.dydx.trade/{}/ws".format(API_VERSION)
 
 # Public REST Endpoints
-##
+
 PATH_MARKETS = "/perpetualMarkets"
-##
+
 PATH_HISTORY_FUNDING = "/historicalFunding"
 PATH_TICKER = "/stats"
-##
+
 PATH_SNAPSHOT = "/orderbooks/perpetualMarket"
 PATH_TIME = "/time"
-##
+
 PATH_ORDERS = "/orders"
-##
+
 PATH_FILLS = "/fills"
 PATH_POSITIONS = "/perpetualPositions"
 
 PATH_ACCOUNTS = "/accounts"
 PATH_CONFIG = "/config"
 
-##
 PATH_FUNDING = "/historical-pnl"
 
-##
 PATH_SUBACCOUNT = "/addresses"
 
 # WS Endpoints
 WS_PATH_ACCOUNTS = "/ws/accounts"
 
 # WS Channels
-####
+
 WS_CHANNEL_TRADES = "v4_trades"
 WS_CHANNEL_ORDERBOOK = "v4_orderbook"
 WS_CHANNEL_MARKETS = "v4_markets"
@@ -97,7 +89,6 @@ ORDER_TYPE_MAP = {
     OrderType.MARKET: "MARKET",
 }
 
-##
 ORDER_STATE = {
     "PENDING": OrderState.OPEN,
     "OPEN": OrderState.OPEN,
@@ -108,9 +99,6 @@ ORDER_STATE = {
 }
 
 WS_CHANNEL_TO_PATH = {WS_CHANNEL_ACCOUNTS: WS_PATH_ACCOUNTS}
-
-# ERR_MSG_NO_ORDER_FOUND = "No order found with id"
-# ERR_MSG_NO_ORDER_FOR_MARKET = "No order for market"
 
 LAST_FEE_PAYMENTS_MAX = 1
 LAST_FILLS_MAX = 100

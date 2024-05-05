@@ -1,37 +1,27 @@
+from datetime import datetime, timedelta
+from typing import Optional, Tuple
+
 import certifi
 import grpc
-from typing import Optional, Tuple
-from datetime import datetime, timedelta
-from google.protobuf import message as _message
-from google.protobuf import json_format
-
-from v4_proto.dydxprotocol.clob.tx_pb2 import MsgPlaceOrder, MsgCancelOrder
+from google.protobuf import json_format, message as _message
+from v4_proto.cosmos.auth.v1beta1.auth_pb2 import BaseAccount
+from v4_proto.cosmos.auth.v1beta1.query_pb2 import QueryAccountRequest
+from v4_proto.cosmos.auth.v1beta1.query_pb2_grpc import QueryStub as AuthGrpcClient
+from v4_proto.cosmos.bank.v1beta1 import query_pb2_grpc as bank_query_grpc
+from v4_proto.cosmos.base.tendermint.v1beta1 import (
+    query_pb2 as tendermint_query,
+    query_pb2_grpc as tendermint_query_grpc,
+)
+from v4_proto.cosmos.tx.v1beta1.service_pb2 import BroadcastMode, BroadcastTxRequest
+from v4_proto.cosmos.tx.v1beta1.service_pb2_grpc import ServiceStub as TxGrpcClient
 from v4_proto.dydxprotocol.clob.order_pb2 import Order, OrderId
+from v4_proto.dydxprotocol.clob.tx_pb2 import MsgCancelOrder, MsgPlaceOrder
 from v4_proto.dydxprotocol.subaccounts.subaccount_pb2 import SubaccountId
 
-from v4_proto.cosmos.tx.v1beta1.service_pb2_grpc import ServiceStub as TxGrpcClient
-
-from v4_proto.cosmos.bank.v1beta1 import (
-    query_pb2_grpc as bank_query_grpc,
-)
-from v4_proto.cosmos.base.tendermint.v1beta1 import (
-    query_pb2_grpc as tendermint_query_grpc,
-    query_pb2 as tendermint_query,
-)
-
-from v4_proto.cosmos.auth.v1beta1.query_pb2_grpc import QueryStub as AuthGrpcClient
-from v4_proto.cosmos.auth.v1beta1.query_pb2 import QueryAccountRequest
-from v4_proto.cosmos.auth.v1beta1.auth_pb2 import BaseAccount
-from v4_proto.cosmos.tx.v1beta1.service_pb2 import (
-    BroadcastMode,
-    BroadcastTxRequest,
-)
-from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.tx import Transaction, SigningCfg
+from hummingbot.connector.derivative.dydx_v4_perpetual import dydx_v4_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.keypairs import PrivateKey
+from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.tx import SigningCfg, Transaction
 
-from hummingbot.connector.derivative.dydx_v4_perpetual import (
-    dydx_v4_perpetual_constants as CONSTANTS
-)
 
 class DydxPerpetualV4Client:
 
@@ -49,7 +39,6 @@ class DydxPerpetualV4Client:
         self.number = 0
         self.sequence = 0
         self._is_trading_account_initialized = False
-
 
         with open(certifi.where(), "rb") as f:
             trusted_certs = f.read()
@@ -134,8 +123,6 @@ class DydxPerpetualV4Client:
         else:
             return good_til_block, 0
 
-    # default client methods
-    # sync_timeout_height, inj 这里有个初始化的轮训，是否考虑加上
     async def latest_block(self) -> tendermint_query.GetLatestBlockResponse:
         '''
         Get lastest block
@@ -159,7 +146,6 @@ class DydxPerpetualV4Client:
             memo=None,
         )
 
-    # order_flags要改
     async def cancel_order(
             self,
             client_id: int,
@@ -226,7 +212,6 @@ class DydxPerpetualV4Client:
         condition_type = Order.CONDITION_TYPE_UNSPECIFIED
         conditional_order_trigger_subticks = 0
 
-        # msg
         subaccount_id = SubaccountId(owner=self._dydx_v4_chain_address, number=self._subaccount_num)
 
         order_id = OrderId(
@@ -262,7 +247,6 @@ class DydxPerpetualV4Client:
         return await self.send_message(msg=msg)
 
     async def query_account(self):
-        # 这里sequence可以加一个初始化
         request = QueryAccountRequest(address=self._dydx_v4_chain_address)
         response = await self.auth_client.Account(request)
 
@@ -297,13 +281,12 @@ class DydxPerpetualV4Client:
         )
         resp = await self.txs.BroadcastTx(broadcast_req)
 
-        print(resp)
         result = json_format.MessageToDict(
             message=resp,
             always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
-        ).get("tx_response",{})
+        ).get("tx_response", {})
         if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in result.get("raw_log", ""):
             await self.initialize_trading_account()
 

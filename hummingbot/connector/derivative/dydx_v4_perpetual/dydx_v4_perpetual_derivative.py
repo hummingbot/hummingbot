@@ -8,10 +8,10 @@ from bidict import bidict
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_constants as CONSTANTS
 from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
 from hummingbot.connector.derivative.dydx_v4_perpetual import dydx_v4_perpetual_web_utils as web_utils
+from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source import DydxPerpetualV4Client
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source import (
     DydxV4PerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source import DydxPerpetualV4Client
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_user_stream_data_source import (
     DydxV4PerpetualUserStreamDataSource,
 )
@@ -28,7 +28,6 @@ from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.utils.tracking_nonce import NonceCreator
-
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -500,7 +499,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     trade_updates.append(trade_update)
         return trade_updates
 
-    # ##
+    # 
     # async def _process_funding_payments(self, funding_payments: List):
     #     data = {}
     #     for trading_pair in self._trading_pairs:
@@ -538,7 +537,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     #
     #     return data
 
-    ##
     async def _process_open_positions(self, open_positions: Dict):
         for market, position in open_positions.items():
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market)
@@ -560,7 +558,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 self._perpetual_trading.remove_position(pos_key)
 
-    ##
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
 
@@ -576,7 +573,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     raise
         return trade_updates
 
-    ##
     def _process_rest_fills(self, fills_data: List) -> List[TradeUpdate]:
         trade_updates = []
         all_fillable_orders_by_exchange_order_id = {
@@ -590,7 +586,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                 trade_updates.append(trade_update)
         return trade_updates
 
-    ##
     def _process_order_fills(self, fill_data: Dict, order: InFlightOrder) -> Optional[TradeUpdate]:
         trade_update = None
         if order is not None:
@@ -629,7 +624,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             )
         return trade_update
 
-    ##
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
 
         body_params = {
@@ -646,7 +640,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         )
         return res
 
-    ##
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
             orders_rsp = await self._api_get(
@@ -718,7 +711,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         return DydxV4PerpetualUserStreamDataSource(api_factory=self._web_assistants_factory,
                                                    connector=self)
 
-    ##
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         markets = exchange_info["markets"]
 
@@ -755,7 +747,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             )
             mapping.pop(current_exchange_symbol)
 
-    ##
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
         params = {}
@@ -787,7 +778,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         # account = await self._get_account()
         await self._process_open_positions(response["subaccount"]["openPerpetualPositions"])
 
-    ##
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         """
         :return: A tuple of boolean (true if success) and error message if the exchange returns one on failure.
@@ -813,7 +803,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             )
             self.logger().debug(f"dydx_v4 switching position mode to " f"{mode} for {trading_pair} succeeded.")
 
-    ##
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         success = True
         msg = ""
@@ -843,7 +832,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                 self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=leverage)
         return success, msg
 
-    ## todo 没有接口
+    todo
+    没有接口
+
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         pass
 
