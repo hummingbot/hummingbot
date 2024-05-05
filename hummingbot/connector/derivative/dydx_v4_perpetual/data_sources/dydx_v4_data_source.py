@@ -27,16 +27,11 @@ from v4_proto.cosmos.tx.v1beta1.service_pb2 import (
     BroadcastTxRequest,
 )
 from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.tx import Transaction, SigningCfg
-from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.keypairs import PrivateKey, PublicKey
+from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.keypairs import PrivateKey
 
 from hummingbot.connector.derivative.dydx_v4_perpetual import (
     dydx_v4_perpetual_constants as CONSTANTS
 )
-
-AERIAL_GRPC_OR_REST_PREFIX = "grpc"
-AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
-QUERY_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
-
 
 class DydxPerpetualV4Client:
 
@@ -51,6 +46,10 @@ class DydxPerpetualV4Client:
         self._dydx_v4_chain_address = dydx_v4_chain_address
         self._connector = connector
         self._subaccount_num = subaccount_num
+        self.number = 0
+        self.sequence = 0
+        self._is_trading_account_initialized = False
+
 
         with open(certifi.where(), "rb") as f:
             trusted_certs = f.read()
@@ -58,14 +57,13 @@ class DydxPerpetualV4Client:
             root_certificates=trusted_certs
         )
 
-        # host_and_port = AERIAL_GRPC_OR_REST_PREFIX + AERIAL_CONFIG_URL
-        host_and_port = AERIAL_CONFIG_URL
+        host_and_port = CONSTANTS.DYDX_V4_AERIAL_CONFIG_URL
         grpc_client = (
             grpc.aio.secure_channel(host_and_port, credentials)
             if credentials is not None else grpc.aio.insecure_channel(host_and_port)
         )
         query_grpc_client = (
-            grpc.aio.secure_channel(QUERY_AERIAL_CONFIG_URL, credentials)
+            grpc.aio.secure_channel(CONSTANTS.DYDX_V4_QUERY_AERIAL_CONFIG_URL, credentials)
             if credentials is not None else grpc.aio.insecure_channel(host_and_port)
         )
         self.stubBank = bank_query_grpc.QueryStub(grpc_client)
@@ -102,6 +100,28 @@ class DydxPerpetualV4Client:
         interval = timedelta(seconds=good_til_time_in_seconds)
         future = now + interval
         return int(future.timestamp())
+
+    def get_sequence(self):
+        current_seq = self.sequence
+        self.sequence += 1
+        return current_seq
+
+    def get_number(self):
+        return self.number
+
+    async def trading_account_sequence(self) -> int:
+        if not self._is_trading_account_initialized:
+            await self.initialize_trading_account()
+        return self.get_sequence()
+
+    async def trading_account_number(self) -> int:
+        if not self._is_trading_account_initialized:
+            await self.initialize_trading_account()
+        return self.get_number()
+
+    async def initialize_trading_account(self):
+        await self.query_account()
+        self._is_trading_account_initialized = True
 
     def generate_good_til_fields(
             self,
@@ -250,9 +270,9 @@ class DydxPerpetualV4Client:
         if not response.account.Is(BaseAccount.DESCRIPTOR):
             raise RuntimeError("Unexpected account type returned from query")
         response.account.Unpack(account)
-        sequence = account.sequence
-        account_num = account.account_number
-        return sequence, account_num
+        self.sequence = account.sequence
+        self.number = account.account_number
+        return account.sequence, account.account_number
 
     async def prepare_and_broadcast_basic_transaction(
             self,
@@ -260,31 +280,31 @@ class DydxPerpetualV4Client:
             memo: Optional[str] = None,
     ):
         # query the account information for the sender
-        # if account is None:
-        sequence, _acocunt_num = await self.query_account()
-
-        # 这些可以写死在 constants里
-        fee = 0
-        gas_limit = 0
-        fee_denomination = "afet"
-        chain_id = 'dydx-mainnet-1'
+        sequence = await self.trading_account_sequence()
+        number = await self.trading_account_number()
         # finally, build the final transaction that will be executed with the correct gas and fee values
         tx.seal(
             SigningCfg.direct(self._private_key, sequence),
-            fee=f"{fee}{fee_denomination}",
-            gas_limit=gas_limit,
+            fee=f"{CONSTANTS.TX_FEE}{CONSTANTS.FEE_DENOMINATION}",
+            gas_limit=CONSTANTS.TX_GAS_LIMIT,
             memo=memo,
         )
-        tx.sign(self._private_key, chain_id, _acocunt_num)
+        tx.sign(self._private_key, CONSTANTS.CHAIN_ID, number)
         tx.complete()
 
         broadcast_req = BroadcastTxRequest(
             tx_bytes=tx.tx.SerializeToString(), mode=BroadcastMode.BROADCAST_MODE_SYNC
         )
         resp = await self.txs.BroadcastTx(broadcast_req)
+
         print(resp)
         result = json_format.MessageToDict(
             message=resp,
+            always_print_fields_with_no_presence=True,
+            preserving_proto_field_name=True,
+            use_integers_for_enums=True,
         )
+        if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in result.get("rawLog", ""):
+            await self.initialize_trading_account()
 
         return result

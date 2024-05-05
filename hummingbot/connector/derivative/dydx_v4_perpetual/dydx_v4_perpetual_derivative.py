@@ -17,6 +17,8 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_user_st
     DydxV4PerpetualUserStreamDataSource,
 )
 from hummingbot.connector.derivative.position import Position
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
@@ -152,29 +154,51 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
         # dummy implementation
-        return False
+        return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+
+    async def start_network(self):
+        await super().start_network()
+        await self._tx_client.initialize_trading_account()
+
+    def start_tracking_order(
+            self,
+            order_id: str,
+            exchange_order_id: Optional[str],
+            trading_pair: str,
+            trade_type: TradeType,
+            price: Decimal,
+            amount: Decimal,
+            order_type: OrderType,
+            **kwargs,
+    ):
+        self._order_tracker.start_tracking_order(
+            GatewayInFlightOrder(
+                client_order_id=order_id,
+                exchange_order_id=exchange_order_id,
+                trading_pair=trading_pair,
+                order_type=order_type,
+                trade_type=trade_type,
+                amount=amount,
+                price=price,
+                creation_timestamp=self.current_timestamp,
+            )
+        )
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        try:
-            async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
-                resp = await self._tx_client.cancel_order(
-                    client_id=int(tracked_order.client_order_id),
-                    clob_pair_id=self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
-                    order_flags=CONSTANTS.ORDER_FLAGS_LONG_TERM,
-                    good_til_block_time=int(time.time()) + CONSTANTS.ORDER_EXPIRATION
-                )
-            if "cancelOrders" not in resp.keys():
-                raise IOError(f"Error canceling order {order_id}.")
-        except IOError as e:
-            if any(error in str(e) for error in [CONSTANTS.ERR_MSG_NO_ORDER_FOR_MARKET]):
-                await self._order_tracker.process_order_not_found(order_id)
-            else:
-                raise
-        return True
+        async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
+            resp = await self._tx_client.cancel_order(
+                client_id=int(tracked_order.client_order_id),
+                clob_pair_id=self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
+                order_flags=CONSTANTS.ORDER_FLAGS_LONG_TERM,
+                good_til_block_time=int(time.time()) + CONSTANTS.ORDER_EXPIRATION
+            )
+        if resp["rawLog"] != "[]":
+            raise ValueError(f"Error sending the order cancel transaction ({resp['rawLog']})")
+        else:
+            return True
 
     def buy(self,
             trading_pair: str,
@@ -278,7 +302,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         size = float(amount)
         price = float(price)
         side = "BUY" if trade_type == TradeType.BUY else "SELL"
-        expiration =CONSTANTS.ORDER_EXPIRATION
+        expiration = CONSTANTS.ORDER_EXPIRATION
         reduce_only = False
 
         post_only = order_type is OrderType.LIMIT_MAKER
@@ -296,16 +320,36 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     reduce_only=reduce_only,
                     good_til_time_in_seconds=expiration,
                 )
+            if resp["rawLog"] != "[]" or resp["txhash"] in [None, ""]:
+                raise ValueError(f"Error sending the order creation transaction ({resp['rawLog']})")
+        except asyncio.CancelledError:
+            raise
         except Exception:
             self._current_place_order_requests -= 1
             raise
         # Decrement number of currently undergoing requests
         self._current_place_order_requests -= 1
+        # no exchange order id
+        return "", self._time()
 
-        if "order" not in resp:
-            raise IOError(f"Error submitting order {order_id}.")
-
-        return str(resp["order"]["id"]), dateparse.parse(resp["order"]["createdAt"]).timestamp()
+    def _on_order_failure(
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Optional[Decimal],
+            exception: Exception,
+            **kwargs,
+    ):
+        self.logger().network(
+            f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
+            f"{amount} {trading_pair} {price}.",
+            exc_info=exception,
+            app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
+        )
+        self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
 
     def _get_fee(
             self,
@@ -630,51 +674,52 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     ##
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        if tracked_order.exchange_order_id is None:
-            # Order placement failed previously
-            order_update = OrderUpdate(
-                client_order_id=tracked_order.client_order_id,
+        try:
+            orders_rsp = await self._api_get(
+                path_url=CONSTANTS.PATH_ORDERS,
+                limit_id=CONSTANTS.PATH_ORDERS,
+                params={
+                    'address': self._dydx_v4_perpetual_chain_address,
+                    'subaccountNumber': self.subaccount_id,
+                    'return_latest_orders': True,
+                    'goodTilBlockBeforeOrAt': CONSTANTS.TX_MAX_HEIGHT,
+                    'limit': 500,
+                }
+            )
+            updated_order_data = next(
+                (order for order in orders_rsp if
+                 int(order["clientId"]) == int(tracked_order.client_order_id)), None
+            )
+
+            if updated_order_data is None:
+                # If the order is not found in the response, return an OrderUpdate with the same status as before
+                return OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=tracked_order.exchange_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self._time_synchronizer.time(),
+                    new_state=tracked_order.current_state,
+                )
+            client_order_id = str(updated_order_data["clientId"])
+
+            order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED,
+                new_state=CONSTANTS.ORDER_STATE[updated_order_data["status"]],
+                client_order_id=client_order_id,
+                exchange_order_id=updated_order_data["id"],
             )
-        else:
-            try:
-                order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
-                order = order_status_data["order"]
-                client_order_id = str(order["clientId"])
-
-                order_update: OrderUpdate = OrderUpdate(
+        except IOError as ex:
+            if self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
+                order_update = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=self.current_timestamp,
-                    new_state=CONSTANTS.ORDER_STATE[order["status"]],
-                    client_order_id=client_order_id,
-                    exchange_order_id=order["id"],
+                    new_state=tracked_order.current_state,
                 )
-            except IOError as ex:
-                if self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
-                    order_update = OrderUpdate(
-                        client_order_id=tracked_order.client_order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=tracked_order.current_state,
-                    )
-                else:
-                    raise
+            else:
+                raise
         return order_update
-
-    ##
-    async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
-        try:
-            resp = await self._api_get(
-                path_url=CONSTANTS.PATH_ORDERS + "/" + str(tracked_order.exchange_order_id),
-                limit_id=CONSTANTS.PATH_ORDERS,
-            )
-        except IOError as e:
-            if any(error in str(e) for error in [CONSTANTS.ERR_MSG_NO_ORDER_FOUND]):
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-            raise
-        return resp
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
