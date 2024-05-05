@@ -111,7 +111,6 @@ WS_CHANNEL_TO_PATH = {WS_CHANNEL_ACCOUNTS: WS_PATH_ACCOUNTS}
 
 # ERR_MSG_NO_ORDER_FOUND = "No order found with id"
 # ERR_MSG_NO_ORDER_FOR_MARKET = "No order for market"
-UNKNOWN_ORDER_MESSAGE = "Order Id to cancel does not exist"
 
 LAST_FEE_PAYMENTS_MAX = 1
 LAST_FILLS_MAX = 100

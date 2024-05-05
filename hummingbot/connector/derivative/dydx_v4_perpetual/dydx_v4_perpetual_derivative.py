@@ -154,7 +154,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
         # dummy implementation
-        return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+        return False
 
     async def start_network(self):
         await super().start_network()
@@ -635,6 +635,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         body_params = {
             'address': self._dydx_v4_perpetual_chain_address,
             'subaccountNumber': self.subaccount_id,
+            'marketType': 'PERPETUAL',
             'market': order.trading_pair,
             'limit': CONSTANTS.LAST_FILLS_MAX,
         }
@@ -654,9 +655,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                 params={
                     'address': self._dydx_v4_perpetual_chain_address,
                     'subaccountNumber': self.subaccount_id,
-                    'return_latest_orders': True,
                     'goodTilBlockBeforeOrAt': CONSTANTS.TX_MAX_HEIGHT,
-                    'limit': 500,
+                    'limit': 100,
                 }
             )
             updated_order_data = next(
