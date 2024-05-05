@@ -130,10 +130,10 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         """Returns the trading pair in the format required by the exchange."""
         return trading_pair.replace("-", "-")
 
-    def _get_valid_start_time(self, end_time: int, start_time: int | None = None) -> int:
+    def _get_valid_start_time(self, end_time: int, start_time: int | None, limit: int) -> int:
         """Returns the start time of the candles deque."""
         interval_s: float = self.get_seconds_from_interval(self.interval)
-        _start_time: int = end_time - int(min(self._candles.maxlen, CONSTANTS.MAX_CANDLES_SIZE) * interval_s)
+        _start_time: int = end_time - int(min(limit, CONSTANTS.MAX_CANDLES_SIZE) * interval_s)
         start_time: int = max(start_time or _start_time, _start_time)
         return start_time
 
@@ -141,12 +141,12 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
             self,
             end_time: int | None = None,
             start_time: int | None = None,
-            limit: int | None = 500) -> np.ndarray:
+            limit: int = CONSTANTS.MAX_CANDLES_SIZE) -> np.ndarray:
         """
         Fetches candles from the exchange.
         :param start_time: the start time of the candles to be fetched
         :param end_time: the end time of the candles to be fetched
-        :param limit: the quantity of candles to be fetched
+        :param limit: the quantity of candles to be fetched (defaults to exchange's limit)
         :return: a numpy array with the candles
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getcandles
         """
@@ -156,7 +156,8 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         rest_assistant = await self._api_factory.get_rest_assistant()
 
         end_time = end_time or await web_utils.get_current_server_time_s()
-        start_time = self._get_valid_start_time(end_time=end_time, start_time=start_time)
+        limit = min(limit or CONSTANTS.MAX_CANDLES_SIZE, CONSTANTS.MAX_CANDLES_SIZE)
+        start_time = self._get_valid_start_time(end_time=end_time, start_time=start_time, limit=limit)
 
         params = {"granularity": CONSTANTS.INTERVALS[self.interval],
                   "start": str(start_time),
@@ -182,10 +183,10 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         Fills the historical candles deque with the candles fetched from the exchange.
         Ideally, one request should provide the number of candles needed to fill the deque.
         """
+        end_timestamp: int | None = end_time or int(self._candles[0][0])
         while not self.ready:
-            end_timestamp: int = end_time or int(self._candles[0][0])
             try:
-                candles = await self.fetch_candles(end_time=end_timestamp)
+                candles = await self.fetch_candles(end_time=end_timestamp, limit=self.max_records)
 
                 if len(candles) == 0:
                     # No candles were fetched (Coinbase Advanced Trade may only have 9 days of candles)
@@ -222,6 +223,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                 self.logger().debug(f"Missing {missing_records - len(candles)} candles to fill the deque. Attempting "
                                     "to fetch more.")
                 self._candles.extendleft(candles)
+                end_timestamp = int(candles[-1][0])
             else:
                 self._candles.extendleft(candles[:missing_records])
 

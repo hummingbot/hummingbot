@@ -216,8 +216,8 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         await self.data_feed.fill_historical_candles()
 
         mock_fetch_candles.assert_has_calls([
-            call(end_time=1697498300),  # 8 intervals: 8 * 60 = 480 seconds -> 1697497760
-            call(end_time=1697498000)])  # Verifying that the start_time is not too short
+            call(end_time=1697498300, limit=150),  # 8 intervals: 8 * 60 = 480 seconds -> 1697497760
+            call(end_time=1697498000, limit=150)])  # Verifying that the start_time is not too short
         self.assertEqual(6, self.data_feed.candles_df.shape[0])
         self.assertEqual(10, self.data_feed.candles_df.shape[1])
         self.assertDequeEqual(deque(
@@ -263,7 +263,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         end_time = 200000
         mock_interval.return_value = 60
         start_time = 150000
-        result = self.data_feed._get_valid_start_time(end_time, start_time)
+        result = self.data_feed._get_valid_start_time(end_time, start_time, limit=500)
         self.assertEqual(200000 - 100 * mock_interval.return_value, result)
 
     @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
@@ -271,7 +271,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
     def test_get_valid_start_time_without_start_time(self, mock_interval):
         end_time = 200000
         mock_interval.return_value = 60
-        result = self.data_feed._get_valid_start_time(end_time)
+        result = self.data_feed._get_valid_start_time(end_time, start_time=None, limit=500)
         expected_start_time = end_time - (mock_interval.return_value * 100)
         self.assertEqual(result, expected_start_time)
 
@@ -285,7 +285,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         )
         end_time = 200000
         mock_interval.return_value = 60
-        result = data_feed._get_valid_start_time(end_time)
+        result = data_feed._get_valid_start_time(end_time, start_time=None, limit=500)
         expected_start_time = end_time - (mock_interval.return_value * 100)
         self.assertEqual(result, expected_start_time)
 
@@ -298,7 +298,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         )
         mock_interval.return_value = 60
         end_time = 200000
-        result = data_feed._get_valid_start_time(end_time)
+        result = data_feed._get_valid_start_time(end_time, start_time=None, limit=data_feed.max_records)
         expected_start_time = end_time - (mock_interval.return_value * 50)
         self.assertEqual(expected_start_time, result)
 
@@ -311,7 +311,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         self.data_feed._build_auth_api_factory.return_value = self.data_feed._public_api_factory
         self.data_feed._public_api_factory.get_rest_assistant = AsyncMock()
         self.data_feed._public_api_factory.get_rest_assistant.return_value.execute_request = AsyncMock()
-        start_time = self.data_feed._get_valid_start_time(end_time=end_time)
+        start_time = self.data_feed._get_valid_start_time(end_time=end_time, start_time=None, limit=500)
 
         url = (f"{REST_URL.format(domain='com')}{CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair)}?"
                f"end={end_time}&granularity=ONE_MINUTE&start={start_time}")
