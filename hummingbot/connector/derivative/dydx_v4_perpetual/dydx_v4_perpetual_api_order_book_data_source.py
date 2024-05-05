@@ -28,11 +28,11 @@ class DydxV4PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     FULL_ORDER_BOOK_RESET_DELTA_SECONDS = sys.maxsize
 
     def __init__(
-        self,
-        trading_pairs: List[str],
-        connector: "DydxV4PerpetualDerivative",
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            self,
+            trading_pairs: List[str],
+            connector: "DydxV4PerpetualDerivative",
+            api_factory: WebAssistantsFactory,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -112,12 +112,12 @@ class DydxV4PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return channel
 
     async def _make_order_book_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue,
-        bids: List[Tuple[float, float]],
-        asks: List[Tuple[float, float]],
-        message_type: OrderBookMessageType,
+            self,
+            raw_message: Dict[str, Any],
+            message_queue: asyncio.Queue,
+            bids: List[Tuple[float, float]],
+            asks: List[Tuple[float, float]],
+            message_type: OrderBookMessageType,
     ):
         symbol = raw_message["id"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
@@ -192,8 +192,8 @@ class DydxV4PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     market_info = raw_message["contents"]["markets"][trading_pair]
 
                     if any(
-                        info in ["oraclePrice", "nextFundingRate", "nextFundingAt"]
-                        for info in market_info.keys()
+                            info in ["oraclePrice", "nextFundingRate", "nextFundingAt"]
+                            for info in market_info.keys()
                     ):
 
                         info_update = FundingInfoUpdate(trading_pair)
@@ -261,7 +261,7 @@ class DydxV4PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     @staticmethod
     def _get_bids_and_asks_from_snapshot(
-        snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
+            snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
 
         bids = [(Decimal(bid["price"]), Decimal(bid["size"])) for bid in snapshot["bids"]]
@@ -271,11 +271,11 @@ class DydxV4PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     @staticmethod
     def _get_bids_and_asks_from_diff(
-        diff: Dict[str, List[Dict[str, Union[str, int, float]]]]
+            diff: Dict[str, List[Dict[str, Union[str, int, float]]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
 
-        bids = [(Decimal(bid[0]), Decimal(bid[1])) for bid in diff.get("bids",[])]
-        asks = [(Decimal(ask[0]), Decimal(ask[1])) for ask in diff.get("asks",[])]
+        bids = [(Decimal(bid[0]), Decimal(bid[1])) for bid in diff.get("bids", [])]
+        asks = [(Decimal(ask[0]), Decimal(ask[1])) for ask in diff.get("asks", [])]
 
         return bids, asks
 
