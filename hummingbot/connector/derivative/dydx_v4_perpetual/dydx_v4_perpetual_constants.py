@@ -16,14 +16,27 @@ HBOT_BROKER_ID = "Hummingbot"
 MAX_ID_LEN = 40
 HEARTBEAT_INTERVAL = 30.0
 ORDER_EXPIRATION = 2419200  # 28 days
+
+# height limited to 2147483647 for 32-bit OS, equivalent to 2038-01-19T03:14Z
+TX_MAX_HEIGHT = 2147483647
 LIMIT_FEE = 0.015
 
 # API Base URLs
 ##
 MAX_ID_BIT_COUNT = 31
 
+
+#data_source grpc
+DYDX_V4_AERIAL_GRPC_OR_REST_PREFIX = "grpc"
+DYDX_V4_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
+DYDX_V4_QUERY_AERIAL_CONFIG_URL = 'dydx-grpc.publicnode.com:443'
+CHAIN_ID = 'dydx-mainnet-1'
+FEE_DENOMINATION = "afet"
+TX_FEE = 0
+TX_GAS_LIMIT = 0
+
+
 ##
-# DYDX_VALIDATOR_REST_BASE_URL = "https://dydx-ops-rpc.kingnodes.com"
 DYDX_V4_VALIDATOR_REST_BASE_URL = "https://dydx-grpc.publicnode.com:443"
 ##
 DYDX_V4_INDEXER_REST_BASE_URL = "https://indexer.dydx.trade"
@@ -96,8 +109,9 @@ ORDER_STATE = {
 
 WS_CHANNEL_TO_PATH = {WS_CHANNEL_ACCOUNTS: WS_PATH_ACCOUNTS}
 
-ERR_MSG_NO_ORDER_FOUND = "No order found with id"
-ERR_MSG_NO_ORDER_FOR_MARKET = "No order for market"
+# ERR_MSG_NO_ORDER_FOUND = "No order found with id"
+# ERR_MSG_NO_ORDER_FOR_MARKET = "No order for market"
+UNKNOWN_ORDER_MESSAGE = "Order Id to cancel does not exist"
 
 LAST_FEE_PAYMENTS_MAX = 1
 LAST_FILLS_MAX = 100
@@ -200,3 +214,6 @@ RATE_LIMITS = [
 
     ),
 ]
+
+ORDER_NOT_FOUND_ERROR_MESSAGE = "order not found"
+ACCOUNT_SEQUENCE_MISMATCH_ERROR = "account sequence mismatch"
