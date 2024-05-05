@@ -303,8 +303,8 @@ class DydxPerpetualV4Client:
             always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
-        )
-        if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in result.get("rawLog", ""):
+        ).get("tx_response",{})
+        if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in result.get("raw_log", ""):
             await self.initialize_trading_account()
 
         return result

@@ -168,8 +168,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                 order_flags=CONSTANTS.ORDER_FLAGS_LONG_TERM,
                 good_til_block_time=int(time.time()) + CONSTANTS.ORDER_EXPIRATION
             )
-        if resp["rawLog"] != "[]":
-            raise ValueError(f"Error sending the order cancel transaction ({resp['rawLog']})")
+        if resp["raw_log"] != "[]":
+            raise ValueError(f"Error sending the order cancel transaction ({resp['raw_log']})")
         else:
             return True
 
@@ -293,8 +293,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     reduce_only=reduce_only,
                     good_til_time_in_seconds=expiration,
                 )
-            if resp["rawLog"] != "[]" or resp["txhash"] in [None, ""]:
-                raise ValueError(f"Error sending the order creation transaction ({resp['rawLog']})")
+            if resp["raw_log"] != "[]" or resp["txhash"] in [None, ""]:
+                raise ValueError(f"Error sending the order creation transaction ({resp['raw_log']})")
         except asyncio.CancelledError:
             raise
         except Exception:
