@@ -73,7 +73,8 @@ class BacktestingEngineBase:
             self.update_processed_data(row)
             self.update_executors_info(row["timestamp"])
             for action in self.controller.determine_executor_actions():
-                if isinstance(action, CreateExecutorAction) and isinstance(action.executor_config, PositionExecutorConfig):
+                if isinstance(action, CreateExecutorAction) and isinstance(action.executor_config,
+                                                                           PositionExecutorConfig):
                     executor_simulation = self.position_executor_simulator.simulate(
                         df=processed_features.loc[i:],
                         config=action.executor_config,
@@ -115,14 +116,16 @@ class BacktestingEngineBase:
             connector_name=self.controller.config.connector_name,
             trading_pair=self.controller.config.trading_pair,
             interval=self.backtesting_resolution
-        )
+        ).add_suffix("_bt")
+
         if "features" not in self.controller.processed_data:
-            backtesting_candles["reference_price"] = backtesting_candles["close"]
+            backtesting_candles["reference_price"] = backtesting_candles["close_bt"]
             backtesting_candles["spread_multiplier"] = 1
             backtesting_candles["signal"] = 0
         else:
-            backtesting_candles = backtesting_candles.merge_asof(self.controller.processed_data["features"],
-                                                                 on="timestamp", direction="backward")
+            backtesting_candles = pd.merge_asof(backtesting_candles, self.controller.processed_data["features"],
+                                                left_on="timestamp_bt", right_on="timestamp",
+                                                direction="backward")
 
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
@@ -136,8 +139,8 @@ class BacktestingEngineBase:
         """
         connector_name = self.controller.config.connector_name
         trading_pair = self.controller.config.trading_pair
-        self.controller.market_data_provider.prices = {f"{connector_name}_{trading_pair}": Decimal(row["close"])}
-        self.controller.market_data_provider._time = row["timestamp"]
+        self.controller.market_data_provider.prices = {f"{connector_name}_{trading_pair}": Decimal(row["close_bt"])}
+        self.controller.market_data_provider._time = row["timestamp_bt"]
 
     def simulate_executor(self, config: PositionExecutorConfig, df: pd.DataFrame,
                           trade_cost: Decimal) -> ExecutorSimulation:
@@ -216,7 +219,8 @@ class BacktestingEngineBase:
             drawdown = (cumulative_returns - peak)
             max_draw_down = np.min(drawdown)
             max_drawdown_pct = max_draw_down / executors_with_position["inventory"].iloc[0]
-            returns = pd.to_numeric(executors_with_position["cumulative_returns"] / executors_with_position["cumulative_volume"])
+            returns = pd.to_numeric(
+                executors_with_position["cumulative_returns"] / executors_with_position["cumulative_volume"])
             sharpe_ratio = returns.mean() / returns.std()
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
             total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
