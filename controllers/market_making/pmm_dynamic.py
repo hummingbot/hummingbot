@@ -110,12 +110,12 @@ class PMMDynamicController(MarketMakingControllerBase):
         macdh = macd_output[f"MACDh_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
         macdh_signal = macdh.apply(lambda x: 1 if x > 0 else -1)
         max_price_shift = natr / 2
-        price_multiplier = Decimal(((0.5 * macd_signal + 0.5 * macdh_signal) * max_price_shift).iloc[-1])
+        price_multiplier = ((0.5 * macd_signal + 0.5 * macdh_signal) * max_price_shift).iloc[-1]
         candles["spread_multiplier"] = natr
         candles["reference_price"] = candles["close"] * (1 + price_multiplier)
         self.processed_data = {
-            "reference_price": candles["reference_price"].iloc[-1],
-            "spread_multiplier": candles["spread_multiplier"].iloc[-1],
+            "reference_price": Decimal(candles["reference_price"].iloc[-1]),
+            "spread_multiplier": Decimal(candles["spread_multiplier"].iloc[-1]),
             "features": candles
         }
 
