@@ -556,30 +556,36 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
 
         if tracked_order is None:
-            self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
-        else:
-            trading_pair_base_coin = tracked_order.base_asset
-            if trade["coin"] == trading_pair_base_coin:
-                position_action = PositionAction.OPEN if trade["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
-                fee_asset = tracked_order.quote_asset
-                fee = TradeFeeBase.new_perpetual_fee(
-                    fee_schema=self.trade_fee_schema(),
-                    position_action=position_action,
-                    percent_token=fee_asset,
-                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
-                )
-                trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=str(trade["tid"]),
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=str(trade["oid"]),
-                    trading_pair=tracked_order.trading_pair,
-                    fill_timestamp=trade["time"] * 1e-3,
-                    fill_price=Decimal(trade["px"]),
-                    fill_base_amount=Decimal(trade["sz"]),
-                    fill_quote_amount=Decimal(trade["px"]) * Decimal(trade["sz"]),
-                    fee=fee,
-                )
-                self._order_tracker.process_trade_update(trade_update)
+            all_orders = self._order_tracker.all_fillable_orders
+            for k, v in all_orders.items():
+                await v.get_exchange_order_id()
+            _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
+            if not _cli_tracked_orders:
+                self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
+                return
+            tracked_order = _cli_tracked_orders[0]
+        trading_pair_base_coin = tracked_order.base_asset
+        if trade["coin"] == trading_pair_base_coin:
+            position_action = PositionAction.OPEN if trade["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
+            fee_asset = tracked_order.quote_asset
+            fee = TradeFeeBase.new_perpetual_fee(
+                fee_schema=self.trade_fee_schema(),
+                position_action=position_action,
+                percent_token=fee_asset,
+                flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
+            )
+            trade_update: TradeUpdate = TradeUpdate(
+                trade_id=str(trade["tid"]),
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=str(trade["oid"]),
+                trading_pair=tracked_order.trading_pair,
+                fill_timestamp=trade["time"] * 1e-3,
+                fill_price=Decimal(trade["px"]),
+                fill_base_amount=Decimal(trade["sz"]),
+                fill_quote_amount=Decimal(trade["px"]) * Decimal(trade["sz"]),
+                fee=fee,
+            )
+            self._order_tracker.process_trade_update(trade_update)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
