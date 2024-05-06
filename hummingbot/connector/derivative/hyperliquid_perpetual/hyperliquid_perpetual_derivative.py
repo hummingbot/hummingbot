@@ -538,7 +538,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 elif channel == CONSTANTS.USEREVENT_ENDPOINT_NAME:
                     if "fills" in results:
                         for trade_msg in results["fills"]:
-                            self._process_trade_message(trade_msg)
+                            await self._process_trade_message(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -546,7 +546,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     "Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
-    def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
+    async def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
