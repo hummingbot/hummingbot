@@ -41,8 +41,8 @@ class RSI(DirectionalStrategyBase):
     """
     directional_strategy_name: str = "RSI"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair: str = "ETH-USDT"
-    exchange: str = "binance_perpetual"
+    trading_pair: str = "ETH-USD"
+    exchange: str = "hyperliquid_perpetual"
     order_amount_usd = Decimal("40")
     leverage = 10
 
