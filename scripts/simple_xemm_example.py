@@ -21,7 +21,7 @@ class SimpleXEMM(ScriptStrategyBase):
 
     maker_exchange = "kucoin_paper_trade"
     maker_pair = "ETH-USDT"
-    taker_exchange = "gate_io_paper_trade"
+    taker_exchange = "binance_paper_trade"
     taker_pair = "ETH-USDT"
 
     order_amount = 0.1                  # amount for each order

@@ -1,3 +1,4 @@
+import logging
 import os
 from decimal import Decimal
 from typing import Dict, List, Optional
@@ -20,7 +21,7 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class SimpleDirectionalRSIConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    # markets: Dict[str, List[str]] = {}
+    markets: Dict[str, List[str]] = {}
     candles_config: List[CandlesConfig] = []
     controllers_config: List[str] = []
     exchange: str = Field(
@@ -148,6 +149,7 @@ class SimpleDirectionalRSI(StrategyV2Base):
         active_longs, active_shorts = self.get_active_executors_by_side(self.config.exchange,
                                                                         self.config.trading_pair)
         if signal is not None:
+            self.log_with_clock(logging.INFO, f"Candles exchange: {self.config.candles_exchange}")
             mid_price = self.market_data_provider.get_price_by_type(self.config.candles_exchange,
                                                                     self.config.candles_pair,
                                                                     PriceType.MidPrice)
