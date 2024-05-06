@@ -6,7 +6,7 @@ from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 
 
-class TestSmartComponentBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
+class TestRunnableBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self):
         self.component = RunnableBase(update_interval=0.1)
         self.set_loggers(loggers=[self.component.logger()])
