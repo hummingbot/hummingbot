@@ -1459,7 +1459,7 @@ class InjectiveDataSource(ABC):
             block_height: int,
             block_timestamp: float
     ):
-        if self._uses_default_portfolio_subaccount() and len(balance_events) > 0:
+        if len(balance_events) > 0 and self._uses_default_portfolio_subaccount():
             token_balances = await self.all_account_balances()
 
         for balance_event in balance_events:
@@ -1497,34 +1497,42 @@ class InjectiveDataSource(ABC):
         self.publisher.trigger_event(event_tag=InjectiveEvent.ChainTransactionEvent, message=transaction_event)
 
     async def _create_spot_order_definition(self, order: GatewayInFlightOrder):
+        order_type = "BUY" if order.trade_type == TradeType.BUY else "SELL"
+        if order.order_type == OrderType.LIMIT_MAKER:
+            order_type = order_type + "_PO"
         composer = await self.composer()
         market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
-        definition = composer.SpotOrder(
+        definition = composer.spot_order(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            order_type=order_type,
             cid=order.client_order_id,
-            is_buy=order.trade_type == TradeType.BUY,
-            is_po=order.order_type == OrderType.LIMIT_MAKER
         )
         return definition
 
     async def _create_derivative_order_definition(self, order: GatewayPerpetualInFlightOrder):
+        order_type = "BUY" if order.trade_type == TradeType.BUY else "SELL"
+        if order.order_type == OrderType.LIMIT_MAKER:
+            order_type = order_type + "_PO"
         composer = await self.composer()
         market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
-        definition = composer.DerivativeOrder(
+        definition = composer.derivative_order(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            margin=composer.calculate_margin(
+                quantity=order.amount,
+                price=order.price,
+                leverage=Decimal(str(order.leverage)),
+                is_reduce_only=order.position == PositionAction.CLOSE,
+            ),
+            order_type=order_type,
             cid=order.client_order_id,
-            leverage=order.leverage,
-            is_buy=order.trade_type == TradeType.BUY,
-            is_po=order.order_type == OrderType.LIMIT_MAKER,
-            is_reduce_only = order.position == PositionAction.CLOSE,
         )
         return definition
 

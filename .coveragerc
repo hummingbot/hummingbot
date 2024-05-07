@@ -16,8 +16,9 @@ omit =
         hummingbot/connector/derivative/position.py
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/coinbase_pro*
-        hummingbot/connector/exchange/hitbtc*
         hummingbot/connector/exchange/foxbit*
+        hummingbot/connector/exchange/hitbtc*
+        hummingbot/connector/exchange/injective_v2/account_delegation_script.py
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/gateway/**
         hummingbot/connector/test_support/*
@@ -28,6 +29,7 @@ omit =
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
         hummingbot/user/user_balances.py
+        hummingbot/connector/exchange/cube/cube_ws_protobufs/*
 dynamic_context = test_function
 branch = true
 
