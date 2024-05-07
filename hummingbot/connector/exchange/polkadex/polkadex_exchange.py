@@ -51,8 +51,6 @@ class PolkadexExchange(ExchangePyBase):
         self._open_oder_fetching_timestamp = float(0)
         self._configure_event_forwarders()
 
-        self._cancel_expired_orders_task: Optional[asyncio.Task] = None
-
     @property
     def name(self) -> str:
         return CONSTANTS.EXCHANGE_NAME
@@ -103,7 +101,6 @@ class PolkadexExchange(ExchangePyBase):
 
     async def start_network(self):
         await super().start_network()
-        self._cancel_expired_orders_task = safe_ensure_future(self.cancel_expired_orders())
 
         market_symbols = [
             await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -118,10 +115,6 @@ class PolkadexExchange(ExchangePyBase):
         """
         await super().stop_network()
         await self._data_source.stop()
-
-        if self._cancel_expired_orders_task is not None:
-            self._cancel_expired_orders_task.cancel()
-            self._cancel_expired_orders_task = None
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
@@ -203,32 +196,6 @@ class PolkadexExchange(ExchangePyBase):
             price=price,
             **kwargs))
         return hex_order_id
-
-    async def cancel_expired_orders(self):
-        while True:
-            try:
-                if not math.isnan(self.current_timestamp) and self.current_timestamp > self._open_oder_fetching_timestamp:
-                    open_orders = await self._data_source.get_all_open_orders()
-
-                    for order in open_orders:
-                        order_timestamp = float(order.get('t')) / float(1000)
-                        client_order_id = order.get("id")
-                        current_timestamp = self.current_timestamp
-
-                        if current_timestamp - order_timestamp > float(610) and order.get('st') == 'OPEN':  # order age older than 10 minutes
-                            market_symbol = await self.exchange_symbol_associated_to_pair(
-                                trading_pair=self._trading_pairs[0])
-                            await self._data_source.place_expired_order_cancel(
-                                order_id=client_order_id, market_symbol=market_symbol)
-                            self.logger().info(
-                                f"Had to cancel order {client_order_id} as the age was older than 10 minutes and was not "
-                                f"being managed by the strategy")
-
-                    self._open_oder_fetching_timestamp = self.current_timestamp + float(60)  # only check each 60 seconds
-                # run every minute
-                await self._sleep(60)
-            except Exception as e:
-                self.logger().info(f"Error fetching all orders. Error: {e}", exc_info=True)
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         # Polkadex does not use a time synchronizer
