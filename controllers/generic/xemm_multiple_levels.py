@@ -66,6 +66,12 @@ class XEMMMultipleLevelsConfig(ControllerConfigBase):
             prompt=lambda e: "Enter the maximum profitability: ",
             prompt_on_new=True
         ))
+    max_executors_imbalance: int = Field(
+        default=1,
+        client_data=ClientFieldData(
+            prompt=lambda e: "Enter the maximum executors imbalance: ",
+            prompt_on_new=True
+        ))
 
     @validator("buy_levels_targets_amount", "sell_levels_targets_amount", pre=True, always=True)
     def validate_levels_targets_amount(cls, v, values):
@@ -105,9 +111,19 @@ class XEMMMultipleLevels(ControllerBase):
             executors=self.executors_info,
             filter_func=lambda e: not e.is_done and e.config.maker_side == TradeType.SELL
         )
+        stopped_buy_executors = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.BUY and e.filled_amount != 0
+        )
+        stopped_sell_executors = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.SELL and e.filled_amount != 0
+        )
+        imbalance = len(stopped_buy_executors) - len(stopped_sell_executors)
         for target_profitability, amount in self.buy_levels_targets_amount:
             active_buy_executors_target = [e.config.target_profitability == target_profitability for e in active_buy_executors]
-            if len(active_buy_executors_target) == 0:
+
+            if len(active_buy_executors_target) == 0 and imbalance < self.config.max_executors_imbalance:
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
                     timestamp=time.time(),
@@ -124,7 +140,7 @@ class XEMMMultipleLevels(ControllerBase):
                 executor_actions.append(CreateExecutorAction(executor_config=config, controller_id=self.config.id))
         for target_profitability, amount in self.sell_levels_targets_amount:
             active_sell_executors_target = [e.config.target_profitability == target_profitability for e in active_sell_executors]
-            if len(active_sell_executors_target) == 0:
+            if len(active_sell_executors_target) == 0 and imbalance > -self.config.max_executors_imbalance:
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
                     timestamp=time.time(),
