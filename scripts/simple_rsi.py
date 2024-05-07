@@ -17,14 +17,14 @@ class SimpleRSIConfig(BaseClientModel):
     trading_pair: str = Field("ETH-USD", client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Trading pair where the bot will place orders"))
     candles_exchange: str = Field("binance_perpetual", client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Candles exchange where the bot will fetch data"))
+        prompt_on_new=True, prompt=lambda mi: "Candles exchange where the bot will fetch data"))
     candles_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Candles pair where the bot will fetch data"))
     candles_interval: str = Field(default="1m", client_data=ClientFieldData(
         prompt_on_new=False, prompt=lambda mi: "Candle interval (1s/1m/5m/1h)"))
     candles_length: int = Field(default=60, gt=0, client_data=ClientFieldData(
         prompt_on_new=False, prompt=lambda mi: "Number of candles used to calculate R"))
-    order_amount_usd: Decimal = Field(40, client_data=ClientFieldData(
+    order_amount_usd: Decimal = Field(20, client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Order amount (denominated in quote asset)"))
     leverage: int = Field(10, client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Leverage scalar to use"))
@@ -32,20 +32,6 @@ class SimpleRSIConfig(BaseClientModel):
         prompt_on_new=True, prompt=lambda mi: "RSI lower bound to enter long position"))
     rsi_high: float = Field(default=70, gt=0, client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "RSI upper bound to enter short position"))
-    order_amount_usd: Decimal = Field(20, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Order amount (denominated in quote asset)"))
-    leverage: int = Field(1, client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Leverage scalar to use"))
-    stop_loss: float = Field(0.0075, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Position stop loss level"))
-    take_profit: float = Field(0.015, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Position take profit level"))
-    time_limit: int = Field(60 * 1, client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Position time limit in seconds"))
-    trailing_stop_activation_delta: float = Field(0.004, client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Position trailing stop activation delta"))
-    cooldown_after_execution: int = Field(10, client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Cooldown after execution in seconds"))
 
 
 class SimpleRSI(DirectionalStrategyBase):
@@ -70,11 +56,6 @@ class SimpleRSI(DirectionalStrategyBase):
         self.trading_pair: str = self.config.trading_pair
         self.order_amount_usd = self.config.order_amount_usd
         self.leverage = self.config.leverage
-        self.stop_loss = self.config.stop_loss
-        self.take_profit = self.config.take_profit
-        self.time_limit = self.config.time_limit
-        self.trailing_stop_activation_delta = self.config.trailing_stop_activation_delta
-        self.cooldown_after_execution = self.config.cooldown_after_execution
 
     def get_signal(self):
         """
