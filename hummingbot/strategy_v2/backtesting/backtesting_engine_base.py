@@ -1,15 +1,27 @@
+import importlib
+import inspect
+import os
 from decimal import Decimal
-from typing import List
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import yaml
 
+from hummingbot.client import settings
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.exceptions import InvalidController
 from hummingbot.strategy_v2.backtesting.backtesting_data_provider import BacktestingDataProvider
 from hummingbot.strategy_v2.backtesting.executor_simulator_base import ExecutorSimulation
+from hummingbot.strategy_v2.backtesting.executors_simulator.dca_executor_simulator import DCAExecutorSimulator
 from hummingbot.strategy_v2.backtesting.executors_simulator.position_executor_simulator import PositionExecutorSimulator
 from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigBase
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
+    DirectionalTradingControllerConfigBase,
+)
+from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
@@ -22,6 +34,32 @@ class BacktestingEngineBase:
         self.controller = None
         self.backtesting_resolution = None
         self.position_executor_simulator = PositionExecutorSimulator()
+        self.dca_executor_simulator = DCAExecutorSimulator()
+
+    @staticmethod
+    def load_controller_config(config_path: str) -> ControllerConfigBase:
+        full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
+        with open(full_path, 'r') as file:
+            config_data = yaml.safe_load(file)
+
+        controller_type = config_data.get('controller_type')
+        controller_name = config_data.get('controller_name')
+
+        if not controller_type or not controller_name:
+            raise ValueError(f"Missing controller_type or controller_name in {config_path}")
+
+        module_path = f"{settings.CONTROLLERS_MODULE}.{controller_type}.{controller_name}"
+        module = importlib.import_module(module_path)
+
+        config_class = next((member for member_name, member in inspect.getmembers(module)
+                             if inspect.isclass(member) and member not in [ControllerConfigBase,
+                                                                           MarketMakingControllerConfigBase,
+                                                                           DirectionalTradingControllerConfigBase]
+                             and (issubclass(member, ControllerConfigBase))), None)
+        if not config_class:
+            raise InvalidController(f"No configuration class found in the module {controller_name}.")
+
+        return config_class(**config_data)
 
     async def run_backtesting(self,
                               controller_config: ControllerConfigBase,
@@ -67,19 +105,15 @@ class BacktestingEngineBase:
         processed_features = self.prepare_market_data()
         self.active_executor_simulations: List[ExecutorSimulation] = []
         self.stopped_executors_info: List[ExecutorInfo] = []
-
         for i, row in processed_features.iterrows():
             self.update_market_data(row)
             self.update_processed_data(row)
             self.update_executors_info(row["timestamp"])
             for action in self.controller.determine_executor_actions():
-                if isinstance(action, CreateExecutorAction) and isinstance(action.executor_config,
-                                                                           PositionExecutorConfig):
-                    executor_simulation = self.position_executor_simulator.simulate(
-                        df=processed_features.loc[i:],
-                        config=action.executor_config,
-                        trade_cost=trade_cost)
-                    self.manage_active_executors(executor_simulation)
+                if isinstance(action, CreateExecutorAction):
+                    executor_simulation = self.simulate_executor(action.executor_config, processed_features.loc[i:], trade_cost)
+                    if executor_simulation.close_type != CloseType.FAILED:
+                        self.manage_active_executors(executor_simulation)
                 elif isinstance(action, StopExecutorAction):
                     self.handle_stop_action(action, row["timestamp"])
 
@@ -126,7 +160,12 @@ class BacktestingEngineBase:
             backtesting_candles = pd.merge_asof(backtesting_candles, self.controller.processed_data["features"],
                                                 left_on="timestamp_bt", right_on="timestamp",
                                                 direction="backward")
-
+        backtesting_candles["timestamp"] = backtesting_candles["timestamp_bt"]
+        backtesting_candles["open"] = backtesting_candles["open_bt"]
+        backtesting_candles["high"] = backtesting_candles["high_bt"]
+        backtesting_candles["low"] = backtesting_candles["low_bt"]
+        backtesting_candles["close"] = backtesting_candles["close_bt"]
+        backtesting_candles["volume"] = backtesting_candles["volume_bt"]
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
 
@@ -140,22 +179,26 @@ class BacktestingEngineBase:
         connector_name = self.controller.config.connector_name
         trading_pair = self.controller.config.trading_pair
         self.controller.market_data_provider.prices = {f"{connector_name}_{trading_pair}": Decimal(row["close_bt"])}
-        self.controller.market_data_provider._time = row["timestamp_bt"]
+        self.controller.market_data_provider._time = row["timestamp"]
 
-    def simulate_executor(self, config: PositionExecutorConfig, df: pd.DataFrame,
-                          trade_cost: Decimal) -> ExecutorSimulation:
+    def simulate_executor(self, config: Union[PositionExecutorConfig, DCAExecutorConfig], df: pd.DataFrame,
+                          trade_cost: float) -> Optional[ExecutorSimulation]:
         """
         Simulates the execution of a trading strategy given a configuration.
 
         Args:
             config (PositionExecutorConfig): The configuration of the executor.
             df (pd.DataFrame): DataFrame containing the market data from the start time.
-            trade_cost (Decimal): The cost per trade.
+            trade_cost (float): The cost per trade.
 
         Returns:
             ExecutorSimulation: The results of the simulation.
         """
-        return self.position_executor_simulator.simulate(df, config, trade_cost)
+        if isinstance(config, DCAExecutorConfig):
+            return self.dca_executor_simulator.simulate(df, config, trade_cost)
+        elif isinstance(config, PositionExecutorConfig):
+            return self.position_executor_simulator.simulate(df, config, trade_cost)
+        return None
 
     def manage_active_executors(self, simulation: ExecutorSimulation):
         """
