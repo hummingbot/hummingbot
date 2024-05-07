@@ -122,6 +122,9 @@ class WSConnection:
     async def _send_plain_text(self, payload: str):
         await self._connection.send_str(payload)
 
+    async def _send_binary(self, payload: bytes):
+        await self._connection.send_bytes(payload)
+
     @staticmethod
     def _build_resp(msg: aiohttp.WSMessage) -> WSResponse:
         if msg.type == aiohttp.WSMsgType.BINARY:

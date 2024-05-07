@@ -9,6 +9,7 @@ from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType,
 from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
+from hummingbot.smart_components.models.executors import CloseType
 
 
 class MarketMakingControllerConfigBase(ControllerConfigBase):
@@ -158,7 +159,11 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
 
     @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
     def parse_spreads(cls, v):
+        if v is None:
+            return []
         if isinstance(v, str):
+            if v == "":
+                return []
             return [float(x.strip()) for x in v.split(',')]
         return v
 
@@ -250,7 +255,7 @@ class MarketMakingControllerBase(ControllerBase):
     def get_levels_to_execute(self) -> List[str]:
         working_levels = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: x.is_active or (x.is_done and x.filled_amount_quote > Decimal("0") and time.time() - x.close_timestamp < self.config.cooldown_time)
+            filter_func=lambda x: x.is_active or (x.close_type == CloseType.STOP_LOSS and time.time() - x.close_timestamp < self.config.cooldown_time)
         )
         working_levels_ids = [executor.custom_info["level_id"] for executor in working_levels]
         return self.get_not_active_levels_ids(working_levels_ids)

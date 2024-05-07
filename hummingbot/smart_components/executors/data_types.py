@@ -22,3 +22,8 @@ class ExecutorConfigBase(BaseModel):
             hashed_id = hashlib.sha256(raw_id.encode()).digest()  # Get bytes
             return base58.b58encode(hashed_id).decode()  # Base58 encode
         return v
+
+
+class ConnectorPair(BaseModel):
+    connector_name: str
+    trading_pair: str

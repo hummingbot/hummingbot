@@ -10,8 +10,8 @@ from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor
 from hummingbot.smart_components.executors.arbitrage_executor.data_types import (
     ArbitrageExecutorConfig,
     ArbitrageExecutorStatus,
-    ExchangePair,
 )
+from hummingbot.smart_components.executors.data_types import ConnectorPair
 from hummingbot.smart_components.models.executors import TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -21,8 +21,8 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         super().setUp()
         self.strategy = self.create_mock_strategy()
         self.arbitrage_config = MagicMock(spec=ArbitrageExecutorConfig)
-        self.arbitrage_config.buying_market = ExchangePair(connector_name='binance', trading_pair='MATIC-USDT')
-        self.arbitrage_config.selling_market = ExchangePair(connector_name='uniswap_polygon_mainnet', trading_pair='WMATIC-USDT')
+        self.arbitrage_config.buying_market = ConnectorPair(connector_name='binance', trading_pair='MATIC-USDT')
+        self.arbitrage_config.selling_market = ConnectorPair(connector_name='uniswap_polygon_mainnet', trading_pair='WMATIC-USDT')
         self.arbitrage_config.min_profitability = Decimal('0.01')
         self.arbitrage_config.order_amount = Decimal('1')
         self.arbitrage_config.max_retries = 3
