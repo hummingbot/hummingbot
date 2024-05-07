@@ -9,7 +9,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.liquidations_feed.binance import constants as CONSTANTS
-from hummingbot.data_feed.liquidations_feed.liquidations_base import Liquidation, LiquidationsBase
+from hummingbot.data_feed.liquidations_feed.liquidations_base import Liquidation, LiquidationsBase, LiquidationSide
 from hummingbot.logger import HummingbotLogger
 
 
@@ -157,6 +157,9 @@ class BinancePerpetualLiquidations(LiquidationsBase):
                 trading_pair = self._trading_pairs_map.get(data["o"]["s"])
                 quantity = float(data["o"]["q"])
                 price = float(data["o"]["ap"])
+                side = data["o"]["S"]
+                # SELL-Side means here, that a long position was forcefully liquidated and the other way round
+                liquidation_side = LiquidationSide.LONG if side == "SELL" else LiquidationSide.SHORT
 
                 if trading_pair not in self._liquidations:
                     self._liquidations[trading_pair] = []
@@ -165,4 +168,5 @@ class BinancePerpetualLiquidations(LiquidationsBase):
                     timestamp=timestamp,
                     trading_pair=trading_pair,
                     quantity=quantity,
-                    price=price))
+                    price=price,
+                    side=liquidation_side))

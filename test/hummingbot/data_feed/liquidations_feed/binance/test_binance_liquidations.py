@@ -9,6 +9,7 @@ from bidict import bidict
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.liquidations_feed.binance import BinancePerpetualLiquidations, constants as CONSTANTS
+from hummingbot.data_feed.liquidations_feed.liquidations_base import LiquidationSide
 
 
 class TestBinanceLiquidations(unittest.TestCase):
@@ -67,7 +68,7 @@ class TestBinanceLiquidations(unittest.TestCase):
         data = {"e": "forceOrder",
                 "E": 1714242964102,
                 "o": {"s": "CTSIUSDT",
-                      "S": "BUY",
+                      "S": "SELL",
                       "o": "LIMIT",
                       "f": "IOC",
                       "q": "975",
@@ -273,6 +274,7 @@ class TestBinanceLiquidations(unittest.TestCase):
         self.assertEqual(len(ctsi_liquidations_df), 1)
         self.assertEqual(ctsi_liquidations_df["trading_pair"][0], "CTSI-USDT")
         self.assertEqual(ctsi_liquidations_df["quantity"][0], 975.0)
+        self.assertEqual(ctsi_liquidations_df["side"][0], LiquidationSide.LONG)
 
         # test the time based cleanup which should clear all liquidations since they are in the past
         self.liquidations_feed._cleanup_old_liquidations()
