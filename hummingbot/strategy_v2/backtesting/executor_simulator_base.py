@@ -64,10 +64,12 @@ class ExecutorSimulation(BaseModel):
         )
 
     def get_custom_info(self, last_entry: pd.Series) -> dict:
+        current_position_average_price = last_entry['current_position_average_price'] if "current_position_average_price" in last_entry else None
         return {
             "close_price": last_entry['close'],
             "level_id": self.config.level_id,
-            "side": self.config.side
+            "side": self.config.side,
+            "current_position_average_price": current_position_average_price
         }
 
 
