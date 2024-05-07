@@ -25,10 +25,11 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         # Filter dataframe based on the conditions
         df_filtered = df[df['timestamp'] <= tl_timestamp].copy()
-        df_filtered['net_pnl_pct'] = 0
-        df_filtered['net_pnl_quote'] = 0
-        df_filtered['cum_fees_quote'] = 0
-        df_filtered['filled_amount_quote'] = 0
+        df_filtered['net_pnl_pct'] = 0.0
+        df_filtered['net_pnl_quote'] = 0.0
+        df_filtered['cum_fees_quote'] = 0.0
+        df_filtered['filled_amount_quote'] = 0.0
+        df_filtered["current_position_average_price"] = float(config.entry_price)
 
         if pd.isna(start_timestamp):
             return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.FAILED)
