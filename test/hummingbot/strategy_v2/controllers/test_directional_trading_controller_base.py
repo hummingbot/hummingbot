@@ -40,21 +40,18 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
             actions_queue=self.mock_actions_queue
         )
 
-    @patch.object(DirectionalTradingControllerBase, "get_signal")
-    async def test_update_processed_data(self, get_signal_mock: MagicMock):
-        get_signal_mock.return_value = Decimal("1")
+    async def test_update_processed_data(self):
         await self.controller.update_processed_data()
-        self.assertEqual(self.controller.processed_data["signal"], Decimal("1"))\
+        self.assertEqual(self.controller.processed_data["signal"], 0)
 
-
-    @patch.object(DirectionalTradingControllerBase, "get_signal")
     @patch.object(DirectionalTradingControllerBase, "get_executor_config")
-    async def test_determine_executor_actions(self, get_executor_config_mock: MagicMock, get_signal_mock: MagicMock):
-        get_signal_mock.return_value = Decimal("1")
+    async def test_determine_executor_actions(self, get_executor_config_mock: MagicMock):
         get_executor_config_mock.return_value = PositionExecutorConfig(
             timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
             trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
         await self.controller.update_processed_data()
+        self.controller.market_data_provider.time = MagicMock(return_value=1000000)
+        self.controller.processed_data["signal"] = 1
         actions = self.controller.determine_executor_actions()
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0].controller_id, "test")
