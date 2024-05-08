@@ -20,6 +20,7 @@ omit =
         hummingbot/connector/exchange/hitbtc*
         hummingbot/connector/exchange/injective_v2/account_delegation_script.py
         hummingbot/connector/exchange/paper_trade*
+        hummingbot/connector/exchange/polkadex*
         hummingbot/connector/gateway/**
         hummingbot/connector/test_support/*
         hummingbot/core/utils/gateway_config_utils.py
