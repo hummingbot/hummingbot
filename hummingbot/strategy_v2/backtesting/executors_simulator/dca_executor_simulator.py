@@ -23,7 +23,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         potential_dca_stages = []
         side_multiplier = 1 if config.side == TradeType.BUY else -1
         last_timestamp = df['timestamp'].max()
-        tl = config.time_limit * 1000
+        tl = config.time_limit * 1000 if config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
         # Filter dataframe based on the conditions
         df_filtered = df[df['timestamp'] <= tl_timestamp].copy()
@@ -53,7 +53,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 take_profit_price = break_even_price * (1 + config.take_profit * side_multiplier)
                 take_profit_condition = returns_df['close'] >= take_profit_price if config.side == TradeType.BUY else returns_df['close'] <= take_profit_price
                 take_profit_timestamp = returns_df[take_profit_condition]['timestamp'].min()
-            if is_last_order:
+            if is_last_order and config.stop_loss:
                 stop_loss_price = break_even_price * (1 - config.stop_loss * side_multiplier)
                 stop_loss_condition = returns_df['close'] <= stop_loss_price if config.side == TradeType.BUY else returns_df['close'] >= stop_loss_price
                 stop_loss_timestamp = returns_df[stop_loss_condition]['timestamp'].min()
