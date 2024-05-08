@@ -1,6 +1,5 @@
 import asyncio
 from typing import Any, Callable, Dict
-from unittest.mock import MagicMock
 
 from hummingbot.connector.exchange.polkadex.polkadex_query_executor import BaseQueryExecutor
 
@@ -68,6 +67,10 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         response = await self._order_history_responses.get()
         return response
 
+    async def find_order_by_id(self, order_id: str) -> Dict[str, Any]:
+        response = await self._order_responses.get()
+        return response
+
     async def find_order_by_main_account(self, main_account: str, market_symbol: str, order_id: str) -> Dict[str, Any]:
         response = await self._order_responses.get()
         return response
@@ -97,5 +100,6 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
             event = await self._private_events.get()
             events_handler(event=event)
 
-    async def create_ws_session(self):
-        return MagicMock()
+    async def recent_trade(self, market_symbol: str) -> Dict[str, Any]:
+        response = await self._list_orders_responses.get()
+        return response
