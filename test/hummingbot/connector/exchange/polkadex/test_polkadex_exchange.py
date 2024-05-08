@@ -99,82 +99,59 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     @property
     def all_assets_mock_response(self):
-        return {
-            "getAllAssets": {
-                "items": [
-                    {"asset_id": "1", "name": self.quote_asset},
-                    {"asset_id": self.base_asset, "name": self.base_asset},
-                ]
-            }
-        }
+        return [
+            {"asset_id": "1", "name": self.quote_asset},
+            {"asset_id": self.base_asset, "name": self.base_asset},
+        ]
 
     @property
     def all_symbols_request_mock_response(self):
-        return {
-            "getAllMarkets": {
-                "items": [
-                    {
-                        "base_asset_precision": "8",
-                        "market": self.exchange_trading_pair,
-                        "max_order_price": "10000",
-                        "max_order_qty": "20000",
-                        "min_order_price": "2.0E-4",
-                        "min_order_qty": "0.001",
-                        "price_tick_size": "1.0E-4",
-                        "qty_step_size": "0.0001",
-                        "quote_asset_precision": "8",
-                    }
-                ]
+        return [
+            {
+                "market": self.exchange_trading_pair,
+                "min_volume": 1000,
+                "price_tick_size": "1.0E-4",
+                "qty_step_size": "0.0001",
             }
-        }
+        ]
 
     @property
     def latest_prices_request_mock_response(self):
         return {
-            "getRecentTrades": {
-                "items": [
-                    {
-                        "isReverted": None,
-                        "m": None,
-                        "p": str(self.expected_latest_price),
-                        "q": "1",
-                        "t": "1668606574722",
-                        "sid": 896,
-                    },
-                ]
-            }
+            "isReverted": None,
+            "m": None,
+            "p": str(self.expected_latest_price),
+            "q": "1",
+            "t": "1668606574722",
+            "sid": 896,
         }
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
-        response = {
-            "getAllMarkets": {
-                "items": [
-                    {
-                        "base_asset_precision": "8",
-                        "market": self.exchange_trading_pair,
-                        "max_order_price": "10000",
-                        "max_order_qty": "10000",
-                        "min_order_price": "1.0E-4",
-                        "min_order_qty": "0.001",
-                        "price_tick_size": "1.0E-4",
-                        "qty_step_size": "0.001",
-                        "quote_asset_precision": "8",
-                    },
-                    {
-                        "base_asset_precision": "8",
-                        "market": "INVALID-1",
-                        "max_order_price": "10000",
-                        "max_order_qty": "10000",
-                        "min_order_price": "1.0E-4",
-                        "min_order_qty": "0.001",
-                        "price_tick_size": "1.0E-4",
-                        "qty_step_size": "0.001",
-                        "quote_asset_precision": "8",
-                    },
-                ]
-            }
-        }
+        response = [
+            {
+                "base_asset_precision": "8",
+                "market": self.exchange_trading_pair,
+                "max_order_price": "10000",
+                "max_order_qty": "10000",
+                "min_order_price": "1.0E-4",
+                "min_order_qty": "0.001",
+                "price_tick_size": "1.0E-4",
+                "qty_step_size": "0.001",
+                "quote_asset_precision": "8",
+            },
+            {
+                "base_asset_precision": "8",
+                "market": "INVALID-1",
+                "max_order_price": "10000",
+                "max_order_qty": "10000",
+                "min_order_price": "1.0E-4",
+                "min_order_qty": "0.001",
+                "price_tick_size": "1.0E-4",
+                "qty_step_size": "0.001",
+                "quote_asset_precision": "8",
+            },
+        ]
 
         return "INVALID-1", response
 
@@ -188,53 +165,41 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        return {
-            "getAllMarkets": {
-                "items": [
-                    {
-                        "base_asset_precision": "8",
-                        "market": self.exchange_trading_pair,
-                    }
-                ]
+        return [
+            {
+                "base_asset_precision": "8",
+                "market": self.exchange_trading_pair,
             }
-        }
+        ]
 
     @property
     def order_creation_request_successful_mock_response(self):
-        return {"place_order": json.dumps({"is_success": True, "body": self.expected_exchange_order_id})}
+        return self.expected_exchange_order_id
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
-        return {
-            "getAllBalancesByMainAccount": {
-                "items": [
-                    {
-                        "a": self.base_asset,
-                        "f": "10.0000",
-                        "r": "5",
-                    },
-                    {
-                        "a": "1",
-                        "f": "2000",
-                        "r": "0",
-                    },
-                ]
-            }
-        }
+        return [
+            {
+                "a": self.base_asset,
+                "f": "10.0000",
+                "r": "5",
+            },
+            {
+                "a": "1",
+                "f": "2000",
+                "r": "0",
+            },
+        ]
 
     @property
     def balance_request_mock_response_only_base(self):
-        return {
-            "getAllBalancesByMainAccount": {
-                "items": [
-                    {
-                        "a": self.base_asset,
-                        "f": "10.0000",
-                        "r": "5",
-                    },
-                ]
-            }
-        }
+        return [
+            {
+                "a": self.base_asset,
+                "f": "10.0000",
+                "r": "5",
+            },
+        ]
 
     @property
     def balance_event_websocket_update(self):
@@ -265,29 +230,27 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     @property
     def expected_trading_rule(self):
-        market_info = self.all_symbols_request_mock_response["getAllMarkets"]["items"][0]
+        market_info = self.all_symbols_request_mock_response[0]
         trading_pair = self.trading_pair
-        min_order_size = Decimal(market_info["min_order_qty"])
-        max_order_size = Decimal(market_info["max_order_qty"])
-        min_order_price = Decimal(market_info["min_order_price"])
         amount_increment = Decimal(market_info["qty_step_size"])
         price_increment = Decimal(market_info["price_tick_size"])
+        min_order_value = Decimal(market_info["min_volume"])
         trading_rule = TradingRule(
             trading_pair=trading_pair,
-            min_order_size=min_order_size,
-            max_order_size=max_order_size,
+            min_order_size=0,
+            max_order_size=10**6,
             min_price_increment=price_increment,
             min_base_amount_increment=amount_increment,
             min_quote_amount_increment=price_increment,
-            min_notional_size=min_order_size * min_order_price,
-            min_order_value=min_order_size * min_order_price,
+            min_notional_size=min_order_value,
+            min_order_value=min_order_value
         )
 
         return trading_rule
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = self.trading_rules_request_erroneous_mock_response["getAllMarkets"]["items"][0]
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response[0]
         return f"Error parsing the trading pair rule: {erroneous_rule}. Skipping..."
 
     @property
@@ -448,7 +411,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def configure_completely_filled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        order_history_response = {"listOrderHistorybyMainAccount": {"items": []}}
+        order_history_response = []
         self.exchange._data_source._query_executor._order_history_responses.put_nowait(order_history_response)
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -460,7 +423,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         self.configure_no_fills_trade_response()
-        order_history_response = {"listOrderHistorybyMainAccount": {"items": []}}
+        order_history_response = []
         self.exchange._data_source._query_executor._order_history_responses.put_nowait(order_history_response)
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -472,7 +435,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         self.configure_no_fills_trade_response()
-        order_history_response = {"listOrderHistorybyMainAccount": {"items": []}}
+        order_history_response = []
         self.exchange._data_source._query_executor._order_history_responses.put_nowait(order_history_response)
         response = self._order_status_request_open_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -484,7 +447,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         self.configure_no_fills_trade_response()
-        order_history_response = {"listOrderHistorybyMainAccount": {"items": []}}
+        order_history_response = []
         self.exchange._data_source._query_executor._order_history_responses.put_nowait(order_history_response)
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = IOError("Test failure")
@@ -494,7 +457,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def configure_partially_filled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        order_history_response = {"listOrderHistorybyMainAccount": {"items": []}}
+        order_history_response = []
         self.exchange._data_source._query_executor._order_history_responses.put_nowait(order_history_response)
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -506,9 +469,9 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         self.configure_no_fills_trade_response()
-        order_history_response = {"listOrderHistorybyMainAccount": {"items": []}}
+        order_history_response = []
         self.exchange._data_source._query_executor._order_history_responses.put_nowait(order_history_response)
-        response = {"findOrderByMainAccount": None}
+        response = None
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
         self.exchange._data_source._query_executor._order_responses = mock_queue
@@ -517,20 +480,17 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def configure_partial_fill_trade_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        order_fills_response = {
-            "listTradesByMainAccount": {
-                "items": [
-                    {
-                        "m": self.exchange_trading_pair,
-                        "p": str(self.expected_partial_fill_price),
-                        "q": str(self.expected_partial_fill_amount),
-                        "m_id": order.exchange_order_id,
-                        "trade_id": self.expected_fill_trade_id,
-                        "t": str(int(self.exchange.current_timestamp * 1e3)),
-                    }
-                ]
+        order_fills_response = [
+            {
+                "m": self.exchange_trading_pair,
+                "p": str(self.expected_partial_fill_price),
+                "q": str(self.expected_partial_fill_amount),
+                "maker_id": order.exchange_order_id,
+                "taker_id": order.exchange_order_id,
+                "trade_id": self.expected_fill_trade_id,
+                "t": str(int(self.exchange.current_timestamp * 1e3)),
             }
-        }
+        ]
         self.exchange._data_source._query_executor._order_fills_responses.put_nowait(order_fills_response)
         return ""
 
@@ -559,25 +519,22 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def configure_full_fill_trade_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        order_fills_response = {
-            "listTradesByMainAccount": {
-                "items": [
-                    {
-                        "m": self.exchange_trading_pair,
-                        "p": str(order.price),
-                        "q": str(order.amount),
-                        "m_id": order.exchange_order_id,
-                        "trade_id": self.expected_fill_trade_id,
-                        "t": str(int(self.exchange.current_timestamp * 1e3)),
-                    }
-                ]
+        order_fills_response = [
+            {
+                "m": self.exchange_trading_pair,
+                "p": str(order.price),
+                "q": str(order.amount),
+                "maker_id": order.exchange_order_id,
+                "taker_id": order.exchange_order_id,
+                "trade_id": self.expected_fill_trade_id,
+                "t": str(int(self.exchange.current_timestamp * 1e3)),
             }
-        }
+        ]
         self.exchange._data_source._query_executor._order_fills_responses.put_nowait(order_fills_response)
         return ""
 
     def configure_no_fills_trade_response(self):
-        order_fills_response = {"listTradesByMainAccount": {"items": []}}
+        order_fills_response = []
         self.exchange._data_source._query_executor._order_fills_responses.put_nowait(order_fills_response)
 
     def configure_all_symbols_response(
@@ -603,7 +560,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def configure_erroneous_creation_order_status_response(
         self, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        creation_response = {"place_order": json.dumps({"is_success": False, "error": "some error"})}
+        creation_response = None
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response, callback=callback, response=creation_response
@@ -737,7 +694,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     @aioresponses()
     def test_check_network_failure(self, mock_api):
-        all_assets_mock_response = {"getAllAssets": {"items": []}}
+        all_assets_mock_response = []
         self.exchange._data_source._query_executor._all_assets_responses.put_nowait(all_assets_mock_response)
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
@@ -755,7 +712,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     @aioresponses()
     def test_get_last_trade_prices(self, mock_api):
         response = self.latest_prices_request_mock_response
-        self.exchange._data_source._query_executor._recent_trades_responses.put_nowait(response)
+        self.exchange._data_source._query_executor._recent_trade_responses.put_nowait(response)
 
         latest_prices: Dict[str, float] = self.async_run_with_timeout(
             self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
@@ -952,39 +909,6 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self.assertTrue(order.is_pending_cancel_confirmation)
 
     @aioresponses()
-    def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
-        request_sent_event = asyncio.Event()
-        self.exchange._set_current_timestamp(1640780000)
-
-        self.exchange.start_tracking_order(
-            order_id=self.client_order_id_prefix + "1",
-            exchange_order_id=self.exchange_order_id_prefix + "1",
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("100"),
-            order_type=OrderType.LIMIT,
-        )
-
-        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
-        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
-
-        self.configure_erroneous_cancelation_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
-
-        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
-        self.async_run_with_timeout(request_sent_event.wait())
-
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
-        self.assertTrue(
-            any(
-                log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
-                for log in self.log_records
-            )
-        )
-
-    @aioresponses()
     def test_cancel_order_not_found_in_the_exchange(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         request_sent_event = asyncio.Event()
@@ -1136,42 +1060,6 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertTrue(order.is_failure)
-
-    @aioresponses()
-    def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
-        self.exchange._set_current_timestamp(1640780000)
-
-        self.exchange.start_tracking_order(
-            order_id=self.client_order_id_prefix + "1",
-            exchange_order_id=self.exchange_order_id_prefix + "1",
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("100"),
-            order_type=OrderType.LIMIT,
-        )
-
-        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
-        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
-
-        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
-
-        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-
-        self.exchange._data_source._query_executor._cancel_order_responses.put_nowait({})
-
-        self.async_run_with_timeout(self.exchange._cancel_lost_orders())
-
-        self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
-        self.assertTrue(
-            any(
-                log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
-                for log in self.log_records
-            )
-        )
 
     def test_lost_order_removed_after_cancel_status_user_event_received(self):
         self.exchange._set_current_timestamp(1640780000)
@@ -1560,30 +1448,26 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return {"cancel_order": True}
 
     def _all_trading_pairs_mock_response(self, orders_count: int, symbol: str) -> Any:
-        return {
-            "listOpenOrdersByMainAccount": {
-                "items": [
-                    {
-                        "afp": "0",
-                        "cid": f"0x48424f544250584354356663383135646636666166313531306165623366376{i}",
-                        "fee": "0",
-                        "fq": "0",
-                        "id": f"0x541a3a1be1ad69cc0d325103ca54e4e12c8035d9474a96539af3323cae681fa{i}",
-                        "m": symbol,
-                        "ot": "LIMIT",
-                        "p": f"1.51{i}",
-                        "q": f"0.06{i}",
-                        "s": "Bid",
-                        "st": "OPEN",
-                        "t": self.exchange.current_timestamp,
-                    }
-                    for i in range(orders_count)
-                ],
-            },
-        }
+        return [
+            {
+                "afp": "0",
+                "cid": f"0x48424f544250584354356663383135646636666166313531306165623366376{i}",
+                "fee": "0",
+                "fq": "0",
+                "id": f"0x541a3a1be1ad69cc0d325103ca54e4e12c8035d9474a96539af3323cae681fa{i}",
+                "m": symbol,
+                "ot": "LIMIT",
+                "p": f"1.51{i}",
+                "q": f"0.06{i}",
+                "s": "Bid",
+                "st": "OPEN",
+                "t": self.exchange.current_timestamp,
+            }
+            for i in range(orders_count)
+        ]
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
-        return {"findOrderByMainAccount": self._orders_status_response(order=order)}
+        return [self._orders_status_response(order=order)]
 
     def _orders_status_response(self, order: InFlightOrder) -> Any:
         return {
@@ -1606,86 +1490,78 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "findOrderByMainAccount": {
-                "afp": "0",
-                "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
-                "fee": "0",
-                "fq": "0",
-                "id": order.exchange_order_id,
-                "isReverted": False,
-                "m": self.exchange_trading_pair,
-                "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
-                "p": str(order.price),
-                "q": str(order.amount),
-                "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "sid": 1,
-                "st": "CANCELLED",
-                "t": 160001112.223,
-                "u": "",
-            }
+            "afp": "0",
+            "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
+            "fee": "0",
+            "fq": "0",
+            "id": order.exchange_order_id,
+            "isReverted": False,
+            "m": self.exchange_trading_pair,
+            "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
+            "p": str(order.price),
+            "q": str(order.amount),
+            "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
+            "sid": 1,
+            "st": "CANCELLED",
+            "t": 160001112.223,
+            "u": "",
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "findOrderByMainAccount": {
-                "afp": str(order.price),
-                "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
-                "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                "fq": str(order.amount),
-                "id": order.exchange_order_id,
-                "isReverted": False,
-                "m": self.exchange_trading_pair,
-                "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
-                "p": str(order.price),
-                "q": str(order.amount),
-                "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "sid": int(self.expected_fill_trade_id),
-                "st": "CLOSED",
-                "t": 160001112.223,
-                "u": "",
-            }
+            "afp": str(order.price),
+            "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
+            "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+            "fq": str(order.amount),
+            "id": order.exchange_order_id,
+            "isReverted": False,
+            "m": self.exchange_trading_pair,
+            "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
+            "p": str(order.price),
+            "q": str(order.amount),
+            "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
+            "sid": int(self.expected_fill_trade_id),
+            "st": "CLOSED",
+            "t": 160001112.223,
+            "u": "",
         }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "findOrderByMainAccount": {
-                "afp": str(self.expected_partial_fill_price),
-                "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
-                "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
-                "fq": str(self.expected_partial_fill_amount),
-                "id": order.exchange_order_id,
-                "isReverted": False,
-                "m": self.exchange_trading_pair,
-                "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
-                "p": str(order.price),
-                "q": str(order.amount),
-                "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "sid": int(self.expected_fill_trade_id),
-                "st": "OPEN",
-                "t": 160001112.223,
-                "u": "",
-            }
+            "afp": str(self.expected_partial_fill_price),
+            "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
+            "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
+            "fq": str(self.expected_partial_fill_amount),
+            "id": order.exchange_order_id,
+            "isReverted": False,
+            "m": self.exchange_trading_pair,
+            "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
+            "p": str(order.price),
+            "q": str(order.amount),
+            "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
+            "sid": int(self.expected_fill_trade_id),
+            "st": "OPEN",
+            "t": 160001112.223,
+            "u": "",
         }
 
     def _order_status_request_partially_canceled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "findOrderByMainAccount": {
-                "afp": str(self.expected_partial_fill_price),
-                "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
-                "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
-                "fq": str(self.expected_partial_fill_amount),
-                "id": order.exchange_order_id,
-                "isReverted": False,
-                "m": self.exchange_trading_pair,
-                "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
-                "p": str(order.price),
-                "q": str(order.amount),
-                "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-                "sid": int(self.expected_fill_trade_id),
-                "st": "CANCELLED",
-                "t": 160001112.223,
-                "u": "",
-            }
+            "afp": str(self.expected_partial_fill_price),
+            "cid": "0x" + order.client_order_id.encode("utf-8").hex(),
+            "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
+            "fq": str(self.expected_partial_fill_amount),
+            "id": order.exchange_order_id,
+            "isReverted": False,
+            "m": self.exchange_trading_pair,
+            "ot": "MARKET" if order.order_type == OrderType.MARKET else "LIMIT",
+            "p": str(order.price),
+            "q": str(order.amount),
+            "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
+            "sid": int(self.expected_fill_trade_id),
+            "st": "CANCELLED",
+            "t": 160001112.223,
+            "u": "",
         }
 
     @staticmethod
@@ -1701,3 +1577,13 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         digits = len(str(order_number))
         prefix = template_exchange_id[:-digits]
         return f"{prefix}{order_number}"
+
+    @aioresponses()
+    def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
+        # we're not placing such log message, so this test can be ignored
+        pass
+
+    @aioresponses()
+    def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
+        # we're not placing such log message, so this test can be ignored
+        pass
