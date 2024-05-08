@@ -87,22 +87,6 @@ ACCOUNT_TYPE = {
 
 WS_HEARTBEAT_TIME_INTERVAL = 20
 
-# Rate Limit Type
-REQUEST_GET = "GET"
-REQUEST_GET_BURST = "GET_BURST"
-REQUEST_GET_MIXED = "GET_MIXED"
-REQUEST_POST = "POST"
-REQUEST_POST_BURST = "POST_BURST"
-REQUEST_POST_MIXED = "POST_MIXED"
-
-# Rate Limit Max request
-MAX_REQUEST_GET = 6000
-MAX_REQUEST_GET_BURST = 70
-MAX_REQUEST_GET_MIXED = 400
-MAX_REQUEST_POST = 2400
-MAX_REQUEST_POST_BURST = 50
-MAX_REQUEST_POST_MIXED = 270
-
 # Request error codes
 RET_CODE_OK = 0
 RET_CODE_PARAMS_ERROR = 10001
@@ -118,47 +102,31 @@ RET_CODE_POSITION_ZERO = 130125
 
 API_REQUEST_RETRY = 2
 
+# Rate Limit Type
+REQUEST_GET_POST_SHARED = "ALL"
+
 # Rate Limit time intervals
 TWO_MINUTES = 120
 ONE_SECOND = 1
 SIX_SECONDS = 6
+FIVE_SECONDS = 5
 ONE_DAY = 60 * 60 * 24
 ONE_HOUR = 60 * 60
 
 # https://bybit-exchange.github.io/docs/v5/rate-limit#api-rate-limit-rules-for-vipspros
-MAX_REQUEST_LIMIT_DEFAULT = 20  # 20/s
+MAX_REQUEST_SECURE_DIVIDER = 2
+MAX_REQUEST_LIMIT_DEFAULT = 20 / MAX_REQUEST_SECURE_DIVIDER  # 20/s is the max
+
+# No more than 600 requests are allowed in any 5-second window.
+# https://bybit-exchange.github.io/docs/v5/rate-limit#ip-rate-limit
+SHARED_RATE_LIMIT = 600  # per 5 second
 
 RATE_LIMITS = {
     # General Limits on REST Verbs (GET/POST)
     RateLimit(
-        limit_id=REQUEST_GET,
-        limit=MAX_REQUEST_GET,
-        time_interval=TWO_MINUTES
-    ),
-    RateLimit(
-        limit_id=REQUEST_GET_BURST,
-        limit=MAX_REQUEST_GET_BURST,
-        time_interval=ONE_SECOND
-    ),
-    RateLimit(
-        limit_id=REQUEST_GET_MIXED,
-        limit=MAX_REQUEST_GET_MIXED,
-        time_interval=SIX_SECONDS
-    ),
-    RateLimit(
-        limit_id=REQUEST_POST,
-        limit=MAX_REQUEST_POST,
-        time_interval=TWO_MINUTES
-    ),
-    RateLimit(
-        limit_id=REQUEST_POST_BURST,
-        limit=MAX_REQUEST_POST_BURST,
-        time_interval=ONE_SECOND
-    ),
-    RateLimit(
-        limit_id=REQUEST_POST_MIXED,
-        limit=MAX_REQUEST_POST_MIXED,
-        time_interval=SIX_SECONDS
+        limit_id=REQUEST_GET_POST_SHARED,
+        limit=SHARED_RATE_LIMIT,
+        time_interval=FIVE_SECONDS
     ),
     # Linked limits
     RateLimit(
@@ -166,9 +134,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_GET, 1),
-            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -176,9 +142,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_GET, 1),
-            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -186,9 +150,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_GET, 1),
-            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -196,9 +158,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_GET, 1),
-            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -206,9 +166,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_POST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -216,9 +174,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_POST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -226,9 +182,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_POST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -236,9 +190,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_POST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -246,9 +198,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_POST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
     RateLimit(
@@ -256,9 +206,7 @@ RATE_LIMITS = {
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[
-            LinkedLimitWeightPair(REQUEST_GET, 1),
-            LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
-            LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
         ]
     ),
 }
