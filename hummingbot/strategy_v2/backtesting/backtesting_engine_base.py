@@ -121,13 +121,15 @@ class BacktestingEngineBase:
 
     def update_executors_info(self, timestamp: float):
         active_executors_info = []
+        simulations_to_remove = []
         for executor in self.active_executor_simulations:
             executor_info = executor.get_executor_info_at_timestamp(timestamp)
             if executor_info.status == RunnableStatus.TERMINATED:
                 self.stopped_executors_info.append(executor_info)
-                self.active_executor_simulations.remove(executor)
+                simulations_to_remove.append(executor.config.id)
             else:
                 active_executors_info.append(executor_info)
+        self.active_executor_simulations = [es for es in self.active_executor_simulations if es.config.id not in simulations_to_remove]
         self.controller.executors_info = active_executors_info + self.stopped_executors_info
 
     def update_processed_data(self, row: pd.Series):
