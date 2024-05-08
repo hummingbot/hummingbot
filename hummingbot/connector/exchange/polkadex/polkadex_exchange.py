@@ -43,11 +43,12 @@ class PolkadexExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._data_source = PolkadexDataSource(
-            connector=self, seed_phrase=polkadex_seed_phrase, domain=self._domain, trading_required=trading_required
+            connector=self, seed_phrase=polkadex_seed_phrase, domain=self._domain, trading_pairs=trading_pairs, trading_required=trading_required
         )
         super().__init__(client_config_map=client_config_map)
         self._data_source.configure_throttler(throttler=self._throttler)
         self._forwarders = []
+        self._open_oder_fetching_timestamp = float(0)
         self._configure_event_forwarders()
 
     @property
@@ -318,8 +319,8 @@ class PolkadexExchange(ExchangePyBase):
 
         except asyncio.CancelledError:
             raise
-        except Exception:
-            self.logger().warning("Error fetching trades updates.")
+        except Exception as e:
+            self.logger().warning(f"Error fetching trades updates. {e}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used
