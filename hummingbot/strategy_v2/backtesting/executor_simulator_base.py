@@ -59,7 +59,7 @@ class ExecutorSimulation(BaseModel):
             cum_fees_quote=Decimal(last_entry['cum_fees_quote']),
             filled_amount_quote=Decimal(last_entry['filled_amount_quote']),
             is_active=is_active,
-            is_trading=last_entry['filled_amount_quote'] > 0,
+            is_trading=last_entry['filled_amount_quote'] > 0 and is_active,
             custom_info=self.get_custom_info(last_entry)
         )
 
