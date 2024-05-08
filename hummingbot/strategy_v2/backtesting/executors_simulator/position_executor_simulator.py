@@ -32,7 +32,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         df_filtered["current_position_average_price"] = float(config.entry_price)
 
         if pd.isna(start_timestamp):
-            return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.FAILED)
+            return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT)
 
         entry_price = df.loc[df['timestamp'] == start_timestamp, 'close'].values[0]
 
