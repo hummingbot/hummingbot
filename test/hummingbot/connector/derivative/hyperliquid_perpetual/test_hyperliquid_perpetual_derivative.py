@@ -23,7 +23,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.network_iterator import NetworkStatus
 
@@ -703,7 +703,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
              'dir': 'Open Long', 'closedPnl': '0.0',
              'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
              'tid': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
-             'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+             'oid': order.exchange_order_id or "EOID1",
              'cloid': order.client_order_id or "",
              'crossed': True, 'fee': str(self.expected_fill_fee.flat_fees[0].amount), 'liquidationMarkPx': None}]}}
 
@@ -1002,21 +1002,37 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
         order = self.exchange.in_flight_orders["OID1"]
 
+        order_event = self.order_event_for_full_fill_websocket_update(order=order)
         trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
         mock_queue = AsyncMock()
         event_messages = []
         if trade_event:
             event_messages.append(trade_event)
+        if order_event:
+            event_messages.append(order_event)
         event_messages.append(asyncio.CancelledError)
         mock_queue.get.side_effect = event_messages
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
+        def call_later():
+            order_update: OrderUpdate = OrderUpdate(
+                client_order_id=order.client_order_id,
+                exchange_order_id="EOID1",
+                trading_pair=order.trading_pair,
+                update_timestamp=self.exchange.current_timestamp,
+                new_state=OrderState.OPEN,
+            )
+            self.exchange._order_tracker.process_order_update(order_update)
+
+        asyncio.get_event_loop().call_later(1,call_later)
+
         try:
-            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
-        except asyncio.TimeoutError:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener(), timeout=5)
+        except asyncio.CancelledError:
             pass
-        fill_event = self.order_filled_logger.event_log
-        self.assertEqual([], fill_event)
+
+        fill_event = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
 
     @aioresponses()
     def test_cancel_order_not_found_in_the_exchange(self, mock_api):
