@@ -986,6 +986,39 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
     @aioresponses()
+    def test_user_stream_update_for_trade_message(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        leverage = 2
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
+        mock_queue = AsyncMock()
+        event_messages = []
+        if trade_event:
+            event_messages.append(trade_event)
+        event_messages.append(asyncio.CancelledError)
+        mock_queue.get.side_effect = event_messages
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.TimeoutError:
+            pass
+        fill_event = self.order_filled_logger.event_log
+        self.assertEqual([], fill_event)
+
+    @aioresponses()
     def test_cancel_order_not_found_in_the_exchange(self, mock_api):
         # Disabling this test because the connector has not been updated yet to validate
         # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
