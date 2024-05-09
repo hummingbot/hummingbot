@@ -71,8 +71,6 @@ class DydxPerpetualV4Client:
             step_base_quantums: int,
     ):
         raw_quantums = size * 10 ** (-1 * atomic_resolution)
-        # quantums = round(raw_quantums, step_base_quantums)
-        # return int(max(quantums, step_base_quantums))
         return int(max(raw_quantums, step_base_quantums))
 
     @staticmethod
@@ -84,8 +82,6 @@ class DydxPerpetualV4Client:
     ):
         exponent = atomic_resolution - quantum_conversion_exponent - CONSTANTS.QUOTE_QUANTUMS_ATOMIC_RESOLUTION
         raw_subticks = price * 10 ** (exponent)
-        # subticks = round(raw_subticks, subticks_per_tick)
-        # return int(max(subticks, subticks_per_tick))
         return int(max(raw_subticks, subticks_per_tick))
 
     def calculate_good_til_block_time(self, good_til_time_in_seconds: int) -> int:
