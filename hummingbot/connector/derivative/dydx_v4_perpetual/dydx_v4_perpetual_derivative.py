@@ -248,7 +248,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             position_action: PositionAction = PositionAction.NIL,
             **kwargs,
     ):
-
+        if not self._margin_fractions:
+            await self._update_trading_rules()
         if order_type.is_limit_type():
             _order_type = "LIMIT"
             limit_id = CONSTANTS.LIMIT_LONG_TERM_ORDER_PLACE
