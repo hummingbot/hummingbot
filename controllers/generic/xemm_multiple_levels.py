@@ -126,7 +126,7 @@ class XEMMMultipleLevels(ControllerBase):
             if len(active_buy_executors_target) == 0 and imbalance < self.config.max_executors_imbalance:
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
-                    timestamp=time.time(),
+                    timestamp=self.market_data_provider.time(),
                     buying_market=ConnectorPair(connector_name=self.config.maker_connector,
                                                 trading_pair=self.config.maker_trading_pair),
                     selling_market=ConnectorPair(connector_name=self.config.taker_connector,
