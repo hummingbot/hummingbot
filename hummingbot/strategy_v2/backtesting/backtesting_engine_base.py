@@ -36,8 +36,8 @@ class BacktestingEngineBase:
         self.position_executor_simulator = PositionExecutorSimulator()
         self.dca_executor_simulator = DCAExecutorSimulator()
 
-    @staticmethod
-    def load_controller_config(config_path: str) -> ControllerConfigBase:
+    @classmethod
+    def load_controller_config(cls, config_path: str) -> ControllerConfigBase:
         full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
         with open(full_path, 'r') as file:
             config_data = yaml.safe_load(file)
