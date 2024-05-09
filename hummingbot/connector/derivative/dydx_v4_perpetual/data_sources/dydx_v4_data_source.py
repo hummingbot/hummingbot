@@ -1,3 +1,4 @@
+from asyncio import Lock
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
@@ -36,6 +37,7 @@ class DydxPerpetualV4Client:
         self._dydx_v4_chain_address = dydx_v4_chain_address
         self._connector = connector
         self._subaccount_num = subaccount_num
+        self.transaction_lock = Lock()
         self.number = 0
         self.sequence = 0
         self._is_trading_account_initialized = False
@@ -69,8 +71,9 @@ class DydxPerpetualV4Client:
             step_base_quantums: int,
     ):
         raw_quantums = size * 10 ** (-1 * atomic_resolution)
-        quantums = round(raw_quantums, step_base_quantums)
-        return int(max(quantums, step_base_quantums))
+        # quantums = round(raw_quantums, step_base_quantums)
+        # return int(max(quantums, step_base_quantums))
+        return int(max(raw_quantums, step_base_quantums))
 
     @staticmethod
     def calculate_subticks(
@@ -81,8 +84,9 @@ class DydxPerpetualV4Client:
     ):
         exponent = atomic_resolution - quantum_conversion_exponent - CONSTANTS.QUOTE_QUANTUMS_ATOMIC_RESOLUTION
         raw_subticks = price * 10 ** (exponent)
-        subticks = round(raw_subticks, subticks_per_tick)
-        return int(max(subticks, subticks_per_tick))
+        # subticks = round(raw_subticks, subticks_per_tick)
+        # return int(max(subticks, subticks_per_tick))
+        return int(max(raw_subticks, subticks_per_tick))
 
     def calculate_good_til_block_time(self, good_til_time_in_seconds: int) -> int:
         now = datetime.now()
@@ -140,7 +144,6 @@ class DydxPerpetualV4Client:
     ):
         tx = Transaction()
         tx.add_message(msg)
-
         return await self.prepare_and_broadcast_basic_transaction(
             tx=tx,
             memo=None,
@@ -263,31 +266,32 @@ class DydxPerpetualV4Client:
             tx: "Transaction",  # type: ignore # noqa: F821
             memo: Optional[str] = None,
     ):
-        # query the account information for the sender
-        sequence = await self.trading_account_sequence()
-        number = await self.trading_account_number()
-        # finally, build the final transaction that will be executed with the correct gas and fee values
-        tx.seal(
-            SigningCfg.direct(self._private_key, sequence),
-            fee=f"{CONSTANTS.TX_FEE}{CONSTANTS.FEE_DENOMINATION}",
-            gas_limit=CONSTANTS.TX_GAS_LIMIT,
-            memo=memo,
-        )
-        tx.sign(self._private_key, CONSTANTS.CHAIN_ID, number)
-        tx.complete()
+        async with self.transaction_lock:
+            # query the account information for the sender
+            sequence = await self.trading_account_sequence()
+            number = await self.trading_account_number()
+            # finally, build the final transaction that will be executed with the correct gas and fee values
+            tx.seal(
+                SigningCfg.direct(self._private_key, sequence),
+                fee=f"{CONSTANTS.TX_FEE}{CONSTANTS.FEE_DENOMINATION}",
+                gas_limit=CONSTANTS.TX_GAS_LIMIT,
+                memo=memo,
+            )
+            tx.sign(self._private_key, CONSTANTS.CHAIN_ID, number)
+            tx.complete()
 
-        broadcast_req = BroadcastTxRequest(
-            tx_bytes=tx.tx.SerializeToString(), mode=BroadcastMode.BROADCAST_MODE_SYNC
-        )
-        resp = await self.txs.BroadcastTx(broadcast_req)
+            broadcast_req = BroadcastTxRequest(
+                tx_bytes=tx.tx.SerializeToString(), mode=BroadcastMode.BROADCAST_MODE_SYNC
+            )
+            resp = await self.txs.BroadcastTx(broadcast_req)
+            result = json_format.MessageToDict(
+                message=resp,
+                always_print_fields_with_no_presence=True,
+                preserving_proto_field_name=True,
+                use_integers_for_enums=True,
+            ).get("tx_response", {})
+            err_msg = result.get("raw_log", "")
+            if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in err_msg:
+                await self.initialize_trading_account()
 
-        result = json_format.MessageToDict(
-            message=resp,
-            always_print_fields_with_no_presence=True,
-            preserving_proto_field_name=True,
-            use_integers_for_enums=True,
-        ).get("tx_response", {})
-        if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in result.get("raw_log", ""):
-            await self.initialize_trading_account()
-
-        return result
+            return result
