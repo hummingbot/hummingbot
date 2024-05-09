@@ -202,5 +202,5 @@ RATE_LIMITS = [
     ),
 ]
 
-ORDER_NOT_FOUND_ERROR_MESSAGE = "order not found"
 ACCOUNT_SEQUENCE_MISMATCH_ERROR = "account sequence mismatch"
+ERR_MSG_NO_ORDER_FOUND = "Stateful order does not exist"

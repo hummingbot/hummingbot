@@ -21,7 +21,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
@@ -56,14 +56,11 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
         self._tx_client: DydxPerpetualV4Client = self._create_tx_client()
 
-        self._order_notional_amounts = {}
-        self._current_place_order_requests = 0
-        self._rate_limits_config = {}
         self._margin_fractions = {}
         self._position_id = None
 
         self._allocated_collateral = {}
-        self._allocated_collateral_sum = Decimal("0")
+        # self._allocated_collateral_sum = Decimal("0")
         self.subaccount_id = 0
 
         super().__init__(client_config_map=client_config_map)
@@ -110,7 +107,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return False
+        return True
 
     @property
     def is_trading_required(self) -> bool:
@@ -157,17 +154,28 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     async def start_network(self):
         await super().start_network()
+        await self._update_trading_rules()
         await self._tx_client.initialize_trading_account()
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
-            resp = await self._tx_client.cancel_order(
-                client_id=int(tracked_order.client_order_id),
-                clob_pair_id=self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
-                order_flags=CONSTANTS.ORDER_FLAGS_LONG_TERM,
-                good_til_block_time=int(time.time()) + CONSTANTS.ORDER_EXPIRATION
-            )
-        if resp["raw_log"] != "[]":
+            if not self._margin_fractions:
+                await self._update_trading_rules()
+            for i in range(3):
+                resp = await self._tx_client.cancel_order(
+                    client_id=int(tracked_order.client_order_id),
+                    clob_pair_id=self._margin_fractions[tracked_order.trading_pair]["clob_pair_id"],
+                    order_flags=CONSTANTS.ORDER_FLAGS_LONG_TERM,
+                    good_til_block_time=int(time.time()) + CONSTANTS.ORDER_EXPIRATION
+                )
+                if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in resp['raw_log']:
+                    self.logger().warning(
+                        f"Failed to cancel order {tracked_order.client_order_id} (retry {i + 1}), {resp['raw_log']}")
+                    await asyncio.sleep(1)
+                    continue
+                else:
+                    break
+        if resp["raw_log"] != "[]" and CONSTANTS.ERR_MSG_NO_ORDER_FOUND not in resp['raw_log']:
             raise ValueError(f"Error sending the order cancel transaction ({resp['raw_log']})")
         else:
             return True
@@ -240,13 +248,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             price: Decimal,
             position_action: PositionAction = PositionAction.NIL,
             **kwargs,
-    ) -> Tuple[str, float]:
-        if self._current_place_order_requests == 0:
-            # No requests are under way, the dictionary can be cleaned
-            self._order_notional_amounts = {}
-
-        # Increment number of currently undergoing requests
-        self._current_place_order_requests += 1
+    ):
 
         if order_type.is_limit_type():
             _order_type = "LIMIT"
@@ -268,11 +270,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     amount
                 ).result_price
             price = self.quantize_order_price(trading_pair, price)
-        notional_amount = amount * price
-        if notional_amount not in self._order_notional_amounts.keys():
-            self._order_notional_amounts[notional_amount] = len(self._order_notional_amounts.keys())
-        size = float(amount)
-        price = float(price)
         side = "BUY" if trade_type == TradeType.BUY else "SELL"
         expiration = CONSTANTS.ORDER_EXPIRATION
         reduce_only = False
@@ -281,28 +278,54 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         market = await self.exchange_symbol_associated_to_pair(trading_pair)
         try:
             async with self._throttler.execute_task(limit_id=limit_id):
-                resp = await self._tx_client.place_order(
-                    market=market,
-                    type=_order_type,
-                    side=side,
-                    price=price,
-                    size=size,
-                    client_id=int(order_id),
-                    post_only=post_only,
-                    reduce_only=reduce_only,
-                    good_til_time_in_seconds=expiration,
-                )
+                for i in range(3):
+                    resp = await self._tx_client.place_order(
+                        market=market,
+                        type=_order_type,
+                        side=side,
+                        price=price,
+                        size=amount,
+                        client_id=int(order_id),
+                        post_only=post_only,
+                        reduce_only=reduce_only,
+                        good_til_time_in_seconds=expiration,
+                    )
+                    if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in resp['raw_log']:
+                        self.logger().warning(f"Failed to submit order {order_id} (retry {i + 1}), {resp['raw_log']}")
+                        await asyncio.sleep(1)
+                        continue
+                    else:
+                        break
             if resp["raw_log"] != "[]" or resp["txhash"] in [None, ""]:
                 raise ValueError(f"Error sending the order creation transaction ({resp['raw_log']})")
         except asyncio.CancelledError:
             raise
         except Exception:
-            self._current_place_order_requests -= 1
             raise
-        # Decrement number of currently undergoing requests
-        self._current_place_order_requests -= 1
         # no exchange order id
-        return "", self._time()
+        return None, self._time()
+
+    async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
+        exchange_order_id, update_timestamp = await self._place_order(
+            order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            amount=order.amount,
+            trade_type=order.trade_type,
+            order_type=order.order_type,
+            price=order.price,
+            **kwargs,
+        )
+
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=OrderState.OPEN,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+        return exchange_order_id
 
     def _on_order_failure(
             self,
@@ -366,6 +389,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                 if "orders" in data.keys() and len(data["orders"]) > 0:
                     for order in data["orders"]:
                         client_order_id: str = order["clientId"]
+                        exchange_order_id: str = order["id"]
                         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                         trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["ticker"])
                         if tracked_order is not None:
@@ -375,29 +399,29 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                                 update_timestamp=self.current_timestamp,
                                 new_state=state,
                                 client_order_id=tracked_order.client_order_id,
-                                exchange_order_id=tracked_order.exchange_order_id,
+                                exchange_order_id=exchange_order_id,
                             )
                             self._order_tracker.process_order_update(new_order_update)
                         # Processing all orders of the account, not just the client's
                         if order["status"] in ["OPEN"]:
                             initial_margin_requirement = (
-                                Decimal(order["price"])
-                                * Decimal(order["size"])
-                                * self._margin_fractions[trading_pair]["initial"]
+                                    Decimal(order["price"])
+                                    * Decimal(order["size"])
+                                    * self._margin_fractions[trading_pair]["initial"]
                             )
                             initial_margin_requirement = abs(initial_margin_requirement)
                             self._allocated_collateral[order["id"]] = initial_margin_requirement
-                            self._allocated_collateral_sum += initial_margin_requirement
+                            # self._allocated_collateral_sum += initial_margin_requirement
                             self._account_available_balances[quote] -= initial_margin_requirement
                         if order["status"] in ["FILLED", "CANCELED"]:
                             if order["id"] in self._allocated_collateral:
                                 # Only deduct orders that were previously in the OPEN state
                                 # Some orders are filled instantly and reach only the PENDING state
-                                self._allocated_collateral_sum -= self._allocated_collateral[order["id"]]
+                                # self._allocated_collateral_sum -= self._allocated_collateral[order["id"]]
                                 self._account_available_balances[quote] += self._allocated_collateral[order["id"]]
                                 del self._allocated_collateral[order["id"]]
                 if "fills" in data.keys() and len(data["fills"]) > 0:
-                    trade_updates = self._process_ws_fills(data["fills"])
+                    trade_updates = await self._process_ws_fills(data["fills"])
                     for trade_update in trade_updates:
                         self._order_tracker.process_trade_update(trade_update)
 
@@ -444,12 +468,13 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         trading_rules = []
         markets_info = exchange_info_dict["markets"]
         for market_name in markets_info:
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market_name)
             market = markets_info[market_name]
             try:
                 collateral_token = CONSTANTS.CURRENCY
                 trading_rules += [
                     TradingRule(
-                        trading_pair=market_name,
+                        trading_pair=trading_pair,
                         min_price_increment=Decimal(market["tickSize"]),
                         min_base_amount_increment=Decimal(market["stepSize"]),
                         supports_limit_orders=True,
@@ -458,7 +483,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                         sell_order_collateral_token=collateral_token,
                     )
                 ]
-                self._margin_fractions[market_name] = {
+                self._margin_fractions[trading_pair] = {
                     "initial": Decimal(market["initialMarginFraction"]),
                     "maintenance": Decimal(market["maintenanceMarginFraction"]),
                     "clob_pair_id": market["clobPairId"],
@@ -483,20 +508,21 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances[quote] = Decimal(response["subaccount"]["equity"])
         self._account_available_balances[quote] = Decimal(response["subaccount"]["freeCollateral"])
 
-    def _process_ws_fills(self, fills_data: List) -> List[TradeUpdate]:
+    async def _process_ws_fills(self, fills_data: List) -> List[TradeUpdate]:
         trade_updates = []
 
         for fill_data in fills_data:
             exchange_order_id: str = fill_data["orderId"]
-            tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
-
-            if tracked_order is None:
-                self.logger().debug(
-                    f"Ignoring trade message with exchange id {exchange_order_id}: not in in_flight_orders.")
-            else:
-                trade_update = self._process_order_fills(fill_data=fill_data, order=tracked_order)
-                if trade_update is not None:
-                    trade_updates.append(trade_update)
+            all_orders = self._order_tracker.all_fillable_orders
+            for k, v in all_orders.items():
+                oid = await v.get_exchange_order_id()
+            _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
+            if not _cli_tracked_orders:
+                return trade_updates
+            tracked_order = _cli_tracked_orders[0]
+            trade_update = self._process_order_fills(fill_data=fill_data, order=tracked_order)
+            if trade_update is not None:
+                trade_updates.append(trade_update)
         return trade_updates
 
     # async def _process_funding_payments(self, funding_payments: List):
@@ -811,11 +837,15 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             success = False
 
         if success:
-            markets_info = response["markets"]
-
+            markets_info = response["markets"][trading_pair]
             self._margin_fractions[trading_pair] = {
-                "initial": Decimal(markets_info[trading_pair]["initialMarginFraction"]),
-                "maintenance": Decimal(markets_info[trading_pair]["maintenanceMarginFraction"]),
+                "initial": Decimal(markets_info["initialMarginFraction"]),
+                "maintenance": Decimal(markets_info["maintenanceMarginFraction"]),
+                "clob_pair_id": markets_info["clobPairId"],
+                "atomicResolution": markets_info["atomicResolution"],
+                "stepBaseQuantums": markets_info["stepBaseQuantums"],
+                "quantumConversionExponent": markets_info["quantumConversionExponent"],
+                "subticksPerTick": markets_info["subticksPerTick"],
             }
 
             max_leverage = int(Decimal("1") / self._margin_fractions[trading_pair]["initial"])
