@@ -514,7 +514,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             exchange_order_id: str = fill_data["orderId"]
             all_orders = self._order_tracker.all_fillable_orders
             for k, v in all_orders.items():
-                oid = await v.get_exchange_order_id()
+                await v.get_exchange_order_id()
             _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
             if not _cli_tracked_orders:
                 return trade_updates
