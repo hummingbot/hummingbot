@@ -1024,7 +1024,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
             self.exchange._order_tracker.process_order_update(order_update)
 
-        asyncio.get_event_loop().call_later(1,call_later)
+        asyncio.get_event_loop().call_later(1, call_later)
 
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener(), timeout=5)
