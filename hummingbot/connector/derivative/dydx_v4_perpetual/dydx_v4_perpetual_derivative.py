@@ -60,7 +60,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         self._position_id = None
 
         self._allocated_collateral = {}
-        # self._allocated_collateral_sum = Decimal("0")
         self.subaccount_id = 0
 
         super().__init__(client_config_map=client_config_map)
@@ -405,9 +404,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                         # Processing all orders of the account, not just the client's
                         if order["status"] in ["OPEN"]:
                             initial_margin_requirement = (
-                                    Decimal(order["price"])
-                                    * Decimal(order["size"])
-                                    * self._margin_fractions[trading_pair]["initial"]
+                                Decimal(order["price"])
+                                * Decimal(order["size"])
+                                * self._margin_fractions[trading_pair]["initial"]
                             )
                             initial_margin_requirement = abs(initial_margin_requirement)
                             self._allocated_collateral[order["id"]] = initial_margin_requirement
