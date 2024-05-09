@@ -123,17 +123,17 @@ class SimpleXEMM(ScriptStrategyBase):
                 self.place_buy_order(self.config.taker_exchange, self.config.taker_pair, event.amount)
                 self.sell_order_placed = False
 
-    def place_buy_order(self, exchange: str, trading_pair: str, amount: Decimal):
-        buy_result = self.connectors[exchange].get_price_for_volume(self.trading_pair, True, amount)
+    def place_buy_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
+        buy_result = self.connectors[exchange].get_price_for_volume(trading_pair, True, amount)
         buy_price_with_slippage = buy_result.result_price * Decimal(1 + self.config.slippage_buffer_spread_bps / 10000)
-        buy_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=amount, price=buy_price_with_slippage)
+        buy_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=order_type, order_side=TradeType.BUY, amount=amount, price=buy_price_with_slippage)
         buy_order_adjusted = self.connectors[exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
         self.buy(exchange, trading_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
 
-    def place_sell_order(self, exchange: str, trading_pair: str, amount: Decimal):
-        sell_result = self.connectors[exchange].get_price_for_volume(self.trading_pair, False, amount)
+    def place_sell_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
+        sell_result = self.connectors[exchange].get_price_for_volume(trading_pair, False, amount)
         sell_price_with_slippage = sell_result.result_price * Decimal(1 - self.config.slippage_buffer_spread_bps / 10000)
-        sell_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=amount, price=sell_price_with_slippage)
+        sell_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=order_type, order_side=TradeType.SELL, amount=amount, price=sell_price_with_slippage)
         sell_order_adjusted = self.connectors[exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
         self.sell(exchange, trading_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
 
