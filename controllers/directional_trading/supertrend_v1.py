@@ -12,7 +12,7 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
 
 
 class SuperTrendConfig(DirectionalTradingControllerConfigBase):
-    controller_name: str = "supertrend"
+    controller_name: str = "supertrend_v1"
     candles_config: List[CandlesConfig] = []
     candles_connector: Optional[str] = Field(default=None, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ", ))
     candles_trading_pair: Optional[str] = Field(default=None, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ", ))
