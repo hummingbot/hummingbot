@@ -1,10 +1,10 @@
 from decimal import Decimal
 
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
-from hummingbot.smart_components.executors.data_types import ConnectorPair
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
+from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 
 class ArbitrageWithSmartComponent(ScriptStrategyBase):
