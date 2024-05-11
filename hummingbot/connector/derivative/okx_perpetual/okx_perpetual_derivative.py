@@ -59,6 +59,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._last_trade_history_timestamp = None
+        self._contract_sizes = {}
 
         super().__init__(client_config_map)
 
@@ -118,16 +119,10 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         return 120
 
     def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
-        trading_rule = self._trading_rules[trading_pair]
-        quanto_multiplier = Decimal(trading_rule.min_base_amount_increment)
-        size = amount / quanto_multiplier
-        return size
+        return amount / self._contract_sizes[trading_pair]
 
     def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
-        trading_rule = self._trading_rules[trading_pair]
-        quanto_multiplier = Decimal(trading_rule.min_base_amount_increment)
-        amount = size * quanto_multiplier
-        return amount
+        return size * self._contract_sizes[trading_pair]
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -303,8 +298,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         return final_result
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {"uly": exchange_symbol}
+        params = {"uly": trading_pair, "instType": "SWAP"}
 
         resp_json = await self._api_get(
             path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
@@ -384,6 +378,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 if okx_utils.is_exchange_information_valid(rule):
                     trading_pair = combine_to_hb_trading_pair(rule['ctValCcy'], rule['settleCcy'])
                     contract_size = Decimal(rule["ctVal"])
+                    self._contract_sizes[trading_pair] = contract_size
                     minimum_order_quantity = Decimal(rule["minSz"])
                     min_order_size = minimum_order_quantity * contract_size
 

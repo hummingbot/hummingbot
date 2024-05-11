@@ -81,7 +81,7 @@ class FakeMQTTTransport:
     # def on_message(self, *args, **kwargs):
     #     pass
 
-    def publish(self, topic: str, payload: Dict[str, Any], qos: Any, retain: bool = False):
+    def publish(self, topic: str, payload: Dict[str, Any], qos: Any = "", retain: bool = False):
         logging.info(f"\nFakeMQTT publish on\n> {topic}\n     {payload}\n")
         payload = ujson.loads(JSONSerializer.serialize(payload))
         if not self._received_msgs.get(topic):
