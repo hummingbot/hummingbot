@@ -2,8 +2,9 @@ import unittest
 
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles import CoinbaseAdvancedTradeSpotCandles
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 
 
 class TestCandlesFactory(unittest.TestCase):
