@@ -33,12 +33,12 @@ from hummingbot.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH, STRATEGIES
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import InvalidController, InvalidScriptModule
-from hummingbot.smart_components.controllers.controller_base import ControllerConfigBase
-from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
+from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigBase
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerConfigBase,
 )
-from hummingbot.smart_components.controllers.market_making_controller_base import MarketMakingControllerConfigBase
-from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
+from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401

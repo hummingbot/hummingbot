@@ -3,9 +3,9 @@ from decimal import Decimal
 from sqlalchemy import JSON, BigInteger, Boolean, Column, Float, Index, Integer, Text
 
 from hummingbot.model import HummingbotBase
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class Executors(HummingbotBase):
@@ -39,7 +39,7 @@ class Executors(HummingbotBase):
         Return an ExecutorInfo object based on the current instance.
         """
         close_type = CloseType(self.close_type) if self.close_type else None
-        status = SmartComponentStatus(self.status)
+        status = RunnableStatus(self.status)
         return ExecutorInfo(
             id=self.id,
             timestamp=self.timestamp,
