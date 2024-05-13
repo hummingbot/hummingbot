@@ -6,7 +6,7 @@ import pandas as pd
 from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy.strategy_v2_base import MarketDataProvider
 
 
