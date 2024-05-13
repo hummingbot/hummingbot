@@ -5,6 +5,7 @@ import unittest
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import numpy as np
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -148,6 +149,12 @@ class TestOKXPerpetualCandles(unittest.TestCase):
         # Check the response
         self.assertEqual(resp.shape[0], len(data_mock["data"]))
         self.assertEqual(resp.shape[1], 10)
+
+        # Check if the specified column is sorted in ascending order
+        column_sorted = np.all(np.diff(resp[:, 0]) >= 0)
+
+        # Assert that the column is sorted in ascending order
+        self.assertTrue(column_sorted, f"Column {0} is not sorted in ascending order.")
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
