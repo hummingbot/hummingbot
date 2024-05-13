@@ -1,11 +1,10 @@
 from typing import Dict, Type
 
-from pydantic import BaseModel
-
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
 from hummingbot.data_feed.candles_feed.kraken_spot_candles.kraken_spot_candles import KrakenSpotCandles
@@ -20,21 +19,6 @@ class UnsupportedConnectorException(Exception):
     def __init__(self, connector: str):
         message = f"The connector {connector} is not available. Please select another one."
         super().__init__(message)
-
-
-class CandlesConfig(BaseModel):
-    """
-    The CandlesConfig class is a data class that stores the configuration of a Candle object.
-    It has the following attributes:
-    - connector: str
-    - trading_pair: str
-    - interval: str
-    - max_records: int
-    """
-    connector: str
-    trading_pair: str
-    interval: str = "1m"
-    max_records: int = 500
 
 
 class CandlesFactory:
