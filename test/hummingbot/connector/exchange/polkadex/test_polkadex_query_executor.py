@@ -1,7 +1,7 @@
 import asyncio
 from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from gql import gql
 
@@ -101,3 +101,114 @@ class PolkadexQueryExecutorTests(TestCase):
     def test_timestamp_to_aws_datetime_string(self):
         aws_datetime_str = GrapQLQueryExecutor._timestamp_to_aws_datetime_string(1715663798.5271418)
         self.assertEqual(aws_datetime_str, '2024-05-14T05:16:38.527Z')
+
+    def test_query_all_pages_with_empty_next_token(self):
+        query = gql(
+            """
+            query MyQuery {
+                getAllMarkets {
+                    items {
+                        market
+                        min_volume
+                        price_tick_size
+                        qty_step_size
+                    }
+                }
+            }
+            """
+        )
+
+        parameters = {"market_maker": "enflux"}
+        field_name = "getAllMarkets"
+        throttler_limit_id = "tlid"
+        limit = 42
+
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._execute_query") as execute_query_mock:
+            execute_query_mock.return_value = {"items": [23, 42], "nextToken": None}
+            result = self.async_run_with_timeout(graphql_query_executor._query_all_pages(
+                query,
+                parameters,
+                field_name,
+                throttler_limit_id,
+                limit
+            ))
+
+        self.assertEqual(result, [23, 42])
+
+        parameters.update({"limit": limit})
+
+        execute_query_mock.assert_called_once_with(
+            query,
+            parameters,
+            field_name,
+            throttler_limit_id
+        )
+
+    def test_query_all_pages_with_non_empty_next_token(self):
+        query = gql(
+            """
+            query MyQuery {
+                getAllMarkets {
+                    items {
+                        market
+                        min_volume
+                        price_tick_size
+                        qty_step_size
+                    }
+                }
+            }
+            """
+        )
+
+        parameters = {"market_maker": "enflux"}
+        field_name = "getAllMarkets"
+        throttler_limit_id = "tlid"
+        limit = 42
+
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._execute_query") as execute_query_mock:
+            execute_query_mock.side_effect = [
+                {"items": [23, 42], "nextToken": "abc"},
+                {"items": [11], "nextToken": None}
+            ]
+            result = self.async_run_with_timeout(graphql_query_executor._query_all_pages(
+                query,
+                parameters,
+                field_name,
+                throttler_limit_id,
+                limit
+            ))
+
+        self.assertEqual(result, [23, 42, 11])
+
+        self.assertEqual(len(execute_query_mock.call_args_list), 2)
+
+        parameters.update({
+            "limit": limit,
+            "nextToken": "abc",
+        })
+
+        self.assertEqual(
+            execute_query_mock.call_args_list[0],
+            call(
+                query,
+                parameters,
+                field_name,
+                throttler_limit_id,
+            )
+        )
+
+        del parameters["nextToken"]
+
+        self.assertEqual(
+            execute_query_mock.call_args_list[1],
+            call(
+                query,
+                parameters,
+                field_name,
+                throttler_limit_id,
+            )
+        )
