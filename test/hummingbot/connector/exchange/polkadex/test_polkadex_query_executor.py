@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from datetime import datetime
 from typing import Awaitable
 from unittest import TestCase
@@ -26,7 +25,6 @@ class PolkadexQueryExecutorTests(TestCase):
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
-        logging.disable(logging.CRITICAL)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.async_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))

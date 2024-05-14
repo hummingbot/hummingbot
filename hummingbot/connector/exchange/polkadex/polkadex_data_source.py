@@ -174,8 +174,7 @@ class PolkadexDataSource:
             self._user_proxy_address = "READ_ONLY"
             self._auth = gql.transport.appsync_auth.AppSyncJWTAuthentication(self.netloc_host, "READ_ONLY")
 
-        self._substrate_interface = self._build_substrate_interface()
-        self._query_executor = GrapQLQueryExecutor(auth=self._auth, domain=self._domain)
+        self._query_executor = GrapQLQueryExecutor(auth=self._auth, domain=self._domain, throttler=self._throttler)
         self.logger().info("Polkadex - Finished reinitiation")
 
     async def stop(self):
