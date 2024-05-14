@@ -476,7 +476,7 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
     async def websocket_connect_failure(self):
         self.logger().info(f"Websocket connect failure.{self._websocket_failure}")
         if self._websocket_failure:
-            if self._websocket_failure_timestamp - datetime.utcnow().timestamp() > float(10):
+            if abs(self._websocket_failure_timestamp - datetime.utcnow().timestamp()) > float(10):
                 self._restart_initialization = True
         else:
             await self.set_websocket_failure_timestamp()
