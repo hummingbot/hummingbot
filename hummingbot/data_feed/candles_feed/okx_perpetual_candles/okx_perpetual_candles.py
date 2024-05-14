@@ -97,7 +97,7 @@ class OKXPerpetualCandles(CandlesBase):
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
 
-        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"]][::-1]
+        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"]]
         return np.array(arr).astype(float)
 
     async def fill_historical_candles(self):
@@ -137,8 +137,8 @@ class OKXPerpetualCandles(CandlesBase):
                 if fetched_candles.size == 0:
                     break
 
-                all_candles.append(fetched_candles)
-                last_timestamp = fetched_candles[-1][0]  # Assuming the first column is the timestamp
+                all_candles.append(fetched_candles[::-1])
+                last_timestamp = fetched_candles[0][0]  # Assuming the first column is the timestamp
                 current_start_time = int(last_timestamp)
 
             final_candles = np.concatenate(all_candles, axis=0) if all_candles else np.array([])
