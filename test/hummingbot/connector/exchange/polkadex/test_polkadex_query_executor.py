@@ -388,3 +388,22 @@ class PolkadexQueryExecutorTests(TestCase):
 
         subscribe_to_stream_mock.assert_called_once_with(stream_name=stream_name)
         event_handler_mock.assert_called_once_with(event=23)
+
+    def test_listen_to_orderbook_updates(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        market_symbol = "BTC/USDT"
+        stream_name = f"{market_symbol}-ob-inc"
+        event_handler_mock = MagicMock()
+        event_handler_mock.side_effect = Exception
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._subscribe_to_stream") as subscribe_to_stream_mock:
+            subscribe_to_stream_mock.return_value = AsyncIter([23, 42])
+            with self.assertRaises(SystemExit):
+                self.async_run_with_timeout(graphql_query_executor.listen_to_orderbook_updates(
+                    event_handler_mock,
+                    market_symbol,
+                ))
+
+        subscribe_to_stream_mock.assert_called_once_with(stream_name=stream_name)
+        event_handler_mock.assert_called_once_with(event=23, market_symbol=market_symbol)
