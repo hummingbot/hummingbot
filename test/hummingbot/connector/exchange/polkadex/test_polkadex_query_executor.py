@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -211,4 +212,140 @@ class PolkadexQueryExecutorTests(TestCase):
                 field_name,
                 throttler_limit_id,
             )
+        )
+
+    def test_place_order_returns_str_result_true(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        query = gql(
+            """
+            mutation PlaceOrder($payload: String!) {
+                place_order(input: {payload: $payload})
+            }
+            """
+        )
+
+        order_info = {"a": 23}
+        signature = {"b": 42}
+        parameters = {
+            "payload": json.dumps({"PlaceOrder": [order_info, signature]}),
+        }
+        field_name = "place_order"
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._execute_query") as execute_query_mock:
+            execute_query_mock.return_value = '{"is_success":true,"body":"enflx-001"}'
+            result = self.async_run_with_timeout(graphql_query_executor.place_order(
+                order_info,
+                signature,
+            ))
+
+        self.assertEqual(result, "enflx-001")
+
+        execute_query_mock.assert_called_once_with(
+            query=query,
+            parameters=parameters,
+            field_name=field_name,
+            throttler_limit_id="PlaceOrder"
+        )
+
+    def test_place_order_returns_str_result_false(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        query = gql(
+            """
+            mutation PlaceOrder($payload: String!) {
+                place_order(input: {payload: $payload})
+            }
+            """
+        )
+
+        order_info = {"a": 23}
+        signature = {"b": 42}
+        parameters = {
+            "payload": json.dumps({"PlaceOrder": [order_info, signature]}),
+        }
+        field_name = "place_order"
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._execute_query") as execute_query_mock:
+            execute_query_mock.return_value = '{"is_success":false,"body":"error"}'
+            result = self.async_run_with_timeout(graphql_query_executor.place_order(
+                order_info,
+                signature,
+            ))
+
+        self.assertIsNone(result)
+
+        execute_query_mock.assert_called_once_with(
+            query=query,
+            parameters=parameters,
+            field_name=field_name,
+            throttler_limit_id="PlaceOrder"
+        )
+
+    def test_place_order_returns_dict_result_true(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        query = gql(
+            """
+            mutation PlaceOrder($payload: String!) {
+                place_order(input: {payload: $payload})
+            }
+            """
+        )
+
+        order_info = {"a": 23}
+        signature = {"b": 42}
+        parameters = {
+            "payload": json.dumps({"PlaceOrder": [order_info, signature]}),
+        }
+        field_name = "place_order"
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._execute_query") as execute_query_mock:
+            execute_query_mock.return_value = {"is_success": True, "body": "enflx-001"}
+            result = self.async_run_with_timeout(graphql_query_executor.place_order(
+                order_info,
+                signature,
+            ))
+
+        self.assertEqual(result, "enflx-001")
+
+        execute_query_mock.assert_called_once_with(
+            query=query,
+            parameters=parameters,
+            field_name=field_name,
+            throttler_limit_id="PlaceOrder"
+        )
+
+    def test_place_order_returns_dict_result_false(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        query = gql(
+            """
+            mutation PlaceOrder($payload: String!) {
+                place_order(input: {payload: $payload})
+            }
+            """
+        )
+
+        order_info = {"a": 23}
+        signature = {"b": 42}
+        parameters = {
+            "payload": json.dumps({"PlaceOrder": [order_info, signature]}),
+        }
+        field_name = "place_order"
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._execute_query") as execute_query_mock:
+            execute_query_mock.return_value = {"is_success": False, "body": "error"}
+            result = self.async_run_with_timeout(graphql_query_executor.place_order(
+                order_info,
+                signature,
+            ))
+
+        self.assertIsNone(result)
+
+        execute_query_mock.assert_called_once_with(
+            query=query,
+            parameters=parameters,
+            field_name=field_name,
+            throttler_limit_id="PlaceOrder"
         )
