@@ -397,9 +397,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual(True if order.trade_type is TradeType.BUY else False,
-                         request_data["action"]["orders"][0]["isBuy"])
-        self.assertEqual(order.amount, abs(Decimal(str(request_data["action"]["orders"][0]["sz"]))))
-        self.assertEqual(order.client_order_id, request_data["action"]["orders"][0]["cloid"])
+                         request_data["action"]["orders"][0]["b"])
+        self.assertEqual(order.amount, abs(Decimal(str(request_data["action"]["orders"][0]["s"]))))
+        self.assertEqual(order.client_order_id, request_data["action"]["orders"][0]["c"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
