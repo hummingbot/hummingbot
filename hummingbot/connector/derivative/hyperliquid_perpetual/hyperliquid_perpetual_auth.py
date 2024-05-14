@@ -104,9 +104,9 @@ class HyperliquidPerpetualAuth(AuthBase):
 
     def _sign_cancel_params(self, params, base_url, timestamp):
         order_action = {
-                "type": "cancelByCloid",
-                "cancels": [params["cancels"]],
-            }
+            "type": "cancelByCloid",
+            "cancels": [params["cancels"]],
+        }
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
