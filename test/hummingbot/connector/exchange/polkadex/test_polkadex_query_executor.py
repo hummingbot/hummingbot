@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -141,6 +142,50 @@ class PolkadexQueryExecutorTests(TestCase):
         self.assertEqual(result, [23, 42])
 
         parameters.update({"limit": limit})
+
+        execute_query_mock.assert_called_once_with(
+            query,
+            parameters,
+            field_name,
+            throttler_limit_id
+        )
+
+    def test_query_all_pages_with_empty_next_token_and_empty_parameters(self):
+        query = gql(
+            """
+            query MyQuery {
+                getAllMarkets {
+                    items {
+                        market
+                        min_volume
+                        price_tick_size
+                        qty_step_size
+                    }
+                }
+            }
+            """
+        )
+
+        parameters = None
+        field_name = "getAllMarkets"
+        throttler_limit_id = "tlid"
+        limit = 42
+
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._execute_query") as execute_query_mock:
+            execute_query_mock.return_value = {"items": [23, 42], "nextToken": None}
+            result = self.async_run_with_timeout(graphql_query_executor._query_all_pages(
+                query,
+                parameters,
+                field_name,
+                throttler_limit_id,
+                limit
+            ))
+
+        self.assertEqual(result, [23, 42])
+
+        parameters = {"limit": limit}
 
         execute_query_mock.assert_called_once_with(
             query,
@@ -407,3 +452,47 @@ class PolkadexQueryExecutorTests(TestCase):
 
         subscribe_to_stream_mock.assert_called_once_with(stream_name=stream_name)
         event_handler_mock.assert_called_once_with(event=23, market_symbol=market_symbol)
+
+    def test_set_websocket_failure_timestamp(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, float(0))
+        self.assertFalse(graphql_query_executor._websocket_failure)
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
+            datetime_mock.utcnow = MagicMock(return_value=datetime(2020, 5, 9))
+            self.async_run_with_timeout(graphql_query_executor.set_websocket_failure_timestamp())
+
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, 1588957200.0)
+        self.assertTrue(graphql_query_executor._websocket_failure)
+
+    def test_websocket_connect_failure_no_failure(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, float(0))
+        self.assertFalse(graphql_query_executor._websocket_failure)
+        self.assertFalse(graphql_query_executor._restart_initialization)
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
+            datetime_mock.utcnow = MagicMock(return_value=datetime(2020, 5, 9))
+            self.async_run_with_timeout(graphql_query_executor.websocket_connect_failure())
+
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, 1588957200.0)
+        self.assertTrue(graphql_query_executor._websocket_failure)
+        self.assertFalse(graphql_query_executor._restart_initialization)
+
+    def test_websocket_connect_failure_with_previous_failure(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        graphql_query_executor._websocket_failure_timestamp = 1588957200.0
+        graphql_query_executor._websocket_failure = True
+
+        self.assertFalse(graphql_query_executor._restart_initialization)
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
+            datetime_mock.utcnow = MagicMock(return_value=datetime(2020, 5, 10))
+            self.async_run_with_timeout(graphql_query_executor.websocket_connect_failure())
+
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, 1588957200.0)
+        self.assertTrue(graphql_query_executor._websocket_failure)
+        self.assertTrue(graphql_query_executor._restart_initialization)
