@@ -97,3 +97,7 @@ class PolkadexQueryExecutorTests(TestCase):
         mock_client.assert_called_once_with(transport=mock_transport(), fetch_schema_from_transport=False)
         session_mock.subscribe.called_once_with(query, variable_values={"name": "big-bro-is-watching-you"}, parse_result=True)
         self.assertEqual(result, [23, 42])
+
+    def test_timestamp_to_aws_datetime_string(self):
+        aws_datetime_str = GrapQLQueryExecutor._timestamp_to_aws_datetime_string(1715663798.5271418)
+        self.assertEqual(aws_datetime_str, '2024-05-14T05:16:38.527Z')
