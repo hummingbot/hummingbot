@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -24,6 +25,7 @@ class PolkadexQueryExecutorTests(TestCase):
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
+        logging.disable(logging.CRITICAL)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.async_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -349,3 +351,40 @@ class PolkadexQueryExecutorTests(TestCase):
             field_name=field_name,
             throttler_limit_id="PlaceOrder"
         )
+
+    def test_listen_to_private_events(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        address = "0xENFLX"
+        event_handler_mock = MagicMock()
+        event_handler_mock.side_effect = Exception
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._subscribe_to_stream") as subscribe_to_stream_mock:
+            subscribe_to_stream_mock.return_value = AsyncIter([23, 42])
+            with self.assertRaises(SystemExit):
+                self.async_run_with_timeout(graphql_query_executor.listen_to_private_events(
+                    event_handler_mock,
+                    address,
+                ))
+
+        subscribe_to_stream_mock.assert_called_once_with(stream_name=address)
+        event_handler_mock.assert_called_once_with(event=23)
+
+    def test_listen_to_public_trades(self):
+        graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
+
+        market_symbol = "BTC/USDT"
+        stream_name = f"{market_symbol}-recent-trades"
+        event_handler_mock = MagicMock()
+        event_handler_mock.side_effect = Exception
+
+        with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.GrapQLQueryExecutor._subscribe_to_stream") as subscribe_to_stream_mock:
+            subscribe_to_stream_mock.return_value = AsyncIter([23, 42])
+            with self.assertRaises(SystemExit):
+                self.async_run_with_timeout(graphql_query_executor.listen_to_public_trades(
+                    event_handler_mock,
+                    market_symbol,
+                ))
+
+        subscribe_to_stream_mock.assert_called_once_with(stream_name=stream_name)
+        event_handler_mock.assert_called_once_with(event=23)
