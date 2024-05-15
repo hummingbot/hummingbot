@@ -1,4 +1,3 @@
-import time
 from decimal import Decimal
 from typing import List
 
@@ -6,13 +5,12 @@ import pandas_ta as ta  # noqa: F401
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.core.data_type.common import PriceType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.market_making_controller_base import (
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 
 
 class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):
@@ -105,23 +103,26 @@ class PMMDynamicController(MarketMakingControllerBase):
                                                            interval=self.config.interval,
                                                            max_records=self.max_records)
         natr = ta.natr(candles["high"], candles["low"], candles["close"], length=self.config.natr_length) / 100
-        macd_output = ta.macd(candles["close"], fast=self.config.macd_fast, slow=self.config.macd_slow, signal=self.config.macd_signal)
+        macd_output = ta.macd(candles["close"], fast=self.config.macd_fast,
+                              slow=self.config.macd_slow, signal=self.config.macd_signal)
         macd = macd_output[f"MACD_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
         macd_signal = - (macd - macd.mean()) / macd.std()
         macdh = macd_output[f"MACDh_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
         macdh_signal = macdh.apply(lambda x: 1 if x > 0 else -1)
         max_price_shift = natr / 2
-        price_multiplier = Decimal(((0.5 * macd_signal + 0.5 * macdh_signal) * max_price_shift).iloc[-1])
-        spread_multiplier = Decimal(natr.iloc[-1])
-        mid_price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair,
-                                                                PriceType.MidPrice)
-        reference_price = mid_price * (1 + price_multiplier)
-        self.processed_data = {"reference_price": reference_price, "spread_multiplier": spread_multiplier}
+        price_multiplier = ((0.5 * macd_signal + 0.5 * macdh_signal) * max_price_shift).iloc[-1]
+        candles["spread_multiplier"] = natr
+        candles["reference_price"] = candles["close"] * (1 + price_multiplier)
+        self.processed_data = {
+            "reference_price": Decimal(candles["reference_price"].iloc[-1]),
+            "spread_multiplier": Decimal(candles["spread_multiplier"].iloc[-1]),
+            "features": candles
+        }
 
     def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         trade_type = self.get_trade_type_from_level_id(level_id)
         return PositionExecutorConfig(
-            timestamp=time.time(),
+            timestamp=self.market_data_provider.time(),
             level_id=level_id,
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
