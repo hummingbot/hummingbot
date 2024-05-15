@@ -257,7 +257,7 @@ class BacktestingEngineBase:
             accuracy_long = correct_long / total_long if total_long > 0 else 0
             accuracy_short = correct_short / total_short if total_short > 0 else 0
             executors_df["close_type_name"] = executors_df["close_type"].apply(lambda x: x.name)
-            close_types = executors_df.groupby("close_type_name")["timestamp"].count()
+            close_types = executors_df.groupby("close_type_name")["timestamp"].count().to_dict()
             executors_with_position = executors_df[executors_df["net_pnl_quote"] != 0].copy()
             # Additional metrics
             total_positions = executors_with_position.shape[0]
