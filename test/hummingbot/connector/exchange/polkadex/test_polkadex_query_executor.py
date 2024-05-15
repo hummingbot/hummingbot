@@ -456,12 +456,13 @@ class PolkadexQueryExecutorTests(TestCase):
 
         self.assertEqual(graphql_query_executor._websocket_failure_timestamp, float(0))
         self.assertFalse(graphql_query_executor._websocket_failure)
+        dt = datetime(2020, 5, 9)
 
         with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
-            datetime_mock.utcnow = MagicMock(return_value=datetime(2020, 5, 9))
+            datetime_mock.utcnow = MagicMock(return_value=dt)
             self.async_run_with_timeout(graphql_query_executor.set_websocket_failure_timestamp())
 
-        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, 1588957200.0)
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, dt.timestamp())
         self.assertTrue(graphql_query_executor._websocket_failure)
 
     def test_websocket_connect_failure_no_failure(self):
@@ -470,19 +471,21 @@ class PolkadexQueryExecutorTests(TestCase):
         self.assertEqual(graphql_query_executor._websocket_failure_timestamp, float(0))
         self.assertFalse(graphql_query_executor._websocket_failure)
         self.assertFalse(graphql_query_executor._restart_initialization)
+        dt = datetime(2020, 5, 9)
 
         with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
-            datetime_mock.utcnow = MagicMock(return_value=datetime(2020, 5, 9))
+            datetime_mock.utcnow = MagicMock(return_value=dt)
             self.async_run_with_timeout(graphql_query_executor.websocket_connect_failure())
 
-        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, 1588957200.0)
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, dt.timestamp())
         self.assertTrue(graphql_query_executor._websocket_failure)
         self.assertFalse(graphql_query_executor._restart_initialization)
 
     def test_websocket_connect_failure_with_previous_failure(self):
         graphql_query_executor = GrapQLQueryExecutor(MagicMock(), MagicMock())
 
-        graphql_query_executor._websocket_failure_timestamp = 1588957200.0
+        dt = datetime(2020, 5, 9)
+        graphql_query_executor._websocket_failure_timestamp = dt.timestamp()
         graphql_query_executor._websocket_failure = True
 
         self.assertFalse(graphql_query_executor._restart_initialization)
@@ -491,6 +494,6 @@ class PolkadexQueryExecutorTests(TestCase):
             datetime_mock.utcnow = MagicMock(return_value=datetime(2020, 5, 10))
             self.async_run_with_timeout(graphql_query_executor.websocket_connect_failure())
 
-        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, 1588957200.0)
+        self.assertEqual(graphql_query_executor._websocket_failure_timestamp, dt.timestamp())
         self.assertTrue(graphql_query_executor._websocket_failure)
         self.assertTrue(graphql_query_executor._restart_initialization)
