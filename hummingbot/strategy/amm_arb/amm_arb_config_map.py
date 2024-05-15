@@ -85,7 +85,7 @@ amm_arb_config_map = {
     "pool_id": ConfigVar(
         key="pool_id",
         prompt="Specify poolId to interract with on the DEX connector >>> ",
-        prompt_on_new=True,
+        prompt_on_new=False,
         type_str="str",
         default=""),
     "order_amount": ConfigVar(
