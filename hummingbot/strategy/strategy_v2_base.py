@@ -15,24 +15,24 @@ from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import PositionMode
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.exceptions import InvalidController
-from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerConfigBase,
 )
-from hummingbot.smart_components.controllers.market_making_controller_base import MarketMakingControllerConfigBase
-from hummingbot.smart_components.executors.executor_orchestrator import ExecutorOrchestrator
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import (
+from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
+from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executor_actions import (
     CreateExecutorAction,
     ExecutorAction,
     StopExecutorAction,
     StoreExecutorAction,
 )
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class StrategyV2ConfigBase(BaseClientModel):
@@ -351,7 +351,7 @@ class StrategyV2Base(ScriptStrategyBase):
         df.sort_values(by='status', ascending=True, inplace=True)
 
         # Convert back to enums for display
-        df['status'] = df['status'].apply(SmartComponentStatus)
+        df['status'] = df['status'].apply(RunnableStatus)
         return df
 
     def format_status(self) -> str:

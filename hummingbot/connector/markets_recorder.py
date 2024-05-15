@@ -46,8 +46,8 @@ from hummingbot.model.range_position_collected_fees import RangePositionCollecte
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.smart_components.controllers.controller_base import ControllerConfigBase
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigBase
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class MarketsRecorder:
