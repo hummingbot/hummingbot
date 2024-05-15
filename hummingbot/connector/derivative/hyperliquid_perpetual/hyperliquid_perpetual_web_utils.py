@@ -1,4 +1,5 @@
 import time
+from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_constants as CONSTANTS
@@ -128,13 +129,13 @@ def order_grouping_to_number(grouping) -> int:
 
 def order_spec_to_order_wire(order_spec):
     return {
-        "asset": order_spec["asset"],
-        "isBuy": order_spec["isBuy"],
-        "limitPx": float_to_wire(order_spec["limitPx"]),
-        "sz": float_to_wire(order_spec["sz"]),
-        "reduceOnly": order_spec["reduceOnly"],
-        "orderType": order_type_to_wire(order_spec["orderType"]),
-        "cloid": order_spec["cloid"],
+        "a": order_spec["asset"],
+        "b": order_spec["isBuy"],
+        "p": float_to_wire(order_spec["limitPx"]),
+        "s": float_to_wire(order_spec["sz"]),
+        "r": order_spec["reduceOnly"],
+        "t": order_type_to_wire(order_spec["orderType"]),
+        "c": order_spec["cloid"],
     }
 
 
@@ -142,7 +143,10 @@ def float_to_wire(x: float) -> str:
     rounded = "{:.8f}".format(x)
     if abs(float(rounded) - x) >= 1e-12:
         raise ValueError("float_to_wire causes rounding", x)
-    return rounded
+    if rounded == "-0":
+        rounded = "0"
+    normalized = Decimal(rounded).normalize()
+    return f"{normalized:f}"
 
 
 def order_type_to_wire(order_type):
