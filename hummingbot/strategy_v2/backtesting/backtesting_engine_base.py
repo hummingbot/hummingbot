@@ -2,7 +2,7 @@ import importlib
 import inspect
 import os
 from decimal import Decimal
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -33,20 +33,29 @@ class BacktestingEngineBase:
     def __init__(self):
         self.controller = None
         self.backtesting_resolution = None
+        self.backtesting_data_provider = BacktestingDataProvider(connectors={})
         self.position_executor_simulator = PositionExecutorSimulator()
         self.dca_executor_simulator = DCAExecutorSimulator()
 
     @classmethod
-    def load_controller_config(cls, config_path: str) -> ControllerConfigBase:
+    def load_controller_config(cls, config_path: str) -> Dict:
         full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
         with open(full_path, 'r') as file:
             config_data = yaml.safe_load(file)
+        return config_data
 
+    @classmethod
+    def get_controller_config_instance_from_yml(cls, config_path: str) -> ControllerConfigBase:
+        config_data = cls.load_controller_config(config_path)
+        return cls.get_controller_config_instance_from_dict(config_data)
+
+    @classmethod
+    def get_controller_config_instance_from_dict(cls, config_data: dict) -> ControllerConfigBase:
         controller_type = config_data.get('controller_type')
         controller_name = config_data.get('controller_name')
 
         if not controller_type or not controller_name:
-            raise ValueError(f"Missing controller_type or controller_name in {config_path}")
+            raise ValueError("Missing controller_type or controller_name in the configuration.")
 
         module_path = f"{settings.CONTROLLERS_MODULE}.{controller_type}.{controller_name}"
         module = importlib.import_module(module_path)
@@ -68,8 +77,8 @@ class BacktestingEngineBase:
                               trade_cost=0.0006):
         # Load historical candles
         controller_class = controller_config.get_controller_class()
-        backtesting_data_provider = BacktestingDataProvider(connectors={}, start_time=start, end_time=end)
-        self.controller = controller_class(config=controller_config, market_data_provider=backtesting_data_provider,
+        self.backtesting_data_provider.update_backtesting_time(start, end)
+        self.controller = controller_class(config=controller_config, market_data_provider=self.backtesting_data_provider,
                                            actions_queue=None)
         self.backtesting_resolution = backtesting_resolution
         await self.initialize_backtesting_data_provider()

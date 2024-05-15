@@ -1,6 +1,8 @@
 from decimal import Decimal
 from typing import Dict
 
+import pandas as pd
+
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import PriceType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
@@ -9,18 +11,25 @@ from hummingbot.data_feed.market_data_provider import MarketDataProvider
 
 
 class BacktestingDataProvider(MarketDataProvider):
-    def __init__(self, connectors: Dict[str, ConnectorBase], start_time: int, end_time: int):
+    def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
-        self.start_time = start_time
-        self.end_time = end_time
+        self.start_time = None
+        self.end_time = None
         self.prices = {}
-        self._time = start_time
+        self._time = None
 
     def time(self):
         return self._time
 
     async def initialize_candles_feed(self, config: CandlesConfig):
         await self.get_candles_feed(config)
+
+    def update_backtesting_time(self, start_time: int, end_time: int):
+        if (self.start_time is None or self.end_time is None) or \
+                (start_time < self.start_time or end_time > self.end_time):
+            self.start_time = start_time
+            self.end_time = end_time
+            self._time = start_time
 
     async def get_candles_feed(self, config: CandlesConfig):
         """
@@ -30,9 +39,9 @@ class BacktestingDataProvider(MarketDataProvider):
         :return: Candle feed instance.
         """
         key = self._generate_candle_feed_key(config)
-        existing_feed = self.candles_feeds.get(key)
+        existing_feed = self.candles_feeds.get(key, pd.DataFrame())
 
-        if existing_feed:
+        if not existing_feed.empty:
             # Existing feed is sufficient, return it
             return existing_feed
         else:
@@ -46,7 +55,7 @@ class BacktestingDataProvider(MarketDataProvider):
                 end_time=self.end_time,
             ))
             self.candles_feeds[key] = candles_df
-            return candle_feed
+            return candles_df
 
     def get_candles_df(self, connector_name: str, trading_pair: str, interval: str, max_records: int = 500):
         """
@@ -57,7 +66,8 @@ class BacktestingDataProvider(MarketDataProvider):
         :param max_records: int
         :return: Candles dataframe.
         """
-        return self.candles_feeds.get(f"{connector_name}_{trading_pair}_{interval}")
+        candles_df = self.candles_feeds.get(f"{connector_name}_{trading_pair}_{interval}")
+        return candles_df[(candles_df["timestamp"] >= self.start_time) & (candles_df["timestamp"] <= self.end_time)]
 
     def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType):
         """
