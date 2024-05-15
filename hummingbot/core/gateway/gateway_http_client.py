@@ -394,21 +394,25 @@ class GatewayHttpClient:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "base": base_asset,
+            "quote": quote_asset,
+            "amount": f"{amount:.18f}",
+            "side": side.name,
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
+        }
+
+        if pool_id not in ["", None]:
+            request_payload["poolId"] = pool_id
+
         # XXX(martin_kou): The amount is always output with 18 decimal places.
         return await self.api_request(
             "post",
             "amm/price",
-            {
-                "chain": chain,
-                "network": network,
-                "connector": connector,
-                "base": base_asset,
-                "quote": quote_asset,
-                "poolId": pool_id,
-                "amount": f"{amount:.18f}",
-                "side": side.name,
-                "allowedSlippage": "0/1",  # hummingbot applies slippage itself
-            },
+            request_payload,
             fail_silently=fail_silently,
         )
 
@@ -498,12 +502,13 @@ class GatewayHttpClient:
             "address": address,
             "base": base_asset,
             "quote": quote_asset,
-            "poolId": pool_id,
             "side": side.name,
             "amount": f"{amount:.18f}",
             "limitPrice": f"{price:.20f}",
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
+        if pool_id not in ["", None]:
+            request_payload["poolId"] = pool_id
         if nonce is not None:
             request_payload["nonce"] = int(nonce)
         if max_fee_per_gas is not None:
