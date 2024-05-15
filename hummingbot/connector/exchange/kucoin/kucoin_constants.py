@@ -68,3 +68,9 @@ RATE_LIMITS = [
     RateLimit(limit_id=FILLS_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=FILLS_PATH_URL_HFT, limit=9, time_interval=3),
 ]
+
+RET_CODE_OK = 200000
+RET_CODE_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL = 400100
+RET_MSG_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL = "order_not_exist_or_not_allow_to_cancel"
+RET_CODE_RESOURCE_NOT_FOUND = 404
+RET_MSG_RESOURCE_NOT_FOUND = "Not Found"

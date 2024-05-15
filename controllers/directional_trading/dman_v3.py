@@ -2,19 +2,18 @@ import time
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-import pandas as pd
 import pandas_ta as ta  # noqa: F401
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
+from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop
 
 
 class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
@@ -164,10 +163,7 @@ class DManV3Controller(DirectionalTradingControllerBase):
             )]
         super().__init__(config, *args, **kwargs)
 
-    def get_signal(self) -> int:
-        return self.get_processed_data()["signal"].iloc[-1]
-
-    def get_processed_data(self) -> pd.DataFrame:
+    async def update_processed_data(self):
         df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
                                                       trading_pair=self.config.candles_trading_pair,
                                                       interval=self.config.interval,
@@ -183,11 +179,14 @@ class DManV3Controller(DirectionalTradingControllerBase):
         df["signal"] = 0
         df.loc[long_condition, "signal"] = 1
         df.loc[short_condition, "signal"] = -1
-        return df
+
+        # Update processed data
+        self.processed_data["signal"] = df["signal"].iloc[-1]
+        self.processed_data["features"] = df
 
     def get_spread_multiplier(self) -> Decimal:
         if self.config.dynamic_order_spread:
-            df = self.get_processed_data()
+            df = self.processed_data["features"]
             bb_width = df[f"BBB_{self.config.bb_length}_{self.config.bb_std}"].iloc[-1]
             return Decimal(bb_width / 200)
         else:
