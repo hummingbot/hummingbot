@@ -2,7 +2,7 @@ import unittest
 from decimal import Decimal
 
 from hummingbot.strategy_v2.executors.position_executor.data_types import TripleBarrierConfig
-from hummingbot.strategy_v2.order_level_distributions.order_level_builder import OrderLevelBuilder
+from hummingbot.strategy_v2.utils.order_level_builder import OrderLevelBuilder
 
 
 class TestOrderLevelBuilder(unittest.TestCase):
