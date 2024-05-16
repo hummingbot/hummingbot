@@ -25,11 +25,11 @@ class BacktestingDataProvider(MarketDataProvider):
         await self.get_candles_feed(config)
 
     def update_backtesting_time(self, start_time: int, end_time: int):
+        self.start_time = start_time
+        self.end_time = end_time
+        self._time = start_time
         if (self.start_time is None or self.end_time is None) or \
                 (start_time < self.start_time or end_time > self.end_time):
-            self.start_time = start_time
-            self.end_time = end_time
-            self._time = start_time
             self.candles_feeds = {}
 
     async def get_candles_feed(self, config: CandlesConfig):
