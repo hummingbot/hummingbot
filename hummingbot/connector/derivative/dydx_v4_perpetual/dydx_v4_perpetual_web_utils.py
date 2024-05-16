@@ -37,7 +37,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
 
 
 def build_api_factory(
-        throttler: AsyncThrottler,
+        throttler: AsyncThrottler = None,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     api_factory = WebAssistantsFactory(

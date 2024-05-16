@@ -1,6 +1,10 @@
+import asyncio
+import json
 import unittest
-from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import ANY, AsyncMock, Mock, patch
+from typing import Awaitable
+from unittest.mock import Mock, patch
+
+from aioresponses import aioresponses
 
 from hummingbot.connector.derivative.dydx_v4_perpetual import (
     dydx_v4_perpetual_constants as CONSTANTS,
@@ -10,6 +14,10 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class DydxV4PerpetualWebUtilsTest(unittest.TestCase):
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def test_public_rest_url(self):
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
@@ -30,3 +38,15 @@ class DydxV4PerpetualWebUtilsTest(unittest.TestCase):
         throttler = Mock()
         web_utils.build_api_factory_without_time_synchronizer_pre_processor(throttler)
         mock_factory.assert_called_once_with(throttler=throttler)
+
+    @aioresponses()
+    def test_get_current_server_time(self, api_mock):
+        throttler = web_utils.create_throttler()
+        url = web_utils.public_rest_url(path_url=CONSTANTS.PATH_TIME)
+        data = {'iso': '2024-05-15T10:38:19.795Z', 'epoch': 1715769499.795}
+
+        api_mock.get(url=url, body=json.dumps(data))
+
+        time = self.async_run_with_timeout(web_utils.get_current_server_time(throttler))
+
+        self.assertEqual(data["epoch"], time)
