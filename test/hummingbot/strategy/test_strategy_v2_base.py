@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
@@ -10,11 +11,12 @@ from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExcha
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.data_type.common import PositionMode, TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executors import CloseType
-from hummingbot.smart_components.models.executors_info import ExecutorInfo, PerformanceReport
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction
+from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
 
 
 class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
@@ -61,7 +63,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             id="1",
             controller_id="controller_1",
             type="position_executor",
-            status=SmartComponentStatus.TERMINATED,
+            status=RunnableStatus.TERMINATED,
             timestamp=10,
             config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
                                           connector_name="binance",
@@ -78,7 +80,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             id="2",
             controller_id="controller_2",
             type="position_executor",
-            status=SmartComponentStatus.RUNNING,
+            status=RunnableStatus.RUNNING,
             timestamp=20,
             config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
                                           connector_name="binance",
@@ -129,10 +131,10 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         mock_connector.set_position_mode.assert_called_with(PositionMode.HEDGE)
 
     def test_filter_executors(self):
-        executors = [MagicMock(status=SmartComponentStatus.RUNNING), MagicMock(status=SmartComponentStatus.TERMINATED)]
-        filtered = StrategyV2Base.filter_executors(executors, lambda x: x.status == SmartComponentStatus.RUNNING)
+        executors = [MagicMock(status=RunnableStatus.RUNNING), MagicMock(status=RunnableStatus.TERMINATED)]
+        filtered = StrategyV2Base.filter_executors(executors, lambda x: x.status == RunnableStatus.RUNNING)
         self.assertEqual(len(filtered), 1)
-        self.assertEqual(filtered[0].status, SmartComponentStatus.RUNNING)
+        self.assertEqual(filtered[0].status, RunnableStatus.RUNNING)
 
     def test_is_perpetual(self):
         self.assertTrue(StrategyV2Base.is_perpetual("binance_perpetual"))
@@ -144,7 +146,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
     @patch.object(StrategyV2Base, "update_controllers_configs")
     @patch.object(StrategyV2Base, "update_executors_info")
     @patch("hummingbot.data_feed.market_data_provider.MarketDataProvider.ready", new_callable=PropertyMock)
-    @patch("hummingbot.smart_components.executors.executor_orchestrator.ExecutorOrchestrator.execute_action")
+    @patch("hummingbot.strategy_v2.executors.executor_orchestrator.ExecutorOrchestrator.execute_action")
     async def test_on_tick(self, mock_execute_action, mock_ready, mock_update_executors_info,
                            mock_update_controllers_configs,
                            mock_store_actions_proposal, mock_stop_actions_proposal, mock_create_actions_proposal):
@@ -223,7 +225,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             id="1",
             controller_id="controller_1",
             type="position_executor",
-            status=SmartComponentStatus.TERMINATED,
+            status=RunnableStatus.TERMINATED,
             timestamp=10,
             config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
                                           connector_name="binance",
@@ -240,7 +242,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             id="2",
             controller_id="controller_2",
             type="position_executor",
-            status=SmartComponentStatus.RUNNING,
+            status=RunnableStatus.RUNNING,
             timestamp=20,
             config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
                                           connector_name="binance",
@@ -261,12 +263,26 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(df, pd.DataFrame)
         self.assertEqual(len(df), 2)
         self.assertEqual(list(df.columns),
-                         ["id", "timestamp", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
-                          "is_trading", "filled_amount_quote", "close_type"])
+                         ['id',
+                          'timestamp',
+                          'type',
+                          'close_timestamp',
+                          'close_type',
+                          'status',
+                          'config',
+                          'net_pnl_pct',
+                          'net_pnl_quote',
+                          'cum_fees_quote',
+                          'filled_amount_quote',
+                          'is_active',
+                          'is_trading',
+                          'custom_info',
+                          'controller_id',
+                          'side'])
         self.assertEqual(df.iloc[0]['id'], '2')  # Since the dataframe is sorted by status
         self.assertEqual(df.iloc[1]['id'], '1')
-        self.assertEqual(df.iloc[0]['status'], SmartComponentStatus.RUNNING)
-        self.assertEqual(df.iloc[1]['status'], SmartComponentStatus.TERMINATED)
+        self.assertEqual(df.iloc[0]['status'], RunnableStatus.RUNNING)
+        self.assertEqual(df.iloc[1]['status'], RunnableStatus.TERMINATED)
 
     def create_mock_performance_report(self):
         return PerformanceReport(
@@ -290,32 +306,29 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         controller_mock.to_format_status.return_value = ["Mock status for controller"]
         self.strategy.controllers = {"controller_1": controller_mock}
 
-        # Mocking generate_performance_report
-        mock_report = MagicMock()
-        mock_report.realized_pnl_quote = Decimal("100.00")
-        mock_report.unrealized_pnl_quote = Decimal("50.00")
-        mock_report.global_pnl_quote = Decimal("150.00")
-        mock_report.global_pnl_pct = Decimal("10.00")
-        mock_report.volume_traded = Decimal("1500.00")
-        mock_report.close_type_counts = {"close_type_1": 1, "close_type_2": 2}
-        self.strategy.executor_orchestrator.generate_performance_report = MagicMock(return_value=mock_report)
+        mock_report_controller_1 = MagicMock()
+        mock_report_controller_1.realized_pnl_quote = Decimal("100.00")
+        mock_report_controller_1.unrealized_pnl_quote = Decimal("50.00")
+        mock_report_controller_1.global_pnl_quote = Decimal("150.00")
+        mock_report_controller_1.global_pnl_pct = Decimal("15.00")
+        mock_report_controller_1.volume_traded = Decimal("1000.00")
+        mock_report_controller_1.close_type_counts = {CloseType.TAKE_PROFIT: 10, CloseType.STOP_LOSS: 5}
 
-        # Expected data
-        expected_controller_performance_info = [
-            "Realized PNL (Quote): 100.00 | Unrealized PNL (Quote): 50.00",
-            "--> Global PNL (Quote): 150.00 | Global PNL (%): 10.00%",
-            "Total Volume Traded: 1500.00",
-            "Close Types Count:",
-            "  close_type_1: 1",
-            "  close_type_2: 2"
-        ]
-
-        expected_global_performance_summary = [
-            "Global PNL (Quote): 150.00 | Global PNL (%): 10.00% | Total Volume Traded (Global): 1500.00",
-            "Global Close Types Count:",
-            "  close_type_1: 1",
-            "  close_type_2: 2"
-        ]
+        # Mocking generate_performance_report for main controller
+        mock_report_main = MagicMock()
+        mock_report_main.realized_pnl_quote = Decimal("200.00")
+        mock_report_main.unrealized_pnl_quote = Decimal("75.00")
+        mock_report_main.global_pnl_quote = Decimal("275.00")
+        mock_report_main.global_pnl_pct = Decimal("15.00")
+        mock_report_main.volume_traded = Decimal("2000.00")
+        mock_report_main.close_type_counts = {CloseType.TAKE_PROFIT: 2, CloseType.STOP_LOSS: 3}
+        self.strategy.executor_orchestrator.generate_performance_report = MagicMock(side_effect=[mock_report_controller_1, mock_report_main])
+        # Mocking get_executors_by_controller for main controller to return an empty list
+        self.strategy.get_executors_by_controller = MagicMock(return_value=[ExecutorInfo(
+            id="12312", timestamp=1234567890, status=RunnableStatus.TERMINATED,
+            config=self.get_position_config_market_short(), net_pnl_pct=Decimal(0), net_pnl_quote=Decimal(0),
+            cum_fees_quote=Decimal(0), filled_amount_quote=Decimal(0), is_active=False, is_trading=False,
+            custom_info={}, type="position_executor", controller_id="main")])
 
         # Call format_status
         status = self.strategy.format_status()
@@ -323,7 +336,35 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         # Assertions
         self.assertIn(original_status, status)
         self.assertIn("Mock status for controller", status)
-        for line in expected_controller_performance_info:
-            self.assertIn(line, status)
-        for line in expected_global_performance_summary:
-            self.assertIn(line, status)
+        self.assertIn("Controller: controller_1", status)
+        self.assertIn("Realized PNL (Quote): 100.00", status)
+        self.assertIn("Unrealized PNL (Quote): 50.00", status)
+        self.assertIn("Global PNL (Quote): 150", status)
+
+    async def test_listen_to_executor_actions(self):
+        self.strategy.actions_queue = MagicMock()
+        # Simulate some actions being returned, followed by an exception to break the loop.
+        self.strategy.actions_queue.get = AsyncMock(side_effect=[
+            [CreateExecutorAction(controller_id="controller_1",
+                                  executor_config=self.get_position_config_market_short())],
+            Exception,
+            asyncio.CancelledError,
+        ])
+        self.strategy.executor_orchestrator.execute_actions = AsyncMock()
+        controller_mock = MagicMock()
+        self.strategy.controllers = {"controller_1": controller_mock}
+
+        # Test for exception handling inside the method.
+        try:
+            await self.strategy.listen_to_executor_actions()
+        except asyncio.CancelledError:
+            pass
+
+        # Check assertions here to verify the actions were handled as expected.
+        self.assertEqual(self.strategy.executor_orchestrator.execute_actions.call_count, 1)
+
+    def get_position_config_market_short(self):
+        return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT",
+                                      connector_name="binance",
+                                      side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      triple_barrier_config=TripleBarrierConfig())

@@ -90,6 +90,14 @@ class KucoinExchange(ExchangePyBase):
         return CONSTANTS.SERVER_TIME_PATH_URL
 
     @property
+    def orders_path_url(self):
+        return CONSTANTS.ORDERS_PATH_URL_HFT if self._domain == "hft" else CONSTANTS.ORDERS_PATH_URL
+
+    @property
+    def fills_path_url(self):
+        return CONSTANTS.FILLS_PATH_URL_HFT if self.domain == "hft" else CONSTANTS.FILLS_PATH_URL
+
+    @property
     def trading_pairs(self):
         return self._trading_pairs
 
@@ -113,18 +121,12 @@ class KucoinExchange(ExchangePyBase):
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        return (str(CONSTANTS.RET_CODE_RESOURCE_NOT_FOUND) in str(status_update_exception) and
+                str(CONSTANTS.RET_MSG_RESOURCE_NOT_FOUND) in str(status_update_exception))
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        return (str(CONSTANTS.RET_CODE_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL) in str(cancelation_exception)
+                and str(CONSTANTS.RET_MSG_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL) in str(cancelation_exception))
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -193,7 +195,6 @@ class KucoinExchange(ExchangePyBase):
                            order_type: OrderType,
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
-        path_url = CONSTANTS.ORDERS_PATH_URL
         side = trade_type.name.lower()
         order_type_str = "market" if order_type == OrderType.MARKET else "limit"
         data = {
@@ -209,28 +210,32 @@ class KucoinExchange(ExchangePyBase):
             data["price"] = str(price)
             data["postOnly"] = True
         exchange_order_id = await self._api_post(
-            path_url=path_url,
+            path_url=self.orders_path_url,
             data=data,
             is_auth_required=True,
             limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
         )
-        order_data = exchange_order_id.get("data")
-        order_id = order_data["orderId"] if order_data else None
-        return order_id, self.current_timestamp
+        if exchange_order_id.get("data") is None:
+            raise IOError(f"Error placing order on Kucoin: {exchange_order_id}")
+        return str(exchange_order_id["data"]["orderId"]), self.current_timestamp
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """
         This implementation specific function is called by _cancel, and returns True if successful
         """
         exchange_order_id = await tracked_order.get_exchange_order_id()
+        params = {"symbol": tracked_order.trading_pair} if self.domain == "hft" else None
         cancel_result = await self._api_delete(
-            f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
+            f"{self.orders_path_url}/{exchange_order_id}",
+            params=params,
             is_auth_required=True,
             limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
         )
-        if tracked_order.exchange_order_id in cancel_result["data"].get("cancelledOrderIds", []):
-            return True
-        return False
+        response_param = "orderId" if self.domain == "hft" else "cancelledOrderIds"
+        if cancel_result.get("data") is not None:
+            return tracked_order.exchange_order_id in cancel_result["data"].get(response_param, [])
+        else:
+            raise IOError(f"Error cancelling order on Kucoin: {cancel_result}")
 
     async def _user_stream_event_listener(self):
         """
@@ -316,10 +321,11 @@ class KucoinExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
+        account_type = "trade_hf" if self.domain == "hft" else "trade"
 
         response = await self._api_get(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            params={"type": "trade"},
+            params={"type": account_type},
             is_auth_required=True)
 
         if response:
@@ -406,7 +412,7 @@ class KucoinExchange(ExchangePyBase):
             # "If you only specified the start time, the system will automatically
             #  calculate the end time (end time = start time + 7 * 24 hours)"
             all_fills_response = await self._api_get(
-                path_url=CONSTANTS.FILLS_PATH_URL,
+                path_url=self.fills_path_url,
                 params={
                     "pageSize": 500,
                     "startAt": self._last_order_fill_ts_s * 1000,
@@ -448,7 +454,7 @@ class KucoinExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             exchange_order_id = order.exchange_order_id
             all_fills_response = await self._api_get(
-                path_url=CONSTANTS.FILLS_PATH_URL,
+                path_url=self.fills_path_url,
                 params={
                     "orderId": exchange_order_id,
                     "pageSize": 500,
@@ -479,13 +485,15 @@ class KucoinExchange(ExchangePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         exchange_order_id = await tracked_order.get_exchange_order_id()
+        params = {"symbol": tracked_order.trading_pair} if self.domain == "hft" else None
         updated_order_data = await self._api_get(
-            path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}",
+            path_url=f"{self.orders_path_url}/{exchange_order_id}",
             is_auth_required=True,
+            params=params,
             limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)
 
         ordered_canceled = updated_order_data["data"]["cancelExist"]
-        is_active = updated_order_data["data"]["isActive"]
+        is_active = updated_order_data["data"]["active"] if self.domain == "hft" else updated_order_data["data"]["isActive"]
         op_type = updated_order_data["data"]["opType"]
 
         new_state = tracked_order.current_state

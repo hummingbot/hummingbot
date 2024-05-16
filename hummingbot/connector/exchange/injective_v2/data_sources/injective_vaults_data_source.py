@@ -363,7 +363,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         message_as_dictionary = json_format.MessageToDict(
             message=message,
-            including_default_value_fields=True,
+            always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
         )
@@ -394,7 +394,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         message_as_dictionary = json_format.MessageToDict(
             message=message,
-            including_default_value_fields=True,
+            always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
         )
@@ -426,7 +426,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         message_as_dictionary = json_format.MessageToDict(
             message=message,
-            including_default_value_fields=True,
+            always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
         )
@@ -536,10 +536,15 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         await super()._process_transaction_update(transaction_event=transaction_event)
 
     async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        multiplier = (None
+                      if CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER is None
+                      else Decimal(str(CONSTANTS.GAS_LIMIT_ADJUSTMENT_MULTIPLIER)))
         if self._fee_calculator is None:
             self._fee_calculator = self._fee_calculator_mode.create_calculator(
                 client=self._client,
                 composer=await self.composer(),
+                gas_price=CONSTANTS.TX_GAS_PRICE,
+                gas_limit_adjustment_multiplier=multiplier,
             )
 
         await self._fee_calculator.configure_gas_fee_for_transaction(

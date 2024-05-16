@@ -1,16 +1,15 @@
-import time
 from decimal import Decimal
 from typing import List
 
 from pydantic import Field
 
 from hummingbot.client.config.config_data_types import ClientFieldData
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.market_making_controller_base import (
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 
 
 class PMMSimpleConfig(MarketMakingControllerConfigBase):
@@ -27,7 +26,7 @@ class PMMSimpleController(MarketMakingControllerBase):
     def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         trade_type = self.get_trade_type_from_level_id(level_id)
         return PositionExecutorConfig(
-            timestamp=time.time(),
+            timestamp=self.market_data_provider.time(),
             level_id=level_id,
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
