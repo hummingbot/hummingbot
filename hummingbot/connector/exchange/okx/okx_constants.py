@@ -58,6 +58,7 @@ ORDER_STATE = {
 ORDER_TYPE_MAP = {
     OrderType.LIMIT: "limit",
     OrderType.MARKET: "market",
+    OrderType.LIMIT_MAKER: "post_only",
 }
 
 NO_LIMIT = sys.maxsize
