@@ -1,6 +1,5 @@
 import asyncio
-from typing import Any, Callable, Dict
-from unittest.mock import MagicMock
+from typing import Any, Callable, Dict, List
 
 from hummingbot.connector.exchange.polkadex.polkadex_query_executor import BaseQueryExecutor
 
@@ -11,7 +10,7 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         self._all_assets_responses = asyncio.Queue()
         self._all_markets_responses = asyncio.Queue()
         self._order_book_snapshots = asyncio.Queue()
-        self._recent_trades_responses = asyncio.Queue()
+        self._recent_trade_responses = asyncio.Queue()
         self._balances_responses = asyncio.Queue()
         self._place_order_responses = asyncio.Queue()
         self._cancel_order_responses = asyncio.Queue()
@@ -23,6 +22,10 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         self._order_book_update_events = asyncio.Queue()
         self._public_trades_update_events = asyncio.Queue()
         self._private_events = asyncio.Queue()
+
+        self._websocket_failure = False
+        self._websocket_failure_timestamp = float(0)
+        self._restart_initialization = False
 
     async def all_assets(self):
         response = await self._all_assets_responses.get()
@@ -39,8 +42,8 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
     async def main_account_from_proxy(self, proxy_account=str) -> str:
         return self._main_account
 
-    async def recent_trades(self, market_symbol: str, limit: int) -> Dict[str, Any]:
-        response = await self._recent_trades_responses.get()
+    async def recent_trade(self, market_symbol: str) -> Dict[str, Any]:
+        response = await self._recent_trade_responses.get()
         return response
 
     async def get_all_balances_by_main_account(self, main_account: str) -> Dict[str, Any]:
@@ -68,6 +71,10 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         response = await self._order_history_responses.get()
         return response
 
+    async def find_order_by_id(self, order_id: str) -> Dict[str, Any]:
+        response = await self._order_responses.get()
+        return response
+
     async def find_order_by_main_account(self, main_account: str, market_symbol: str, order_id: str) -> Dict[str, Any]:
         response = await self._order_responses.get()
         return response
@@ -78,7 +85,7 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
 
     async def get_order_fills_by_main_account(
         self, from_timestamp: float, to_timestamp: float, main_account: str
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         response = await self._order_fills_responses.get()
         return response
 
@@ -96,6 +103,3 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         while True:
             event = await self._private_events.get()
             events_handler(event=event)
-
-    async def create_ws_session(self):
-        return MagicMock()
