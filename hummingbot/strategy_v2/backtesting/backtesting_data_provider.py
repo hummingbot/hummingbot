@@ -30,6 +30,7 @@ class BacktestingDataProvider(MarketDataProvider):
             self.start_time = start_time
             self.end_time = end_time
             self._time = start_time
+            self.candles_feeds = {}
 
     async def get_candles_feed(self, config: CandlesConfig):
         """
