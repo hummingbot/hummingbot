@@ -80,6 +80,7 @@ def main():
         "importlib-metadata",
         "injective-py",
         "mypy-extensions",
+        "msgpack",
         "nose",
         "nose-exclude",
         "numpy",

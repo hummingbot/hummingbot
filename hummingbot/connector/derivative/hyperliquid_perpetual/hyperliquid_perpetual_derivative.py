@@ -269,7 +269,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.CANCEL_ORDER_URL,
             data=api_params,
             is_auth_required=True)
-        if "error" in cancel_result["response"]["data"]["statuses"][0]:
+
+        if cancel_result.get("status") == "err" or "error" in cancel_result["response"]["data"]["statuses"][0]:
             self.logger().debug(f"The order {order_id} does not exist on Hyperliquid Perpetuals. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
@@ -397,7 +398,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.CREATE_ORDER_URL,
             data=api_params,
             is_auth_required=True)
-        o_order_result = order_result['response']["data"]["statuses"][0]
+        if order_result.get("status") == "err":
+            raise IOError(f"Error submitting order {order_id}: {order_result['response']}")
+        else:
+            o_order_result = order_result['response']["data"]["statuses"][0]
         if "error" in o_order_result:
             raise IOError(f"Error submitting order {order_id}: {o_order_result['error']}")
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
@@ -766,6 +770,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 is_auth_required=True)
             success = False
             msg = ""
+            if set_leverage.get("status") == "err":
+                raise IOError(f"{set_leverage}")
             if set_leverage["status"] == 'ok':
                 success = True
             else:
