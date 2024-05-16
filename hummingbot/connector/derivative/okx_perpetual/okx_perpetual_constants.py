@@ -33,6 +33,7 @@ POSITION_MODE_MAP = {
 ORDER_TYPE_MAP = {
     OrderType.LIMIT: "limit",
     OrderType.MARKET: "market",
+    OrderType.LIMIT_MAKER: "post_only",
 }
 
 GET = "GET"
