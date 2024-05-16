@@ -405,9 +405,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                         # Processing all orders of the account, not just the client's
                         if order["status"] in ["OPEN"]:
                             initial_margin_requirement = (
-                                Decimal(order["price"])
-                                * Decimal(order["size"])
-                                * self._margin_fractions[trading_pair]["initial"]
+                                    Decimal(order["price"])
+                                    * Decimal(order["size"])
+                                    * self._margin_fractions[trading_pair]["initial"]
                             )
                             initial_margin_requirement = abs(initial_margin_requirement)
                             self._allocated_collateral[order["id"]] = initial_margin_requirement
@@ -514,53 +514,28 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         for fill_data in fills_data:
             exchange_order_id: str = fill_data["orderId"]
             all_orders = self._order_tracker.all_fillable_orders
-            for k, v in all_orders.items():
-                await v.get_exchange_order_id()
+            try:
+                for k, v in all_orders.items():
+                    await v.get_exchange_order_id()
+            except Exception as e:
+                self.logger().info(
+                    f"Unable to locate order {exchange_order_id} on exchange. Pending update from blockchain {e}")
             _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
-            if not _cli_tracked_orders:
-                return trade_updates
-            tracked_order = _cli_tracked_orders[0]
+            if len(_cli_tracked_orders) == 0 or _cli_tracked_orders[0] is None:
+                order_update: OrderUpdate = await self._request_order_status(tracked_order=None,
+                                                                             exchange_order_id=exchange_order_id)
+                # NOTE: Untracked order
+                if order_update is None:
+                    self.logger().debug(f"Received untracked order with exchange order id of {exchange_order_id}")
+                    return trade_updates
+                client_order_id = order_update.client_order_id
+                tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+            else:
+                tracked_order = _cli_tracked_orders[0]
             trade_update = self._process_order_fills(fill_data=fill_data, order=tracked_order)
             if trade_update is not None:
                 trade_updates.append(trade_update)
         return trade_updates
-
-    # async def _process_funding_payments(self, funding_payments: List):
-    #     data = {}
-    #     for trading_pair in self._trading_pairs:
-    #         data[trading_pair] = {}
-    #         data[trading_pair]["timestamp"] = 0
-    #         data[trading_pair]["funding_rate"] = Decimal("-1")
-    #         data[trading_pair]["payment"] = Decimal("-1")
-    #         if trading_pair in self._last_funding_fee_payment_ts:
-    #             data[trading_pair]["timestamp"] = self._last_funding_fee_payment_ts[trading_pair]
-    #
-    #     prev_timestamps = {}
-    #
-    #     for funding_payment in funding_payments:
-    #         trading_pair = await self.trading_pair_associated_to_exchange_symbol(funding_payment["market"])
-    #
-    #         if trading_pair not in prev_timestamps.keys():
-    #             prev_timestamps[trading_pair] = None
-    #         if (
-    #                 prev_timestamps[trading_pair] is not None
-    #                 and dateparse(funding_payment["effectiveAt"]).timestamp() <= prev_timestamps[trading_pair]
-    #         ):
-    #             continue
-    #         timestamp = dateparse(funding_payment["effectiveAt"]).timestamp()
-    #         funding_rate: Decimal = Decimal(funding_payment["rate"])
-    #         payment: Decimal = Decimal(funding_payment["payment"])
-    #
-    #         if trading_pair not in data:
-    #             data[trading_pair] = {}
-    #
-    #         data[trading_pair]["timestamp"] = timestamp
-    #         data[trading_pair]["funding_rate"] = funding_rate
-    #         data[trading_pair]["payment"] = payment
-    #
-    #         prev_timestamps[trading_pair] = timestamp
-    #
-    #     return data
 
     async def _process_open_positions(self, open_positions: Dict):
         for market, position in open_positions.items():
@@ -660,7 +635,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         )
         return res
 
-    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+    async def _request_order_status(self, tracked_order: InFlightOrder, exchange_order_id=None) -> OrderUpdate:
         try:
             orders_rsp = await self._api_get(
                 path_url=CONSTANTS.PATH_ORDERS,
@@ -672,10 +647,19 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     'limit': CONSTANTS.LAST_FILLS_MAX,
                 }
             )
-            updated_order_data = next(
-                (order for order in orders_rsp if
-                 int(order["clientId"]) == int(tracked_order.client_order_id)), None
-            )
+            if exchange_order_id:
+                updated_order_data = next(
+                    (order for order in orders_rsp if
+                     order["id"] == exchange_order_id), None
+                )
+                if updated_order_data is None:
+                    return None
+                tracked_order = self._order_tracker.all_updatable_orders.get(str(updated_order_data["clientId"]))
+            else:
+                updated_order_data = next(
+                    (order for order in orders_rsp if
+                     int(order["clientId"]) == int(tracked_order.client_order_id)), None
+                )
 
             if updated_order_data is None:
                 # If the order is not found in the response, return an OrderUpdate with the same status as before
@@ -861,4 +845,3 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_funding_payment(self, trading_pair: str, fire_event_on_new: bool) -> bool:
         return True
-
