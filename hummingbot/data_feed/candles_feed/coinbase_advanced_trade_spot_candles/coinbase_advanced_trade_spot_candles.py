@@ -48,7 +48,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         super().__init__(trading_pair, interval, max_records)
         self._public_api_factory = self._api_factory
         self._api_factory = None
-        self.logger().debug(f"Initializing {self.name} candles feed...")
+        self.logger().debug(f"Initializing {self.name} {interval} candles feed...")
 
     async def _build_auth_api_factory(self) -> WebAssistantsFactory:
         """Builds the API factory with authentication."""
@@ -236,6 +236,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
             self.logger().debug(f"Using websocket for {self.interval} (in {CONSTANTS.WS_INTERVALS})")
             await self._listen_for_subscriptions()
         else:
+            self.logger().debug(f"Using REST loop for {self.interval} (not in {CONSTANTS.WS_INTERVALS})")
             self.logger().warning(f"Using REST loop for {self.interval} (not in {CONSTANTS.WS_INTERVALS})")
             await self._listen_to_fetch()
 
@@ -246,6 +247,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         """
         ws: Optional[WSAssistant] = None
         while True:
+            self.logger().debug("_listen_for_subscriptions() called...")
             try:
                 ws: WSAssistant = await self._connected_websocket_assistant()
                 await self._subscribe_channels(ws)
@@ -270,9 +272,17 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         """
         while True:
             try:
+                self.logger().debug("_listen_to_fetch() called...")
                 end_time = await web_utils.get_current_server_time_s()
-                await self.fill_historical_candles(end_time=int(end_time))
+                if not self.ready:
+                    await self.fill_historical_candles(end_time=int(end_time))
+                else:
+                    candles = await self.fetch_candles(end_time=int(end_time), start_time=int(self._candles[0][0]) + 1)
+                    self.logger().debug(f"Received {len(candles)} candles for {int(end_time)} for {self.interval}:")
+                    self.logger().debug(f"\t[{int(candles[0][0])} ... {int(candles[-1][0])}] -> [{int(self._candles[0][0])}]")
+                    self._candles.extendleft(candles)
                 await self._sleep(self.get_seconds_from_interval(self.interval))
+                self.logger().debug(f"Waited {self.get_seconds_from_interval(self.interval)} s")
 
             except asyncio.CancelledError:
                 raise
