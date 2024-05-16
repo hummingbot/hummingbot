@@ -88,7 +88,8 @@ class VWAPExample(ScriptStrategyBase):
                         trading_pair=self.vwap["trading_pair"],
                         is_buy=self.vwap["is_buy"],
                         amount=vwap_order_adjusted.amount,
-                        order_type=vwap_order_adjusted.order_type)
+                        order_type=vwap_order_adjusted.order_type,
+                        price=vwap_order_adjusted.price)
                     self.last_ordered_ts = self.current_timestamp
 
     def init_vwap_stats(self):
