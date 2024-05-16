@@ -130,12 +130,12 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _make_trading_rules_request(self) -> Any:
         exchange_info = await self._api_get(path_url=self.trading_rules_request_path,
-                                            params={"limit": 100})
+                                            params={})
         return exchange_info
 
     async def _make_trading_pairs_request(self) -> Any:
         exchange_info = await self._api_get(path_url=self.trading_pairs_request_path,
-                                            params={"limit": 100})
+                                            params={})
         return exchange_info
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -391,7 +391,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                         client_order_id: str = order["clientId"]
                         exchange_order_id: str = order["id"]
                         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                        trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["ticker"])
+                        trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["market"])
                         if tracked_order is not None:
                             state = CONSTANTS.ORDER_STATE[order["status"]]
                             new_order_update: OrderUpdate = OrderUpdate(
@@ -669,7 +669,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                     'address': self._dydx_v4_perpetual_chain_address,
                     'subaccountNumber': self.subaccount_id,
                     'goodTilBlockBeforeOrAt': CONSTANTS.TX_MAX_HEIGHT,
-                    'limit': 100,
+                    'limit': CONSTANTS.LAST_FILLS_MAX,
                 }
             )
             updated_order_data = next(
