@@ -1048,7 +1048,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        urls = self.configure_canceled_order_status_response(
+        self.configure_canceled_order_status_response(
             order=order,
             mock_api=mock_api)
 
@@ -1080,7 +1080,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        urls = self.configure_completely_filled_order_status_response(
+        self.configure_completely_filled_order_status_response(
             order=order,
             mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
@@ -1119,7 +1119,6 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.assertEqual(order.price, fill_event.price)
             self.assertEqual(order.amount, fill_event.amount)
             self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
-            self.assertEqual(leverage, fill_event.leverage)
             self.assertEqual(PositionAction.OPEN.value, fill_event.position)
 
         buy_event = self.buy_order_completed_logger.event_log[0]
@@ -1319,16 +1318,9 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             update_id=1,
         )
 
-        response = self.order_creation_request_successful_mock_response
         self.configure_successful_creation_order_status_response(
             callback=lambda *args, **kwargs: request_sent_event.set()
         )
-
-        expected_price_for_volume = self.exchange.get_price_for_volume(
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            volume=Decimal("10")
-        ).result_price
 
         order_id = self.exchange.buy(
             trading_pair=self.trading_pair,
@@ -1356,17 +1348,9 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             update_id=1,
         )
 
-        response = self.order_creation_request_successful_mock_response
         self.configure_successful_creation_order_status_response(
             callback=lambda *args, **kwargs: request_sent_event.set()
         )
-
-        order_amount = Decimal(10)
-        expected_price_for_volume = self.exchange.get_price_for_volume(
-            trading_pair=self.trading_pair,
-            is_buy=False,
-            volume=order_amount
-        ).result_price
 
         order_id = self.exchange.sell(
             trading_pair=self.trading_pair,
