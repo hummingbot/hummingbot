@@ -114,8 +114,7 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
             {"side": "Ask", "p": 9487.5, "q": 522147, "s": "Ask", "stid": 1},
             {"side": "Bid", "p": 9487, "q": 336241, "s": "Bid", "stid": 1},
         ]
-        order_book_snapshot = {"getOrderbook": {"items": data}}
-        self.data_source._data_source._query_executor._order_book_snapshots.put_nowait(order_book_snapshot)
+        self.data_source._data_source._query_executor._order_book_snapshots.put_nowait(data)
 
         order_book = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 

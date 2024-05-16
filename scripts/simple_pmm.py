@@ -15,18 +15,31 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class SimplePMMConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    exchange: str = Field("kucoin_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange where the bot will trade:"))
-    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair in which the bot will place orders:"))
-    order_amount: Decimal = Field(0.01, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the order amount (denominated in base asset):"))
-    bid_spread: Decimal = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the bid order spread (in percent):"))
-    ask_spread: Decimal = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the ask order spread (in percent):"))
-    order_refresh_time: int = Field(15, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the order refresh time (in seconds):"))
-    price_type: str = Field("mid", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the price type to use (mid or last):"))
+    exchange: str = Field("binance_paper_trade", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Exchange where the bot will trade"))
+    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Trading pair in which the bot will place orders"))
+    order_amount: Decimal = Field(0.01, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Order amount (denominated in base asset)"))
+    bid_spread: Decimal = Field(0.001, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Bid order spread (in percent)"))
+    ask_spread: Decimal = Field(0.001, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Ask order spread (in percent)"))
+    order_refresh_time: int = Field(15, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Order refresh time (in seconds)"))
+    price_type: str = Field("mid", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Price type to use (mid or last)"))
 
 
 class SimplePMM(ScriptStrategyBase):
     """
-    Configurable version of the Simple PMM Example script.
+    BotCamp Cohort: Sept 2022
+    Design Template: https://hummingbot-foundation.notion.site/Simple-PMM-63cc765486dd42228d3da0b32537fc92
+    Video: -
+    Description:
+    The bot will place two orders around the price_source (mid price or last traded price) in a trading_pair on
+    exchange, with a distance defined by the ask_spread and bid_spread. Every order_refresh_time in seconds,
+    the bot will cancel and replace the orders.
     """
 
     create_timestamp = 0
