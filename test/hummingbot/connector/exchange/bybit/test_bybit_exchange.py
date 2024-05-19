@@ -363,7 +363,7 @@ class TestBybitExchange(unittest.TestCase):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         creation_response = {
@@ -436,7 +436,7 @@ class TestBybitExchange(unittest.TestCase):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         creation_response = {
@@ -512,7 +512,7 @@ class TestBybitExchange(unittest.TestCase):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         creation_response = {
             "ret_code": 0,
@@ -582,7 +582,7 @@ class TestBybitExchange(unittest.TestCase):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
@@ -626,7 +626,7 @@ class TestBybitExchange(unittest.TestCase):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         resp = self.get_exchange_rules_mock()
@@ -695,7 +695,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertIn("OID1", self.exchange.in_flight_orders)
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
@@ -759,7 +759,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertIn("OID1", self.exchange.in_flight_orders)
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.delete(regex_url,
@@ -812,7 +812,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertIn("OID2", self.exchange.in_flight_orders)
         order2 = self.exchange.in_flight_orders["OID2"]
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
@@ -838,7 +838,7 @@ class TestBybitExchange(unittest.TestCase):
 
         mock_api.delete(regex_url, body=json.dumps(response))
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.delete(regex_url, status=400)
@@ -914,7 +914,7 @@ class TestBybitExchange(unittest.TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.ACCOUNTS_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.ACCOUNT_INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
@@ -1002,7 +1002,7 @@ class TestBybitExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -1082,7 +1082,7 @@ class TestBybitExchange(unittest.TestCase):
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -1148,7 +1148,7 @@ class TestBybitExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -1212,7 +1212,7 @@ class TestBybitExchange(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=404)
