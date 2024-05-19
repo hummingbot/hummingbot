@@ -431,7 +431,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -487,7 +487,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -548,7 +548,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
             "shared": False
         }
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -566,7 +566,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.ob_data_source._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -580,7 +580,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = ['ERROR', asyncio.CancelledError]
-        self.ob_data_source._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = [asyncio.CancelledError]
@@ -601,7 +601,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_snapshots_successful_rest(self, mock_api, _):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.TimeoutError
-        self.ob_data_source._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.ORDERBOOK_SNAPSHOT_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
@@ -662,7 +662,7 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
             "shared": False
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.ORDERBOOK_DIFF_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
