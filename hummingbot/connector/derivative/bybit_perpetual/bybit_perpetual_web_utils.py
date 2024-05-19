@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, List, Optional
 
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils import is_linear_perpetual
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -150,3 +151,23 @@ def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
+
+
+def get_rest_url_for_endpoint(
+    endpoint: Dict[str, str],
+    trading_pair: Optional[str] = None,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN
+):
+    market = _get_rest_api_market_for_endpoint(trading_pair)
+    variant = domain if domain else CONSTANTS.DEFAULT_DOMAIN
+    return CONSTANTS.REST_URLS.get(variant) + endpoint[market]
+
+
+def _get_rest_api_market_for_endpoint(trading_pair: Optional[str] = None) -> str:
+    # The default selection should be linear because general requests such as setting position mode
+    # exists only for linear market and is without a trading pair
+    if trading_pair is None or is_linear_perpetual(trading_pair):
+        market = CONSTANTS.LINEAR_MARKET
+    else:
+        market = CONSTANTS.NON_LINEAR_MARKET
+    return market
