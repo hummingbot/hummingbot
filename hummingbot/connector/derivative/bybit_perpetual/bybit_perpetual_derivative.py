@@ -25,7 +25,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -400,8 +400,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         account_info = await self._get_account_info()
         if account_info["retCode"] != 0:
             raise ValueError(f"{account_info['retMsg']}")
-        account_type = 'CONTRACT' if account_info["result"]["unifiedMarginStatus"] \
-            else 'UNIFIED'
+        account_type = 'CONTRACT' if account_info["result"]["unifiedMarginStatus"] == \
+            CONSTANTS.ACCOUNT_TYPE["REGULAR"] else 'UNIFIED'
         return account_type
 
     async def _update_account_type(self):
@@ -420,6 +420,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             },
             is_auth_required=True
         )
+        if balances["retCode"] != 0:
+            raise ValueError(f"{balances['retMsg']}")
         self._account_available_balances.clear()
         self._account_balances.clear()
         for coin in balances["result"]["list"][0]["coin"]:
@@ -624,9 +626,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             self._perpetual_trading.set_position(pos_key, position)
         else:
             self._perpetual_trading.remove_position(pos_key)
-
-        # Trigger balance update because Bybit doesn't have balance updates through the websocket
-        safe_ensure_future(self._update_balances())
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
