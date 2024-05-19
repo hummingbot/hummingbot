@@ -7,11 +7,11 @@ from pydantic import Field
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import PriceType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.executors.data_types import ConnectorPair
-from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
-from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
+from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
 
 
 class V2XEMMConfig(StrategyV2ConfigBase):

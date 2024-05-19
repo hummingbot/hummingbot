@@ -1,6 +1,7 @@
 import asyncio
 import time
 from dataclasses import dataclass, fields
+from enum import Enum
 from typing import Optional, Set
 
 import pandas as pd
@@ -15,6 +16,14 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
+class LiquidationSide(Enum):
+    SHORT = "SHORT"  # Short position got liquidated (=> price went long)
+    LONG = "LONG"  # Long position got liquidated (=> price went short)
+
+    def __str__(self):
+        return '%s' % self.value
+
+
 @dataclass
 class Liquidation:
     """
@@ -24,6 +33,7 @@ class Liquidation:
     trading_pair: str
     quantity: float
     price: float
+    side: LiquidationSide
 
 
 class LiquidationsBase(NetworkBase):
