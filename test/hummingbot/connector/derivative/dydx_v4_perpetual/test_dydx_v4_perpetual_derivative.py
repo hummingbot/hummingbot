@@ -690,7 +690,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     {
                         "id": order.exchange_order_id,
                         "clientId": self.client_order_id_prefix + "1",
-                        "market": self.trading_pair,
+                        "ticker": self.trading_pair,
                         "side": order.trade_type.name,
                         "size": str(order.amount),
                         "remainingSize": "0",
@@ -719,7 +719,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     {
                         "id": order.exchange_order_id,
                         "clientId": order.client_order_id,
-                        "market": self.trading_pair,
+                        "ticker": self.trading_pair,
                         "side": order.trade_type.name,
                         "size": str(order.amount),
                         "remainingSize": "0",
@@ -748,7 +748,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     {
                         "id": order.exchange_order_id,
                         "clientId": order.client_order_id,
-                        "market": self.trading_pair,
+                        "ticker": self.trading_pair,
                         "side": order.trade_type.name,
                         "size": str(order.amount),
                         "remainingSize": "0",
@@ -780,7 +780,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "liquidity": "MAKER"
                         if order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
                         else "TAKER",
-                        "market": self.trading_pair,
+                        "ticker": self.trading_pair,
                         "orderId": order.exchange_order_id,
                         "size": str(order.amount),
                         "price": str(order.price),

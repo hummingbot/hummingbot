@@ -391,7 +391,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                         client_order_id: str = order["clientId"]
                         exchange_order_id: str = order["id"]
                         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                        trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["market"])
+                        trading_pair = await self.trading_pair_associated_to_exchange_symbol(order["ticker"])
                         if tracked_order is not None:
                             state = CONSTANTS.ORDER_STATE[order["status"]]
                             new_order_update: OrderUpdate = OrderUpdate(
@@ -835,10 +835,19 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             max_leverage = int(Decimal("1") / self._margin_fractions[trading_pair]["initial"])
             if leverage > max_leverage:
                 self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=max_leverage)
-                self.logger().warning(f"Leverage has been reduced to {max_leverage}")
+                self.logger().warning(f"Exceeded max leverage allowed."
+                                      f" Leverage for {trading_pair} has been reduced to {max_leverage}")
             else:
                 self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=leverage)
+                self.logger().info(f"Leverage for {trading_pair} successfully set to {leverage}.")
         return success, msg
+
+    async def _execute_set_leverage(self, trading_pair: str, leverage: int):
+        try:
+            await self._set_trading_pair_leverage(trading_pair, leverage)
+        except Exception:
+            self.logger().network(f"Error setting leverage {leverage} for {trading_pair}")
+
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         pass
