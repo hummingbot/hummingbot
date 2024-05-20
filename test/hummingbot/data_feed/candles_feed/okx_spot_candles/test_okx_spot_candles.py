@@ -10,10 +10,10 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
-from hummingbot.data_feed.candles_feed.okx_perpetual_candles import OKXPerpetualCandles, constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.okx_spot_candles import OKXSpotCandles, constants as CONSTANTS
 
 
-class TestOKXPerpetualCandles(unittest.TestCase):
+class TestOKXSpotCandles(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -25,12 +25,12 @@ class TestOKXPerpetualCandles(unittest.TestCase):
         cls.quote_asset = "USDT"
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}-SWAP"
+        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.data_feed = OKXPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
+        self.data_feed = OKXSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
@@ -156,9 +156,9 @@ class TestOKXPerpetualCandles(unittest.TestCase):
         self.assertEqual(resp.shape[0], len(data_mock["data"]))
         self.assertEqual(resp.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.okx_perpetual_candles.OKXPerpetualCandles.fetch_candles", new_callable=AsyncMock)
+    @patch("hummingbot.data_feed.candles_feed.okx_spot_candles.OKXSpotCandles.fetch_candles", new_callable=AsyncMock)
     def test_get_historical_candles(self, fetched_candles_mock):
-        config = HistoricalCandlesConfig(connector_name="okx_perpetual",
+        config = HistoricalCandlesConfig(connector_name="okx",
                                          trading_pair=self.ex_trading_pair,
                                          interval=self.interval,
                                          start_time=1705420800000,
@@ -186,7 +186,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
             "event": "subscribe",
             "arg": {
                 "channel": "candle1H",
-                "instId": "BTC-USDT-SWAP"
+                "instId": "BTC-USDT"
             },
             "connId": "a4d3ae55"
         }
@@ -217,7 +217,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
             message="Subscribed to public klines..."
         ))
 
-    @patch("hummingbot.data_feed.candles_feed.okx_perpetual_candles.OKXPerpetualCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.okx_spot_candles.OKXSpotCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
     def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
@@ -226,7 +226,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
 
-    @patch("hummingbot.data_feed.candles_feed.okx_perpetual_candles.OKXPerpetualCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.okx_spot_candles.OKXSpotCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
@@ -262,7 +262,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
             self.is_logged("ERROR", "Unexpected error occurred subscribing to public klines...")
         )
 
-    @patch("hummingbot.data_feed.candles_feed.okx_perpetual_candles.OKXPerpetualCandles.fill_historical_candles", new_callable=AsyncMock)
+    @patch("hummingbot.data_feed.candles_feed.okx_spot_candles.OKXSpotCandles.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_empty_candle(self, ws_connect_mock, fill_historical_candles_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -278,7 +278,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
         fill_historical_candles_mock.assert_called_once()
 
-    @patch("hummingbot.data_feed.candles_feed.okx_perpetual_candles.OKXPerpetualCandles.fill_historical_candles", new_callable=AsyncMock)
+    @patch("hummingbot.data_feed.candles_feed.okx_spot_candles.OKXSpotCandles.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -299,7 +299,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.okx_perpetual_candles.OKXPerpetualCandles.fill_historical_candles")
+    @patch("hummingbot.data_feed.candles_feed.okx_spot_candles.OKXSpotCandles.fill_historical_candles")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
