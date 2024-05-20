@@ -39,7 +39,7 @@ class CandlesFactory:
         "ascend_ex": AscendExSpotCandles,
         "okx_perpetual": OKXPerpetualCandles,
         "okx": OKXSpotCandles,
-        "kraken": KrakenSpotCandles
+        "kraken": KrakenSpotCandles,
         "coinbase_advanced_trade": CoinbaseAdvancedTradeSpotCandles,
     }
 
