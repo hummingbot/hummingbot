@@ -998,7 +998,10 @@ class CubeExchange(ExchangePyBase):
         # Get the first item
         ticker = tickers[0]
 
-        return float(ticker["last_price"])
+        if ticker.get("last_price", 0) is None:
+            return float(0)
+
+        return float(ticker.get("last_price", 0))
 
     def buy(
             self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN,
@@ -1144,3 +1147,13 @@ class CubeExchange(ExchangePyBase):
             self.logger().error(f"Invalid domain: {domain}. Domain must be one of {valid_domains}")
             return False
         return True
+
+    async def all_trading_pairs(self) -> List[str]:
+        """
+        Returns a list of all trading pairs on the exchange
+        :return: a list of all trading pairs on the exchange
+        """
+        all_pairs: bidict = await self.trading_pair_symbol_map()
+        all_pairs_inverse = list(all_pairs.inverse)
+
+        return all_pairs_inverse
