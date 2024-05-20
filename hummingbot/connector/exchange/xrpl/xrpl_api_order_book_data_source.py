@@ -3,6 +3,10 @@ import asyncio
 # import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+# XRPL imports
+from xrpl.clients import JsonRpcClient
+from xrpl.models import Ledger, Tx
+
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 
 # from hummingbot.core.data_type.common import TradeType
