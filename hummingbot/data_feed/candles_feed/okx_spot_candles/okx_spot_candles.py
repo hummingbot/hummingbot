@@ -10,11 +10,11 @@ from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
-from hummingbot.data_feed.candles_feed.okx_perpetual_candles import constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.okx_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
 
 
-class OKXPerpetualCandles(CandlesBase):
+class OKXSpotCandles(CandlesBase):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -48,7 +48,7 @@ class OKXPerpetualCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"okx_perpetual_{self._trading_pair}"
+        return f"okx_{self._trading_pair}"
 
     @property
     def rest_url(self):
@@ -81,7 +81,7 @@ class OKXPerpetualCandles(CandlesBase):
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
-        return f"{trading_pair}-SWAP"
+        return trading_pair
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
@@ -97,7 +97,7 @@ class OKXPerpetualCandles(CandlesBase):
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
 
-        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"]]
+        arr = [[row[0], row[1], row[2], row[3], row[4], row[5], row[6], 0., 0., 0.] for row in candles["data"]]
         return np.array(arr).astype(float)
 
     async def fill_historical_candles(self):
@@ -183,8 +183,8 @@ class OKXPerpetualCandles(CandlesBase):
                 high = candles[2]
                 low = candles[3]
                 close = candles[4]
-                volume = candles[6]
-                quote_asset_volume = candles[7]
+                volume = candles[5]
+                quote_asset_volume = candles[6]
                 n_trades = 0.
                 taker_buy_base_volume = 0.
                 taker_buy_quote_volume = 0.
