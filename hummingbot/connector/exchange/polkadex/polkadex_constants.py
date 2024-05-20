@@ -12,7 +12,11 @@ CLIENT_ID_PREFIX = "HBOT"
 DEFAULT_DOMAIN = ""
 
 GRAPHQL_ENDPOINTS = {
-    DEFAULT_DOMAIN: "https://yx375ldozvcvthjk2nczch3fhq.appsync-api.eu-central-1.amazonaws.com/graphql",
+    DEFAULT_DOMAIN: "https://api.polkadex.trade/graphql",
+}
+# PolkaDEX team send this special URL for WS
+GRAPHQL_WS_ENDPOINTS = {
+    DEFAULT_DOMAIN: "wss://api.polkadex.trade/graphql/realtime",
 }
 BLOCKCHAIN_URLS = {
     DEFAULT_DOMAIN: "wss://polkadex.public.curie.radiumblock.co/ws",
@@ -76,8 +80,8 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=PLACE_ORDER_LIMIT_ID,
-        limit=NO_LIMIT,
-        time_interval=SECOND,
+        limit=2,
+        time_interval=2,
     ),
     RateLimit(
         limit_id=CANCEL_ORDER_LIMIT_ID,

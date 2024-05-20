@@ -19,12 +19,12 @@ class SimpleXEMM(ScriptStrategyBase):
     and taker hedge price) dips below min_spread, the bot refreshes the order
     """
 
-    maker_exchange = "xrpl_xrpl_mainnet"
-    maker_pair = "XRP-USDC"
-    taker_exchange = "gate_io_paper_trade"
-    taker_pair = "XRP-USDC"
+    maker_exchange = "kucoin_paper_trade"
+    maker_pair = "ETH-USDT"
+    taker_exchange = "binance_paper_trade"
+    taker_pair = "ETH-USDT"
 
-    order_amount = 1                  # amount for each order
+    order_amount = 0.1                  # amount for each order
     spread_bps = 10                     # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
@@ -119,8 +119,8 @@ class SimpleXEMM(ScriptStrategyBase):
         Return a custom data frame of prices on maker vs taker exchanges for display purposes
         """
         mid_price = self.connectors[self.maker_exchange].get_mid_price(self.maker_pair)
-        maker_buy_result = self.connectors[self.maker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
-        maker_sell_result = self.connectors[self.maker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
+        maker_buy_result = self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, True, self.order_amount)
+        maker_sell_result = self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, False, self.order_amount)
         taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
         taker_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, False, self.order_amount)
         maker_buy_spread_bps = (maker_buy_result.result_price - taker_buy_result.result_price) / mid_price * 10000
@@ -139,7 +139,7 @@ class SimpleXEMM(ScriptStrategyBase):
         data.append([
             self.taker_exchange,
             self.taker_pair,
-            float(self.connectors[self.taker_exchange].get_mid_price(self.maker_pair)),
+            float(self.connectors[self.taker_exchange].get_mid_price(self.taker_pair)),
             float(taker_buy_result.result_price),
             float(taker_sell_result.result_price),
             int(-maker_buy_spread_bps),
