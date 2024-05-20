@@ -279,15 +279,19 @@ class DydxPerpetualV4Client:
             broadcast_req = BroadcastTxRequest(
                 tx_bytes=tx.tx.SerializeToString(), mode=BroadcastMode.BROADCAST_MODE_SYNC
             )
-            resp = await self.txs.BroadcastTx(broadcast_req)
-            result = json_format.MessageToDict(
-                message=resp,
-                always_print_fields_with_no_presence=True,
-                preserving_proto_field_name=True,
-                use_integers_for_enums=True,
-            ).get("tx_response", {})
+            result = await self.send_tx_sync_mode(broadcast_req)
             err_msg = result.get("raw_log", "")
             if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in err_msg:
                 await self.initialize_trading_account()
 
             return result
+
+    async def send_tx_sync_mode(self, broadcast_req):
+        resp = await self.txs.BroadcastTx(broadcast_req)
+        result = json_format.MessageToDict(
+            message=resp,
+            always_print_fields_with_no_presence=True,
+            preserving_proto_field_name=True,
+            use_integers_for_enums=True,
+        ).get("tx_response", {})
+        return result
