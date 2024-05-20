@@ -405,9 +405,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                         # Processing all orders of the account, not just the client's
                         if order["status"] in ["OPEN"]:
                             initial_margin_requirement = (
-                                    Decimal(order["price"])
-                                    * Decimal(order["size"])
-                                    * self._margin_fractions[trading_pair]["initial"]
+                                Decimal(order["price"])
+                                * Decimal(order["size"])
+                                * self._margin_fractions[trading_pair]["initial"]
                             )
                             initial_margin_requirement = abs(initial_margin_requirement)
                             self._allocated_collateral[order["id"]] = initial_margin_requirement
@@ -847,7 +847,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             await self._set_trading_pair_leverage(trading_pair, leverage)
         except Exception:
             self.logger().network(f"Error setting leverage {leverage} for {trading_pair}")
-
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         pass
