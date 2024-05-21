@@ -39,6 +39,11 @@ class InjectiveGranteeDataSourceTests(TestCase):
 
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher.fetch_all")
     def setUp(self, _) -> None:
+        self._initialize_timeout_height_sync_task = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".AsyncClient._initialize_timeout_height_sync_task"
+        )
+        self._initialize_timeout_height_sync_task.start()
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
@@ -75,6 +80,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         # Since the event loop will change we need to remove the logs event created in the old event loop
         self._logs_event = None
         asyncio.set_event_loop(self._original_async_loop)
+        self._initialize_timeout_height_sync_task.stop()
         super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -228,6 +234,11 @@ class InjectiveVaultsDataSourceTests(TestCase):
 
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher.fetch_all")
     def setUp(self, _) -> None:
+        self._initialize_timeout_height_sync_task = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".AsyncClient._initialize_timeout_height_sync_task"
+        )
+        self._initialize_timeout_height_sync_task.start()
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
@@ -262,6 +273,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         # Since the event loop will change we need to remove the logs event created in the old event loop
         self._logs_event = None
         asyncio.set_event_loop(self._original_async_loop)
+        self._initialize_timeout_height_sync_task.stop()
         super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
