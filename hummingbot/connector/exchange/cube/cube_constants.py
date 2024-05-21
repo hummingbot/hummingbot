@@ -62,7 +62,7 @@ ORDER_STATE = {
     "open": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "p-filled": OrderState.PARTIALLY_FILLED,
-    # "pfilled": OrderState.PARTIALLY_FILLED, #
+    "pfilled": OrderState.PARTIALLY_FILLED,  # Backward compatibility
     "canceled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
 }
