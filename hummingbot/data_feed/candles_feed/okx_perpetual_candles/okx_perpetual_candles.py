@@ -3,11 +3,13 @@ import logging
 from typing import Any, Dict, Optional
 
 import numpy as np
+import pandas as pd
 
 from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
+from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
 
@@ -24,6 +26,25 @@ class OKXPerpetualCandles(CandlesBase):
     def __init__(self, trading_pair: str, interval: str = "1m",
                  max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         super().__init__(trading_pair, interval, max_records)
+        self.interval_to_milliseconds_dict = {
+            "1s": 1000,
+            "1m": 60000,
+            "3m": 180000,
+            "5m": 300000,
+            "15m": 900000,
+            "30m": 1800000,
+            "1h": 3600000,
+            "2h": 7200000,
+            "4h": 14400000,
+            "6h": 21600000,
+            "8h": 28800000,
+            "12h": 43200000,
+            "1d": 86400000,
+            "3d": 259200000,
+            "1w": 604800000,
+            "1M": 2592000000,
+            "3M": 7776000000
+        }
 
     @property
     def name(self):
@@ -105,6 +126,27 @@ class OKXPerpetualCandles(CandlesBase):
                     "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
                 )
                 await self._sleep(1.0)
+
+    async def get_historical_candles(self, config: HistoricalCandlesConfig):
+        try:
+            all_candles = []
+            current_start_time = config.start_time
+            while current_start_time <= config.end_time:
+                current_end_time = current_start_time + self.interval_to_milliseconds_dict[config.interval] * CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+                fetched_candles = await self.fetch_candles(end_time=current_end_time)
+                if fetched_candles.size == 0:
+                    break
+
+                all_candles.append(fetched_candles[::-1])
+                last_timestamp = fetched_candles[0][0]  # Assuming the first column is the timestamp
+                current_start_time = int(last_timestamp)
+
+            final_candles = np.concatenate(all_candles, axis=0) if all_candles else np.array([])
+            candles_df = pd.DataFrame(final_candles, columns=self.columns)
+            candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
+            return candles_df
+        except Exception as e:
+            self.logger().exception(f"Error fetching historical candles: {str(e)}")
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
