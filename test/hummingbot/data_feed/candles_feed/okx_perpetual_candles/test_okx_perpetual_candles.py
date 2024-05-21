@@ -5,9 +5,11 @@ import unittest
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import numpy as np
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles import OKXPerpetualCandles, constants as CONSTANTS
 
 
@@ -46,6 +48,11 @@ class TestOKXPerpetualCandles(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
+
+    def get_fetched_candles_data_mock(self):
+        candles = self.get_candles_rest_data_mock()
+        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"][::-1]]
+        return np.array(arr).astype(float)
 
     def get_candles_rest_data_mock(self):
         data = {
@@ -148,6 +155,25 @@ class TestOKXPerpetualCandles(unittest.TestCase):
         # Check the response
         self.assertEqual(resp.shape[0], len(data_mock["data"]))
         self.assertEqual(resp.shape[1], 10)
+
+    @patch("hummingbot.data_feed.candles_feed.okx_perpetual_candles.OKXPerpetualCandles.fetch_candles", new_callable=AsyncMock)
+    def test_get_historical_candles(self, fetched_candles_mock):
+        config = HistoricalCandlesConfig(connector_name="okx_perpetual",
+                                         trading_pair=self.ex_trading_pair,
+                                         interval=self.interval,
+                                         start_time=1705420800000,
+                                         end_time=1705431600000)
+        resp_1 = self.get_fetched_candles_data_mock()
+        resp_2 = np.array([])
+        fetched_candles_mock.side_effect = [resp_1, resp_2]
+        candles_df = self.async_run_with_timeout(self.data_feed.get_historical_candles(config))
+
+        # Check the response
+        self.assertEqual(candles_df.shape[0], len(resp_1))
+        self.assertEqual(candles_df.shape[1], 10)
+
+        # Check candles integrity. Diff should always be interval in milliseconds and keep sign constant
+        self.assertEqual(len(candles_df["timestamp"].diff()[1:].unique()), 1, "Timestamp diff should be constant")
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)

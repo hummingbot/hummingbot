@@ -42,10 +42,8 @@ class RSI(DirectionalStrategyBase):
     """
     directional_strategy_name: str = "RSI"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair: str = "XRP-USDT"
-    exchange: str = "xrpl_xrpl_mainnet"
-    candle_trading_pair = "XRP-USDT"
-    candle_exchange = "kucoin"
+    trading_pair: str = "ETH-USD"
+    exchange: str = "hyperliquid_perpetual"
     order_amount_usd = Decimal("40")
     leverage = 10
 
@@ -57,7 +55,7 @@ class RSI(DirectionalStrategyBase):
     trailing_stop_trailing_delta = 0.001
     cooldown_after_execution = 10
 
-    candles = [CandlesFactory.get_candle(CandlesConfig(connector=candle_exchange, trading_pair=candle_trading_pair, interval="3m", max_records=1000))]
+    candles = [CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))]
     markets = {exchange: {trading_pair}}
 
     def get_signal(self):
