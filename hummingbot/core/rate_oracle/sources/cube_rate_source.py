@@ -14,7 +14,6 @@ class CubeRateSource(RateSourceBase):
     def __init__(self):
         super().__init__()
         self._cube_exchange: Optional[CubeExchange] = None  # delayed because of circular reference
-        self._cube_staging_exchange: Optional[CubeExchange] = None  # delayed because of circular reference
 
     @property
     def name(self) -> str:
@@ -26,7 +25,6 @@ class CubeRateSource(RateSourceBase):
         results = {}
         tasks = [
             self._get_cube_prices(exchange=self._cube_exchange),
-            self._get_cube_prices(exchange=self._cube_staging_exchange),
         ]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
@@ -43,7 +41,6 @@ class CubeRateSource(RateSourceBase):
     def _ensure_exchanges(self):
         if self._cube_exchange is None:
             self._cube_exchange = self._build_cube_connector_without_private_keys(domain="live")
-            self._cube_staging_exchange = self._build_cube_connector_without_private_keys(domain="staging")
 
     @staticmethod
     async def _get_cube_prices(exchange: 'CubeExchange', quote_token: str = None) -> Dict[str, Decimal]:
