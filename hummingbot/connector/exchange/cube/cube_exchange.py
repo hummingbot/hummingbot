@@ -610,16 +610,13 @@ class CubeExchange(ExchangePyBase):
             exchange_order_id = int(order.exchange_order_id)
 
             all_fills_response = await self._api_get(
-                path_url=CONSTANTS.FILLS_PATH_URL,
-                params={"subaccountId": self.cube_subaccount_id, "orderIds": exchange_order_id},
+                path_url=CONSTANTS.FILLS_PATH_URL.format(self.cube_subaccount_id),
+                params={"orderIds": exchange_order_id},
                 is_auth_required=True,
-                limit_id=CONSTANTS.FILLS_PATH_URL,
+                limit_id=CONSTANTS.FILLS_PATH_URL_ID,
             )
 
             fills_data = all_fills_response.get("result", {}).get("fills", [])
-
-            if len(fills_data) <= 0:
-                await self._order_tracker.process_order_not_found(order.client_order_id)
 
             for fill in fills_data:
                 exchange_order_id = str(fill.get("orderId"))
@@ -738,13 +735,13 @@ class CubeExchange(ExchangePyBase):
         #     }
         # }
         orders_rsp = await self._api_get(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.ORDER_PATH_URL.format(self.cube_subaccount_id),
             params={
-                "subaccountId": self.cube_subaccount_id,
                 "createdBefore": int((tracked_order.creation_timestamp + 30) * 1e9),
-                "limit": 1000,
+                "limit": 500,
             },
             is_auth_required=True,
+            limit_id=CONSTANTS.ORDER_PATH_URL_ID,
         )
 
         orders_data = orders_rsp.get("result", {}).get("orders", [])
@@ -756,6 +753,8 @@ class CubeExchange(ExchangePyBase):
 
         if updated_order_data is None:
             # If the order is not found in the response, return an OrderUpdate with the same status as before
+            self.logger().info(f"Order Update for {tracked_order.client_order_id} not found in the response.")
+
             return OrderUpdate(
                 client_order_id=tracked_order.client_order_id,
                 exchange_order_id=tracked_order.exchange_order_id,
@@ -811,7 +810,7 @@ class CubeExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        positions = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True)
+        positions = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL.format(self.cube_subaccount_id), is_auth_required=True, limit_id=CONSTANTS.ACCOUNTS_PATH_URL_ID)
         token_map = await self.token_id_map()
         token_info = await self.token_info()
 
