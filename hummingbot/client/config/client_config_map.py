@@ -26,10 +26,9 @@ from hummingbot.connector.connector_metrics_collector import (
     MetricsCollector,
     TradeVolumeMetricCollector,
 )
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import AscendExConfigMap
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
-from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveConfigMap
+from hummingbot.connector.exchange.kraken.kraken_utils import KrakenConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES, RateOracle
@@ -305,22 +304,20 @@ class PaperTradeConfigMap(BaseClientModel):
         default=[
             BinanceConfigMap.Config.title,
             KuCoinConfigMap.Config.title,
-            AscendExConfigMap.Config.title,
+            KrakenConfigMap.Config.title,
             GateIOConfigMap.Config.title,
-            InjectiveConfigMap.Config.title,
         ],
     )
     paper_trade_account_balance: Dict[str, float] = Field(
         default={
             "BTC": 1,
-            "USDT": 1000,
-            "ONE": 1000,
-            "USDQ": 1000,
-            "TUSD": 1000,
-            "ETH": 10,
-            "WETH": 10,
-            "USDC": 1000,
-            "DAI": 1000,
+            "USDT": 100000,
+            "USDC": 100000,
+            "ETH": 20,
+            "WETH": 20,
+            "SOL": 100,
+            "DOGE": 1000000,
+            "HBOT": 10000000,
         },
         client_data=ClientFieldData(
             prompt=lambda cm: (
@@ -439,7 +436,6 @@ class DBMode(BaseClientModel, ABC):
 class DBSqliteMode(DBMode):
     db_engine: str = Field(
         default="sqlite",
-        const=True,
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "Please enter database engine you want to use (reference: https://docs.sqlalchemy.org/en/13/dialects/)"
@@ -749,7 +745,6 @@ class ExchangeRateSourceModeBase(RateSourceModeBase):
 class AscendExRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="ascend_ex",
-        const=True,
         client_data=None,
     )
 
@@ -760,7 +755,6 @@ class AscendExRateSourceMode(ExchangeRateSourceModeBase):
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="binance",
-        const=True,
         client_data=None,
     )
 
@@ -771,7 +765,6 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
 class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="binance_us",
-        const=True,
         client_data=None,
     )
 
@@ -782,7 +775,6 @@ class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
 class CubeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="cube",
-        const=True,
         client_data=None,
     )
 
@@ -793,7 +785,6 @@ class CubeRateSourceMode(ExchangeRateSourceModeBase):
 class CoinGeckoRateSourceMode(RateSourceModeBase):
     name: str = Field(
         default="coin_gecko",
-        const=True,
         client_data=None,
     )
 
@@ -832,7 +823,6 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
 class CoinCapRateSourceMode(RateSourceModeBase):
     name: str = Field(
         default="coin_cap",
-        const=True,
         client_data=None,
     )
     assets_map: Dict[str, str] = Field(
@@ -913,7 +903,6 @@ class CoinCapRateSourceMode(RateSourceModeBase):
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="kucoin",
-        const=True,
         client_data=None,
     )
 
@@ -924,7 +913,6 @@ class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
 class GateIoRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="gate_io",
-        const=True,
         client_data=None,
     )
 
@@ -935,7 +923,6 @@ class GateIoRateSourceMode(ExchangeRateSourceModeBase):
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="coinbase_advanced_trade",
-        const=True,
         client_data=None,
     )
 

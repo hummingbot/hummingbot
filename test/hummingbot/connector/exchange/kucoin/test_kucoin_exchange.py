@@ -522,6 +522,7 @@ class KucoinExchangeTests(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         creation_response = {
+            "code": "200000",
             "data": {
                 "orderId": "5bd6e9286d99522a52e458de"
             }}
@@ -576,6 +577,7 @@ class KucoinExchangeTests(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         creation_response = {
+            "code": "200000",
             "data": {
                 "orderId": "5bd6e9286d99522a52e458de"
             }}
@@ -624,6 +626,38 @@ class KucoinExchangeTests(unittest.TestCase):
 
     @aioresponses()
     @patch("hummingbot.connector.exchange.kucoin.kucoin_exchange.KucoinExchange.get_price")
+    def test_create_order_with_wrong_params_raises_io_error(self, mock_api, get_price_mock):
+        get_price_mock.return_value = Decimal(1000)
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        url = web_utils.private_rest_url(CONSTANTS.ORDERS_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        creation_response = {
+            "code": "300000",
+            "msg": "The quantity is invalid."}
+
+        mock_api.post(regex_url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        self._simulate_trading_rules_initialized()
+
+        with self.assertRaises(IOError):
+            asyncio.get_event_loop().run_until_complete(
+                self.exchange._place_order(
+                    trade_type=TradeType.BUY,
+                    order_id="C1",
+                    trading_pair=self.trading_pair,
+                    amount=Decimal("0"),
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("46000"),
+                ),
+            )
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.kucoin.kucoin_exchange.KucoinExchange.get_price")
     def test_create_market_order_successfully(self, mock_api, get_price_mock):
         get_price_mock.return_value = Decimal(1000)
         self._simulate_trading_rules_initialized()
@@ -633,6 +667,7 @@ class KucoinExchangeTests(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         creation_response = {
+            "code": "200000",
             "data": {
                 "orderId": "5bd6e9286d99522a52e458de"
             }}
@@ -708,7 +743,7 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual("OID1", failure_event.order_id)
-
+        self.assertRaises(IOError)
         self.assertTrue(
             self._is_logged(
                 "INFO",
@@ -777,7 +812,6 @@ class KucoinExchangeTests(unittest.TestCase):
     def test_cancel_order_successfully(self, mock_api):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="4",
@@ -795,7 +829,12 @@ class KucoinExchangeTests(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
-            "data": {"cancelledOrderIds": [order.exchange_order_id]}
+            "code": "200000",
+            "data": {
+                "cancelledOrderIds": [
+                    order.exchange_order_id
+                ]
+            }
         }
 
         mock_api.delete(regex_url,
@@ -945,7 +984,12 @@ class KucoinExchangeTests(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
-            "data": {"cancelledOrderIds": [order1.exchange_order_id]}
+            "code": "200000",
+            "data": {
+                "cancelledOrderIds": [
+                    order1.exchange_order_id
+                ]
+            }
         }
 
         mock_api.delete(regex_url, body=json.dumps(response))
