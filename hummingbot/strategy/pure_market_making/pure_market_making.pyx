@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from math import ceil, floor
 from typing import Dict, List, Optional
 
@@ -53,9 +53,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     bid_spread: Decimal,
                     ask_spread: Decimal,
                     order_amount: Decimal,
-                    order_levels: int = 1,
+                    quote_order_amount: Decimal,
+                    order_levels: int = 0,
+                    buy_levels: int = 1,
+                    sell_levels: int = 1,
                     order_level_spread: Decimal = s_decimal_zero,
+                    buy_level_spread: Decimal = s_decimal_zero,
+                    sell_level_spread: Decimal = s_decimal_zero,
                     order_level_amount: Decimal = s_decimal_zero,
+                    buy_level_amount: Decimal = s_decimal_zero,
+                    sell_level_amount: Decimal = s_decimal_zero,
+                    quote_order_level_amount: Decimal = s_decimal_zero,
+                    quote_buy_level_amount: Decimal = s_decimal_zero,
+                    quote_sell_level_amount: Decimal = s_decimal_zero,
                     order_refresh_time: float = 30.0,
                     max_order_age: float = 1800.0,
                     order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
@@ -99,11 +109,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ask_spread = ask_spread
         self._minimum_spread = minimum_spread
         self._order_amount = order_amount
+        self._quote_order_amount = quote_order_amount
         self._order_levels = order_levels
-        self._buy_levels = order_levels
-        self._sell_levels = order_levels
+        self._buy_levels = order_levels if order_levels > 0 else buy_levels
+        self._sell_levels = order_levels if order_levels > 0 else sell_levels
         self._order_level_spread = order_level_spread
+        self._buy_level_spread = buy_level_spread if buy_level_spread > 0 else order_level_spread
+        self._sell_level_spread = sell_level_spread if sell_level_spread > 0 else order_level_spread
         self._order_level_amount = order_level_amount
+        self._buy_level_amount = buy_level_amount if buy_level_amount > 0 else order_level_amount
+        self._sell_level_amount = sell_level_amount if sell_level_amount > 0 else order_level_amount
+        self._quote_order_level_amount = quote_order_level_amount
+        self._quote_buy_level_amount = quote_buy_level_amount if quote_buy_level_amount > 0 else quote_order_level_amount
+        self._quote_sell_level_amount = quote_sell_level_amount if quote_sell_level_amount > 0 else quote_order_level_amount
         self._order_refresh_time = order_refresh_time
         self._max_order_age = max_order_age
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
@@ -194,6 +212,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_amount = value
 
     @property
+    def quote_order_amount(self) -> Decimal:
+        return self._quote_order_amount
+
+    @quote_order_amount.setter
+    def quote_order_amount(self, value: Decimal):
+        self._quote_order_amount = value
+
+    @property
     def order_levels(self) -> int:
         return self._order_levels
 
@@ -228,12 +254,68 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_level_amount = value
 
     @property
+    def buy_level_amount(self) -> Decimal:
+        return self._buy_level_amount
+
+    @buy_level_amount.setter
+    def buy_level_amount(self, value: Decimal):
+        self._buy_level_amount = value
+
+    @property
+    def sell_level_amount(self) -> Decimal:
+        return self._sell_level_amount
+
+    @sell_level_amount.setter
+    def sell_level_amount(self, value: Decimal):
+        self._sell_level_amount = value
+
+    @property
+    def quote_order_level_amount(self) -> Decimal:
+        return self._quote_order_level_amount
+
+    @quote_order_level_amount.setter
+    def quote_order_level_amount(self, value: Decimal):
+        self._quote_order_level_amount = value
+
+    @property
+    def quote_buy_level_amount(self) -> Decimal:
+        return self._quote_buy_level_amount
+
+    @quote_buy_level_amount.setter
+    def quote_buy_level_amount(self, value: Decimal):
+        self._quote_buy_level_amount = value
+
+    @property
+    def quote_sell_level_amount(self) -> Decimal:
+        return self._quote_sell_level_amount
+
+    @quote_sell_level_amount.setter
+    def quote_sell_level_amount(self, value: Decimal):
+        self._quote_sell_level_amount = value
+
+    @property
     def order_level_spread(self) -> Decimal:
         return self._order_level_spread
 
     @order_level_spread.setter
     def order_level_spread(self, value: Decimal):
         self._order_level_spread = value
+
+    @property
+    def buy_level_spread(self) -> Decimal:
+        return self._buy_level_spread
+
+    @buy_level_spread.setter
+    def buy_level_spread(self, value: Decimal):
+        self._buy_level_spread = value
+
+    @property
+    def sell_level_spread(self) -> Decimal:
+        return self._sell_level_spread
+
+    @sell_level_spread.setter
+    def sell_level_spread(self, value: Decimal):
+        self._sell_level_spread = value
 
     @property
     def inventory_skew_enabled(self) -> bool:
@@ -578,27 +660,34 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id and
                         not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)])
         active_orders.sort(key=lambda x: x.price, reverse=True)
-        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age"]
+        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Quote (~Orig)", "Age"]
         data = []
         lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
             is_hanging_order = self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)
             amount_orig = ""
+            quote_amount_orig = ""
+
+            order_amount = self.get_order_amount(order.price)
+            buy_order_level_amount, sell_order_level_amount = self.get_order_level_amount(order.price)
             if not is_hanging_order:
                 if order.is_buy:
                     level = lvl_buy + 1
                     lvl_buy += 1
+                    amount_orig = order_amount + ((level - 1) * buy_order_level_amount)
                 else:
                     level = no_sells - lvl_sell
                     lvl_sell += 1
-                amount_orig = self._order_amount + ((level - 1) * self._order_level_amount)
+                    amount_orig = order_amount + ((level - 1) * sell_order_level_amount)
             else:
                 level_for_calculation = lvl_buy if order.is_buy else lvl_sell
-                amount_orig = self._order_amount + ((level_for_calculation - 1) * self._order_level_amount)
+                order_level_amount = buy_order_level_amount if order.is_buy else sell_order_level_amount
+                amount_orig = self._order_amount + ((level_for_calculation - 1) * order_level_amount)
                 level = "hang"
             spread = 0 if price == 0 else abs(order.price - price)/price
             age = pd.Timestamp(order_age(order, self._current_timestamp), unit='s').strftime('%H:%M:%S')
+            quote_amount_orig = amount_orig * order.price
             data.append([
                 level,
                 "buy" if order.is_buy else "sell",
@@ -606,6 +695,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 f"{spread:.2%}",
                 amount_orig,
                 float(order.quantity),
+                quote_amount_orig,
                 age
             ])
 
@@ -762,6 +852,23 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
+    def get_order_amount(self, reference_price: Decimal) -> Decimal:
+        order_amount = self._order_amount
+        if self._quote_order_amount > 0:
+            order_amount = self._quote_order_amount / reference_price
+        return order_amount.quantize(Decimal('1e-4'), rounding=ROUND_DOWN)
+        
+
+    def get_order_level_amount(self, reference_price: Decimal) -> tuple[Decimal, Decimal]: 
+            buy_order_level_amount = self._buy_level_amount
+            sell_order_level_amount = self._sell_level_amount
+        if self._quote_order_amount > 0:
+                buy_order_level_amount = self._quote_buy_level_amount / reference_price
+                sell_order_level_amount = self._quote_sell_level_amount / reference_price
+        buy_order_level_amount = buy_order_level_amount.quantize(Decimal('1e-4'), rounding=ROUND_DOWN)
+        sell_order_level_amount = sell_order_level_amount.quantize(Decimal('1e-4'), rounding=ROUND_DOWN)
+        return buy_order_level_amount, sell_order_level_amount
+
     cdef object c_create_base_proposal(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -803,17 +910,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         else:
             if not buy_reference_price.is_nan():
                 for level in range(0, self._buy_levels):
-                    price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
+                    price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._buy_level_spread))
                     price = market.c_quantize_order_price(self.trading_pair, price)
-                    size = self._order_amount + (self._order_level_amount * level)
+                    order_amount = self.get_order_amount(price)
+                    buy_order_level_amount, _ = self.get_order_level_amount(price)
+                    size = order_amount + (buy_order_level_amount * level)
                     size = market.c_quantize_order_amount(self.trading_pair, size)
                     if size > 0:
                         buys.append(PriceSize(price, size))
             if not sell_reference_price.is_nan():
                 for level in range(0, self._sell_levels):
-                    price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
+                    price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._sell_level_spread))
                     price = market.c_quantize_order_price(self.trading_pair, price)
-                    size = self._order_amount + (self._order_level_amount * level)
+                    order_amount = self.get_order_amount(price)
+                    _, sell_order_level_amount = self.get_order_level_amount(price)
+                    size = order_amount + (sell_order_level_amount * level)
                     size = market.c_quantize_order_amount(self.trading_pair, size)
                     if size > 0:
                         sells.append(PriceSize(price, size))

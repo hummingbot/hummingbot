@@ -30,7 +30,17 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 def order_amount_prompt() -> str:
     trading_pair = pure_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    return f"What is the amount of {base_asset} per order? >>> "
+    return (
+        f"What is the amount of base_asset({base_asset}) per order? "
+        f"Default value = 0 "
+        f"(0 means it will not be used and hence quote amount per order MUST be provided) >>> "
+    )
+
+
+def quote_order_amount_prompt() -> str:
+    trading_pair = pure_market_making_config_map["market"].value
+    base_asset, quote_asset = trading_pair.split("-")
+    return f"What is the amount of quote_asset({quote_asset}) per order? >>> "
 
 
 def validate_price_source(value: str) -> Optional[str]:
@@ -179,7 +189,15 @@ pure_market_making_config_map = {
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
                   type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0")),
+                  default=Decimal("0"),
+                  prompt_on_new=True),
+    "quote_order_amount":
+        ConfigVar(key="quote_order_amount",
+                  prompt=quote_order_amount_prompt,
+                  type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
+                  required_if=lambda: pure_market_making_config_map.get("order_amount").value == 0,
                   prompt_on_new=True),
     "price_ceiling":
         ConfigVar(key="price_ceiling",
@@ -234,6 +252,20 @@ pure_market_making_config_map = {
                   prompt="How many orders do you want to place on both sides? >>> ",
                   type_str="int",
                   validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
+                  default=0),
+    "buy_levels":
+        ConfigVar(key="buy_levels",
+                  prompt="How many orders do you want to place on buy side (override for 'order_levels')? >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("order_levels").value < 1,
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
+                  default=1),
+    "sell_levels":
+        ConfigVar(key="buy_levels",
+                  prompt="How many orders do you want to place on sell side (override for 'order_levels')? >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("order_levels").value < 1,
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
                   default=1),
     "order_level_amount":
         ConfigVar(key="order_level_amount",
@@ -243,11 +275,70 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v),
                   default=0),
+    "buy_level_amount":
+        ConfigVar(key="buy_level_amount",
+                  prompt="How much do you want to increase or decrease the order size for each "
+                         "additional buy order? (decrease < 0 > increase) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("buy_levels").value > 1,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
+                  default=0),
+    "sell_level_amount":
+        ConfigVar(key="sell_level_amount",
+                  prompt="How much do you want to increase or decrease the order size for each "
+                         "additional sell order? (decrease < 0 > increase) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("sell_levels").value > 1,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
+                  default=0),
+    "quote_order_level_amount":
+        ConfigVar(key="quote_order_level_amount",
+                  prompt="How much do you want to increase or decrease the order size for each "
+                         "additional order in quote currency? (decrease < 0 > increase) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1
+                  and pure_market_making_config_map.get("quote_order_amount").value is not None,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
+                  default=0),
+    "quote_buy_level_amount":
+        ConfigVar(key="quote_buy_level_amount",
+                  prompt="How much do you want to increase or decrease the order size for each "
+                         "additional buy order in quote currency? (decrease < 0 > increase) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("buy_levels").value > 1
+                  and pure_market_making_config_map.get("quote_order_amount").value is not None,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
+                  default=0),
+    "quote_sell_level_amount":
+        ConfigVar(key="quote_sell_level_amount",
+                  prompt="How much do you want to increase or decrease the order size for each "
+                         "additional sell order in quote currency? (decrease < 0 > increase) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("sell_levels").value > 1
+                  and pure_market_making_config_map.get("quote_order_amount").value is not None,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
+                  default=0),
     "order_level_spread":
         ConfigVar(key="order_level_spread",
                   prompt="Enter the price increments (as percentage) for subsequent "
                          "orders? (Enter 1 to indicate 1%) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  default=Decimal("1")),
+    "buy_level_spread":
+        ConfigVar(key="buy_level_spread",
+                  prompt="Enter the price decrements (as percentage) for subsequent "
+                         "buy orders? (Enter 1 to indicate 1%) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("buy_levels").value > 1,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  default=Decimal("1")),
+    "sell_level_spread":
+        ConfigVar(key="sell_level_spread",
+                  prompt="Enter the price increments (as percentage) for subsequent "
+                         "sell orders? (Enter 1 to indicate 1%) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("sell_levels").value > 1,
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   default=Decimal("1")),
