@@ -262,8 +262,8 @@ class CubeExchange(ExchangePyBase):
         try:
             resp = await self._api_post(path_url=CONSTANTS.POST_ORDER_PATH_URL, data=api_params, is_auth_required=True)
 
-            order_result = resp.get("result", {}).get("Ack", {})
-            order_reject = resp.get("result", {}).get("Rej", {})
+            order_result = resp.get("result", None).get("Ack", None)
+            order_reject = resp.get("result", None).get("Rej", None)
 
             if order_result is not None:
                 o_id = str(order_result.get("exchangeOrderId"))
