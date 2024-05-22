@@ -1681,6 +1681,33 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(result, expected_client_order_id)
 
     @aioresponses()
+    def test_place_order_get_rejection(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "result": {
+                "Rej": {
+                    "transactTime": 1711095259064065797,
+                    "reason": "SOME REASON"
+                }
+            }
+        }
+        mock_api.post(regex_url, body=json.dumps(mock_response), status=200)
+
+        o_id, transact_time = self.async_run_with_timeout(self.exchange._place_order(
+            order_id="999999",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        ))
+        self.assertEqual(o_id, "UNKNOWN")
+
+    @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
