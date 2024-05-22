@@ -575,18 +575,6 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
                     order_update = open_update
                 else:
-                    # canceled_update = OrderUpdate(
-                    #     trading_pair=in_flight_order.trading_pair,
-                    #     update_timestamp=time(),
-                    #     new_state=OrderState.CANCELED,
-                    #     client_order_id=in_flight_order.client_order_id,
-                    #     exchange_order_id=in_flight_order.exchange_order_id,
-                    #     misc_updates={
-                    #         "creation_transaction_hash": in_flight_order.creation_transaction_hash,
-                    #         "cancelation_transaction_hash": in_flight_order.cancel_tx_hash,
-                    #     },
-                    # )
-                    # order_update = canceled_update
                     filled_order = OrderUpdate(
                         trading_pair=in_flight_order.trading_pair,
                         update_timestamp=time(),
@@ -597,6 +585,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
                             "creation_transaction_hash": in_flight_order.creation_transaction_hash,
                         },
                     )
+                    in_flight_order.completely_filled_event.set()
 
                     order_update = filled_order
 
@@ -619,67 +608,34 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
     
     async def get_all_order_fills(self, in_flight_order: GatewayInFlightOrder) -> List[TradeUpdate]:
         if in_flight_order.exchange_order_id:
-            active_order = self.gateway_order_tracker.active_orders.get(in_flight_order.client_order_id)
+            self.logger().debug("get_all_order_fills: start")
+            trade_update = None
+            order = in_flight_order
+            order_status = in_flight_order.current_state
+            if order and order_status == OrderState.FILLED:
+                timestamp = in_flight_order.last_update_timestamp
+                trade_id = str(timestamp)
 
-            if active_order:
-                if active_order.current_state != OrderState.CANCELED:
-                    self.logger().debug("get_all_order_fills: start")
+                market = self._markets_info[in_flight_order.trading_pair]
 
-                    trade_update = None
-
-                    request = {
-                        "trading_pair": in_flight_order.trading_pair,
-                        "chain": self._chain,
-                        "network": self._network,
-                        "connector": self._connector,
-                        "address": self._owner_address,
-                        "exchange_order_id": in_flight_order.exchange_order_id,
-                    }
-
-                    self.logger().debug(f"""get_clob_order_status_updates request:\n "{self._dump(request)}".""")
-
-                    response = await self._gateway_get_clob_order_status_updates(request)
-
-                    self.logger().debug(f"""get_clob_order_status_updates response:\n "{self._dump(response)}".""")
-
-                    orders = DotMap(response, _dynamic=False)["orders"]
-
-                    order = None
-                    if len(orders):
-                        order = orders[0]
-
-                    if order is not None:
-                        order_status = OraiOrderStatus.to_hummingbot(OraiOrderStatus.from_name(order["status"].upper()))
-                    else:
-                        order_status = in_flight_order.current_state
-
-                    if order and order_status == OrderState.FILLED:
-                        timestamp = time()
-                        trade_id = str(timestamp)
-
-                        market = self._markets_info[in_flight_order.trading_pair]
-
-                        trade_update = TradeUpdate(
-                            trade_id=trade_id,
-                            client_order_id=in_flight_order.client_order_id,
-                            exchange_order_id=in_flight_order.exchange_order_id,
-                            trading_pair=in_flight_order.trading_pair,
-                            fill_timestamp=timestamp,
-                            fill_price=in_flight_order.price,
-                            fill_base_amount=in_flight_order.amount,
-                            fill_quote_amount=in_flight_order.price * in_flight_order.amount,
-                            fee=TradeFeeBase.new_spot_fee(
-                                fee_schema=TradeFeeSchema(),
-                                trade_type=in_flight_order.trade_type,
-                                flat_fees=[TokenAmount(
-                                    amount=Decimal(market.fees.taker),
-                                    token=market.quoteToken.symbol
-                                )]
-                            ),
-                        )
-                    self.logger().debug("get_all_order_fills: end")
-                    if trade_update:
-                        return [trade_update]
+                trade_update = TradeUpdate(
+                    trade_id=trade_id,
+                    client_order_id=in_flight_order.client_order_id,
+                    exchange_order_id=in_flight_order.exchange_order_id,
+                    trading_pair=in_flight_order.trading_pair,
+                    fill_timestamp=timestamp,
+                    fill_price=in_flight_order.price,
+                    fill_base_amount=in_flight_order.amount,
+                    fill_quote_amount=in_flight_order.price * in_flight_order.amount,
+                    fee=TradeFeeBase.new_spot_fee(
+                        fee_schema=TradeFeeSchema(),
+                        trade_type=in_flight_order.trade_type,
+                    ),
+                )
+            self.logger().debug("get_all_order_fills: end")
+            
+            if trade_update:
+                return [trade_update]
         return []
     
     def _get_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
