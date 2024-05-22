@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # XRPL imports
 from xrpl.clients import JsonRpcClient
-from xrpl.models import Ledger, Tx
+from xrpl.models.requests import BookOffers
 
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 
@@ -53,27 +53,21 @@ class XrplAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        # params = {
-        #     "mbp": "true",
-        #     "levels": 1000
-        # }
-        #
-        # try:
-        #     market_id = await self._connector.exchange_market_id_associated_to_pair(trading_pair=trading_pair)
-        #     rest_assistant = await self._api_factory.get_rest_assistant()
-        #     data = await rest_assistant.execute_request(
-        #         url=web_utils.public_rest_url(
-        #             path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + f"/book/{market_id}/snapshot",
-        #             domain=self._domain),
-        #         params=params,
-        #         method=RESTMethod.GET,
-        #         throttler_limit_id=CONSTANTS.SNAPSHOT_LM_ID,
-        #     )
-        # except Exception as e:
-        #     self.logger().error(f"Error fetching order book snapshot for {trading_pair}: {e}")
-        #     return {}
-        #
-        # return data
+        # Create a client to connect to the test network
+        client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
+
+        try:
+
+        orderbook_snapshot = client.request(
+            BookOffers(
+                taker=wallet.address,
+                ledger_index="current",
+                taker_gets=we_want["currency"],
+                taker_pays=we_spend["currency"],
+                limit=10,
+            )
+        )
+
         pass
 
     async def _subscribe_channels(self, ws: WSAssistant):
