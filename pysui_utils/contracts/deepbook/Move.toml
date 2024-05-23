@@ -1,0 +1,11 @@
+[package]
+name = "DeepBook"
+version = "0.0.1"
+published-at = "0xdee9"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[addresses]
+deepbook = "0x0"

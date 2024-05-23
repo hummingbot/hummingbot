@@ -1,0 +1,5 @@
+[meta]
+creation_timestamp = "1716333632604062 2024-05-21 16:20:32.604062 -07:00"
+
+[packages]
+DeepBook = { uuid = "V3TJGDFREMJDA73MFXYZHAEIAI", uuid_custom = false }
