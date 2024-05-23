@@ -931,8 +931,8 @@ class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
 
 
 RATE_SOURCE_MODES = {
-    AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
+    AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceUSRateSourceMode.Config.title: BinanceUSRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
     CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
