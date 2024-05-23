@@ -860,8 +860,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         
 
     def get_order_level_amount(self, reference_price: Decimal) -> tuple[Decimal, Decimal]: 
-            buy_order_level_amount = self._buy_level_amount
-            sell_order_level_amount = self._sell_level_amount
+        buy_order_level_amount = self._buy_level_amount
+        sell_order_level_amount = self._sell_level_amount
         if self._quote_order_amount > 0:
                 buy_order_level_amount = self._quote_buy_level_amount / reference_price
                 sell_order_level_amount = self._quote_sell_level_amount / reference_price
