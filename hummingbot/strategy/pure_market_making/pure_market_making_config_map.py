@@ -261,7 +261,7 @@ pure_market_making_config_map = {
                   validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
                   default=1),
     "sell_levels":
-        ConfigVar(key="buy_levels",
+        ConfigVar(key="sell_levels",
                   prompt="How many orders do you want to place on sell side (override for 'order_levels')? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value < 1,
                   type_str="int",
