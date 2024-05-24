@@ -138,15 +138,20 @@ class TestExecutorOrchestrator(unittest.TestCase):
         mock_get_instance.return_value = mock_markets_recorder
 
         # Set up mock executors for two different controllers
-        config_mock = PositionExecutorConfig(
+        config_mock_pe = PositionExecutorConfig(
             timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
             side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        config_mock_dca = DCAExecutorConfig(
+            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
+            side=TradeType.BUY, amounts_quote=[Decimal(10)], prices=[Decimal(100)],
+            take_profit=Decimal(0.01), stop_loss=Decimal(0.01)
         )
         controller_ids = ["controller_1", "controller_2"]
         filled_amount_quote = [Decimal(200), Decimal(300)]
         net_pnl_quote = [Decimal(20), Decimal(30)]
         net_pnl_pct = [Decimal(10), Decimal(15)]
-        configs = [config_mock, config_mock]
+        configs = [config_mock_pe, config_mock_dca]
         status = [RunnableStatus.RUNNING, RunnableStatus.RUNNING]
         is_trading = [True, True]
         is_active = [True, True]
@@ -156,7 +161,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         for i, controller_id in enumerate(controller_ids):
             executor_mock = MagicMock(spec=PositionExecutor)
             executor_mock.executor_info = ExecutorInfo(
-                id="123", timestamp=1234, type="position_executor",
+                id="123", timestamp=1234, type=configs[i].type,
                 status=status[i], config=configs[i],
                 filled_amount_quote=filled_amount_quote[i], net_pnl_quote=net_pnl_quote[i],
                 net_pnl_pct=net_pnl_pct[i], cum_fees_quote=cum_fees_quote[i],
