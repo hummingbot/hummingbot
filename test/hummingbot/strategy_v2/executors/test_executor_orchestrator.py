@@ -17,8 +17,9 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import Positi
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
 from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
+from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StoreExecutorAction
-from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class TestExecutorOrchestrator(unittest.TestCase):
@@ -106,22 +107,27 @@ class TestExecutorOrchestrator(unittest.TestCase):
         mock_markets_recorder = MagicMock(spec=MarketsRecorder)
         mock_markets_recorder.get_executors_by_controller.return_value = []
         mock_get_instance.return_value = mock_markets_recorder
+        config_mock = PositionExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
         position_executor_non_active = MagicMock(spec=PositionExecutor)
-        position_executor_non_active.is_active = False
-        position_executor_non_active.close_type = CloseType.TAKE_PROFIT
-        position_executor_non_active.net_pnl_quote = Decimal(10)
-        position_executor_non_active.filled_amount_quote = Decimal(10)
-        config_mock = MagicMock(PositionExecutorConfig)
-        config_mock.id = "test"
-        config_mock.controller_id = "test"
-        position_executor_non_active.config = config_mock
+        position_executor_non_active.executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor",
+            status=RunnableStatus.RUNNING, config=config_mock,
+            filled_amount_quote=Decimal(0), net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
+            cum_fees_quote=Decimal(0), is_trading=False, is_active=True, custom_info={"side": TradeType.BUY}
+        )
         position_executor_active = MagicMock(spec=PositionExecutor)
-        position_executor_active.is_active = True
-        position_executor_active.net_pnl_quote = Decimal(10)
-        position_executor_active.filled_amount_quote = Decimal(10)
+        position_executor_active.executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor",
+            status=RunnableStatus.RUNNING, config=config_mock,
+            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
+            cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY}
+        )
         self.orchestrator.executors["test"] = [position_executor_non_active, position_executor_active]
         report = self.orchestrator.generate_performance_report(controller_id="test")
-        self.assertEqual(report.realized_pnl_quote, Decimal(10))
+        self.assertEqual(report.realized_pnl_quote, Decimal(0))
         self.assertEqual(report.unrealized_pnl_quote, Decimal(10))
 
     @patch('hummingbot.connector.markets_recorder.MarketsRecorder.get_instance')
@@ -132,20 +138,30 @@ class TestExecutorOrchestrator(unittest.TestCase):
         mock_get_instance.return_value = mock_markets_recorder
 
         # Set up mock executors for two different controllers
+        config_mock = PositionExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
         controller_ids = ["controller_1", "controller_2"]
-        pnl_values = [Decimal(20), Decimal(30)]
-        volume_values = [Decimal(200), Decimal(300)]
+        filled_amount_quote = [Decimal(200), Decimal(300)]
+        net_pnl_quote = [Decimal(20), Decimal(30)]
+        net_pnl_pct = [Decimal(10), Decimal(15)]
+        configs = [config_mock, config_mock]
+        status = [RunnableStatus.RUNNING, RunnableStatus.RUNNING]
+        is_trading = [True, True]
+        is_active = [True, True]
+        custom_info = [{"side": TradeType.BUY}, {"side": TradeType.SELL}]
+        cum_fees_quote = [Decimal(2), Decimal(3)]
 
         for i, controller_id in enumerate(controller_ids):
             executor_mock = MagicMock(spec=PositionExecutor)
-            executor_mock.is_active = False
-            executor_mock.close_type = CloseType.TAKE_PROFIT
-            executor_mock.net_pnl_quote = pnl_values[i]
-            executor_mock.filled_amount_quote = volume_values[i]
-            config_mock = MagicMock(PositionExecutorConfig)
-            config_mock.id = f"executor_{i}"
-            config_mock.controller_id = controller_id
-            executor_mock.config = config_mock
+            executor_mock.executor_info = ExecutorInfo(
+                id="123", timestamp=1234, type="position_executor",
+                status=status[i], config=configs[i],
+                filled_amount_quote=filled_amount_quote[i], net_pnl_quote=net_pnl_quote[i],
+                net_pnl_pct=net_pnl_pct[i], cum_fees_quote=cum_fees_quote[i],
+                is_trading=is_trading[i], is_active=is_active[i], custom_info=custom_info[i]
+            )
 
             self.orchestrator.executors[controller_id] = [executor_mock]
 
@@ -153,9 +169,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
         global_report = self.orchestrator.generate_global_performance_report()
 
         # Assertions to validate the global performance metrics
-        expected_total_realized_pnl = sum(pnl_values)
-        expected_total_volume_traded = sum(volume_values)
-        self.assertEqual(global_report.realized_pnl_quote, expected_total_realized_pnl)
+        expected_total_realized_pnl = sum(net_pnl_quote)
+        expected_total_volume_traded = sum(filled_amount_quote)
+        self.assertEqual(global_report.unrealized_pnl_quote, expected_total_realized_pnl)
         self.assertEqual(global_report.volume_traded, expected_total_volume_traded)
         self.assertAlmostEqual(global_report.global_pnl_quote, expected_total_realized_pnl)
         self.assertAlmostEqual(global_report.global_pnl_pct,
