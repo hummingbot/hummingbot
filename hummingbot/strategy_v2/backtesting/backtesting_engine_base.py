@@ -177,6 +177,7 @@ class BacktestingEngineBase:
         backtesting_candles["low"] = backtesting_candles["low_bt"]
         backtesting_candles["close"] = backtesting_candles["close_bt"]
         backtesting_candles["volume"] = backtesting_candles["volume_bt"]
+        backtesting_candles.dropna(inplace=True)
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
 
