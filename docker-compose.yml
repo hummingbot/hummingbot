@@ -2,10 +2,10 @@ version: "3.9"
 services:
   hummingbot:
     container_name: hummingbot
-    image: hummingbot/hummingbot:latest
-#    build: Uncomment this and comment image if you want to build it locally
-#      context: .
-#      dockerfile: Dockerfile
+#    image: hummingbot/hummingbot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors
@@ -17,6 +17,7 @@ services:
       - ./certs:/home/hummingbot/certs
       - ./scripts:/home/hummingbot/scripts
       - ./controllers:/home/hummingbot/controllers
+      - ./models:/home/hummingbot/models
     logging:
       driver: "json-file"
       options:
