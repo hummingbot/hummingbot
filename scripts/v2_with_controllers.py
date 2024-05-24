@@ -64,7 +64,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         self.send_performance_report()
 
     def send_performance_report(self):
-        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval:
+        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self.mqtt_enabled:
             performance_reports = {controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict() for controller_id in self.controllers.keys()}
             self._pub(performance_reports)
             self._last_performance_report_timestamp = self.current_timestamp
