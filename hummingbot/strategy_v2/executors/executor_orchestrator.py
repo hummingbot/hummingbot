@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Dict, List
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
@@ -151,17 +152,28 @@ class ExecutorOrchestrator:
         db_executors = MarketsRecorder.get_instance().get_executors_by_controller(controller_id)
         active_executor_ids = [executor.executor_info.id for executor in self.executors.get(controller_id, [])]
         filtered_db_executors = [executor for executor in db_executors if executor.id not in active_executor_ids]
-        combined_executors = self.executors.get(controller_id, []) + filtered_db_executors
+        active_executors = [executor.executor_info for executor in self.executors.get(controller_id, [])]
+        combined_executors = active_executors + filtered_db_executors
 
         # Initialize performance metrics
         realized_pnl_quote = Decimal(0)
         unrealized_pnl_quote = Decimal(0)
         volume_traded = Decimal(0)
+        open_order_volume = Decimal(0)
+        inventory_imbalance = Decimal(0)
         close_type_counts = {}
 
         for executor in combined_executors:
             if executor.is_active:  # For active executors
                 unrealized_pnl_quote += executor.net_pnl_quote
+                side = executor.custom_info.get("side", None)
+                if side:
+                    inventory_imbalance += executor.filled_amount_quote if side == TradeType.BUY else -executor.filled_amount_quote
+                if executor.type == "dca_executor":
+                    open_order_volume += sum(executor.config.amounts_quote) - executor.filled_amount_quote
+                elif executor.type == "position_executor":
+                    open_order_volume += (executor.config.amount * executor.config.entry_price) - executor.filled_amount_quote
+
             else:  # For closed executors
                 realized_pnl_quote += executor.net_pnl_quote
                 close_type = executor.close_type
@@ -188,6 +200,8 @@ class ExecutorOrchestrator:
             global_pnl_quote=global_pnl_quote,
             global_pnl_pct=global_pnl_pct,
             volume_traded=volume_traded,
+            open_order_volume=open_order_volume,
+            inventory_imbalance=inventory_imbalance,
             close_type_counts=close_type_counts
         )
 
@@ -197,6 +211,8 @@ class ExecutorOrchestrator:
         global_realized_pnl_quote = Decimal(0)
         global_unrealized_pnl_quote = Decimal(0)
         global_volume_traded = Decimal(0)
+        global_open_order_volume = Decimal(0)
+        global_inventory_imbalance = Decimal(0)
         global_close_type_counts = {}
 
         for controller_id in self.executors.keys():
@@ -204,6 +220,8 @@ class ExecutorOrchestrator:
             global_realized_pnl_quote += report.realized_pnl_quote
             global_unrealized_pnl_quote += report.unrealized_pnl_quote
             global_volume_traded += report.volume_traded
+            global_open_order_volume += report.open_order_volume
+            global_inventory_imbalance += report.inventory_imbalance
 
             for close_type, count in report.close_type_counts.items():
                 global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + count
@@ -219,5 +237,7 @@ class ExecutorOrchestrator:
             global_pnl_quote=global_pnl_quote,
             global_pnl_pct=global_pnl_pct,
             volume_traded=global_volume_traded,
+            open_order_volume=global_open_order_volume,
+            inventory_imbalance=global_inventory_imbalance,
             close_type_counts=global_close_type_counts
         )
