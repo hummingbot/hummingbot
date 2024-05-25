@@ -54,21 +54,40 @@ class XrplAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         # Create a client to connect to the test network
-        client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
+        client: JsonRpcClient = self._connector.client
+        base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
 
         try:
-
-        orderbook_snapshot = client.request(
-            BookOffers(
-                taker=wallet.address,
-                ledger_index="current",
-                taker_gets=we_want["currency"],
-                taker_pays=we_spend["currency"],
-                limit=10,
+            orderbook_asks_info = client.request(
+                BookOffers(
+                    ledger_index="current",
+                    taker_gets=base_currency,
+                    taker_pays=quote_currency,
+                    limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                )
             )
-        )
 
-        pass
+            orderbook_bids_info = client.request(
+                BookOffers(
+                    ledger_index="current",
+                    taker_gets=quote_currency,
+                    taker_pays=base_currency,
+                    limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                )
+            )
+
+            asks = orderbook_asks_info.result.get("offers", [])
+            bids = orderbook_bids_info.result.get("offers", [])
+
+            order_book = {
+                "asks": asks,
+                "bids": bids,
+            }
+        except Exception as e:
+            self.logger().error(f"Error fetching order book snapshot for {trading_pair}: {e}")
+            return {}
+
+        return order_book
 
     async def _subscribe_channels(self, ws: WSAssistant):
         pass

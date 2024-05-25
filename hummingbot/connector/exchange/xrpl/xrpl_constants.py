@@ -39,6 +39,9 @@ XRPL_ORDER_TYPE = {
 SIDE_BUY = 0
 SIDE_SELL = 1
 
+# Orderbook settings
+ORDER_BOOK_DEPTH = 500
+
 # Market Order Max Slippage Percentage
 MAX_SLIPPAGE_PERCENTAGE = 5
 
