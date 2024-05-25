@@ -46,7 +46,8 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     disable_info: bool = exchange_info.get("disabled", False)
     market_status: int = exchange_info.get("status", 0)
 
-    if disable_info or market_status != 1:
+    # only allow market status 1 and 2
+    if disable_info or market_status not in [1, 2]:
         return False
 
     return True
