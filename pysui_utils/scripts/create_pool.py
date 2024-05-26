@@ -13,13 +13,14 @@ load_dotenv()
 def create_pool():
     """Creates a pool with REALUSDC and SUI"""
 
-    package_id = os.getenv("TESTNET_PACKAGE_ID")
+    # package_id = os.getenv("TESTNET_PACKAGE_ID") 
+    package_id = os.getenv("LOCALNET_PACKAGE_ID")
 
     # TODO: add case for sponsoredTransaction
     txn = SyncTransaction(client=client)
 
     # TODO: get SUI coin objects using gql
-    coin_to_split = "0xcd562ff3ccd7ea887f3c10a5641f1529371367afc0aea97ec0467d3749641022"  # Retrieved somehow
+    coin_to_split = "0x0abd6f0eea07c1d7498c2c3f0b64256b8bb579774cf164d0f2c2e73b9274e992"  # Retrieved somehow
     # txn.transfer_objects(transfers=[txn.split_coin(coin=coin_to_split, amounts=[1000000000])], recipient=cfg.active_address)
     # txn.split_coin(coin=coin_to_split, amounts=[1000000000])
     # gas_object = txn.split_coin_and_return(coin=coin_to_split, split_count=2)

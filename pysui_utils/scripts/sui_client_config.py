@@ -7,12 +7,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-network = "testnet"
+network = "localnet"
 
 # Option-1: Setup configuration with one or more known keystrings and optional web services.
 cfg = SuiConfig.user_config(# Required
-    # rpc_url="http://0.0.0.0:44342" if network == "testnet" else "http://0.0.0.0:44340",
-    rpc_url="https://fullnode.testnet.sui.io:443",
+    rpc_url="http://0.0.0.0:44342" if network == "testnet" else "http://0.0.0.0:44340",
+    #rpc_url="https://fullnode.testnet.sui.io:443",
 
     # Optional. First entry becomes the 'active-address'
     # List elemente must be a valid Sui base64 keystring (i.e. 'key_type_flag | private_key_seed' )
