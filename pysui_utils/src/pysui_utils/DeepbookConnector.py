@@ -16,8 +16,8 @@ class DeepbookConnector:
     def __init__(self, client, cfg):
         self.client = client
         self.cfg = cfg
-        self.package_id = os.getenv("TESTNET_PACKAGE_ID")
-        self.pool_object_id = os.getenv("POOL_OBJECT_ID")
+        self.package_id = os.getenv("LOCALNET_PACKAGE_ID")
+        self.pool_object_id = os.getenv("LOCALNET_PACKAGE_ID")
 
     def create_account(self):
         coin_to_split = "0xcd562ff3ccd7ea887f3c10a5641f1529371367afc0aea97ec0467d3749641022"
@@ -68,4 +68,4 @@ class DeepbookConnector:
 if __name__ == "__main__":
     connector = DeepbookConnector(client, cfg)
     connector.deposit_base()
-    connector.place_limit_order()
+    #connector.place_limit_order()
