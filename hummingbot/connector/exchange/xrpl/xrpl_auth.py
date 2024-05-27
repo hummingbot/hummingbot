@@ -5,7 +5,7 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
-class XrplAuth(AuthBase):
+class XRPLAuth(AuthBase):
     def __init__(self, xrpl_secret_key: str):
         self._xrpl_secret_key = xrpl_secret_key
         self._wallet = Wallet.from_seed(xrpl_secret_key)
@@ -18,3 +18,6 @@ class XrplAuth(AuthBase):
 
     def get_wallet(self) -> Wallet:
         return self._wallet
+
+    def get_account(self) -> str:
+        return self._wallet.classic_address
