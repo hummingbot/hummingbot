@@ -6,11 +6,51 @@ authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 package-mode = false
 
+
 [tool.poetry.dependencies]
 python = "^3.10.12"
 pysui = "^0.60.0"
 numpy = "^1.26.4"
 
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.1"
+ruff = "^0.0.253"
+black = "^23.1.0"
+pytest-cov = "^4.0.0"
+pytest-xdist = "^3.2.0"
+pre-commit = "^3.1.0"
+interrogate = "^1.5.0"
+pyright = "^1.1.309"
+
+
+[tool.coverage.report]
+fail_under = 85.0
+
+[tool.interrogate]
+ignore-init-method = false
+ignore-init-module = false
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = false
+ignore-module = false
+fail-under = 95
+exclude = ["setup.py", "docs", "build"]
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
+verbose = 2
+quiet = false
+whitelist-regex = []
+color = true
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules",
+    "**/__pycache__",
+    "src/experimental",
+    "src/typestubs",
+    "src/*"                     # TODO: clean up typing of all code
+]
 
 [build-system]
 requires = ["poetry-core"]
