@@ -22,6 +22,7 @@ from hummingbot.strategy_v2.models.executor_actions import (
     StopExecutorAction,
     StoreExecutorAction,
 )
+from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
 
 
@@ -164,6 +165,14 @@ class ExecutorOrchestrator:
         close_type_counts = {}
 
         for executor in combined_executors:
+            close_type = executor.close_type
+            if close_type == CloseType.FAILED:
+                continue
+            elif close_type is not None:
+                if close_type in close_type_counts:
+                    close_type_counts[close_type] += 1
+                else:
+                    close_type_counts[close_type] = 1
             if executor.is_active:  # For active executors
                 unrealized_pnl_quote += executor.net_pnl_quote
                 side = executor.custom_info.get("side", None)
@@ -173,14 +182,8 @@ class ExecutorOrchestrator:
                     open_order_volume += sum(executor.config.amounts_quote) - executor.filled_amount_quote
                 elif executor.type == "position_executor":
                     open_order_volume += (executor.config.amount * executor.config.entry_price) - executor.filled_amount_quote
-
             else:  # For closed executors
                 realized_pnl_quote += executor.net_pnl_quote
-                close_type = executor.close_type
-                if close_type in close_type_counts:
-                    close_type_counts[close_type] += 1
-                else:
-                    close_type_counts[close_type] = 1
             volume_traded += executor.filled_amount_quote
 
         # Calculate global PNL values
