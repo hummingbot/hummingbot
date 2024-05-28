@@ -2,21 +2,21 @@ version: "3.9"
 services:
   hummingbot:
     container_name: hummingbot
-    image: hummingbot/hummingbot:latest
-#    build: Uncomment this and comment image if you want to build it locally
-#      context: .
-#      dockerfile: Dockerfile
+    # image: hummingbot/hummingbot:latest
+    build: 
+     context: .
+     dockerfile: Dockerfile
     volumes:
-      - ./conf:/home/hummingbot/conf
-      - ./conf/connectors:/home/hummingbot/conf/connectors
-      - ./conf/strategies:/home/hummingbot/conf/strategies
-      - ./conf/controllers:/home/hummingbot/conf/controllers
-      - ./conf/scripts:/home/hummingbot/conf/scripts
+      # - ./conf:/home/hummingbot/conf
+      # - ./conf/connectors:/home/hummingbot/conf/connectors
+      # - ./conf/strategies:/home/hummingbot/conf/strategies
+      # - ./conf/controllers:/home/hummingbot/conf/controllers
+      # - ./conf/scripts:/home/hummingbot/conf/scripts
       - ./logs:/home/hummingbot/logs
-      - ./data:/home/hummingbot/data
+      # - ./data:/home/hummingbot/data
       - ./certs:/home/hummingbot/certs
-      - ./scripts:/home/hummingbot/scripts
-      - ./controllers:/home/hummingbot/controllers
+      # - ./scripts:/home/hummingbot/scripts
+      # - ./controllers:/home/hummingbot/controllers
     logging:
       driver: "json-file"
       options:
@@ -30,16 +30,16 @@ services:
     #    - CONFIG_FILE_NAME=simple_pmm_example.py
     #    - SCRIPT_CONFIG=conf_simple_pmm_example.yaml
 
-  # gateway:
-  #  container_name: gateway
-  #  image: hummingbot/gateway:latest
-  #  ports:
-  #    - "15888:15888"
-  #    - "8080:8080"
-  #  volumes:
-  #    - "./gateway_files/conf:/home/gateway/conf"
-  #    - "./gateway_files/logs:/home/gateway/logs"
-  #    - "./gateway_files/db:/home/gateway/db"
-  #    - "./certs:/home/gateway/certs"
-  #  environment:
-  #    - GATEWAY_PASSPHRASE=a
+  gateway:
+   container_name: gateway
+   image: hummingbot/gateway:latest
+   ports:
+     - "15888:15888"
+     - "8080:8080"
+   volumes:
+     - "./gateway_files/conf:/home/gateway/conf"
+     - "./gateway_files/logs:/home/gateway/logs"
+     - "./gateway_files/db:/home/gateway/db"
+     - "./certs:/home/gateway/certs"
+   environment:
+     - GATEWAY_PASSPHRASE=vuonghuuhung

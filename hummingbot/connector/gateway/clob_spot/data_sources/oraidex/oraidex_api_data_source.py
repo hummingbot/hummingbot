@@ -527,7 +527,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if active_order:
             self.logger().debug("get_order_status_update: start")
 
-            if active_order.current_state != OrderState.CANCELED:
+            if active_order.current_state != OrderState.CANCELED or active_order.current_state != OrderState.FILLED or active_order.current_state != OrderState.PENDING_CANCEL:
                 await in_flight_order.get_exchange_order_id()
 
                 request = {
