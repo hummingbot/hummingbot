@@ -566,6 +566,20 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
                         },
                     )
 
+                    if order_status == OrderState.PARTIALLY_FILLED:
+                        order_status = OrderState.FILLED
+                        open_update = OrderUpdate(
+                            trading_pair=in_flight_order.trading_pair,
+                            update_timestamp=time(),
+                            new_state=order_status,
+                            client_order_id=in_flight_order.client_order_id,
+                            exchange_order_id=in_flight_order.exchange_order_id,
+                            misc_updates={
+                                "creation_transaction_hash": in_flight_order.creation_transaction_hash,
+                            },
+                        )
+                        in_flight_order.completely_filled_event.set()
+
                     order_update = open_update
                 else:
                     filled_order = OrderUpdate(
