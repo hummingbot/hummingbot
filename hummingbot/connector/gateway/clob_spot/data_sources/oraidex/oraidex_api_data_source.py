@@ -35,7 +35,7 @@ from hummingbot.core.data_type import in_flight_order
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
+from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import AccountEvent, MarketEvent, OrderBookDataSourceEvent, OrderCancelledEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
@@ -85,7 +85,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
     @property
     def events_are_streamed(self) -> bool:
         return False
-    
+
     @staticmethod
     def supported_stream_events() -> List[Enum]:
         return [
@@ -97,7 +97,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
             OrderBookDataSourceEvent.DIFF_EVENT,
             OrderBookDataSourceEvent.SNAPSHOT_EVENT,
         ]
-    
+
     def get_supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT]
 
@@ -119,7 +119,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._tasks.update_order_status_loop and self._tasks.update_order_status_loop.cancel()
         self._tasks.update_order_status_loop = None
         self.logger().debug("stop: end")
-    
+
     async def place_order(self, order: GatewayInFlightOrder, **kwargs) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
         self.logger().debug("place_order: start")
         self._check_markets_initialized() or await self._update_markets()
@@ -166,7 +166,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         await self._update_order_status()
 
         return order.exchange_order_id, misc_updates
-    
+
     async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
         self.logger().debug("batch_order_create: start")
 
@@ -188,7 +188,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 trading_pair=order_to_create.trading_pair,
             )
             candidate_orders.append(candidate_order)
-        
+
         async with self._locks.place_orders:
             try:
                 request = {
@@ -226,9 +226,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         place_order_results = []
         for order_to_create, exchange_order_id in zip(orders_to_create, response["ids"]):
             order_to_create.exchange_order_id = None
-            
             order_to_create.current_state = OrderState.CREATED
-
             place_order_results.append(PlaceOrderResult(
                 update_timestamp=time(),
                 client_order_id=order_to_create.client_order_id,
@@ -241,11 +239,9 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
             ))
 
         self.logger().debug("batch_order_create: end")
-        
         await self._update_order_status()
-
         return place_order_results
-    
+
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         active_order = self._gateway_order_tracker.active_orders.get(order.client_order_id)
 
@@ -336,12 +332,9 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         return False, DotMap({}, _dynamic=False)
 
-
     async def batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancelOrderResult]:
         self.logger().debug("batch_order_cancel: start")
-
         self._check_markets_initialized() or await self._update_markets()
-
         client_ids = [order.client_order_id for order in orders_to_cancel]
 
         in_flight_orders_to_cancel = [
@@ -409,7 +402,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self.logger().debug("batch_order_cancel: end")
 
         return cancel_order_results
-    
+
     async def get_last_traded_price(self, trading_pair: str) -> Decimal:
         self.logger().debug("get_last_traded_price: start")
 
@@ -426,14 +419,14 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         self.logger().debug(f"""get_clob_ticker response:\n "{self._dump(response)}".""")
 
-        ticker = DotMap(response, _dynamic=False).markets[trading_pair]
+        ticker = DotMap(response, _dynamic=False).markets
 
         ticker_price = Decimal(ticker.price)
 
         self.logger().debug("get_last_traded_price: end")
 
         return ticker_price
-    
+
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         self.logger().debug("get_order_book_snapshot: start")
 
@@ -605,7 +598,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         self.logger().debug("get_order_status_update: end")
         return no_update
-    
+
     async def get_all_order_fills(self, in_flight_order: GatewayInFlightOrder) -> List[TradeUpdate]:
         if in_flight_order.exchange_order_id:
             self.logger().debug("get_all_order_fills: start")
@@ -615,8 +608,6 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
             if order and order_status == OrderState.FILLED:
                 timestamp = in_flight_order.last_update_timestamp
                 trade_id = str(timestamp)
-
-                market = self._markets_info[in_flight_order.trading_pair]
 
                 trade_update = TradeUpdate(
                     trade_id=trade_id,
@@ -633,11 +624,11 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     ),
                 )
             self.logger().debug("get_all_order_fills: end")
-            
+
             if trade_update:
                 return [trade_update]
         return []
-    
+
     def _get_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
         return market_info["hb_trading_pair"]
 
@@ -669,7 +660,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return output
 
     async def check_network_status(self) -> NetworkStatus:
-        # self.logger().debug("check_network_status: start")
+        self.logger().debug("check_network_status: start")
 
         try:
             status = await self._gateway_ping_gateway()
@@ -685,7 +676,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
             return NetworkStatus.NOT_CONNECTED
 
-        # self.logger().debug("check_network_status: end")
+        self.logger().debug("check_network_status: end")
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
@@ -698,11 +689,11 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return output
 
     def _check_markets_initialized(self) -> bool:
-        # self.logger().debug("_check_markets_initialized: start")
+        self.logger().debug("_check_markets_initialized: start")
 
         output = self._markets is not None and bool(self._markets)
 
-        # self.logger().debug("_check_markets_initialized: end")
+        self.logger().debug("_check_markets_initialized: end")
 
         return output
 
@@ -783,11 +774,12 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self.logger().debug("_get_maker_taker_exchange_fee_rates_from_market_info: start")
 
         maker_taker_exchange_fee_rates = MakerTakerExchangeFeeRates(
-            maker=Decimal(0.001),
-            taker=Decimal(0.001),
+            maker=Decimal("0.001"),
+            taker=Decimal("0.001"),
             maker_flat_fees=[],
             taker_flat_fees=[],
         )
+
         return maker_taker_exchange_fee_rates
 
     async def _update_markets_loop(self):
@@ -855,7 +847,7 @@ class OraidexAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 response = await self._gateway_get_clob_order_status_updates(request)
 
                 try:
-                    if response["orders"] is not None and len(response['orders']) and response["orders"][0] is not None and response["orders"][0]["status"].upper() != order.current_state:
+                    if len(response['orders']) and response["orders"][0] is not None and response["orders"][0]["status"].upper() != order.current_state:
                         updated_order = response["orders"][0]
 
                         message = {
