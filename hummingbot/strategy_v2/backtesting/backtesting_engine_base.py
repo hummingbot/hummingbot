@@ -276,7 +276,7 @@ class BacktestingEngineBase:
             max_drawdown_pct = max_draw_down / executors_with_position["inventory"].iloc[0]
             returns = pd.to_numeric(
                 executors_with_position["cumulative_returns"] / executors_with_position["cumulative_volume"])
-            sharpe_ratio = returns.mean() / returns.std()
+            sharpe_ratio = returns.mean() / returns.std() if len(returns) > 1 else 0
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
             total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
             profit_factor = total_won / total_loss if total_loss > 0 else 1
