@@ -4,12 +4,14 @@ import math
 from decimal import Decimal
 from typing import Dict, List, Optional, Union
 
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
@@ -285,7 +287,12 @@ class PositionExecutor(ExecutorBase):
                 self.cancel_open_orders()
                 self._current_retries += 1
         elif self._close_order:
-            self.logger().info(f"Waiting for close order to be filled --> Filled amount: {self.close_filled_amount} | Open amount: {self.open_filled_amount}")
+            if self._current_retries < self._max_retries / 2:
+                self.logger().info(f"Waiting for close order to be filled --> Filled amount: {self.close_filled_amount} | Open amount: {self.open_filled_amount}")
+            else:
+                self.logger().info("No fill on close order, will be retried.")
+                self.cancel_close_order()
+                self._current_retries += 1
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
@@ -513,6 +520,19 @@ class PositionExecutor(ExecutorBase):
         )
         self.logger().debug("Removing open order")
 
+    def cancel_close_order(self):
+        """
+        This method is responsible for canceling the close order.
+
+        :return: None
+        """
+        self._strategy.cancel(
+            connector_name=self.config.connector_name,
+            trading_pair=self.config.trading_pair,
+            order_id=self._close_order.order_id
+        )
+        self.logger().debug("Removing close order")
+
     def early_stop(self):
         """
         This method allows strategy to stop the executor early.
@@ -565,6 +585,17 @@ class PositionExecutor(ExecutorBase):
         """
         self._total_executed_amount_backup += event.amount
         self.update_tracked_orders_with_order_id(event.order_id)
+
+    def process_order_canceled_event(self,
+                                     event_tag: int,
+                                     market: ConnectorBase,
+                                     event: OrderCancelledEvent):
+        """
+        This method is responsible for processing the order canceled event
+        """
+        if self._close_order and event.order_id == self._close_order.order_id:
+            self._failed_orders.append(self._close_order)
+            self._close_order = None
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         """
