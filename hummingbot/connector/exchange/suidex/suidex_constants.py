@@ -13,7 +13,7 @@ WSS_URL = "wss://stream.suidex.{}:9443/ws"
 PUBLIC_API_VERSION = "v3"
 PRIVATE_API_VERSION = "v3"
 
-# Public API endpoints or BinanceClient function
+# Public API endpoints or SUIdexClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
 TICKER_BOOK_PATH_URL = "/ticker/bookTicker"
 EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
@@ -21,15 +21,15 @@ PING_PATH_URL = "/ping"
 SNAPSHOT_PATH_URL = "/depth"
 SERVER_TIME_PATH_URL = "/time"
 
-# Private API endpoints or BinanceClient function
+# Private API endpoints or SUIdexClient function
 ACCOUNTS_PATH_URL = "/account"
 MY_TRADES_PATH_URL = "/myTrades"
 ORDER_PATH_URL = "/order"
-BINANCE_USER_STREAM_PATH_URL = "/userDataStream"
+SUIDEX_USER_STREAM_PATH_URL = "/userDataStream"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
-# Binance params
+# SUIdex params
 
 SIDE_BUY = "BUY"
 SIDE_SELL = "SELL"
@@ -86,7 +86,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 100),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=BINANCE_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    RateLimit(limit_id=SUIDEX_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,

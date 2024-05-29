@@ -38,12 +38,12 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     return is_trading and is_spot
 
 
-class BinanceConfigMap(BaseConnectorConfigMap):
+class SUIdexConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="suidex", const=True, client_data=None)
     suidex_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Binance API key",
+            prompt=lambda cm: "Enter your SUIdex API key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -52,7 +52,7 @@ class BinanceConfigMap(BaseConnectorConfigMap):
     suidex_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Binance API secret",
+            prompt=lambda cm: "Enter your SUIdex API secret",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -63,7 +63,7 @@ class BinanceConfigMap(BaseConnectorConfigMap):
         title = "suidex"
 
 
-KEYS = BinanceConfigMap.construct()
+KEYS = SUIdexConfigMap.construct()
 
 OTHER_DOMAINS = ["suidex_us"]
 OTHER_DOMAINS_PARAMETER = {"suidex_us": "us"}
@@ -71,12 +71,12 @@ OTHER_DOMAINS_EXAMPLE_PAIR = {"suidex_us": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"suidex_us": DEFAULT_FEES}
 
 
-class BinanceUSConfigMap(BaseConnectorConfigMap):
+class SUIdexUSConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="suidex_us", const=True, client_data=None)
     suidex_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Binance US API key",
+            prompt=lambda cm: "Enter your SUIdex US API key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -85,7 +85,7 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
     suidex_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Binance US API secret",
+            prompt=lambda cm: "Enter your SUIdex US API secret",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -96,4 +96,4 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
         title = "suidex_us"
 
 
-OTHER_DOMAINS_KEYS = {"suidex_us": BinanceUSConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"suidex_us": SUIdexUSConfigMap.construct()}

@@ -10,9 +10,9 @@ from hummingbot.connector.exchange.suidex import (
     suidex_utils,
     suidex_web_utils as web_utils,
 )
-from hummingbot.connector.exchange.suidex.suidex_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.connector.exchange.suidex.suidex_api_user_stream_data_source import BinanceAPIUserStreamDataSource
-from hummingbot.connector.exchange.suidex.suidex_auth import BinanceAuth
+from hummingbot.connector.exchange.suidex.suidex_api_order_book_data_source import SUIdexAPIOrderBookDataSource
+from hummingbot.connector.exchange.suidex.suidex_api_user_stream_data_source import SUIdexAPIUserStreamDataSource
+from hummingbot.connector.exchange.suidex.suidex_auth import SUIdexAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class BinanceExchange(ExchangePyBase):
+class SUIdexExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
@@ -61,7 +61,7 @@ class BinanceExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return BinanceAuth(
+        return SUIdexAuth(
             api_key=self.api_key,
             secret_key=self.secret_key,
             time_provider=self._time_synchronizer)
@@ -144,14 +144,14 @@ class BinanceExchange(ExchangePyBase):
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return BinanceAPIOrderBookDataSource(
+        return SUIdexAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             domain=self.domain,
             api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return BinanceAPIUserStreamDataSource(
+        return SUIdexAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
             connector=self,
@@ -180,7 +180,7 @@ class BinanceExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
-        type_str = BinanceExchange.suidex_order_type(order_type)
+        type_str = SUIdexExchange.suidex_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"symbol": symbol,
@@ -298,7 +298,7 @@ class BinanceExchange(ExchangePyBase):
             try:
                 event_type = event_message.get("e")
                 # Refer to https://github.com/suidex-exchange/suidex-official-api-docs/blob/master/user-data-stream.md
-                # As per the order update section in Binance the ID of the order being canceled is under the "C" key
+                # As per the order update section in SUIdex the ID of the order being canceled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
@@ -357,10 +357,10 @@ class BinanceExchange(ExchangePyBase):
     async def _update_order_fills_from_trades(self):
         """
         This is intended to be a backup measure to get filled events with trade ID for orders,
-        in case Binance's user stream events are not working.
+        in case SUIdex's user stream events are not working.
         NOTE: It is not required to copy this functionality in other connectors.
         This is separated from _update_order_status which only updates the order status without producing filled
-        events, since Binance's get order endpoint does not return trade IDs.
+        events, since SUIdex's get order endpoint does not return trade IDs.
         The minimum poll interval for order status is 10 seconds.
         """
         small_interval_last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
