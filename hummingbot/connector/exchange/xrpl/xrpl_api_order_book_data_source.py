@@ -21,7 +21,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.xrpl.xrpl_exchange import XRPLExchange
+    from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
 
 
 class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -29,7 +29,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 connector: 'XRPLExchange',
+                 connector: 'XrplExchange',
                  api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
         self._connector = connector

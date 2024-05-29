@@ -3,9 +3,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from bidict import bidict
-from xrpl.account import get_balance
 
 # XRPL Imports
+from xrpl.asyncio.clients import AsyncWebsocketClient
 from xrpl.clients import WebsocketClient
 from xrpl.models import XRP, AccountInfo, AccountObjects, IssuedCurrency, Ping
 from xrpl.models.response import ResponseStatus
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class XRPLExchange(ExchangePyBase):
+class XrplExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     # web_utils = web_utils
@@ -47,7 +47,7 @@ class XRPLExchange(ExchangePyBase):
     ):
         self._xrpl_secret_key = xrpl_secret_key
         self._wss_node_url = wss_node_url
-        self._xrpl_client = WebsocketClient(self._wss_node_url)
+        self._xrpl_client = AsyncWebsocketClient(self._wss_node_url)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._auth: XRPLAuth = self.authenticator
@@ -235,16 +235,21 @@ class XRPLExchange(ExchangePyBase):
 
     async def _update_balances(self):
         account_address = self._auth.get_account()
-        with self._xrpl_client as client:
-            balance_info = get_balance(address=account_address, client=client)
-            objects = client.request(AccountObjects(
+
+        async with self._xrpl_client as client:
+            account_info = await client.request(AccountInfo(
+                account=account_address,
+                ledger_index="validated",
+            ))
+            objects = await client.request(AccountObjects(
                 account=account_address,
             ))
             open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
             balances = [x.get('Balance') for x in objects.result.get("account_objects", []) if
                         x.get("LedgerEntryType") == "RippleState"]
 
-            total_xrp = drops_to_xrp(str(balance_info))
+            xrp_balance = account_info.result.get("account_data", {}).get("Balance", '0')
+            total_xrp = drops_to_xrp(xrp_balance)
             total_ledger_objects = len(objects.result.get("account_objects", []))
             fixed_wallet_reserve = 10
             available_xrp = total_xrp - fixed_wallet_reserve - total_ledger_objects * 2
@@ -398,7 +403,7 @@ class XRPLExchange(ExchangePyBase):
         zeroTransferRate = 1000000000
         trading_rules_info = {}
 
-        with self._xrpl_client as client:
+        async with self._xrpl_client as client:
             for trading_pair in self._trading_pairs:
                 base_currency, quote_currency = await self.get_currencies_from_trading_pair(trading_pair)
 
@@ -406,7 +411,7 @@ class XRPLExchange(ExchangePyBase):
                     baseTickSize = 6
                     baseTransferRate = 0
                 else:
-                    base_info = client.request(AccountInfo(
+                    base_info = await client.request(AccountInfo(
                         account=base_currency.issuer,
                         ledger_index="validated",
                     ))
@@ -423,7 +428,7 @@ class XRPLExchange(ExchangePyBase):
                     quoteTickSize = 6
                     quoteTransferRate = 0
                 else:
-                    quote_info = client.request(AccountInfo(
+                    quote_info = await client.request(AccountInfo(
                         account=quote_currency.issuer,
                         ledger_index="validated",
                     ))
