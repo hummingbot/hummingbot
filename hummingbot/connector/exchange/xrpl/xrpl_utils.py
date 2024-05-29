@@ -146,7 +146,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
 
     @validator("xrpl_secret_key", pre=True)
     def validate_xrpl_secret_key(cls, v: str):
-        pattern = r'^s[1-9A-HJ-NP-Za-km-z]{1,28}$'
+        pattern = r'^s[A-HJ-NP-Za-km-z1-9]*$'
         error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
         ret = validate_with_regex(v, pattern, error_message)
         if ret is not None:

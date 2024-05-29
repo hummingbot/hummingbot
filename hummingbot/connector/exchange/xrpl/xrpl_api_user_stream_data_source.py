@@ -9,7 +9,7 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.xrpl.xrpl_exchange import XRPLExchange
+    from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
 
 
 class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -17,7 +17,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  auth: XRPLAuth,
-                 connector: 'XRPLExchange'):
+                 connector: 'XrplExchange'):
         super().__init__()
         self._connector = connector
         self._auth = auth
