@@ -34,7 +34,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 subscribe = Subscribe(accounts=[self._auth.get_account()])
 
-                with WebsocketClient(self._connector.getNodeUrl()) as client:
+                with WebsocketClient(self._connector.node_url) as client:
                     client.send(subscribe)
 
                     for message in client:

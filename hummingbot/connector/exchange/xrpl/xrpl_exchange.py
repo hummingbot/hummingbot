@@ -1,44 +1,31 @@
 import asyncio
-import math
-from decimal import ROUND_DOWN, Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from bidict import bidict
-
-from hummingbot.connector.constants import s_decimal_NaN
+from xrpl.account import get_balance
 
 # XRPL Imports
+from xrpl.clients import WebsocketClient
+from xrpl.models import XRP, AccountInfo, AccountObjects, IssuedCurrency, Ping
+from xrpl.models.response import ResponseStatus
+from xrpl.utils import drops_to_xrp, hex_to_str
+
+from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
-
-# from hummingbot.connector.exchange.cube import cube_constants as CONSTANTS, cube_utils, cube_web_utils as web_utils
-# from hummingbot.connector.exchange.cube.cube_api_order_book_data_source import CubeAPIOrderBookDataSource
-# from hummingbot.connector.exchange.cube.cube_api_user_stream_data_source import CubeAPIUserStreamDataSource
-# from hummingbot.connector.exchange.cube.cube_auth import CubeAuth
-# from hummingbot.connector.exchange.cube.cube_utils import raw_units_to_number
-# from hummingbot.connector.exchange.cube.cube_ws_protobufs import trade_pb2
+from hummingbot.connector.exchange.xrpl.xrpl_utils import convert_string_to_hex
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import (
-    combine_to_hb_trading_pair,
-    get_new_client_order_id,
-    get_new_numeric_client_order_id,
-)
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import (
-    AddedToCostTradeFee,
-    DeductedFromReturnsTradeFee,
-    TokenAmount,
-    TradeFeeBase,
-)
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.tracking_nonce import NonceCreator
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -54,26 +41,17 @@ class XRPLExchange(ExchangePyBase):
             self,
             client_config_map: "ClientConfigAdapter",
             xrpl_secret_key: str,
+            wss_node_url: str,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self._xrpl_secret_key = xrpl_secret_key
-        self._domain = domain
+        self._wss_node_url = wss_node_url
+        self._xrpl_client = WebsocketClient(self._wss_node_url)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._last_trades_poll_cube_timestamp = 1.0
         self._auth: XRPLAuth = self.authenticator
         self._trading_pair_symbol_map: Optional[Mapping[str, str]] = None
-        self._trading_pair_market_id_map: Optional[Mapping[int, str]] = None
-        self._token_id_map: Optional[Mapping[int, str]] = None
-        self._token_info: Dict[int, Any] = {}
-        self._is_bootstrap_completed = False
-        self._nonce_creator = NonceCreator.for_milliseconds()
-        self._mapping_initialization_lock = asyncio.Lock()
-
-        if not self.check_domain(self._domain):
-            raise ValueError(f"Invalid domain: {self._domain}")
 
         super().__init__(client_config_map)
 
@@ -99,7 +77,7 @@ class XRPLExchange(ExchangePyBase):
 
     @property
     def domain(self):
-        return self._domain
+        return "Not Supported"
 
     @property
     def client_order_id_max_length(self):
@@ -112,9 +90,11 @@ class XRPLExchange(ExchangePyBase):
     @property
     def trading_rules_request_path(self):
         return ""
+
     @property
     def trading_pairs_request_path(self):
         return ""
+
     @property
     def check_network_request_path(self):
         return ""
@@ -130,6 +110,10 @@ class XRPLExchange(ExchangePyBase):
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
+
+    @property
+    def node_url(self) -> str:
+        return self._wss_node_url
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
@@ -200,9 +184,24 @@ class XRPLExchange(ExchangePyBase):
         # TODO: Implement cancel order
         pass
 
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        # TODO: Implement trading rules formatting
-        pass
+    async def _format_trading_rules(self, trading_rules_info: Dict[str, Any]) -> List[TradingRule]:
+        trading_rules = []
+        for trading_pair, trading_pair_info in trading_rules_info.items():
+            base_tick_size = trading_pair_info["base_tick_size"]
+            quote_tick_size = trading_pair_info["quote_tick_size"]
+            minimum_order_size = trading_pair_info["minimum_order_size"]
+
+            trading_rule = TradingRule(
+                trading_pair=trading_pair,
+                min_order_size=Decimal(f"1e-{minimum_order_size}"),
+                min_price_increment=Decimal(f"1e-{quote_tick_size}"),
+                min_quote_amount_increment=Decimal(f"1e-{quote_tick_size}"),
+                min_base_amount_increment=Decimal(f"1e-{base_tick_size}"),
+                min_notional_size=Decimal(f"1e-{quote_tick_size}"))
+
+            trading_rules.append(trading_rule)
+
+        return trading_rules
 
     async def _update_trading_fees(self):
         """
@@ -235,8 +234,53 @@ class XRPLExchange(ExchangePyBase):
         pass
 
     async def _update_balances(self):
-        # TODO: implement balance update
-        pass
+        account_address = self._auth.get_account()
+        with self._xrpl_client as client:
+            balance_info = get_balance(address=account_address, client=client)
+            objects = client.request(AccountObjects(
+                account=account_address,
+            ))
+            open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
+            balances = [x.get('Balance') for x in objects.result.get("account_objects", []) if
+                        x.get("LedgerEntryType") == "RippleState"]
+
+            total_xrp = drops_to_xrp(str(balance_info))
+            total_ledger_objects = len(objects.result.get("account_objects", []))
+            fixed_wallet_reserve = 10
+            available_xrp = total_xrp - fixed_wallet_reserve - total_ledger_objects * 2
+
+            account_balances = {
+                "XRP": Decimal(total_xrp),
+            }
+
+            # update balance for each token
+            for balance in balances:
+                currency = balance.get("currency")
+                if len(currency) > 3:
+                    currency = hex_to_str(currency)
+
+                token = currency.strip('\x00')
+                amount = balance.get("value")
+                account_balances[token] = Decimal(amount)
+
+            account_available_balances = account_balances.copy()
+            account_available_balances["XRP"] = Decimal(available_xrp)
+
+            for offer in open_offers:
+                taker_gets = offer.get("TakerGets")
+                if isinstance(taker_gets, dict):
+                    token = taker_gets.get("currency")
+                    if len(token) > 3:
+                        token = hex_to_str(token).strip('\x00')
+                    amount = Decimal(taker_gets.get("value"))
+                else:
+                    amount = drops_to_xrp(taker_gets)
+                    token = 'XRP'
+
+                account_available_balances[token] -= amount
+
+            self._account_balances = account_balances
+            self._account_available_balances = account_available_balances
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         markets = exchange_info.get("markets", {})
@@ -254,7 +298,6 @@ class XRPLExchange(ExchangePyBase):
         Method added to allow the pure Python subclasses to set the value of the map
         """
         self._trading_pair_symbol_map = trading_pair_and_symbol_map
-
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         last_price = self.order_books.get(trading_pair).last_trade_price
@@ -339,6 +382,7 @@ class XRPLExchange(ExchangePyBase):
 
         exchange_info = await self._make_trading_pairs_request()
         self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+
     async def _initialize_trading_pair_symbol_map(self):
         try:
             exchange_info = await self._make_trading_pairs_request()
@@ -347,13 +391,101 @@ class XRPLExchange(ExchangePyBase):
             self.logger().exception(f"There was an error requesting exchange info: {e}")
 
     async def _make_network_check_request(self):
-        # TODO: Add ping command
-        pass
+        with WebsocketClient(self.node_url) as client:
+            client.request(Ping())
 
-    async def _make_trading_rules_request(self) -> Any:
-        # TODO: Get trading rules from xrpl ledger by using account_info api call
-        pass
+    async def _make_trading_rules_request(self) -> Dict[str, Any]:
+        zeroTransferRate = 1000000000
+        trading_rules_info = {}
 
-    async def _make_trading_pairs_request(self) -> Any:
+        with self._xrpl_client as client:
+            for trading_pair in self._trading_pairs:
+                base_currency, quote_currency = await self.get_currencies_from_trading_pair(trading_pair)
+
+                if base_currency.currency == XRP().currency:
+                    baseTickSize = 6
+                    baseTransferRate = 0
+                else:
+                    base_info = client.request(AccountInfo(
+                        account=base_currency.issuer,
+                        ledger_index="validated",
+                    ))
+
+                    if base_info.status == ResponseStatus.ERROR:
+                        error_message = base_info.result.get("error_message")
+                        raise ValueError(f"Base currency {base_currency} not found in ledger: {error_message}")
+
+                    baseTickSize = base_info.result.get("account_data", {}).get("TickSize", 15)
+                    rawTransferRate = base_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
+                    baseTransferRate = float(rawTransferRate / zeroTransferRate) - 1
+
+                if quote_currency.currency == XRP().currency:
+                    quoteTickSize = 6
+                    quoteTransferRate = 0
+                else:
+                    quote_info = client.request(AccountInfo(
+                        account=quote_currency.issuer,
+                        ledger_index="validated",
+                    ))
+
+                    if quote_info.status == ResponseStatus.ERROR:
+                        error_message = quote_info.result.get("error_message")
+                        raise ValueError(f"Quote currency {quote_currency} not found in ledger: {error_message}")
+
+                    quoteTickSize = quote_info.result.get("account_data", {}).get("TickSize", 15)
+                    rawTransferRate = quote_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
+                    quoteTransferRate = float(rawTransferRate / zeroTransferRate) - 1
+
+                if baseTickSize is None or quoteTickSize is None:
+                    raise ValueError(f"Tick size not found for trading pair {trading_pair}")
+
+                if baseTransferRate is None or quoteTransferRate is None:
+                    raise ValueError(f"Transfer rate not found for trading pair {trading_pair}")
+
+                smallestTickSize = min(baseTickSize, quoteTickSize)
+                minimumOrderSize = float(10) ** -smallestTickSize
+
+                trading_rules_info[trading_pair] = {
+                    "base_currency": base_currency,
+                    "quote_currency": quote_currency,
+                    "base_tick_size": baseTickSize,
+                    "quote_tick_size": quoteTickSize,
+                    "base_transfer_rate": baseTransferRate,
+                    "quote_transfer_rate": quoteTransferRate,
+                    "minimum_order_size": minimumOrderSize
+                }
+
+        return trading_rules_info
+
+    async def _make_trading_pairs_request(self) -> [Dict[str, Any]]:
         markets = CONSTANTS.MARKETS
         return {"markets": markets}
+
+    async def get_currencies_from_trading_pair(self, trading_pair: str) -> (
+            Tuple)[Union[IssuedCurrency, XRP], Union[IssuedCurrency, XRP]]:
+        # Find market in the markets list
+        # TODO: Create a markets list that load from constant file and config file
+        market = CONSTANTS.MARKETS.get(trading_pair, None)
+
+        if market is None:
+            raise ValueError(f"Market {trading_pair} not found in markets list")
+
+        # Get all info
+        base = market.get("base")
+        base_issuer = market.get("base_issuer")
+        quote = market.get("quote")
+        quote_issuer = market.get("quote_issuer")
+
+        if base == "XRP":
+            base_currency = XRP()
+        else:
+            formatted_base = convert_string_to_hex(base)
+            base_currency = IssuedCurrency(currency=formatted_base, issuer=base_issuer)
+
+        if quote == "XRP":
+            quote_currency = XRP()
+        else:
+            formatted_quote = convert_string_to_hex(quote)
+            quote_currency = IssuedCurrency(currency=formatted_quote, issuer=quote_issuer)
+
+        return base_currency, quote_currency
