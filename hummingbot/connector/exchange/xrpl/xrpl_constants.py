@@ -5,8 +5,7 @@ from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderType
 
 EXCHANGE_NAME = "xrpl"
-DOMAIN = "xrpl" # This just a placeholder since we don't use domain in xrpl connect at the moment
-
+DOMAIN = "xrpl"  # This just a placeholder since we don't use domain in xrpl connect at the moment
 
 HBOT_ORDER_ID_PREFIX = "hbot"
 MAX_ORDER_ID_LEN = 32
@@ -14,7 +13,6 @@ MAX_ORDER_ID_LEN = 32
 # Base URL
 DEFAULT_JSON_RPC_URL = "https://s1.ripple.com:51234/"
 DEFAULT_WSS_URL = "wss://s1.ripple.com/"
-
 
 # Websocket channels
 TRADE_EVENT_TYPE = "trades"
@@ -69,6 +67,12 @@ MARKETS = {
         "base": "SOLO",
         "quote": "USD",
         "base_issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+        "quote_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
+    },
+    "XRP-USD": {
+        "base": "XRP",
+        "quote": "USD",
+        "base_issuer": "",
         "quote_issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
     },
 }

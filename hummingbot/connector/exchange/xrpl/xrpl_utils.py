@@ -1,6 +1,8 @@
+import binascii
 from decimal import Decimal
 from typing import List, Optional
 
+from pydantic import Field, SecretStr, validator
 from xrpl.models import TransactionMetadata
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
 from xrpl.utils.txn_parser.utils.order_book_parser import (
@@ -12,9 +14,19 @@ from xrpl.utils.txn_parser.utils.order_book_parser import (
 )
 from xrpl.utils.txn_parser.utils.types import AccountOfferChange, AccountOfferChanges, OfferChange
 
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_validators import validate_with_regex
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
-LSF_SELL = 0x00020000
+CENTRALIZED = True
+EXAMPLE_PAIR = "XRP-USD"
+
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0"),
+    taker_percent_fee_decimal=Decimal("0"),
+    buy_percent_fee_deducted_from_returns=True,
+)
 
 
 def get_order_book_changes(metadata: TransactionMetadata) -> List[AccountOfferChanges]:
@@ -95,3 +107,60 @@ def normalize_price_from_drop(price: str, is_ask: bool = False) -> float:
         return round(float(Decimal(price) * drop), 6)
 
     return round(float(Decimal(price) / drop), 6)
+
+
+def convert_string_to_hex(s):
+    if len(s) > 3:
+        hex_str = binascii.hexlify(s.encode()).decode()
+        while len(hex_str) < 40:
+            hex_str += '00'  # pad with zeros to reach 160 bits (40 hex characters)
+        return hex_str.upper()
+
+    return s
+
+
+class XRPLConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="xrpl", const=True, client_data=None)
+    xrpl_secret_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your XRPL wallet secret key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
+    wss_node_url = Field(
+        default="wss://s1.ripple.com/",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your XRPL Websocket Node URL",
+            is_secure=False,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = "xrpl"
+
+    @validator("xrpl_secret_key", pre=True)
+    def validate_xrpl_secret_key(cls, v: str):
+        pattern = r'^s[1-9A-HJ-NP-Za-km-z]{1,28}$'
+        error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
+        ret = validate_with_regex(v, pattern, error_message)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("wss_node_url", pre=True)
+    def validate_wss_node_url(cls, v: str):
+        pattern = r'^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$'
+        error_message = "Invalid node url. Node url should be in websocket format."
+        ret = validate_with_regex(v, pattern, error_message)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+
+KEYS = XRPLConfigMap.construct()

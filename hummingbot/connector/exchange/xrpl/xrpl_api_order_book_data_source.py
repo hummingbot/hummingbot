@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # XRPL imports
-from xrpl.clients import JsonRpcClient, WebsocketClient
+from xrpl.clients import WebsocketClient
 from xrpl.models.requests import BookOffers, Subscribe, SubscribeBook
 from xrpl.models.transactions.metadata import TransactionMetadata
 from xrpl.utils import get_order_book_changes, ripple_time_to_posix
@@ -14,19 +14,14 @@ from xrpl.utils import get_order_book_changes, ripple_time_to_posix
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_order_book import XRPLOrderBook
 from hummingbot.core.data_type.common import TradeType
-
-# from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-
-# from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
+    from hummingbot.connector.exchange.xrpl.xrpl_exchange import XRPLExchange
 
 
 class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -34,7 +29,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 connector: 'XrplExchange',
+                 connector: 'XRPLExchange',
                  api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -42,7 +37,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = CONSTANTS.SNAPSHOT_EVENT_TYPE
-        self._jsonRpcClient: JsonRpcClient = JsonRpcClient(self._connector.getNodeUrl())
+        self._client = WebsocketClient(self._connector.node_url)
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -58,37 +53,36 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         # Create a client to connect to the test network
-        client = self._jsonRpcClient
+        # client = self._client
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
-        # TODO: implement get_currencies_from_trading_pair
-        # base_currency, quote_currency should be in the following type: IssuedCurrency() or XRP()
 
         try:
-            orderbook_asks_info = client.request(
-                BookOffers(
-                    ledger_index="current",
-                    taker_gets=base_currency,
-                    taker_pays=quote_currency,
-                    limit=CONSTANTS.ORDER_BOOK_DEPTH,
+            with self._client:
+                orderbook_asks_info = self._client.request(
+                    BookOffers(
+                        ledger_index="current",
+                        taker_gets=base_currency,
+                        taker_pays=quote_currency,
+                        limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                    )
                 )
-            )
 
-            orderbook_bids_info = client.request(
-                BookOffers(
-                    ledger_index="current",
-                    taker_gets=quote_currency,
-                    taker_pays=base_currency,
-                    limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                orderbook_bids_info = self._client.request(
+                    BookOffers(
+                        ledger_index="current",
+                        taker_gets=quote_currency,
+                        taker_pays=base_currency,
+                        limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                    )
                 )
-            )
 
-            asks = orderbook_asks_info.result.get("offers", [])
-            bids = orderbook_bids_info.result.get("offers", [])
+                asks = orderbook_asks_info.result.get("offers", [])
+                bids = orderbook_bids_info.result.get("offers", [])
 
-            order_book = {
-                "asks": asks,
-                "bids": bids,
-            }
+                order_book = {
+                    "asks": asks,
+                    "bids": bids,
+                }
         except Exception as e:
             self.logger().error(f"Error fetching order book snapshot for {trading_pair}: {e}")
             return {}
@@ -133,8 +127,6 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return snapshot_msg
 
-
-
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = raw_message["trading_pair"]
         trade = raw_message["trade"]
@@ -173,7 +165,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         subscribe = Subscribe(books=[book_ask, book_bid])
 
-        with WebsocketClient(self._connector.getNodeUrl()) as client:
+        with WebsocketClient(self._connector.node_url) as client:
             client.send(subscribe)
 
             for message in client:
