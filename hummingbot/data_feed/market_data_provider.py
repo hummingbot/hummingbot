@@ -28,7 +28,7 @@ class MarketDataProvider:
         return all_connectors_running and all_candles_feeds_running
 
     def time(self):
-        return time.time() * 1000
+        return time.time()
 
     def initialize_candles_feed(self, config: CandlesConfig):
         """
