@@ -38,6 +38,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 
 We recommend installing Hummingbot using Docker if you want the simplest, easiest installation method and don't need to modify the Hummingbot codebase.
 
+
 **Prerequisites:**
 
 * MacOS 10.12.6+ / Linux (Ubuntu 20.04+, Debian 10+) / Windows 10+

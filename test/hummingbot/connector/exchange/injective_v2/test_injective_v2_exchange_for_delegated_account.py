@@ -79,6 +79,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             ".AsyncClient._initialize_timeout_height_sync_task"
         )
         self._initialize_timeout_height_sync_task.start()
+        self._initialize_timeout_height_patch = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".AsyncClient.sync_timeout_height"
+        )
+        self._initialize_timeout_height_patch.start()
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
@@ -92,6 +97,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def tearDown(self) -> None:
         super().tearDown()
+        self._initialize_timeout_height_patch.stop()
         self._initialize_timeout_height_sync_task.stop()
         self.async_loop.stop()
         self.async_loop.close()
