@@ -20,7 +20,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         # Set up barriers
         tp = Decimal(config.triple_barrier_config.take_profit) if config.triple_barrier_config.take_profit else None
         sl = Decimal(config.triple_barrier_config.stop_loss) if config.triple_barrier_config.stop_loss else None
-        tl = config.triple_barrier_config.time_limit * 1000 if config.triple_barrier_config.time_limit else None
+        tl = config.triple_barrier_config.time_limit if config.triple_barrier_config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
 
         # Filter dataframe based on the conditions
