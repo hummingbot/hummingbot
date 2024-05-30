@@ -1,4 +1,5 @@
 import asyncio
+import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Union
 
@@ -6,10 +7,24 @@ from bidict import bidict
 
 # XRPL Imports
 from xrpl.asyncio.clients import AsyncWebsocketClient
+
+# from xrpl.transaction import autofill_and_sign
+from xrpl.asyncio.transaction import autofill_and_sign, submit
 from xrpl.clients import WebsocketClient
-from xrpl.models import XRP, AccountInfo, AccountObjects, IssuedCurrency, Ping
+from xrpl.models import (
+    XRP,
+    AccountInfo,
+    AccountObjects,
+    AccountTx,
+    IssuedCurrency,
+    Memo,
+    OfferCancel,
+    OfferCreate,
+    Ping,
+)
+from xrpl.models.amounts import Amount
 from xrpl.models.response import ResponseStatus
-from xrpl.utils import drops_to_xrp, hex_to_str
+from xrpl.utils import drops_to_xrp, get_order_book_changes, hex_to_str, ripple_time_to_posix, xrp_to_drops
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
@@ -21,7 +36,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -52,6 +67,7 @@ class XrplExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._auth: XRPLAuth = self.authenticator
         self._trading_pair_symbol_map: Optional[Mapping[str, str]] = None
+        self._open_client_lock = asyncio.Lock()
 
         super().__init__(client_config_map)
 
@@ -105,7 +121,7 @@ class XrplExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return True
+        return False
 
     @property
     def is_trading_required(self) -> bool:
@@ -163,7 +179,15 @@ class XrplExchange(ExchangePyBase):
             price: Decimal = s_decimal_NaN,
             is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
-        # TODO: Implement get fee
+        # TODO: Implement get fee, use the below implementation
+        # is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        # trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+        # if trading_pair in self._trading_fees:
+        #     fees_data = self._trading_fees[trading_pair]
+        #     fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
+        #     fee = AddedToCostTradeFee(percent=fee_value)
+
+        # TODO: Remove this fee implementation
         is_maker = order_type is OrderType.LIMIT_MAKER
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
@@ -177,12 +201,116 @@ class XrplExchange(ExchangePyBase):
             price: Decimal,
             **kwargs,
     ) -> Tuple[str, float]:
-        # TODO: Implement place order
-        pass
+        base_currency, quote_currency = await self.get_currencies_from_trading_pair(trading_pair)
+
+        if order_type is OrderType.MARKET:
+            # If price is none or nan, get last_traded_price
+            if price is None or price.is_nan():
+                price = await self._get_last_traded_price(trading_pair)
+            # Increase price by MARKET_ORDER_MAX_SLIPPAGE if it is buy order
+            # Decrease price by MARKET_ORDER_MAX_SLIPPAGE if it is sell order
+            if trade_type is TradeType.BUY:
+                price *= 1 + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+            else:
+                price *= 1 - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+
+        account = self._auth.get_account()
+        total_amount = amount * price
+
+        if trade_type is TradeType.SELL:
+            if base_currency.currency == XRP().currency:
+                we_pay = xrp_to_drops(amount)
+            else:
+                we_pay = Amount(
+                    currency=base_currency.currency,
+                    issuer=base_currency.issuer,
+                    value=str(amount)
+                )
+
+            if quote_currency.currency == XRP().currency:
+                we_get = xrp_to_drops(total_amount)
+            else:
+                we_get = Amount(
+                    currency=quote_currency.currency,
+                    issuer=quote_currency.issuer,
+                    value=str(total_amount))
+        else:
+            if quote_currency.currency == XRP().currency:
+                we_pay = xrp_to_drops(total_amount)
+            else:
+                we_pay = Amount(
+                    currency=quote_currency.currency,
+                    issuer=quote_currency.issuer,
+                    value=str(total_amount)
+                )
+
+            if base_currency.currency == XRP().currency:
+                we_get = xrp_to_drops(amount)
+            else:
+                we_get = Amount(
+                    currency=base_currency.currency,
+                    issuer=base_currency.issuer,
+                    value=str(amount))
+
+        flags = CONSTANTS.XRPL_ORDER_TYPE[order_type]
+        memo = Memo(
+            memo_data=convert_string_to_hex(order_id, padding=False),
+        )
+        request = OfferCreate(
+            account=account,
+            flags=flags,
+            taker_gets=we_pay,
+            taker_pays=we_get,
+            memos=[memo]
+        )
+
+        try:
+            async with self._open_client_lock:
+                async with self._xrpl_client as client:
+                    signed_tx = await autofill_and_sign(request, client, self._auth.get_wallet())
+                    o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
+                    await submit(signed_tx, client)
+                    transact_time = time.time()
+                    # Temp fix to wait for order to be processed
+                    await self.sleep(0.3)
+        except Exception as e:
+            new_state = OrderState.FAILED
+            o_id = "UNKNOWN"
+
+            order_update = OrderUpdate(
+                trading_pair=trading_pair,
+                update_timestamp=time.time(),
+                new_state=new_state,
+                client_order_id=order_id,
+            )
+            self._order_tracker.process_order_update(order_update=order_update)
+            self.logger().error(
+                f"Order ({order_id}) creation failed: {e}")
+            return o_id, order_update.update_timestamp
+
+        return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        # TODO: Implement cancel order
-        pass
+        exchange_order_id = tracked_order.exchange_order_id
+        sequence, _ = exchange_order_id.split('-')
+
+        request = OfferCancel(
+            account=self._auth.get_account(),
+            sequence=int(sequence),
+        )
+
+        try:
+            async with self._open_client_lock:
+                async with self._xrpl_client as client:
+                    signed_tx = await autofill_and_sign(request, client, self._auth.get_wallet())
+                    await submit(signed_tx, client)
+                    # Temp fix to wait for order to be processed
+                    await self.sleep(0.3)
+        except Exception as e:
+            self.logger().error(f"Order cancellation failed: {e}")
+            return False
+
+        return True
 
     async def _format_trading_rules(self, trading_rules_info: Dict[str, Any]) -> List[TradingRule]:
         trading_rules = []
@@ -230,8 +358,62 @@ class XrplExchange(ExchangePyBase):
         pass
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        # TODO: implement order status request
-        pass
+        async with self._open_client_lock:
+            async with self._xrpl_client as client:
+                new_order_state = tracked_order.current_state
+                latest_status = "UNKNOWN"
+
+                sequence, ledger_index = tracked_order.exchange_order_id.split('-')
+
+                request = AccountTx(
+                    account=self._auth.get_account(),
+                    ledger_index="validated",
+                    ledger_index_min=int(ledger_index),
+                    forward=True,
+                )
+
+                resp = await client.request(request)
+                transactions = resp.result.get("transactions", [])
+                latest_transaction = transactions[0]
+                meta = latest_transaction.get("meta", {})
+                changes_array = get_order_book_changes(meta)
+                # Filter out change that is not from this account
+                changes_array = [x for x in changes_array if
+                                 x.get("maker_account") == self._auth.get_account()]
+
+                for offer_change in changes_array:
+                    changes = offer_change.get("offer_changes", [])
+
+                    for change in changes:
+                        if change.get("sequence") == sequence:
+                            tx = latest_transaction.get("tx")
+                            update_time = tx.get("date")
+                            update_timestamp = ripple_time_to_posix(update_time)
+                            latest_status = change.get('status')
+
+                if latest_status == "UNKNOWN":
+                    new_order_state = OrderState.FAILED
+                    update_timestamp = time.time()
+                    self.logger().error(
+                        f"Order status not found for order {tracked_order.client_order_id} ({sequence})")
+                elif latest_status == "filled":
+                    new_order_state = OrderState.FILLED
+                elif latest_status == "partially-filled":
+                    new_order_state = OrderState.PARTIALLY_FILLED
+                elif latest_status == "canceled":
+                    new_order_state = OrderState.CANCELED
+                elif latest_status == "created":
+                    new_order_state = OrderState.OPEN
+
+                order_update = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=tracked_order.exchange_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=update_timestamp,
+                    new_state=new_order_state,
+                )
+
+                return order_update
 
     async def _update_balances(self):
         account_address = self._auth.get_account()

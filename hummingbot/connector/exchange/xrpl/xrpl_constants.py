@@ -8,7 +8,7 @@ EXCHANGE_NAME = "xrpl"
 DOMAIN = "xrpl"  # This just a placeholder since we don't use domain in xrpl connect at the moment
 
 HBOT_ORDER_ID_PREFIX = "hbot"
-MAX_ORDER_ID_LEN = 32
+MAX_ORDER_ID_LEN = 64
 
 # Base URL
 DEFAULT_JSON_RPC_URL = "https://s1.ripple.com:51234/"
@@ -33,10 +33,13 @@ ORDER_STATE = {
 
 # Order Types
 XRPL_ORDER_TYPE = {
-    OrderType.LIMIT: 0,
-    OrderType.LIMIT_MAKER: 65536,
-    OrderType.MARKET: 524288,
+    OrderType.LIMIT: 524288,
+    OrderType.LIMIT_MAKER: 589824,
+    OrderType.MARKET: 786432,
 }
+
+# Market Order Max Slippage
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.05")
 
 # Order Side
 SIDE_BUY = 0
