@@ -1,0 +1,47 @@
+[core]
+    autocrlf = false
+    hideDotFiles = dotGitOnly
+    logallrefupdates = true
+    safecrlf = warn
+    whitespace = trailing-space,space-before-tab,cr-at-eol
+
+[push]
+	default = current
+
+[rerere]
+	enabled = 1
+
+[alias]
+    logup = log --reverse --stat --patch @{upstream}..
+    reup = rebase -i @{upstream}^
+    update = !git stash && git fetch --all && git pull --rebase && git stash pop
+    up = update
+
+    log2 = log --oneline --graph --date-order --decorate --pretty=format:'%Creset %Cgreen%h %Creset%C(bold white) %s %C(bold black)by%C(reset) %C(cyan)%an%Creset (%ar) %C(yellow) %d %Cred %ad'
+    log3 = log --oneline --graph --date-order --decorate --pretty=format:'%Creset %Cgreen%h %Creset%C(bold white) %s %C(bold black)by%C(reset) %C(cyan)%an%Creset (%ar) %C(yellow) %d %Cred %ad' --branches  # see 'gl' alias in .bashrc
+
+[diff]
+    colorMoved = dimmed-zebra
+
+[diff "lisp"]
+    xfuncname="^(\\((def|test).*)$"
+[diff "clj"]
+    xfuncname="^(\\((def|test).*)$"
+[diff "gpg"]
+    textconv = gpg2 --batch --quiet --decrypt
+    cachetextconv = false
+    binary = true
+[diff "jpg"]
+    textconv = exif
+[diff "pandoc"]
+    textconv=pandoc --to=markdown
+    prompt = false
+[diff "word"]
+    binary = true
+    textconv = docx2txt.sh
+
+
+
+[color]
+    ui = auto
+
