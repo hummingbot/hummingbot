@@ -586,10 +586,7 @@ class PositionExecutor(ExecutorBase):
         self._total_executed_amount_backup += event.amount
         self.update_tracked_orders_with_order_id(event.order_id)
 
-    def process_order_canceled_event(self,
-                                     event_tag: int,
-                                     market: ConnectorBase,
-                                     event: OrderCancelledEvent):
+    def process_order_canceled_event(self, _, market: ConnectorBase, event: OrderCancelledEvent):
         """
         This method is responsible for processing the order canceled event
         """
