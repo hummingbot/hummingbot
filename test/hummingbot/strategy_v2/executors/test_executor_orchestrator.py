@@ -19,6 +19,7 @@ from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecut
 from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StoreExecutorAction
+from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
@@ -125,9 +126,26 @@ class TestExecutorOrchestrator(unittest.TestCase):
             filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
             cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY}
         )
-        self.orchestrator.executors["test"] = [position_executor_non_active, position_executor_active]
+        position_executor_failed = MagicMock(spec=PositionExecutor)
+        position_executor_failed.executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=config_mock,
+            close_type=CloseType.FAILED,
+            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
+            cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY}
+        )
+        position_executor_tp = MagicMock(spec=PositionExecutor)
+        position_executor_tp.executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=config_mock,
+            close_type=CloseType.TAKE_PROFIT,
+            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
+            cum_fees_quote=Decimal(1), is_trading=False, is_active=False, custom_info={"side": TradeType.BUY}
+        )
+        self.orchestrator.executors["test"] = [position_executor_non_active, position_executor_active,
+                                               position_executor_failed, position_executor_tp]
         report = self.orchestrator.generate_performance_report(controller_id="test")
-        self.assertEqual(report.realized_pnl_quote, Decimal(0))
+        self.assertEqual(report.realized_pnl_quote, Decimal(10))
         self.assertEqual(report.unrealized_pnl_quote, Decimal(10))
 
     @patch('hummingbot.connector.markets_recorder.MarketsRecorder.get_instance')
