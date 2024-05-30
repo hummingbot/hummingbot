@@ -109,11 +109,12 @@ def normalize_price_from_drop(price: str, is_ask: bool = False) -> float:
     return round(float(Decimal(price) / drop), 6)
 
 
-def convert_string_to_hex(s):
+def convert_string_to_hex(s, padding: bool = True):
     if len(s) > 3:
         hex_str = binascii.hexlify(s.encode()).decode()
-        while len(hex_str) < 40:
-            hex_str += '00'  # pad with zeros to reach 160 bits (40 hex characters)
+        if padding:
+            while len(hex_str) < 40:
+                hex_str += '00'  # pad with zeros to reach 160 bits (40 hex characters)
         return hex_str.upper()
 
     return s

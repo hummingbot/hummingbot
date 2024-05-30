@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # XRPL imports
-from xrpl.clients import WebsocketClient
+from xrpl.asyncio.clients import AsyncWebsocketClient
 from xrpl.models.requests import BookOffers, Subscribe, SubscribeBook
 from xrpl.models.transactions.metadata import TransactionMetadata
 from xrpl.utils import get_order_book_changes, ripple_time_to_posix
@@ -37,7 +37,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = CONSTANTS.SNAPSHOT_EVENT_TYPE
-        self._client = WebsocketClient(self._connector.node_url)
+        self._client = AsyncWebsocketClient(self._connector.node_url)
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -58,7 +58,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         try:
             with self._client:
-                orderbook_asks_info = self._client.request(
+                orderbook_asks_info = await self._client.request(
                     BookOffers(
                         ledger_index="current",
                         taker_gets=base_currency,
@@ -67,7 +67,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                 )
 
-                orderbook_bids_info = self._client.request(
+                orderbook_bids_info = await self._client.request(
                     BookOffers(
                         ledger_index="current",
                         taker_gets=quote_currency,
@@ -165,10 +165,10 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         subscribe = Subscribe(books=[book_ask, book_bid])
 
-        with WebsocketClient(self._connector.node_url) as client:
-            client.send(subscribe)
+        async with AsyncWebsocketClient(self._connector.node_url) as client:
+            await client.send(subscribe)
 
-            for message in client:
+            async for message in client:
                 meta = message.get("meta", None)
                 transaction = message.get("transaction", {})
                 if isinstance(meta, TransactionMetadata):
