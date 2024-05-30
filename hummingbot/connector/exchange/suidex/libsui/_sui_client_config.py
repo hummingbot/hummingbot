@@ -29,6 +29,7 @@ cfg = SuiConfig.user_config(  # Required
     # Optional, only needed for subscribing
     # ws_url="wss://fullnode.devnet.sui.io:443",
 )
+print(f"CONFIGURATION: {cfg.rpc_url}")
 
 # One address (and keypair), at least, should be created
 # First becomes the 'active-address'
