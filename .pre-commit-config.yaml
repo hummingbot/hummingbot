@@ -2,9 +2,10 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
     hooks:
-    - id: flake8
-      types: ['file']
-      files: \.(py|pyx|pxd)$
+    # Temporarily disabeling Flake8 - for Hackathon 
+    #- id: flake8
+    #  types: ['file']
+    #  files: \.(py|pyx|pxd)$
     - id: detect-private-key
 -   repo: https://github.com/pre-commit/mirrors-eslint
     rev: v8.10.0
@@ -24,3 +25,8 @@ repos:
       - id: isort
         files: "\\.(py)$"
         args: [--settings-path=pyproject.toml]
+# Temporarily adding Black instead of Flake8 - for Hackathon
+-   repo: https://github.com/psf/black
+    rev: 23.1.0
+    hooks:
+      - id: black

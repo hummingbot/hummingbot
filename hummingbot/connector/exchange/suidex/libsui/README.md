@@ -1,5 +1,7 @@
 # Setting up suibase and pysui
 
+_for manual testing purposes_
+
 1. Install suibase
 2. run hummingbot env in local
    ```bash
@@ -16,11 +18,11 @@
    ```bash
    lsui keytool export --key-identity sb-1-ed25519
    ```
-   and paste this into sui_client_config.py
+   and paste this into your local .env file that is imported in sui_client_config.py
 6. Deploy Contract
    ```bash
    # in the dir of move.toml
     localnet publish --skip-dependency-verification
-   ```
-7. Add pysui to your project and make `devInspect` calls or `executeTransaction` calls
+   ``` 
+8. Add pysui to your project and make `devInspect` calls or `executeTransaction` calls
 

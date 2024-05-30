@@ -1,0 +1,5 @@
+[meta]
+creation_timestamp = "1717081046149117 2024-05-30 09:57:26.149117 -05:00"
+
+[packages]
+libsui = { uuid = "A3CR4EG6QN4D2OHNWN5GRCS4LA", uuid_custom = false }
