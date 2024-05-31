@@ -142,9 +142,8 @@ class CandlesBase(NetworkBase):
             current_start_time = config.start_time
             while current_start_time <= config.end_time:
                 fetched_candles = await self.fetch_candles(start_time=current_start_time)
-                if fetched_candles.size == 0:
+                if fetched_candles.size <= 1:
                     break
-
                 all_candles.append(fetched_candles)
                 last_timestamp = fetched_candles[-1][0]  # Assuming the first column is the timestamp
                 current_start_time = int(last_timestamp)
