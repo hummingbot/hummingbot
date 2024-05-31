@@ -1,6 +1,6 @@
 import binascii
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, SecretStr, validator
 from xrpl.models import TransactionMetadata
@@ -118,6 +118,13 @@ def convert_string_to_hex(s, padding: bool = True):
         return hex_str.upper()
 
     return s
+
+
+def get_token_from_changes(token_changes: [Dict[str, Any]], token: str) -> Optional[Dict[str, Any]]:
+    for token_change in token_changes:
+        if token_change.get("currency") == token:
+            return token_change
+    return None
 
 
 class XRPLConfigMap(BaseConnectorConfigMap):
