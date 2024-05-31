@@ -73,4 +73,6 @@ class PerformanceReport(BaseModel):
     global_pnl_quote: Decimal
     global_pnl_pct: Decimal
     volume_traded: Decimal
+    open_order_volume: Decimal
+    inventory_imbalance: Decimal
     close_type_counts: Dict[CloseType, int]

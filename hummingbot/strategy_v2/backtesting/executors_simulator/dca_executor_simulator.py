@@ -23,7 +23,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         potential_dca_stages = []
         side_multiplier = 1 if config.side == TradeType.BUY else -1
         last_timestamp = df['timestamp'].max()
-        tl = config.time_limit * 1000 if config.time_limit else None
+        tl = config.time_limit if config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
         # Filter dataframe based on the conditions
         df_filtered = df[df['timestamp'] <= tl_timestamp].copy()
