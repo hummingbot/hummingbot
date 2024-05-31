@@ -8,6 +8,7 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.remote_iface.mqtt import ETopicPublisher
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
@@ -35,7 +36,12 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         super().__init__(connectors, config)
         self.config = config
         self.cashing_out = False
-        self.closed_executors_buffer: int = 20
+        self.closed_executors_buffer: int = 30
+        self.performance_report_interval: int = 1
+        self._last_performance_report_timestamp = 0
+        hb_app = HummingbotApplication.main_application()
+        self.mqtt_enabled = hb_app._mqtt is not None
+        self._pub: Optional[ETopicPublisher] = None
         if self.config.time_to_cash_out:
             self.cash_out_time = self.config.time_to_cash_out + time.time()
         else:
@@ -49,10 +55,24 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         """
         self._last_timestamp = timestamp
         self.apply_initial_setting()
+        if self.mqtt_enabled:
+            self._pub = ETopicPublisher("performance", use_bot_prefix=True)
+
+    def on_stop(self):
+        if self.mqtt_enabled:
+            self._pub({controller_id: {} for controller_id in self.controllers.keys()})
+            self._pub = None
 
     def on_tick(self):
         super().on_tick()
         self.control_cash_out()
+        self.send_performance_report()
+
+    def send_performance_report(self):
+        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self.mqtt_enabled:
+            performance_reports = {controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict() for controller_id in self.controllers.keys()}
+            self._pub(performance_reports)
+            self._last_performance_report_timestamp = self.current_timestamp
 
     def control_cash_out(self):
         self.evaluate_cash_out_time()
