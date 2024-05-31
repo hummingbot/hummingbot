@@ -405,6 +405,18 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_timestamp, 1234567890)
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
 
+    def test_process_order_canceled_event(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor._close_order = TrackedOrder("OID-BUY-1")
+        event = OrderCancelledEvent(
+            timestamp=1234567890,
+            order_id="OID-BUY-1",
+        )
+        market = MagicMock()
+        position_executor.process_order_canceled_event(102, market, event)
+        self.assertEqual(position_executor._close_order, None)
+
     @patch("hummingbot.strategy_v2.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status(self, _):
         position_config = self.get_position_config_market_long()
@@ -472,18 +484,6 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL (%): 0.80%", status[0])
 
-    def test_process_order_canceled_event(self):
-        position_config = self.get_position_config_market_long()
-        position_executor = self.get_position_executor_running_from_config(position_config)
-        position_executor._open_order = TrackedOrder("OID-BUY-1")
-        event = OrderCancelledEvent(
-            timestamp=1234567890,
-            order_id="OID-BUY-1",
-        )
-        market = MagicMock()
-        position_executor.process_order_canceled_event("102", market, event)
-        self.assertEqual(position_executor.close_type, None)
-
     @patch.object(PositionExecutor, 'get_trading_rules')
     @patch.object(PositionExecutor, 'adjust_order_candidates')
     def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
@@ -522,3 +522,16 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(custom_info["side"], position_config.side)
         self.assertEqual(custom_info["current_retries"], executor._current_retries)
         self.assertEqual(custom_info["max_retries"], executor._max_retries)
+
+    def test_cancel_close_order_and_process_cancel_event(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor._close_order = TrackedOrder("OID-BUY-1")
+        position_executor.cancel_close_order()
+        event = OrderCancelledEvent(
+            timestamp=1234567890,
+            order_id="OID-BUY-1",
+        )
+        market = MagicMock()
+        position_executor.process_order_canceled_event("102", market, event)
+        self.assertEqual(position_executor.close_type, None)

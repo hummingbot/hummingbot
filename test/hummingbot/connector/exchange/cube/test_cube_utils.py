@@ -16,17 +16,33 @@ class CubeUtilTestCases(unittest.TestCase):
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
 
     def test_is_exchange_information_valid(self):
+        invalid_info_0 = {
+            "disabled": False,
+            "status": 1
+        }
+
+        self.assertTrue(utils.is_exchange_information_valid(invalid_info_0))
+
         invalid_info_1 = {
             "disabled": False,
+            "status": 2
         }
 
         self.assertTrue(utils.is_exchange_information_valid(invalid_info_1))
 
         invalid_info_2 = {
             "disabled": True,
+            "status": 1
         }
 
         self.assertFalse(utils.is_exchange_information_valid(invalid_info_2))
+
+        invalid_info_3 = {
+            "disabled": False,
+            "status": 3
+        }
+
+        self.assertFalse(utils.is_exchange_information_valid(invalid_info_3))
 
     def test_raw_units_to_number(self):
         # Create a mock RawUnits object
