@@ -10,13 +10,13 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.smart_components.executors.position_executor.data_types import (
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import (
     PositionExecutorConfig,
     TrailingStop,
     TripleBarrierConfig,
 )
-from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 
 
 class DirectionalStrategyBase(ScriptStrategyBase):
@@ -208,7 +208,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         if len(self.stored_executors) > 0:
             lines.extend(["\n################################## Closed Executors ##################################"])
         for executor in self.stored_executors:
-            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
+            lines.extend([f"|Signal id: {executor.config.timestamp}"])
             lines.extend(executor.to_format_status())
             lines.extend([
                 "-----------------------------------------------------------------------------------------------------------"])
@@ -217,7 +217,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             lines.extend(["\n################################## Active Executors ##################################"])
 
         for executor in self.active_executors:
-            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
+            lines.extend([f"|Signal id: {executor.config.timestamp}"])
             lines.extend(executor.to_format_status())
         if self.all_candles_ready:
             lines.extend(["\n################################## Market Data ##################################\n"])

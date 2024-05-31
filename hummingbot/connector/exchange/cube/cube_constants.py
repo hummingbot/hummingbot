@@ -1,4 +1,6 @@
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+import sys
+
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderType
 
 EXCHANGE_NAME = "cube"
@@ -26,9 +28,9 @@ WSS_TRADE_URL = {"live": "wss://api.cube.exchange/os",
 EXCHANGE_INFO_PATH_URL = "/ir/v0/markets"
 PING_PATH_URL = "/md/v0/parsed/tickers"
 TICKER_BOOK_PATH_URL = "/md/v0/parsed/tickers"
-ACCOUNTS_PATH_URL = "/ir/v0/users/positions"
-ORDER_PATH_URL = "/ir/v0/users/orders"
-FILLS_PATH_URL = "/ir/v0/users/fills"
+ACCOUNTS_PATH_URL = "/ir/v0/users/subaccount/{}/positions"
+ORDER_PATH_URL = "/ir/v0/users/subaccount/{}/orders"
+FILLS_PATH_URL = "/ir/v0/users/subaccount/{}/fills"
 POST_ORDER_PATH_URL = "/os/v0/order"
 
 WS_HEARTBEAT_TIME_INTERVAL = 20
@@ -59,7 +61,8 @@ MAX_REQUEST = 300
 ORDER_STATE = {
     "open": OrderState.OPEN,
     "filled": OrderState.FILLED,
-    "pfilled": OrderState.PARTIALLY_FILLED,
+    "p-filled": OrderState.PARTIALLY_FILLED,
+    "pfilled": OrderState.PARTIALLY_FILLED,  # Backward compatibility
     "canceled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
 }
@@ -83,42 +86,26 @@ TIME_IN_FORCE_IOC = 0
 TIME_IN_FORCE_GTC = 1
 TIME_IN_FORCE_FOK = 2
 
+# LIMIT ID FOR FORMATTED URL
+ACCOUNTS_PATH_URL_ID = "cube_account_path_url_limit_id"
+ORDER_PATH_URL_ID = "cube_order_path_url_limit_id"
+FILLS_PATH_URL_ID = "cube_fill_path_url_limit_id"
+
 # Rate Limits
+NO_LIMIT = sys.maxsize
 RATE_LIMITS = [
-    RateLimit(limit_id=REQUEST_WEIGHT, limit=6000, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS, limit=50, time_interval=10 * ONE_SECOND),
-    RateLimit(limit_id=ORDERS_24HR, limit=160000, time_interval=ONE_DAY),
-    RateLimit(limit_id=RAW_REQUESTS, limit=61000, time_interval= 5 * ONE_MINUTE),
+    RateLimit(limit_id=REQUEST_WEIGHT, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=ORDERS, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=ORDERS_24HR, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=RAW_REQUESTS, limit=NO_LIMIT, time_interval=1),
     # Weighted Limits
-    RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 20),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=SNAPSHOT_LM_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 100),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=USER_STREAM_LM_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 20),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=FILLS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 20),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
-                             LinkedLimitWeightPair(ORDERS, 1),
-                             LinkedLimitWeightPair(ORDERS_24HR, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=POST_ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
-                             LinkedLimitWeightPair(ORDERS, 1),
-                             LinkedLimitWeightPair(ORDERS_24HR, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)])
+    RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=SNAPSHOT_LM_ID, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=USER_STREAM_LM_ID, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=PING_PATH_URL, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=ACCOUNTS_PATH_URL_ID, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=FILLS_PATH_URL_ID, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=ORDER_PATH_URL_ID, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=POST_ORDER_PATH_URL, limit=NO_LIMIT, time_interval=1),
 ]

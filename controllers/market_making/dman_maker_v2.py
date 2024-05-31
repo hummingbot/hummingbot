@@ -1,4 +1,3 @@
-import time
 from decimal import Decimal
 from typing import List, Optional
 
@@ -7,13 +6,13 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.market_making_controller_base import (
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
-from hummingbot.smart_components.models.executor_actions import ExecutorAction, StopExecutorAction
+from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
+from hummingbot.strategy_v2.models.executor_actions import ExecutorAction, StopExecutorAction
 
 
 class DManMakerV2Config(MarketMakingControllerConfigBase):
@@ -99,11 +98,11 @@ class DManMakerV2(MarketMakingControllerBase):
     def first_level_refresh_condition(self, executor):
         if self.config.top_executor_refresh_time is not None:
             if self.get_level_from_level_id(executor.custom_info["level_id"]) == 0:
-                return time.time() - executor.timestamp > self.config.top_executor_refresh_time
+                return self.market_data_provider.time() - executor.timestamp > self.config.top_executor_refresh_time
         return False
 
     def order_level_refresh_condition(self, executor):
-        return time.time() - executor.timestamp > self.config.executor_refresh_time
+        return self.market_data_provider.time() - executor.timestamp > self.config.executor_refresh_time
 
     def executors_to_refresh(self) -> List[ExecutorAction]:
         executors_to_refresh = self.filter_executors(
@@ -122,7 +121,7 @@ class DManMakerV2(MarketMakingControllerBase):
         amounts = [amount * pct for pct in self.dca_amounts_pct]
         amounts_quote = [amount * price for amount, price in zip(amounts, prices)]
         return DCAExecutorConfig(
-            timestamp=time.time(),
+            timestamp=self.market_data_provider.time(),
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             mode=DCAMode.MAKER,
@@ -132,6 +131,7 @@ class DManMakerV2(MarketMakingControllerBase):
             level_id=level_id,
             time_limit=self.config.time_limit,
             stop_loss=self.config.stop_loss,
+            take_profit=self.config.take_profit,
             trailing_stop=self.config.trailing_stop,
             activation_bounds=self.config.executor_activation_bounds,
             leverage=self.config.leverage,
