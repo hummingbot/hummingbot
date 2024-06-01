@@ -106,6 +106,7 @@ def main():
         "tzlocal",
         "ujson",
         "web3",
+        "bxsolana-trader"
         "websockets",
         "yarl",
         "pandas_ta==0.3.14b",
