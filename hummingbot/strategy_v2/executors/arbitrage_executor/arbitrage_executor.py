@@ -247,21 +247,19 @@ class ArbitrageExecutor(ExecutorBase):
             self._cumulative_failures += 1
 
     def to_format_status(self):
-        lines = []
         if self._last_buy_price and self._last_sell_price:
             trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
             tx_cost_pct = self._last_tx_cost / self.order_amount
             base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
-            lines.extend([f"""
-    Arbitrage Status: {self.arbitrage_status}
-    - BUY: {self.buying_market.connector_name}:{self.buying_market.trading_pair}  --> SELL: {self.selling_market.connector_name}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
-    - Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
-    -------------------------------------------------------------------------------
-    """])
-            if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-                lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl_quote:.4f}"])
-            return lines
+
+            return f"""
+-------------------------------------------------------------------------------
+Arbitrage Status: {self.arbitrage_status}
+- Buy: {self.buying_market.connector_name} {self.buying_market.trading_pair} | Sell: {self.selling_market.connector_name} {self.selling_market.trading_pair}
+- Order Amount: {self.order_amount:.2f} | Min profitability: {self.config.min_profitability*100:.2f}%
+- Trade PnL (%): {trade_pnl_pct * 100:.2f} % | Tx Cost (%): -{tx_cost_pct * 100:.2f}% | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f}%
+- Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl_quote:.4f}
+-------------------------------------------------------------------------------
+"""
         else:
-            msg = ["There was an error while formatting the status for the executor."]
-            self.logger().warning(msg)
-            return lines.extend(msg)
+            return "There was an error while formatting the status for the executor."
