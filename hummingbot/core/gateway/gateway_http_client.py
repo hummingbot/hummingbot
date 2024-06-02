@@ -388,13 +388,13 @@ class GatewayHttpClient:
             quote_asset: str,
             amount: Decimal,
             side: TradeType,
-            fail_silently: bool = False
+            fail_silently: bool = False,
+            pool_id: Optional[str] = None
     ) -> Dict[str, Any]:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
-        # XXX(martin_kou): The amount is always output with 18 decimal places.
-        return await self.api_request("post", "amm/price", {
+        request_payload = {
             "chain": chain,
             "network": network,
             "connector": connector,
@@ -403,7 +403,18 @@ class GatewayHttpClient:
             "amount": f"{amount:.18f}",
             "side": side.name,
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
-        }, fail_silently=fail_silently)
+        }
+
+        if pool_id not in ["", None]:
+            request_payload["poolId"] = pool_id
+
+        # XXX(martin_kou): The amount is always output with 18 decimal places.
+        return await self.api_request(
+            "post",
+            "amm/price",
+            request_payload,
+            fail_silently=fail_silently,
+        )
 
     async def get_transaction_status(
             self,
@@ -468,19 +479,20 @@ class GatewayHttpClient:
         })
 
     async def amm_trade(
-            self,
-            chain: str,
-            network: str,
-            connector: str,
-            address: str,
-            base_asset: str,
-            quote_asset: str,
-            side: TradeType,
-            amount: Decimal,
-            price: Decimal,
-            nonce: Optional[int] = None,
-            max_fee_per_gas: Optional[int] = None,
-            max_priority_fee_per_gas: Optional[int] = None
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str,
+        base_asset: str,
+        quote_asset: str,
+        side: TradeType,
+        amount: Decimal,
+        price: Decimal,
+        nonce: Optional[int] = None,
+        max_fee_per_gas: Optional[int] = None,
+        max_priority_fee_per_gas: Optional[int] = None,
+        pool_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         # XXX(martin_kou): The amount is always output with 18 decimal places.
         request_payload: Dict[str, Any] = {
@@ -495,6 +507,8 @@ class GatewayHttpClient:
             "limitPrice": f"{price:.20f}",
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
+        if pool_id not in ["", None]:
+            request_payload["poolId"] = pool_id
         if nonce is not None:
             request_payload["nonce"] = int(nonce)
         if max_fee_per_gas is not None:
