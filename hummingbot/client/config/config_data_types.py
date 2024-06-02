@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, Extra, Field, validator
+from pydantic.schema import default_ref_template
 
 from hummingbot.client.config.config_methods import strategy_config_schema_encoder
 from hummingbot.client.config.config_validators import validate_connector, validate_decimal
@@ -36,11 +37,11 @@ class BaseClientModel(BaseModel):
 
     @classmethod
     def schema_json(
-        cls, *, by_alias: bool = True, **dumps_kwargs: Any
+        cls, *, by_alias: bool = True, ref_template: str = default_ref_template, **dumps_kwargs: Any
     ) -> str:
         # todo: make it ignore `client_data` all together
         return cls.__config__.json_dumps(
-            cls.schema(by_alias=by_alias),
+            cls.schema(by_alias=by_alias, ref_template=ref_template),
             default=strategy_config_schema_encoder,
             **dumps_kwargs
         )

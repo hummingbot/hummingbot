@@ -139,7 +139,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def balance_url(self):
-        url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL, domain=self.exchange._domain)
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL.format(self.exchange.cube_subaccount_id), domain=self.exchange._domain)
         return url
 
     @property
@@ -642,17 +642,14 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(1000,
+        self.assertEqual(500,
                          request_params["limit"])
-        self.assertEqual(self.exchange.cube_subaccount_id,
-                         request_params["subaccountId"])
         self.assertEqual(1640780030000000000, request_params["createdBefore"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
 
         self.assertEqual(order.exchange_order_id, str(request_params["orderIds"]))
-        self.assertEqual(self.exchange.cube_subaccount_id, int(request_params["subaccountId"]))
 
     def configure_successful_cancelation_response(
             self,
@@ -708,7 +705,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -719,7 +716,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -730,7 +727,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
@@ -743,7 +740,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         """
         :return: the URL configured
         """
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -754,7 +751,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=401, callback=callback)
         return url
@@ -764,7 +761,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -774,7 +771,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = {"result": {"fills": []}}
         mock_api.get(regex_url, body=json.dumps(response), status=200, callback=callback)
@@ -785,7 +782,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -796,7 +793,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -1399,7 +1396,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.private_rest_url(CONSTANTS.FILLS_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         trade_fill = {
@@ -1434,7 +1431,6 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
         self.assertEqual(int(order.exchange_order_id), request_params["orderIds"])
-        self.assertEqual(int(self.exchange.cube_subaccount_id), request_params["subaccountId"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1462,7 +1458,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.private_rest_url(CONSTANTS.FILLS_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         trade_fill = {
@@ -1497,7 +1493,6 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
         self.assertEqual(int(order.exchange_order_id), request_params["orderIds"])
-        self.assertEqual(int(self.exchange.cube_subaccount_id), request_params["subaccountId"])
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
@@ -1527,7 +1522,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         )
         order = self.exchange.in_flight_orders["11111"]
 
-        url_fill = web_utils.private_rest_url(CONSTANTS.FILLS_PATH_URL)
+        url_fill = web_utils.private_rest_url(CONSTANTS.FILLS_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url_fill = re.compile(f"^{url_fill}".replace(".", r"\.").replace("?", r"\?"))
 
         trade_fill = {
@@ -1541,7 +1536,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         auth_header = self.exchange.authenticator.header_for_authentication()
         mock_api.get(regex_url_fill, body=json.dumps(mock_response), headers=auth_header)
 
-        url_order_status = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url_order_status = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL.format(self.exchange.cube_subaccount_id))
         regex_url_order_status = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
@@ -1577,9 +1572,8 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         request = self._all_executed_requests(mock_api, regex_url_order_status)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(int(self.exchange.cube_subaccount_id), request_params["subaccountId"])
         self.assertEqual(int((order.creation_timestamp + 30) * 1e9), request_params["createdBefore"])
-        self.assertEqual(1000, request_params["limit"])
+        self.assertEqual(500, request_params["limit"])
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
@@ -1685,6 +1679,33 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                                                                    max_id_bit_count=CONSTANTS.MAX_ORDER_ID_LEN)
         expected_client_order_id = f"{prefix}{expected_client_order_id - 1}"
         self.assertEqual(result, expected_client_order_id)
+
+    @aioresponses()
+    def test_place_order_get_rejection(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        url = web_utils.private_rest_url(CONSTANTS.POST_ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "result": {
+                "Rej": {
+                    "transactTime": 1711095259064065797,
+                    "reason": "SOME REASON"
+                }
+            }
+        }
+        mock_api.post(regex_url, body=json.dumps(mock_response), status=200)
+
+        o_id, transact_time = self.async_run_with_timeout(self.exchange._place_order(
+            order_id="999999",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("2"),
+        ))
+        self.assertEqual(o_id, "UNKNOWN")
 
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
@@ -2250,7 +2271,7 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                         }
                     ],
                     "settled": "true",
-                    "status": "pfilled",
+                    "status": "p-filled",
                     "clientOrderId": order.client_order_id,
                     "timeInForce": 1,
                     "orderType": 0,
