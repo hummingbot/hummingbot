@@ -14,7 +14,7 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import (
     ArbitrageExecutorStatus,
 )
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
-from hummingbot.strategy_v2.models.executors import TrackedOrder
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class ArbitrageExecutor(ExecutorBase):
@@ -263,3 +263,8 @@ Arbitrage Status: {self.arbitrage_status}
 """
         else:
             return "There was an error while formatting the status for the executor."
+
+    def early_stop(self):
+        self.logger().info(f"Stopping Buy: {self.buying_market.connector_name} {self.buying_market.trading_pair} + Sell: {self.selling_market.connector_name} {self.selling_market.trading_pair}. Status: {self.arbitrage_status}.")
+        self.close_type = CloseType.EARLY_STOP
+        self.stop()
