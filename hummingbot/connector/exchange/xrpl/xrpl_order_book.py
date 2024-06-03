@@ -2,7 +2,6 @@ from typing import Dict, Optional
 
 from xrpl.utils import drops_to_xrp
 
-from hummingbot.connector.exchange.xrpl.xrpl_utils import normalize_price_from_drop
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -22,42 +21,47 @@ class XRPLOrderBook(OrderBook):
         :param metadata: a dictionary with extra information to add to the snapshot data
         :return: a snapshot message with the snapshot information received from the exchange
         """
-        is_xrp_pair = False
 
         if metadata:
             msg.update(metadata)
-            trading_pair = metadata["trading_pair"]
-            # split trading pair to get token, then check if token is XRP
-            is_xrp_pair = trading_pair.split("-")[1] == "XRP" or trading_pair.split("-")[0] == "XRP"
 
-        raw_asks = msg["asks"]
-        raw_bids = msg["bids"]
+        raw_asks = msg.get("asks", [])
+        raw_bids = msg.get("bids", [])
         processed_asks = []
         processed_bids = []
 
         for ask in raw_asks:
-            price = float(normalize_price_from_drop(ask["quality"], is_ask=True)) if is_xrp_pair else float(
-                ask["quality"])
 
-            # Check if taker_gets is string or object
-            if isinstance(ask["TakerGets"], str):
-                quantity = float(drops_to_xrp(ask["TakerGets"])) if is_xrp_pair else float(ask["TakerGets"])
+            if "taker_gets_funded" in ask and "taker_pays_funded" in ask:
+                """
+                If the order is partially funded, the taker_gets_funded and taker_pays_funded fields will be present. We skip unfunded offers.
+                """
+                if cls.get_amount_from_taker_pays_funded(ask) == 0 or cls.get_amount_from_taker_gets_funded(ask) == 0:
+                    continue
+
+                price = cls.get_amount_from_taker_pays_funded(ask) / cls.get_amount_from_taker_gets_funded(ask)
+                quantity = cls.get_amount_from_taker_gets_funded(ask)
             else:
-                quantity = float(ask["TakerGets"]["value"])
+                price = cls.get_amount_from_taker_pays(ask) / cls.get_amount_from_taker_gets(ask)
+                quantity = cls.get_amount_from_taker_gets(ask)
 
             update_id = int(ask["Sequence"])
 
             processed_asks.append(OrderBookRow(price, quantity, update_id))
 
         for bid in raw_bids:
-            price = float(normalize_price_from_drop(bid["quality"])) if is_xrp_pair else float(bid["quality"])
-            price = 1 / price
+            if "taker_gets_funded" in bid and "taker_pays_funded" in bid:
+                """
+                If the order is partially funded, the taker_gets_funded and taker_pays_funded fields will be present. We skip unfunded offers.
+                """
+                if cls.get_amount_from_taker_pays_funded(bid) == 0 or cls.get_amount_from_taker_gets_funded(bid) == 0:
+                    continue
 
-            # Check if taker_pays is string or object
-            if isinstance(bid["TakerGets"], str):
-                quantity = float(drops_to_xrp(bid["TakerGets"])) if is_xrp_pair else float(bid["TakerGets"])
+                price = cls.get_amount_from_taker_gets_funded(bid) / cls.get_amount_from_taker_pays_funded(bid)
+                quantity = cls.get_amount_from_taker_pays_funded(bid)
             else:
-                quantity = float(bid["TakerGets"]["value"])
+                price = cls.get_amount_from_taker_gets(bid) / cls.get_amount_from_taker_pays(bid)
+                quantity = cls.get_amount_from_taker_pays(bid)
 
             update_id = int(bid["Sequence"])
 
@@ -71,6 +75,34 @@ class XRPLOrderBook(OrderBook):
         }
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, content, timestamp=timestamp)
+
+    @classmethod
+    def get_amount_from_taker_gets(cls, offer):
+        if isinstance(offer["TakerGets"], str):
+            return float(drops_to_xrp(offer["TakerGets"]))
+
+        return float(offer["TakerGets"]["value"])
+
+    @classmethod
+    def get_amount_from_taker_gets_funded(cls, offer: Dict[str, any]):
+        if isinstance(offer["taker_gets_funded"], str):
+            return float(drops_to_xrp(offer["taker_gets_funded"]))
+
+        return float(offer["taker_gets_funded"]["value"])
+
+    @classmethod
+    def get_amount_from_taker_pays(cls, offer):
+        if isinstance(offer["TakerPays"], str):
+            return float(drops_to_xrp(offer["TakerPays"]))
+
+        return float(offer["TakerPays"]["value"])
+
+    @classmethod
+    def get_amount_from_taker_pays_funded(cls, offer):
+        if isinstance(offer["taker_pays_funded"], str):
+            return float(drops_to_xrp(offer["taker_pays_funded"]))
+
+        return float(offer["taker_pays_funded"]["value"])
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -103,5 +135,5 @@ class XRPLOrderBook(OrderBook):
             "trade_id": msg["trade_id"],
             "update_id": msg["transact_time"],
             "price": msg["price"],
-            "amount": msg["fill_quantity"]
+            "amount": msg["amount"]
         }, timestamp=msg["timestamp"])

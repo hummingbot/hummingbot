@@ -1,7 +1,8 @@
 import asyncio
+import time
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from xrpl.clients import WebsocketClient
+from xrpl.asyncio.clients import AsyncWebsocketClient
 from xrpl.models import Subscribe
 from xrpl.models.requests import StreamParameter
 
@@ -22,6 +23,17 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._connector = connector
         self._auth = auth
+        self._xrpl_client = AsyncWebsocketClient(self._connector.node_url)
+        self._last_recv_time: float = 0
+
+    @property
+    def last_recv_time(self) -> float:
+        """
+        Returns the time of the last received message
+
+        :return: the timestamp of the last received message in seconds
+        """
+        return self._last_recv_time
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """
@@ -35,10 +47,11 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 subscribe = Subscribe(accounts=[self._auth.get_account()], streams=[StreamParameter.TRANSACTIONS])
 
-                with WebsocketClient(self._connector.node_url) as client:
-                    client.send(subscribe)
+                async with self._xrpl_client as client:
+                    await client.send(subscribe)
 
-                    for message in client:
+                    async for message in client:
+                        self._last_recv_time = time.time()
                         await self._process_event_message(event_message=message, queue=output)
             except asyncio.CancelledError:
                 self.logger().info("User stream listener task has been cancelled. Exiting...")

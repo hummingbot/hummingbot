@@ -1,6 +1,8 @@
 import sys
 from decimal import Decimal
 
+from xrpl.asyncio.transaction.main import _LEDGER_OFFSET
+
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderType
 
@@ -47,6 +49,9 @@ SIDE_SELL = 1
 
 # Orderbook settings
 ORDER_BOOK_DEPTH = 500
+
+# Ledger offset for getting order status:
+LEDGER_OFFSET = _LEDGER_OFFSET
 
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
