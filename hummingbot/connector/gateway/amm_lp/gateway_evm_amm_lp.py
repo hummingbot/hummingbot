@@ -52,7 +52,7 @@ class GatewayEVMAMMLP(ConnectorBase):
     """
 
     API_CALL_TIMEOUT = 10.0
-    POLL_INTERVAL = 1.0
+    POLL_INTERVAL = 10.0
     UPDATE_BALANCE_INTERVAL = 30.0
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
@@ -1256,3 +1256,9 @@ class GatewayEVMAMMLP(ConnectorBase):
     def _get_gateway_instance(self) -> GatewayHttpClient:
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance
+
+    def set_pool_interval(self, interval: int):
+        self.POLL_INTERVAL = interval
+
+    def set_update_balance_interval(self, interval: int):
+        self.UPDATE_BALANCE_INTERVAL = interval

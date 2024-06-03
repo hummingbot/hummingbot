@@ -10,8 +10,11 @@ def start(self):
     pair = c_map.get("market").value
     fee_tier = c_map.get("fee_tier").value
     price_spread = c_map.get("price_spread").value / Decimal("100")
-    amount = c_map.get("amount").value
+    buffer_spread = c_map.get("buffer_spread").value / Decimal("100")
+    min_amount = c_map.get("min_amount").value
+    max_amount = c_map.get("max_amount").value
     min_profitability = c_map.get("min_profitability").value
+    status_report_interval = c_map.get("status_report_interval").value
 
     self._initialize_markets([(connector, [pair])])
     base, quote = pair.split("-")
@@ -21,5 +24,8 @@ def start(self):
     self.strategy = AmmV3LpStrategy(market_info,
                                     fee_tier,
                                     price_spread,
-                                    amount,
-                                    min_profitability)
+                                    buffer_spread,
+                                    min_amount,
+                                    max_amount,
+                                    min_profitability,
+                                    status_report_interval)
