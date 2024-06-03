@@ -3,7 +3,16 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field, SecretStr, validator
-from xrpl.models import TransactionMetadata
+from xrpl.asyncio.account import get_next_valid_seq_number
+from xrpl.asyncio.clients import Client
+from xrpl.asyncio.ledger import get_latest_validated_ledger_sequence
+from xrpl.asyncio.transaction.main import (
+    _LEDGER_OFFSET,
+    _calculate_fee_per_transaction_type,
+    _get_network_id_and_build_version,
+    _tx_needs_networkID,
+)
+from xrpl.models import Transaction, TransactionMetadata
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
 from xrpl.utils.txn_parser.utils.order_book_parser import (
     _get_change_amount,
@@ -127,6 +136,44 @@ def get_token_from_changes(token_changes: [Dict[str, Any]], token: str) -> Optio
     return None
 
 
+async def autofill(
+    transaction: Transaction, client: Client, signers_count: Optional[int] = None, assign_sequence: Optional[int] = None
+) -> Transaction:
+    """
+    Autofills fields in a transaction. This will set `sequence`, `fee`, and
+    `last_ledger_sequence` according to the current state of the server this Client is
+    connected to. It also converts all X-Addresses to classic addresses.
+
+    Args:
+        transaction: the transaction to be signed.
+        client: a network client.
+        signers_count: the expected number of signers for this transaction.
+            Only used for multisigned transactions.
+
+    Returns:
+        The autofilled transaction.
+    """
+    transaction_json = transaction.to_dict()
+    if not client.network_id:
+        await _get_network_id_and_build_version(client)
+    if "network_id" not in transaction_json and _tx_needs_networkID(client):
+        transaction_json["network_id"] = client.network_id
+    if "sequence" not in transaction_json:
+        if assign_sequence is not None:
+            sequence = assign_sequence
+        else:
+            sequence = await get_next_valid_seq_number(transaction_json["account"], client)
+        transaction_json["sequence"] = sequence
+    if "fee" not in transaction_json:
+        transaction_json["fee"] = await _calculate_fee_per_transaction_type(
+            transaction, client, signers_count
+        )
+    if "last_ledger_sequence" not in transaction_json:
+        ledger_sequence = await get_latest_validated_ledger_sequence(client)
+        transaction_json["last_ledger_sequence"] = ledger_sequence + _LEDGER_OFFSET
+    return Transaction.from_dict(transaction_json)
+
+
 class XRPLConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="xrpl", const=True, client_data=None)
     xrpl_secret_key: SecretStr = Field(
@@ -149,6 +196,16 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         ),
     )
 
+    wss_second_node_url = Field(
+        default="wss://s1.ripple.com/",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your second XRPL Websocket Node URL",
+            is_secure=False,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
     class Config:
         title = "xrpl"
 
@@ -163,6 +220,15 @@ class XRPLConfigMap(BaseConnectorConfigMap):
 
     @validator("wss_node_url", pre=True)
     def validate_wss_node_url(cls, v: str):
+        pattern = r'^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$'
+        error_message = "Invalid node url. Node url should be in websocket format."
+        ret = validate_with_regex(v, pattern, error_message)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
+    @validator("wss_second_node_url", pre=True)
+    def validate_wss_second_node_url(cls, v: str):
         pattern = r'^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$'
         error_message = "Invalid node url. Node url should be in websocket format."
         ret = validate_with_regex(v, pattern, error_message)

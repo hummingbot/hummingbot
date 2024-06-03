@@ -7,22 +7,9 @@ from bidict import bidict
 
 # XRPL Imports
 from xrpl.asyncio.clients import AsyncWebsocketClient
-
-# from xrpl.transaction import autofill_and_sign
-from xrpl.asyncio.transaction import autofill_and_sign, submit
-from xrpl.clients import WebsocketClient
-from xrpl.models import (
-    XRP,
-    AccountInfo,
-    AccountObjects,
-    AccountTx,
-    IssuedCurrency,
-    Memo,
-    OfferCancel,
-    OfferCreate,
-    Ping,
-)
-from xrpl.models.amounts import Amount
+from xrpl.asyncio.transaction import sign, submit
+from xrpl.models import XRP, AccountInfo, AccountObjects, AccountTx, IssuedCurrency, Memo, OfferCancel, OfferCreate
+from xrpl.models.amounts import IssuedCurrencyAmount
 from xrpl.models.response import ResponseStatus
 from xrpl.utils import (
     drops_to_xrp,
@@ -34,11 +21,11 @@ from xrpl.utils import (
 )
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
+from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl_web_utils
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
-from hummingbot.connector.exchange.xrpl.xrpl_utils import convert_string_to_hex, get_token_from_changes
+from hummingbot.connector.exchange.xrpl.xrpl_utils import autofill, convert_string_to_hex, get_token_from_changes
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
@@ -48,6 +35,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -55,27 +43,35 @@ if TYPE_CHECKING:
 
 
 class XrplExchange(ExchangePyBase):
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 30.0
+    SHORT_POLL_INTERVAL = 20.0
+    LONG_POLL_INTERVAL = 120.0
 
-    # web_utils = web_utils
+    web_utils = xrpl_web_utils
 
     def __init__(
             self,
             client_config_map: "ClientConfigAdapter",
             xrpl_secret_key: str,
             wss_node_url: str,
+            wss_second_node_url: str,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
     ):
         self._xrpl_secret_key = xrpl_secret_key
         self._wss_node_url = wss_node_url
+        self._wss_second_node_url = wss_second_node_url
         self._xrpl_client = AsyncWebsocketClient(self._wss_node_url)
+        self._xrpl_place_order_client = AsyncWebsocketClient(self._wss_second_node_url)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._auth: XRPLAuth = self.authenticator
         self._trading_pair_symbol_map: Optional[Mapping[str, str]] = None
         self._trading_pair_fee_rules: Dict[str, Dict[str, Any]] = {}
-        self._open_client_lock = asyncio.Lock()
+        self._xrpl_client_lock = asyncio.Lock()
+        self._xrpl_place_order_client_lock = asyncio.Lock()
+        self._next_valid_sequence = 0
+        self._nonce_creator = NonceCreator.for_microseconds()
 
         super().__init__(client_config_map)
 
@@ -139,6 +135,14 @@ class XrplExchange(ExchangePyBase):
     def node_url(self) -> str:
         return self._wss_node_url
 
+    @property
+    def second_node_url(self) -> str:
+        return self._wss_second_node_url
+
+    @property
+    def auth(self) -> XRPLAuth:
+        return self._auth
+
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
@@ -161,7 +165,6 @@ class XrplExchange(ExchangePyBase):
         return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        # return web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
         pass
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
@@ -209,7 +212,7 @@ class XrplExchange(ExchangePyBase):
             price: Decimal,
             **kwargs,
     ) -> Tuple[str, float]:
-        base_currency, quote_currency = await self.get_currencies_from_trading_pair(trading_pair)
+        base_currency, quote_currency = self.get_currencies_from_trading_pair(trading_pair)
 
         if order_type is OrderType.MARKET:
             # If price is none or nan, get last_traded_price
@@ -229,7 +232,7 @@ class XrplExchange(ExchangePyBase):
             if base_currency.currency == XRP().currency:
                 we_pay = xrp_to_drops(amount)
             else:
-                we_pay = Amount(
+                we_pay = IssuedCurrencyAmount(
                     currency=base_currency.currency,
                     issuer=base_currency.issuer,
                     value=str(amount)
@@ -238,7 +241,7 @@ class XrplExchange(ExchangePyBase):
             if quote_currency.currency == XRP().currency:
                 we_get = xrp_to_drops(total_amount)
             else:
-                we_get = Amount(
+                we_get = IssuedCurrencyAmount(
                     currency=quote_currency.currency,
                     issuer=quote_currency.issuer,
                     value=str(total_amount))
@@ -246,7 +249,7 @@ class XrplExchange(ExchangePyBase):
             if quote_currency.currency == XRP().currency:
                 we_pay = xrp_to_drops(total_amount)
             else:
-                we_pay = Amount(
+                we_pay = IssuedCurrencyAmount(
                     currency=quote_currency.currency,
                     issuer=quote_currency.issuer,
                     value=str(total_amount)
@@ -255,7 +258,7 @@ class XrplExchange(ExchangePyBase):
             if base_currency.currency == XRP().currency:
                 we_get = xrp_to_drops(amount)
             else:
-                we_get = Amount(
+                we_get = IssuedCurrencyAmount(
                     currency=base_currency.currency,
                     issuer=base_currency.issuer,
                     value=str(amount))
@@ -273,14 +276,15 @@ class XrplExchange(ExchangePyBase):
         )
 
         try:
-            async with self._open_client_lock:
-                async with self._xrpl_client as client:
-                    signed_tx = await autofill_and_sign(request, client, self._auth.get_wallet())
+            async with self._xrpl_place_order_client_lock:
+                async with self._xrpl_place_order_client as client:
+                    filled_tx = await autofill(request, client, assign_sequence=self._next_valid_sequence)
+                    signed_tx = sign(filled_tx, self._auth.get_wallet())
                     o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
                     await submit(signed_tx, client)
+                    self._next_valid_sequence += 1
                     transact_time = time.time()
-                    # Temp fix to wait for order to be processed
-                    await self.sleep(0.3)
+                    await self._sleep(0.1)
         except Exception as e:
             new_state = OrderState.FAILED
             o_id = "UNKNOWN"
@@ -298,22 +302,50 @@ class XrplExchange(ExchangePyBase):
 
         return o_id, transact_time
 
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        exchange_order_id = tracked_order.exchange_order_id
-        sequence, _ = exchange_order_id.split('-')
-
-        request = OfferCancel(
-            account=self._auth.get_account(),
-            sequence=int(sequence),
+    async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
+        exchange_order_id, update_timestamp = await self._place_order(
+            order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            amount=order.amount,
+            trade_type=order.trade_type,
+            order_type=order.order_type,
+            price=order.price,
+            **kwargs,
         )
 
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(exchange_order_id),
+            trading_pair=order.trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=OrderState.PENDING_CREATE,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+        return exchange_order_id
+
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        exchange_order_id = tracked_order.exchange_order_id
+
+        if exchange_order_id is None:
+            self.logger().error(
+                f"Unable to cancel order {order_id}, it does not yet have exchange order id")
+            return False
+
         try:
-            async with self._open_client_lock:
-                async with self._xrpl_client as client:
-                    signed_tx = await autofill_and_sign(request, client, self._auth.get_wallet())
+            sequence, _ = exchange_order_id.split('-')
+            request = OfferCancel(
+                account=self._auth.get_account(),
+                offer_sequence=int(sequence),
+            )
+            async with self._xrpl_place_order_client_lock:
+                async with self._xrpl_place_order_client as client:
+                    # signed_tx = await autofill_and_sign(request, client, self._auth.get_wallet())
+                    filled_tx = await autofill(request, client, assign_sequence=self._next_valid_sequence)
+                    signed_tx = sign(filled_tx, self._auth.get_wallet())
                     await submit(signed_tx, client)
-                    # Temp fix to wait for order to be processed
-                    await self.sleep(0.3)
+                    self._next_valid_sequence += 1
+                    await self._sleep(0.1)
         except Exception as e:
             self.logger().error(f"Order cancellation failed: {e}")
             return False
@@ -329,7 +361,8 @@ class XrplExchange(ExchangePyBase):
 
             trading_rule = TradingRule(
                 trading_pair=trading_pair,
-                min_order_size=Decimal(f"1e-{minimum_order_size}"),
+                min_order_size=Decimal(minimum_order_size),
+                # TODO: Minimum order size is already in scientific notation, check if this correct.
                 min_price_increment=Decimal(f"1e-{quote_tick_size}"),
                 min_quote_amount_increment=Decimal(f"1e-{quote_tick_size}"),
                 min_base_amount_increment=Decimal(f"1e-{base_tick_size}"),
@@ -362,13 +395,15 @@ class XrplExchange(ExchangePyBase):
         # TODO: Move fee update logic to this method
         pass
 
-    def all_active_orders_by_sequence_number(self) -> Dict[str, InFlightOrder]:
-        orders_map = {}
+    def get_order_by_sequence(self, sequence) -> Optional[InFlightOrder]:
+        for client_order_id, order in self._order_tracker.all_fillable_orders.items():
+            if order.exchange_order_id is None:
+                return None
 
-        for client_order_id, order in self._order_tracker.active_orders.items():
-            orders_map[order.exchange_order_id.split('-')[0]] = order
+            if int(order.exchange_order_id.split('-')[0]) == int(sequence):
+                return order
 
-        return orders_map
+        return None
 
     async def _user_stream_event_listener(self):
         """
@@ -404,180 +439,271 @@ class XrplExchange(ExchangePyBase):
         #     except Exception:
         #         self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
         #         await self._sleep(5.0)
-        pass
+        async for event_message in self._iter_user_event_queue():
+            try:
+                transaction = event_message.get("transaction")
+                meta = event_message.get("meta")
+
+                if transaction is None or meta is None:
+                    self._logger.debug(f"Received event message without transaction or meta: {event_message}")
+                    continue
+
+                self._logger.debug(
+                    f"Handling TransactionType: {transaction.get('TransactionType')}, Hash: {transaction.get('hash')} OfferSequence: {transaction.get('OfferSequence')}, Sequence: {transaction.get('Sequence')}...")
+
+                balance_changes = get_balance_changes(meta)
+                order_book_changes = get_order_book_changes(meta)
+
+                # Handle state updates for orders
+                for order_book_change in order_book_changes:
+                    if (order_book_change['maker_account'] != self._auth.get_account()):
+                        self._logger.debug(
+                            f"Order book change not for this account? {order_book_change['maker_account']}")
+                        continue
+
+                    for offer_change in order_book_change['offer_changes']:
+                        tracked_order = self.get_order_by_sequence(offer_change["sequence"])
+                        if tracked_order is None:
+                            self._logger.debug(
+                                f"Tracked order not found for sequence '{offer_change['sequence']}'")
+                            continue
+
+                        status = offer_change['status']
+                        if status == "filled":
+                            new_order_state = OrderState.FILLED
+                            # TODO: Handling trade fills
+                            # trade_update = self.process_trade_fills(transaction, tracked_order)
+                            # if trade_update is not None:
+                            #     self._order_tracker.process_trade_update(trade_update)
+                            # else:
+                            #     self.logger().error(
+                            #         f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
+
+                        elif status == "partially-filled":
+                            new_order_state = OrderState.PARTIALLY_FILLED
+                            # TODO: Handling trade fills
+                            # trade_update = self.process_trade_fills(transaction, tracked_order)
+                            # if trade_update is not None:
+                            #     self._order_tracker.process_trade_update(trade_update)
+                            # else:
+                            #     self.logger().error(
+                            #         f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
+                        elif status == "cancelled":
+                            new_order_state = OrderState.CANCELED
+                        else:
+                            # Check if the transaction did cross any offers in the order book
+                            taker_gets = offer_change.get("taker_gets")
+                            taker_pays = offer_change.get("taker_pays")
+
+                            tx_taker_gets = transaction.get("TakerGets")
+                            tx_taker_pays = transaction.get("TakerPays")
+
+                            if isinstance(tx_taker_gets, str):
+                                tx_taker_gets = {'currency': 'XRP',
+                                                 'value': str(drops_to_xrp(tx_taker_gets))}
+
+                            if isinstance(tx_taker_pays, str):
+                                tx_taker_pays = {'currency': 'XRP',
+                                                 'value': str(drops_to_xrp(tx_taker_pays))}
+
+                            if taker_gets.get("value") != tx_taker_gets.get("value") or taker_pays.get(
+                                    "value") != tx_taker_pays.get("value"):
+                                new_order_state = OrderState.PARTIALLY_FILLED
+                            else:
+                                new_order_state = OrderState.OPEN
+
+                        self._logger.debug(
+                            f"Order update for order '{tracked_order.client_order_id}' with sequence '{offer_change['sequence']}': '{new_order_state}'")
+                        order_update = OrderUpdate(
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=tracked_order.exchange_order_id,
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=time.time(),
+                            new_state=new_order_state,
+                        )
+
+                        self._order_tracker.process_order_update(order_update=order_update)
+
+                # Check if this is market order, if it is, check if it has been filled or failed
+                if len(order_book_changes) == 0:
+                    tx_sequence = transaction.get("Sequence")
+                    tracked_order = self.get_order_by_sequence(tx_sequence)
+
+                    if tracked_order is not None and tracked_order.order_type is OrderType.MARKET:
+                        tx_status = meta.get("TransactionResult")
+                        if tx_status != "tesSUCCESS":
+                            self.logger().error(
+                                f"Order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}) failed: {tx_status}")
+                            new_order_state = OrderState.FAILED
+                        else:
+                            new_order_state = OrderState.FILLED
+                            # TODO: Handling trade fills
+                            # trade_update = self.process_trade_fills(transaction, tracked_order)
+                            # if trade_update is not None:
+                            #     self._order_tracker.process_trade_update(trade_update)
+                            # else:
+                            #     self.logger().error(
+                            #         f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
+
+                        order_update = OrderUpdate(
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=tracked_order.exchange_order_id,
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=time.time(),
+                            new_state=new_order_state,
+                        )
+
+                        self._order_tracker.process_order_update(order_update=order_update)
+
+                # Handle balance changes
+                for balance_change in balance_changes:
+                    if (balance_change['account'] == self._auth.get_account()):
+                        await self._update_balances()
+                        break
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+                await self._sleep(5.0)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        async with self._open_client_lock:
+        async with self._xrpl_client_lock:
             async with self._xrpl_client as client:
-                base_currency, quote_currency = await self.get_currencies_from_trading_pair(order.trading_pair)
-                sequence, ledger_index = order.exchange_order_id.split('-')
-                fee_rules = self._trading_pair_fee_rules.get(order.trading_pair)
+                _, ledger_index = order.exchange_order_id.split('-')
 
                 request = AccountTx(
                     account=self._auth.get_account(),
                     ledger_index="validated",
-                    ledger_index_min=ledger_index,
+                    ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
                     forward=True,
                 )
 
                 resp = await client.request(request)
                 transactions = resp.result.get("transactions", [])
-                creation_tx_found = False
                 trade_fills = []
 
                 for transaction in transactions:
-                    meta = transaction.get("meta", {})
-                    tx = transaction.get("tx", {})
-                    offer_changes = get_order_book_changes(meta)
-                    balance_changes = get_balance_changes(meta)
+                    trade_update = self.process_trade_fills(transaction, order)
+                    if trade_update is not None:
+                        trade_fills.append(trade_update)
 
-                    # Filter out change that is not from this account
-                    offer_changes = [x for x in offer_changes if
-                                     x.get("maker_account") == self._auth.get_account()]
-                    balance_changes = [x for x in balance_changes if
-                                       x.get("account") == self._auth.get_account()]
+            return trade_fills
 
-                    tx_sequence = tx.get("Sequence")
+    def process_trade_fills(self, transaction: Dict[str, Any], order: InFlightOrder) -> Optional[TradeUpdate]:
+        base_currency, quote_currency = self.get_currencies_from_trading_pair(order.trading_pair)
+        sequence, ledger_index = order.exchange_order_id.split('-')
+        fee_rules = self._trading_pair_fee_rules.get(order.trading_pair)
 
-                    if not creation_tx_found:
-                        if tx_sequence == sequence:
-                            creation_tx_found = True
+        meta = transaction.get("meta", {})
+        tx = transaction.get("tx", {})
 
-                            # check status of the transaction
-                            tx_status = meta.get("TransactionResult")
-                            if tx_status != "tesSUCCESS":
-                                self.logger().error(
-                                    f"Order {order.client_order_id} ({order.exchange_order_id}) failed: {tx_status}")
-                                break
+        if tx.get("TransactionType") != "OfferCreate":
+            return None
 
-                            # check if there is no offer changes, if none, this order has been filled
-                            if len(offer_changes) == 0:
-                                # check if there is any balance changes
-                                if len(balance_changes) == 0:
-                                    self.logger().error(
-                                        f"Order {order.client_order_id} ({order.exchange_order_id}) has no balance changes")
-                                    break
+        offer_changes = get_order_book_changes(meta)
+        balance_changes = get_balance_changes(meta)
 
-                                for balance_change in balance_changes:
-                                    changes = balance_change.get("balances", [])
-                                    base_change = get_token_from_changes(changes, token=base_currency.currency)
-                                    quote_change = get_token_from_changes(changes, token=quote_currency.currency)
+        # Filter out change that is not from this account
+        offer_changes = [x for x in offer_changes if
+                         x.get("maker_account") == self._auth.get_account()]
+        balance_changes = [x for x in balance_changes if
+                           x.get("account") == self._auth.get_account()]
 
-                                    if order.trade_type is TradeType.BUY:
-                                        fee_token = fee_rules.get("quote_token")
-                                        fee_rate = fee_rules.get("quote_transfer_rate")
-                                    else:
-                                        fee_token = fee_rules.get("base_token")
-                                        fee_rate = fee_rules.get("base_transfer_rate")
+        tx_sequence = tx.get("Sequence")
 
-                                    fee = TradeFeeBase.new_spot_fee(
-                                        fee_schema=self.trade_fee_schema(),
-                                        trade_type=order.trade_type,
-                                        percent_token=fee_token.upper(),
-                                        percent=Decimal(fee_rate),
-                                    )
-                                    trade_update = TradeUpdate(
-                                        trade_id=tx.get("hash"),
-                                        client_order_id=order.client_order_id,
-                                        exchange_order_id=order.exchange_order_id,
-                                        trading_pair=order.trading_pair,
-                                        fee=fee,
-                                        fill_base_amount=abs(Decimal(base_change.get("value"))),
-                                        fill_quote_amount=abs(Decimal(quote_change.get("value"))),
-                                        fill_price=abs(Decimal(base_change.get("value"))) / abs(
-                                            Decimal(quote_change.get("value"))),
-                                        fill_timestamp=ripple_time_to_posix(tx.get("date")),
-                                    )
+        if int(tx_sequence) == int(sequence):
+            # check status of the transaction
+            tx_status = meta.get("TransactionResult")
+            if tx_status != "tesSUCCESS":
+                self.logger().error(
+                    f"Order {order.client_order_id} ({order.exchange_order_id}) failed: {tx_status}")
+                return None
 
-                                    trade_fills.append(trade_update)
-                            else:
-                                # This is a limit order, check if the limit order did cross any offers in the order book
-                                for offer_change in offer_changes:
-                                    changes = offer_change.get("offer_changes", [])
+            # check if there is no offer changes, if none, this order has been filled
+            if len(offer_changes) == 0:
+                # check if there is any balance changes
+                if len(balance_changes) == 0:
+                    self.logger().error(
+                        f"Order {order.client_order_id} ({order.exchange_order_id}) has no balance changes")
+                    return None
 
-                                    for change in changes:
-                                        if change.get("sequence") == sequence:
-                                            taker_gets = change.get("taker_gets")
-                                            taker_pays = change.get("taker_pays")
+                for balance_change in balance_changes:
+                    changes = balance_change.get("balances", [])
+                    base_change = get_token_from_changes(changes, token=base_currency.currency)
+                    quote_change = get_token_from_changes(changes, token=quote_currency.currency)
 
-                                            tx_taker_gets = tx.get("TakerGets")
-                                            tx_taker_pays = tx.get("TakerPays")
-
-                                            if isinstance(tx_taker_gets, str):
-                                                tx_taker_gets = {'currency': 'XRP',
-                                                                 'value': str(drops_to_xrp(tx_taker_gets))}
-
-                                            if isinstance(tx_taker_pays, str):
-                                                tx_taker_pays = {'currency': 'XRP',
-                                                                 'value': str(drops_to_xrp(tx_taker_pays))}
-
-                                            if taker_gets.get("value") != tx_taker_gets.get("value") or taker_pays.get(
-                                                    "value") != tx_taker_pays.get("value"):
-                                                diff_taker_gets_value = abs(Decimal(taker_gets.get("value")) - Decimal(
-                                                    tx_taker_gets.get("value")))
-                                                diff_taker_pays_value = abs(Decimal(taker_pays.get("value")) - Decimal(
-                                                    tx_taker_pays.get("value")))
-
-                                                diff_taker_gets = {
-                                                    "currency": taker_gets.get("currency"),
-                                                    "value": str(diff_taker_gets_value)
-                                                }
-
-                                                diff_taker_pays = {
-                                                    "currency": taker_pays.get("currency"),
-                                                    "value": str(diff_taker_pays_value)
-                                                }
-
-                                                base_change = get_token_from_changes(
-                                                    token_changes=[diff_taker_gets, diff_taker_pays],
-                                                    token=base_currency.currency)
-                                                quote_change = get_token_from_changes(
-                                                    token_changes=[diff_taker_gets, diff_taker_pays],
-                                                    token=quote_currency.currency)
-
-                                                if order.trade_type is TradeType.BUY:
-                                                    fee_token = fee_rules.get("quote_token")
-                                                    fee_rate = fee_rules.get("quote_transfer_rate")
-                                                else:
-                                                    fee_token = fee_rules.get("base_token")
-                                                    fee_rate = fee_rules.get("base_transfer_rate")
-
-                                                fee = TradeFeeBase.new_spot_fee(
-                                                    fee_schema=self.trade_fee_schema(),
-                                                    trade_type=order.trade_type,
-                                                    percent_token=fee_token.upper(),
-                                                    percent=Decimal(fee_rate),
-                                                )
-
-                                                trade_update = TradeUpdate(
-                                                    trade_id=tx.get("hash"),
-                                                    client_order_id=order.client_order_id,
-                                                    exchange_order_id=order.exchange_order_id,
-                                                    trading_pair=order.trading_pair,
-                                                    fee=fee,
-                                                    fill_base_amount=abs(Decimal(base_change.get("value"))),
-                                                    fill_quote_amount=abs(Decimal(quote_change.get("value"))),
-                                                    fill_price=abs(Decimal(base_change.get("value"))) / abs(
-                                                        Decimal(quote_change.get("value"))),
-                                                    fill_timestamp=ripple_time_to_posix(tx.get("date")),
-                                                )
-
-                                                trade_fills.append(trade_update)
+                    if order.trade_type is TradeType.BUY:
+                        fee_token = fee_rules.get("quote_token")
+                        fee_rate = fee_rules.get("quote_transfer_rate")
                     else:
-                        # Find if offer changes are related to this order
-                        for offer_change in offer_changes:
-                            changes = offer_change.get("offer_changes", [])
+                        fee_token = fee_rules.get("base_token")
+                        fee_rate = fee_rules.get("base_transfer_rate")
 
-                            for change in changes:
-                                if change.get("sequence") == sequence:
-                                    taker_gets = change.get("taker_gets")
-                                    taker_pays = change.get("taker_pays")
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=order.trade_type,
+                        percent_token=fee_token.upper(),
+                        percent=Decimal(fee_rate),
+                    )
+                    trade_update = TradeUpdate(
+                        trade_id=tx.get("hash"),
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=order.exchange_order_id,
+                        trading_pair=order.trading_pair,
+                        fee=fee,
+                        fill_base_amount=abs(Decimal(base_change.get("value"))),
+                        fill_quote_amount=abs(Decimal(quote_change.get("value"))),
+                        fill_price=abs(Decimal(base_change.get("value"))) / abs(
+                            Decimal(quote_change.get("value"))),
+                        fill_timestamp=ripple_time_to_posix(tx.get("date")),
+                    )
+
+                    # trade_fills.append(trade_update)
+                    return trade_update
+            else:
+                # This is a limit order, check if the limit order did cross any offers in the order book
+                for offer_change in offer_changes:
+                    changes = offer_change.get("offer_changes", [])
+
+                    for change in changes:
+                        if int(change.get("sequence")) == int(sequence):
+                            taker_gets = change.get("taker_gets")
+                            taker_pays = change.get("taker_pays")
+
+                            tx_taker_gets = tx.get("TakerGets")
+                            tx_taker_pays = tx.get("TakerPays")
+
+                            if isinstance(tx_taker_gets, str):
+                                tx_taker_gets = {'currency': 'XRP',
+                                                 'value': str(drops_to_xrp(tx_taker_gets))}
+
+                            if isinstance(tx_taker_pays, str):
+                                tx_taker_pays = {'currency': 'XRP',
+                                                 'value': str(drops_to_xrp(tx_taker_pays))}
+
+                            if taker_gets.get("value") != tx_taker_gets.get("value") or taker_pays.get(
+                                    "value") != tx_taker_pays.get("value"):
+                                diff_taker_gets_value = abs(Decimal(taker_gets.get("value")) - Decimal(
+                                    tx_taker_gets.get("value")))
+                                diff_taker_pays_value = abs(Decimal(taker_pays.get("value")) - Decimal(
+                                    tx_taker_pays.get("value")))
+
+                                diff_taker_gets = {
+                                    "currency": taker_gets.get("currency"),
+                                    "value": str(diff_taker_gets_value)
+                                }
+
+                                diff_taker_pays = {
+                                    "currency": taker_pays.get("currency"),
+                                    "value": str(diff_taker_pays_value)
+                                }
 
                                 base_change = get_token_from_changes(
-                                    token_changes=[taker_gets, taker_pays],
+                                    token_changes=[diff_taker_gets, diff_taker_pays],
                                     token=base_currency.currency)
                                 quote_change = get_token_from_changes(
-                                    token_changes=[taker_gets, taker_pays],
+                                    token_changes=[diff_taker_gets, diff_taker_pays],
                                     token=quote_currency.currency)
 
                                 if order.trade_type is TradeType.BUY:
@@ -593,6 +719,7 @@ class XrplExchange(ExchangePyBase):
                                     percent_token=fee_token.upper(),
                                     percent=Decimal(fee_rate),
                                 )
+
                                 trade_update = TradeUpdate(
                                     trade_id=tx.get("hash"),
                                     client_order_id=order.client_order_id,
@@ -606,14 +733,57 @@ class XrplExchange(ExchangePyBase):
                                     fill_timestamp=ripple_time_to_posix(tx.get("date")),
                                 )
 
-                                trade_fills.append(trade_update)
+                                return trade_update
+        else:
+            # Find if offer changes are related to this order
+            for offer_change in offer_changes:
+                changes = offer_change.get("offer_changes", [])
 
-            return trade_fills
+                for change in changes:
+                    if int(change.get("sequence")) == int(sequence):
+                        taker_gets = change.get("taker_gets")
+                        taker_pays = change.get("taker_pays")
+
+                        base_change = get_token_from_changes(
+                            token_changes=[taker_gets, taker_pays],
+                            token=base_currency.currency)
+                        quote_change = get_token_from_changes(
+                            token_changes=[taker_gets, taker_pays],
+                            token=quote_currency.currency)
+
+                        if order.trade_type is TradeType.BUY:
+                            fee_token = fee_rules.get("quote_token")
+                            fee_rate = fee_rules.get("quote_transfer_rate")
+                        else:
+                            fee_token = fee_rules.get("base_token")
+                            fee_rate = fee_rules.get("base_transfer_rate")
+
+                        fee = TradeFeeBase.new_spot_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            trade_type=order.trade_type,
+                            percent_token=fee_token.upper(),
+                            percent=Decimal(fee_rate),
+                        )
+                        trade_update = TradeUpdate(
+                            trade_id=tx.get("hash"),
+                            client_order_id=order.client_order_id,
+                            exchange_order_id=order.exchange_order_id,
+                            trading_pair=order.trading_pair,
+                            fee=fee,
+                            fill_base_amount=abs(Decimal(base_change.get("value"))),
+                            fill_quote_amount=abs(Decimal(quote_change.get("value"))),
+                            fill_price=abs(Decimal(base_change.get("value"))) / abs(
+                                Decimal(quote_change.get("value"))),
+                            fill_timestamp=ripple_time_to_posix(tx.get("date")),
+                        )
+
+                        return trade_update
+
+        return None
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        async with self._open_client_lock:
+        async with self._xrpl_client_lock:
             async with self._xrpl_client as client:
-                # TODO: Handle market order
                 new_order_state = tracked_order.current_state
                 latest_status = "UNKNOWN"
                 sequence, ledger_index = tracked_order.exchange_order_id.split('-')
@@ -622,7 +792,7 @@ class XrplExchange(ExchangePyBase):
                     request = AccountTx(
                         account=self._auth.get_account(),
                         ledger_index="validated",
-                        ledger_index_min=int(ledger_index),
+                        ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
                     )
 
                     resp = await client.request(request)
@@ -633,7 +803,7 @@ class XrplExchange(ExchangePyBase):
                         meta = transaction.get("meta", {})
                         tx_sequence = tx.get("Sequence")
 
-                        if tx_sequence == sequence:
+                        if int(tx_sequence) == int(sequence):
                             tx_status = meta.get("TransactionResult")
                             if tx_status != "tesSUCCESS":
                                 new_order_state = OrderState.FAILED
@@ -672,7 +842,7 @@ class XrplExchange(ExchangePyBase):
                     request = AccountTx(
                         account=self._auth.get_account(),
                         ledger_index="validated",
-                        ledger_index_min=int(ledger_index),
+                        ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
                         forward=True,
                     )
 
@@ -693,7 +863,7 @@ class XrplExchange(ExchangePyBase):
                             changes = offer_change.get("offer_changes", [])
 
                             for change in changes:
-                                if change.get("sequence") == sequence:
+                                if int(change.get("sequence")) == int(sequence):
                                     tx = transaction.get("tx")
                                     update_time = tx.get("date")
                                     update_timestamp = ripple_time_to_posix(update_time)
@@ -701,15 +871,27 @@ class XrplExchange(ExchangePyBase):
                                     found = True
 
                     if latest_status == "UNKNOWN":
-                        new_order_state = OrderState.FAILED
-                        update_timestamp = time.time()
-                        self.logger().error(
-                            f"Order status not found for order {tracked_order.client_order_id} ({sequence})")
+                        current_state = tracked_order.current_state
+                        if current_state is OrderState.PENDING_CREATE or current_state is OrderState.PENDING_CANCEL:
+                            # give order at least 60 seconds to be processed
+                            if time.time() - tracked_order.last_update_timestamp > 60:
+                                new_order_state = OrderState.FAILED
+                                update_timestamp = time.time()
+                                self.logger().error(
+                                    f"Order status not found for order {tracked_order.client_order_id} ({sequence})")
+                            else:
+                                new_order_state = current_state
+                                update_timestamp = tracked_order.last_update_timestamp
+                        else:
+                            new_order_state = OrderState.FAILED
+                            update_timestamp = time.time()
+                            self.logger().error(
+                                f"Order status not found for order {tracked_order.client_order_id} ({sequence})")
                     elif latest_status == "filled":
                         new_order_state = OrderState.FILLED
                     elif latest_status == "partially-filled":
                         new_order_state = OrderState.PARTIALLY_FILLED
-                    elif latest_status == "canceled":
+                    elif latest_status == "cancelled":
                         new_order_state = OrderState.CANCELED
                     elif latest_status == "created":
                         new_order_state = OrderState.OPEN
@@ -727,56 +909,69 @@ class XrplExchange(ExchangePyBase):
     async def _update_balances(self):
         account_address = self._auth.get_account()
 
-        async with self._xrpl_client as client:
-            account_info = await client.request(AccountInfo(
-                account=account_address,
-                ledger_index="validated",
-            ))
-            objects = await client.request(AccountObjects(
-                account=account_address,
-            ))
-            open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
-            balances = [x.get('Balance') for x in objects.result.get("account_objects", []) if
-                        x.get("LedgerEntryType") == "RippleState"]
+        async with self._xrpl_client_lock:
+            async with self._xrpl_client as client:
+                account_info = await client.request(AccountInfo(
+                    account=account_address,
+                    ledger_index="validated",
+                ))
+                objects = await client.request(AccountObjects(
+                    account=account_address,
+                ))
+                open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
+                balances = [x.get('Balance') for x in objects.result.get("account_objects", []) if
+                            x.get("LedgerEntryType") == "RippleState"]
 
-            xrp_balance = account_info.result.get("account_data", {}).get("Balance", '0')
-            total_xrp = drops_to_xrp(xrp_balance)
-            total_ledger_objects = len(objects.result.get("account_objects", []))
-            fixed_wallet_reserve = 10
-            available_xrp = total_xrp - fixed_wallet_reserve - total_ledger_objects * 2
+                xrp_balance = account_info.result.get("account_data", {}).get("Balance", '0')
+                total_xrp = drops_to_xrp(xrp_balance)
+                total_ledger_objects = len(objects.result.get("account_objects", []))
+                fixed_wallet_reserve = 10
+                available_xrp = total_xrp - fixed_wallet_reserve - total_ledger_objects * 2
 
-            account_balances = {
-                "XRP": Decimal(total_xrp),
-            }
+                account_balances = {
+                    "XRP": Decimal(total_xrp),
+                }
 
-            # update balance for each token
-            for balance in balances:
-                currency = balance.get("currency")
-                if len(currency) > 3:
-                    currency = hex_to_str(currency)
+                # update balance for each token
+                for balance in balances:
+                    currency = balance.get("currency")
+                    if len(currency) > 3:
+                        currency = hex_to_str(currency)
 
-                token = currency.strip('\x00')
-                amount = balance.get("value")
-                account_balances[token] = Decimal(amount)
+                    token = currency.strip('\x00')
+                    amount = balance.get("value")
+                    account_balances[token] = Decimal(amount)
 
-            account_available_balances = account_balances.copy()
-            account_available_balances["XRP"] = Decimal(available_xrp)
+                account_available_balances = account_balances.copy()
+                account_available_balances["XRP"] = Decimal(available_xrp)
 
-            for offer in open_offers:
-                taker_gets = offer.get("TakerGets")
-                if isinstance(taker_gets, dict):
-                    token = taker_gets.get("currency")
-                    if len(token) > 3:
-                        token = hex_to_str(token).strip('\x00')
-                    amount = Decimal(taker_gets.get("value"))
-                else:
-                    amount = drops_to_xrp(taker_gets)
-                    token = 'XRP'
+                for offer in open_offers:
+                    taker_gets = offer.get("TakerGets")
+                    taker_gets_funded = offer.get("taker_gets_funded", None)
 
-                account_available_balances[token] -= amount
+                    if taker_gets_funded is not None:
+                        if isinstance(taker_gets_funded, dict):
+                            token = taker_gets_funded.get("currency")
+                            if len(token) > 3:
+                                token = hex_to_str(token).strip('\x00')
+                            amount = Decimal(taker_gets_funded.get("value"))
+                        else:
+                            amount = drops_to_xrp(taker_gets_funded)
+                            token = 'XRP'
+                    else:
+                        if isinstance(taker_gets, dict):
+                            token = taker_gets.get("currency")
+                            if len(token) > 3:
+                                token = hex_to_str(token).strip('\x00')
+                            amount = Decimal(taker_gets.get("value"))
+                        else:
+                            amount = drops_to_xrp(taker_gets)
+                            token = 'XRP'
 
-            self._account_balances = account_balances
-            self._account_available_balances = account_available_balances
+                    account_available_balances[token] -= amount
+
+                self._account_balances = account_balances
+                self._account_available_balances = account_available_balances
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         markets = exchange_info.get("markets", {})
@@ -788,12 +983,6 @@ class XrplExchange(ExchangePyBase):
                 base=info["base"].upper(), quote=info["quote"].upper()
             )
         self._set_trading_pair_symbol_map(mapping_symbol)
-
-    def _set_trading_pair_symbol_map(self, trading_pair_and_symbol_map: Optional[Mapping[str, str]]):
-        """
-        Method added to allow the pure Python subclasses to set the value of the map
-        """
-        self._trading_pair_symbol_map = trading_pair_and_symbol_map
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         last_price = self.order_books.get(trading_pair).last_trade_price
@@ -814,10 +1003,11 @@ class XrplExchange(ExchangePyBase):
 
         :return: the id assigned by the connector to the order (the client id)
         """
+        prefix = f"{self.client_order_id_prefix}-{self._nonce_creator.get_tracking_nonce()}-"
         order_id = get_new_client_order_id(
             is_buy=True,
             trading_pair=trading_pair,
-            hbot_order_id_prefix=self.client_order_id_prefix,
+            hbot_order_id_prefix=prefix,
             max_id_len=self.client_order_id_max_length
         )
 
@@ -850,10 +1040,11 @@ class XrplExchange(ExchangePyBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
+        prefix = f"{self.client_order_id_prefix}-{self._nonce_creator.get_tracking_nonce()}-"
         order_id = get_new_client_order_id(
             is_buy=False,
             trading_pair=trading_pair,
-            hbot_order_id_prefix=self.client_order_id_prefix,
+            hbot_order_id_prefix=prefix,
             max_id_len=self.client_order_id_max_length
         )
         safe_ensure_future(
@@ -892,77 +1083,96 @@ class XrplExchange(ExchangePyBase):
             self.logger().exception(f"There was an error requesting exchange info: {e}")
 
     async def _make_network_check_request(self):
-        with WebsocketClient(self.node_url) as client:
-            client.request(Ping())
+        if self._next_valid_sequence < 1000:
+            async with AsyncWebsocketClient(self.node_url) as client:
+                request = AccountInfo(
+                    account=self._auth.get_account(),
+                    ledger_index="validated",
+                )
+                resp = await client.request(request)
+                status = resp.status
+
+                if status == ResponseStatus.ERROR:
+                    error_message = resp.result.get("error_message")
+                    raise ValueError(f"Account not found in ledger: {error_message}")
+
+                result = resp.result.get("account_data", {})
+                next_valid_sequence = result.get("Sequence", 0)
+
+                if next_valid_sequence == 0:
+                    raise ValueError(f"Account sequence not found in ledger: {result}")
+
+                self._next_valid_sequence = next_valid_sequence
 
     async def _make_trading_rules_request(self) -> Dict[str, Any]:
         zeroTransferRate = 1000000000
         trading_rules_info = {}
 
-        async with self._xrpl_client as client:
-            for trading_pair in self._trading_pairs:
-                base_currency, quote_currency = await self.get_currencies_from_trading_pair(trading_pair)
+        async with self._xrpl_client_lock:
+            async with self._xrpl_client as client:
+                for trading_pair in self._trading_pairs:
+                    base_currency, quote_currency = self.get_currencies_from_trading_pair(trading_pair)
 
-                if base_currency.currency == XRP().currency:
-                    baseTickSize = 6
-                    baseTransferRate = 0
-                else:
-                    base_info = await client.request(AccountInfo(
-                        account=base_currency.issuer,
-                        ledger_index="validated",
-                    ))
+                    if base_currency.currency == XRP().currency:
+                        baseTickSize = 6
+                        baseTransferRate = 0
+                    else:
+                        base_info = await client.request(AccountInfo(
+                            account=base_currency.issuer,
+                            ledger_index="validated",
+                        ))
 
-                    if base_info.status == ResponseStatus.ERROR:
-                        error_message = base_info.result.get("error_message")
-                        raise ValueError(f"Base currency {base_currency} not found in ledger: {error_message}")
+                        if base_info.status == ResponseStatus.ERROR:
+                            error_message = base_info.result.get("error_message")
+                            raise ValueError(f"Base currency {base_currency} not found in ledger: {error_message}")
 
-                    baseTickSize = base_info.result.get("account_data", {}).get("TickSize", 15)
-                    rawTransferRate = base_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
-                    baseTransferRate = float(rawTransferRate / zeroTransferRate) - 1
+                        baseTickSize = base_info.result.get("account_data", {}).get("TickSize", 15)
+                        rawTransferRate = base_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
+                        baseTransferRate = float(rawTransferRate / zeroTransferRate) - 1
 
-                if quote_currency.currency == XRP().currency:
-                    quoteTickSize = 6
-                    quoteTransferRate = 0
-                else:
-                    quote_info = await client.request(AccountInfo(
-                        account=quote_currency.issuer,
-                        ledger_index="validated",
-                    ))
+                    if quote_currency.currency == XRP().currency:
+                        quoteTickSize = 6
+                        quoteTransferRate = 0
+                    else:
+                        quote_info = await client.request(AccountInfo(
+                            account=quote_currency.issuer,
+                            ledger_index="validated",
+                        ))
 
-                    if quote_info.status == ResponseStatus.ERROR:
-                        error_message = quote_info.result.get("error_message")
-                        raise ValueError(f"Quote currency {quote_currency} not found in ledger: {error_message}")
+                        if quote_info.status == ResponseStatus.ERROR:
+                            error_message = quote_info.result.get("error_message")
+                            raise ValueError(f"Quote currency {quote_currency} not found in ledger: {error_message}")
 
-                    quoteTickSize = quote_info.result.get("account_data", {}).get("TickSize", 15)
-                    rawTransferRate = quote_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
-                    quoteTransferRate = float(rawTransferRate / zeroTransferRate) - 1
+                        quoteTickSize = quote_info.result.get("account_data", {}).get("TickSize", 15)
+                        rawTransferRate = quote_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
+                        quoteTransferRate = float(rawTransferRate / zeroTransferRate) - 1
 
-                if baseTickSize is None or quoteTickSize is None:
-                    raise ValueError(f"Tick size not found for trading pair {trading_pair}")
+                    if baseTickSize is None or quoteTickSize is None:
+                        raise ValueError(f"Tick size not found for trading pair {trading_pair}")
 
-                if baseTransferRate is None or quoteTransferRate is None:
-                    raise ValueError(f"Transfer rate not found for trading pair {trading_pair}")
+                    if baseTransferRate is None or quoteTransferRate is None:
+                        raise ValueError(f"Transfer rate not found for trading pair {trading_pair}")
 
-                smallestTickSize = min(baseTickSize, quoteTickSize)
-                minimumOrderSize = float(10) ** -smallestTickSize
+                    smallestTickSize = min(baseTickSize, quoteTickSize)
+                    minimumOrderSize = float(10) ** -smallestTickSize
 
-                trading_rules_info[trading_pair] = {
-                    "base_currency": base_currency,
-                    "quote_currency": quote_currency,
-                    "base_tick_size": baseTickSize,
-                    "quote_tick_size": quoteTickSize,
-                    "base_transfer_rate": baseTransferRate,
-                    "quote_transfer_rate": quoteTransferRate,
-                    "minimum_order_size": minimumOrderSize
-                }
+                    trading_rules_info[trading_pair] = {
+                        "base_currency": base_currency,
+                        "quote_currency": quote_currency,
+                        "base_tick_size": baseTickSize,
+                        "quote_tick_size": quoteTickSize,
+                        "base_transfer_rate": baseTransferRate,
+                        "quote_transfer_rate": quoteTransferRate,
+                        "minimum_order_size": minimumOrderSize
+                    }
 
         return trading_rules_info
 
-    async def _make_trading_pairs_request(self) -> [Dict[str, Any]]:
+    async def _make_trading_pairs_request(self) -> Dict[str, Any]:
         markets = CONSTANTS.MARKETS
         return {"markets": markets}
 
-    async def get_currencies_from_trading_pair(self, trading_pair: str) -> (
+    def get_currencies_from_trading_pair(self, trading_pair: str) -> (
             Tuple)[Union[IssuedCurrency, XRP], Union[IssuedCurrency, XRP]]:
         # Find market in the markets list
         # TODO: Create a markets list that load from constant file and config file

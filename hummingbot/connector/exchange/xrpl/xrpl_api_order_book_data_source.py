@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 # XRPL imports
 from xrpl.asyncio.clients import AsyncWebsocketClient
 from xrpl.models.requests import BookOffers, Subscribe, SubscribeBook
-from xrpl.models.transactions.metadata import TransactionMetadata
 from xrpl.utils import get_order_book_changes, ripple_time_to_posix
 
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
@@ -37,7 +36,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = CONSTANTS.SNAPSHOT_EVENT_TYPE
-        self._client = AsyncWebsocketClient(self._connector.node_url)
+        self._xrpl_client = AsyncWebsocketClient(self._connector.node_url)
+        self._open_client_lock = asyncio.Lock()
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -56,36 +56,37 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # client = self._client
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
 
-        try:
-            with self._client:
-                orderbook_asks_info = await self._client.request(
-                    BookOffers(
-                        ledger_index="current",
-                        taker_gets=base_currency,
-                        taker_pays=quote_currency,
-                        limit=CONSTANTS.ORDER_BOOK_DEPTH,
+        async with self._open_client_lock:
+            try:
+                async with self._xrpl_client as client:
+                    orderbook_asks_info = await client.request(
+                        BookOffers(
+                            ledger_index="current",
+                            taker_gets=base_currency,
+                            taker_pays=quote_currency,
+                            limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                        )
                     )
-                )
 
-                orderbook_bids_info = await self._client.request(
-                    BookOffers(
-                        ledger_index="current",
-                        taker_gets=quote_currency,
-                        taker_pays=base_currency,
-                        limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                    orderbook_bids_info = await client.request(
+                        BookOffers(
+                            ledger_index="current",
+                            taker_gets=quote_currency,
+                            taker_pays=base_currency,
+                            limit=CONSTANTS.ORDER_BOOK_DEPTH,
+                        )
                     )
-                )
 
-                asks = orderbook_asks_info.result.get("offers", [])
-                bids = orderbook_bids_info.result.get("offers", [])
+                    asks = orderbook_asks_info.result.get("offers", [])
+                    bids = orderbook_bids_info.result.get("offers", [])
 
-                order_book = {
-                    "asks": asks,
-                    "bids": bids,
-                }
-        except Exception as e:
-            self.logger().error(f"Error fetching order book snapshot for {trading_pair}: {e}")
-            return {}
+                    order_book = {
+                        "asks": asks,
+                        "bids": bids,
+                    }
+            except Exception as e:
+                self.logger().error(f"Error fetching order book snapshot for {trading_pair}: {e}")
+                return {}
 
         return order_book
 
@@ -134,7 +135,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         msg = {
             "trading_pair": trading_pair,
             "price": trade.price,
-            "fill_quantity": trade.fill_quantity,
+            "amount": trade.amount,
             "transact_time": trade.transact_time,
             "trade_id": trade.trade_id,
             "trade_type": trade.trade_type,
@@ -149,60 +150,62 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _process_websocket_messages_for_pair(self, trading_pair: str):
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
-        account = self._connector.get_account()
-        book_ask = SubscribeBook(
+        account = self._connector.auth.get_account()
+        subscribe_book_request = SubscribeBook(
             taker_gets=base_currency,
             taker_pays=quote_currency,
             taker=account,
             snapshot=False,
-        )
-        book_bid = SubscribeBook(
-            taker_gets=quote_currency,
-            taker_pays=base_currency,
-            taker=account,
-            snapshot=False,
+            both=True,
         )
 
-        subscribe = Subscribe(books=[book_ask, book_bid])
+        subscribe = Subscribe(books=[subscribe_book_request])
 
         async with AsyncWebsocketClient(self._connector.node_url) as client:
             await client.send(subscribe)
 
             async for message in client:
-                meta = message.get("meta", None)
-                transaction = message.get("transaction", {})
-                if isinstance(meta, TransactionMetadata):
-                    order_book_changes = get_order_book_changes(meta)
-                    for account_offer_changes in order_book_changes:
-                        for offer_change in account_offer_changes["offer_changes"]:
-                            if offer_change["status"] in ["partially_filled", "filled"]:
-                                taker_gets = offer_change["taker_gets"]
-                                taker_gets_currency = taker_gets["currency"]
+                transaction = message.get("transaction")
+                meta = message.get("meta")
 
-                                price = float(offer_change["maker_exchange_rate"])
-                                filled_quantity = Decimal(offer_change["taker_gets"]["value"])
-                                transact_time = ripple_time_to_posix(transaction["date"])
-                                trade_id = transaction["date"] + transaction["Sequence"]
-                                timestamp = time.time()
+                if transaction is None or meta is None:
+                    self.logger().debug(f"Received message without transaction or meta: {message}")
+                    continue
 
-                                if taker_gets_currency == base_currency.currency:
-                                    # This is BUY trade (consume ASK)
-                                    trade_type = float(TradeType.BUY.value)
-                                else:
-                                    # This is SELL trade (consume BID)
-                                    price = 1 / price
-                                    trade_type = float(TradeType.SELL.value)
+                order_book_changes = get_order_book_changes(meta)
+                for account_offer_changes in order_book_changes:
+                    for offer_change in account_offer_changes["offer_changes"]:
+                        if offer_change["status"] in ["partially_filled", "filled"]:
+                            taker_gets = offer_change["taker_gets"]
+                            taker_gets_currency = taker_gets["currency"]
 
-                                trade_data = {
-                                    "trade_type": trade_type,
-                                    "trade_id": trade_id,
-                                    "update_id": transact_time,
-                                    "price": price,
-                                    "amount": filled_quantity,
-                                    "timestamp": timestamp,
-                                }
-                                self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
-                                    {"trading_pair": trading_pair, "trade": trade_data})
+                            price = float(offer_change["maker_exchange_rate"])
+                            filled_quantity = abs(Decimal(offer_change["taker_gets"]["value"]))
+                            transact_time = ripple_time_to_posix(transaction["date"])
+                            trade_id = transaction["date"] + transaction["Sequence"]
+                            timestamp = time.time()
+
+                            if taker_gets_currency == base_currency.currency:
+                                # This is BUY trade (consume ASK)
+                                trade_type = float(TradeType.BUY.value)
+                            else:
+                                # This is SELL trade (consume BID)
+                                price = 1 / price
+                                trade_type = float(TradeType.SELL.value)
+
+                            trade_data = {
+                                "trade_type": trade_type,
+                                "trade_id": trade_id,
+                                "update_id": transact_time,
+                                "price": Decimal(price),
+                                "amount": filled_quantity,
+                                "timestamp": timestamp,
+                            }
+
+                            print(f"trade_data: {trade_data}")
+
+                            self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
+                                {"trading_pair": trading_pair, "trade": trade_data})
 
     async def listen_for_subscriptions(self):
         """
