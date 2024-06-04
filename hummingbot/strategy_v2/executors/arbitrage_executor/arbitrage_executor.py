@@ -4,7 +4,8 @@ from decimal import Decimal
 from typing import Union
 
 from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
+from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
@@ -71,8 +72,26 @@ class ArbitrageExecutor(ExecutorBase):
         self._cumulative_failures = 0
 
     def validate_sufficient_balance(self):
-        # TODO: Implement this method checking balances in the two exchanges
-        pass
+        mid_price = self.get_price(self.buying_market.connector_name, self.buying_market.trading_pair,
+                                   price_type=PriceType.MidPrice)
+        buy_order_candidate = OrderCandidate(
+            trading_pair=self.buying_market.trading_pair,
+            order_type=OrderType.MARKET,
+            order_side=TradeType.BUY,
+            amount=self.order_amount,
+            price=mid_price,)
+        sell_order_candidate = OrderCandidate(
+            trading_pair=self.selling_market.trading_pair,
+            order_type=OrderType.MARKET,
+            order_side=TradeType.SELL,
+            amount=self.order_amount,
+            price=mid_price,)
+        buy_order_candidate = self.adjust_order_candidates(self.buying_market.connector_name, [buy_order_candidate])[0]
+        sell_order_candidate = self.adjust_order_candidates(self.selling_market.connector_name, [sell_order_candidate])[0]
+        if buy_order_candidate.amount == Decimal("0") or sell_order_candidate.amount == Decimal("0"):
+            self.close_type = CloseType.INSUFFICIENT_BALANCE
+            self.logger().error("Not enough budget to execute arbs.")
+            self.stop()
 
     def is_arbitrage_valid(self, pair1, pair2):
         base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
