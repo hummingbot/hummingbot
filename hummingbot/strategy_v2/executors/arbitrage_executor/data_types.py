@@ -11,6 +11,8 @@ class ArbitrageExecutorConfig(ExecutorConfigBase):
     order_amount: Decimal
     min_profitability: Decimal
     max_retries: int = 3
+    buying_market_slippage_buffer: Decimal = Decimal("0.01")
+    selling_market_slippage_buffer: Decimal = Decimal("0.01")
 
 
 class ArbitrageExecutorStatus(Enum):

@@ -22,25 +22,25 @@ class V2ArbitrageConfig(StrategyV2ConfigBase):
     cex_connector: str = Field(
         default="binance",
         client_data=ClientFieldData(
-            prompt=lambda e: "Enter the first connector: ",
+            prompt=lambda e: "Enter the CEX connector: ",
             prompt_on_new=True
         ))
     cex_pair: str = Field(
         default="MATIC-USDT",
         client_data=ClientFieldData(
-            prompt=lambda e: "Enter the trading pair on the first connector: ",
+            prompt=lambda e: "Enter the trading pair on the CEX connector: ",
             prompt_on_new=True
         ))
     amm_connector: str = Field(
         default="uniswap_polygon_mainnet",
         client_data=ClientFieldData(
-            prompt=lambda e: "Enter the second connector: ",
+            prompt=lambda e: "Enter the AMM connector: ",
             prompt_on_new=True
         ))
     amm_pair: str = Field(
         default="WMATIC-USDT",
         client_data=ClientFieldData(
-            prompt=lambda e: "Enter the trading pair on the second connector: ",
+            prompt=lambda e: "Enter the trading pair on the AMM connector: ",
             prompt_on_new=True
         ))
     min_profitability: Decimal = Field(
@@ -54,6 +54,18 @@ class V2ArbitrageConfig(StrategyV2ConfigBase):
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the order amount in quote asset: ",
             prompt_on_new=True
+        ))
+    cex_slippage_buffer: Decimal = Field(
+        default=0.01,
+        client_data=ClientFieldData(
+            prompt=lambda e: "Enter the slippage buffer to apply on the CEX connector when executing trades: ",
+            prompt_on_new=False
+        ))
+    amm_slippage_buffer: Decimal = Field(
+        default=0.01,
+        client_data=ClientFieldData(
+            prompt=lambda e: "Enter the slippage buffer to apply on the AMM connector when executing trades: ",
+            prompt_on_new=False
         ))
 
 
@@ -87,6 +99,8 @@ class V2Arbitrage(StrategyV2Base):
                 selling_market=amm_market,
                 order_amount=self.config.order_amount_quote / cex_price,
                 min_profitability=self.config.min_profitability,
+                buying_market_slippage_buffer=self.config.cex_slippage_buffer,
+                selling_market_slippage_buffer=self.config.amm_slippage_buffer
             )
             executor_actions.append(CreateExecutorAction(executor_config=config))
             config = ArbitrageExecutorConfig(
@@ -95,6 +109,8 @@ class V2Arbitrage(StrategyV2Base):
                 selling_market=cex_market,
                 order_amount=self.config.order_amount_quote / cex_price,
                 min_profitability=self.config.min_profitability,
+                buying_market_slippage_buffer=self.config.amm_slippage_buffer,
+                selling_market_slippage_buffer=self.config.cex_slippage_buffer
             )
             executor_actions.append(CreateExecutorAction(executor_config=config))
 

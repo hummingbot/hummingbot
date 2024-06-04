@@ -57,6 +57,8 @@ class ArbitrageExecutor(ExecutorBase):
                          config=config, update_interval=update_interval)
         self.buying_market = config.buying_market
         self.selling_market = config.selling_market
+        self.buying_market_slippage_buffer = config.buying_market_slippage_buffer
+        self.selling_market_slippage_buffer = config.selling_market_slippage_buffer
         self.min_profitability = config.min_profitability
         self.order_amount = config.order_amount
         self.max_retries = config.max_retries
@@ -74,18 +76,20 @@ class ArbitrageExecutor(ExecutorBase):
     def validate_sufficient_balance(self):
         mid_price = self.get_price(self.buying_market.connector_name, self.buying_market.trading_pair,
                                    price_type=PriceType.MidPrice)
+        adjusted_buy_price = mid_price * (1 - self.buying_market_slippage_buffer)
+        adjusted_sell_price = mid_price * (1 + self.selling_market_slippage_buffer)
         buy_order_candidate = OrderCandidate(
             trading_pair=self.buying_market.trading_pair,
             order_type=OrderType.MARKET,
             order_side=TradeType.BUY,
             amount=self.order_amount,
-            price=mid_price,)
+            price=adjusted_buy_price,)
         sell_order_candidate = OrderCandidate(
             trading_pair=self.selling_market.trading_pair,
             order_type=OrderType.MARKET,
             order_side=TradeType.SELL,
             amount=self.order_amount,
-            price=mid_price,)
+            price=adjusted_sell_price,)
         buy_order_candidate = self.adjust_order_candidates(self.buying_market.connector_name, [buy_order_candidate])[0]
         sell_order_candidate = self.adjust_order_candidates(self.selling_market.connector_name, [sell_order_candidate])[0]
         if buy_order_candidate.amount == Decimal("0") or sell_order_candidate.amount == Decimal("0"):
@@ -170,7 +174,7 @@ class ArbitrageExecutor(ExecutorBase):
             order_type=OrderType.MARKET,
             side=TradeType.BUY,
             amount=self.order_amount,
-            price=self._last_buy_price,
+            price=self._last_buy_price * (1 - self.buying_market_slippage_buffer),
         )
 
     def place_sell_arbitrage_order(self):
@@ -180,7 +184,7 @@ class ArbitrageExecutor(ExecutorBase):
             order_type=OrderType.MARKET,
             side=TradeType.SELL,
             amount=self.order_amount,
-            price=self._last_sell_price,
+            price=self._last_sell_price * (1 + self.selling_market_slippage_buffer),
         )
 
     async def get_tx_cost_pct(self) -> Decimal:
