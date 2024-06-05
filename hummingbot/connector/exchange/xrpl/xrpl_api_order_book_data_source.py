@@ -134,12 +134,12 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         msg = {
             "trading_pair": trading_pair,
-            "price": trade.price,
-            "amount": trade.amount,
-            "transact_time": trade.transact_time,
-            "trade_id": trade.trade_id,
-            "trade_type": trade.trade_type,
-            "timestamp": trade.timestamp,
+            "price": trade["price"],
+            "amount": trade["amount"],
+            "transact_time": trade["transact_time"],
+            "trade_id": trade["trade_id"],
+            "trade_type": trade["trade_type"],
+            "timestamp": trade["timestamp"],
         }
 
         trade_message = XRPLOrderBook.trade_message_from_exchange(msg)
@@ -202,7 +202,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 "timestamp": timestamp,
                             }
 
-                            print(f"trade_data: {trade_data}")
+                            # print(f"trade_data: {trade_data}")
 
                             self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
                                 {"trading_pair": trading_pair, "trade": trade_data})

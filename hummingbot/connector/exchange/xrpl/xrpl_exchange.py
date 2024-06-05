@@ -471,23 +471,9 @@ class XrplExchange(ExchangePyBase):
                         status = offer_change['status']
                         if status == "filled":
                             new_order_state = OrderState.FILLED
-                            # TODO: Handling trade fills
-                            # trade_update = self.process_trade_fills(transaction, tracked_order)
-                            # if trade_update is not None:
-                            #     self._order_tracker.process_trade_update(trade_update)
-                            # else:
-                            #     self.logger().error(
-                            #         f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
 
                         elif status == "partially-filled":
                             new_order_state = OrderState.PARTIALLY_FILLED
-                            # TODO: Handling trade fills
-                            # trade_update = self.process_trade_fills(transaction, tracked_order)
-                            # if trade_update is not None:
-                            #     self._order_tracker.process_trade_update(trade_update)
-                            # else:
-                            #     self.logger().error(
-                            #         f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
                         elif status == "cancelled":
                             new_order_state = OrderState.CANCELED
                         else:
@@ -511,6 +497,14 @@ class XrplExchange(ExchangePyBase):
                                 new_order_state = OrderState.PARTIALLY_FILLED
                             else:
                                 new_order_state = OrderState.OPEN
+
+                        if new_order_state == OrderState.FILLED or new_order_state == OrderState.PARTIALLY_FILLED:
+                            trade_update = self.process_trade_fills(transaction, tracked_order)
+                            if trade_update is not None:
+                                self._order_tracker.process_trade_update(trade_update)
+                            else:
+                                self.logger().error(
+                                    f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
 
                         self._logger.debug(
                             f"Order update for order '{tracked_order.client_order_id}' with sequence '{offer_change['sequence']}': '{new_order_state}'")
@@ -537,13 +531,12 @@ class XrplExchange(ExchangePyBase):
                             new_order_state = OrderState.FAILED
                         else:
                             new_order_state = OrderState.FILLED
-                            # TODO: Handling trade fills
-                            # trade_update = self.process_trade_fills(transaction, tracked_order)
-                            # if trade_update is not None:
-                            #     self._order_tracker.process_trade_update(trade_update)
-                            # else:
-                            #     self.logger().error(
-                            #         f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
+                            trade_update = self.process_trade_fills(transaction, tracked_order)
+                            if trade_update is not None:
+                                self._order_tracker.process_trade_update(trade_update)
+                            else:
+                                self.logger().error(
+                                    f"Failed to process trade fills for order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}), order state: {new_order_state}")
 
                         order_update = OrderUpdate(
                             client_order_id=tracked_order.client_order_id,
@@ -596,7 +589,16 @@ class XrplExchange(ExchangePyBase):
         fee_rules = self._trading_pair_fee_rules.get(order.trading_pair)
 
         meta = transaction.get("meta", {})
-        tx = transaction.get("tx", {})
+
+        # check if transaction has key "tx" or "transaction"?
+        if "tx" in transaction:
+            tx = transaction.get("tx", None)
+        else:
+            tx = transaction.get("transaction", None)
+
+        if not isinstance(tx, dict):
+            self.logger().error(f"Transaction not found for order {order.client_order_id} ({order.exchange_order_id})")
+            return None
 
         if tx.get("TransactionType") != "OfferCreate":
             return None
