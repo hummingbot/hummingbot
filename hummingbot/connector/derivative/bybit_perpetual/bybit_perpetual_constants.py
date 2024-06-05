@@ -14,6 +14,8 @@ HBOT_BROKER_ID = "Hummingbot"
 
 DEFAULT_TIME_IN_FORCE = "GTC"
 
+AUTH_TOKEN_EXPIRATION = 60 * 2
+
 REST_URLS = {
     "bybit_perpetual_main": "https://api.bybit.com/",
     "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"

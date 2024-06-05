@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_web_utils as web_utils
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -23,7 +24,7 @@ class BybitPerpetualAuth(AuthBase):
             request = await self._preprocess_auth_post(request)
         else:
             raise NotImplementedError
-        self._add_auth_headers(request.method, request)
+        await self._add_auth_headers(request.method, request)
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
@@ -33,7 +34,7 @@ class BybitPerpetualAuth(AuthBase):
         """
         return request  # pass-through
 
-    def _add_auth_headers(self, method: str, request: Optional[Dict[str, Any]]):
+    async def _add_auth_headers(self, method: str, request: Optional[Dict[str, Any]]):
         """
         Add authentication headers in request object
 
@@ -42,7 +43,8 @@ class BybitPerpetualAuth(AuthBase):
 
         :return: request object updated with xauth headers
         """
-        ts = str(int(time.time() * 1e3))
+        # ts = await self._get_server_timestamp()
+        ts = self._get_local_timestamp()
 
         headers = {}
         headers["X-BAPI-TIMESTAMP"] = str(ts)
@@ -66,12 +68,9 @@ class BybitPerpetualAuth(AuthBase):
     def generate_ws_auth_message(self):
         """
         Generates the authentication message to start receiving messages from
-        the 3 private ws channels
+        the private ws channels
         """
-        # Generate expires.
-        # expires = int((self.time_provider.time() + 10) * 1e3)
-        expires = int((self._time() + 10000) * 1000)
-        # expires = self._get_expiration_timestamp()
+        expires = self._get_expiration_timestamp()
         signature = self._generate_ws_signature(expires)
         auth_message = {
             "op": "auth",
@@ -110,12 +109,16 @@ class BybitPerpetualAuth(AuthBase):
         return signature
 
     @staticmethod
-    def _get_timestamp():
-        return str(int(time.time() * 1e3))
+    def _get_local_timestamp():
+        return str(int(time.time_ns() * 1e-6))
 
     @staticmethod
     def _get_expiration_timestamp():
-        return str(int((round(time.time()) + 5) * 1e3))
+        # return str(int(time.time_ns() * 1e-6) + 1000 * 1e3)
+        return int((time.time() + CONSTANTS.AUTH_TOKEN_EXPIRATION) * 1000)
 
     def _time(self):
         return time.time()
+
+    async def _get_server_timestamp(self):
+        return str(int(await web_utils.get_current_server_time()))

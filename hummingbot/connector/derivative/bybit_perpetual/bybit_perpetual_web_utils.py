@@ -123,9 +123,9 @@ async def get_current_server_time(
         domain=domain,
         method=RESTMethod.GET
     )
-
     # Use nanoseconds for higher resolution
-    server_time = float(response["result"]["timeNano"]) / 10**9
+    # server_time = float(response["result"]["timeNano"]) / 10**9
+    server_time = float(response["result"]["timeNano"]) * 1e-6
     return server_time
 
 
