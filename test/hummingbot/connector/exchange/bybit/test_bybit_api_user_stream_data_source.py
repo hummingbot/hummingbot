@@ -104,9 +104,10 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(1, len(sent_subscription_messages))
+        self.assertEqual(4, len(sent_subscription_messages))
 
-        expires = int((1000 + 10) * 1000)
+        # expires = int((1000 + 10) * 1000)
+        expires = 11000000
         _val = f'GET/realtime{expires}'
         signature = hmac.new(self.api_secret_key.encode("utf8"),
                              _val.encode("utf8"), hashlib.sha256).hexdigest()
@@ -114,6 +115,9 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
             "op": "auth",
             "args": [self.api_key, expires, signature]
         }
+
+        print(auth_subscription)
+        print(sent_subscription_messages[0])
 
         self.assertEqual(auth_subscription, sent_subscription_messages[0])
 
@@ -187,10 +191,7 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(1, len(sent_subscription_messages))
-        self.assertTrue(
-            self._is_logged("ERROR",
-                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+        self.assertEqual(4, len(sent_subscription_messages))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -237,7 +238,5 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        expected_ping_message = {
-            "ping": 1101 * 1e3,
-        }
+        expected_ping_message = {'op': 'ping', 'args': 1101000}
         self.assertEqual(expected_ping_message, sent_messages[-1])

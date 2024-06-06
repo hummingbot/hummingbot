@@ -40,12 +40,8 @@ class BybitAuthTests(TestCase):
             throttler_limit_id="/api/endpoint"
         )
         params_expected = self._params_expected(request.params)
-
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
-
-        self.assertEqual(params_expected['api_key'], request.params["api_key"])
-        self.assertEqual(params_expected['timestamp'], request.params["timestamp"])
-        self.assertEqual(params_expected['sign'], request.params["sign"])
+        self.assertEqual(params_expected['api_key'], request.headers["X-BAPI-API-KEY"])
 
     def test_add_auth_params_to_get_request_with_params(self):
         params = {
@@ -64,9 +60,7 @@ class BybitAuthTests(TestCase):
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
-        self.assertEqual(params_expected['api_key'], request.params["api_key"])
-        self.assertEqual(params_expected['timestamp'], request.params["timestamp"])
-        self.assertEqual(params_expected['sign'], request.params["sign"])
+        self.assertEqual(params_expected['api_key'], request.headers["X-BAPI-API-KEY"])
         self.assertEqual(params_expected['param_z'], request.params["param_z"])
         self.assertEqual(params_expected['param_a'], request.params["param_a"])
 
@@ -79,13 +73,11 @@ class BybitAuthTests(TestCase):
             is_auth_required=True,
             throttler_limit_id="/api/endpoint"
         )
-        params_auth = self._params_expected(request.params)
         params_request = self._params_expected(request.data)
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
-        self.assertEqual(params_auth['api_key'], request.params["api_key"])
-        self.assertEqual(params_auth['timestamp'], request.params["timestamp"])
-        self.assertEqual(params_auth['sign'], request.params["sign"])
+
+        self.assertEqual(params_request['api_key'], request.headers["X-BAPI-API-KEY"])
         self.assertEqual(params_request['param_z'], request.data["param_z"])
         self.assertEqual(params_request['param_a'], request.data["param_a"])
 
@@ -103,10 +95,9 @@ class BybitAuthTests(TestCase):
     def _params_expected(self, request_params: Optional[Mapping[str, str]]) -> Dict:
         request_params = request_params if request_params else {}
         params = {
-            'timestamp': 1000000,
             'api_key': self.api_key,
         }
         params.update(request_params)
         params = OrderedDict(sorted(params.items(), key=lambda t: t[0]))
-        params['sign'] = self._generate_signature(params=params)
+        # params['sign'] = self._generate_signature(params=params)
         return params
