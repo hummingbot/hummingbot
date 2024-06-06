@@ -98,11 +98,11 @@ class DManMakerV2(MarketMakingControllerBase):
     def first_level_refresh_condition(self, executor):
         if self.config.top_executor_refresh_time is not None:
             if self.get_level_from_level_id(executor.custom_info["level_id"]) == 0:
-                return self.market_data_provider.time() - executor.timestamp > self.config.top_executor_refresh_time * 1000
+                return self.market_data_provider.time() - executor.timestamp > self.config.top_executor_refresh_time
         return False
 
     def order_level_refresh_condition(self, executor):
-        return self.market_data_provider.time() - executor.timestamp > self.config.executor_refresh_time * 1000
+        return self.market_data_provider.time() - executor.timestamp > self.config.executor_refresh_time
 
     def executors_to_refresh(self) -> List[ExecutorAction]:
         executors_to_refresh = self.filter_executors(
