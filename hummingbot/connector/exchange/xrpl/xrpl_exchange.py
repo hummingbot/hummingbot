@@ -942,7 +942,7 @@ class XrplExchange(ExchangePyBase):
 
                     token = currency.strip('\x00')
                     amount = balance.get("value")
-                    account_balances[token] = Decimal(amount)
+                    account_balances[token] = abs(Decimal(amount))
 
                 account_available_balances = account_balances.copy()
                 account_available_balances["XRP"] = Decimal(available_xrp)
