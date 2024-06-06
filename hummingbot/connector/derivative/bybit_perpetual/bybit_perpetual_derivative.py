@@ -472,7 +472,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
             position_side = PositionSide.LONG if data["side"] == "Buy" else PositionSide.SHORT
             unrealized_pnl = Decimal(str(data["unrealisedPnl"] if len(data["unrealisedPnl"]) > 0 else 0))
-            entry_price = Decimal(str(data["avgPrice"]))
+            entry_price = Decimal(str(data["avgPrice"] or data["sessionAvgPrice"]))
             amount = Decimal(str(data["size"]))
             leverage = Decimal(str(data["leverage"]))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
