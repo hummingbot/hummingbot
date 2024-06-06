@@ -1066,7 +1066,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.async_run_with_timeout(self.exchange._update_balances())
 
         self.assertEqual(self.exchange.available_balances[self.quote_asset], Decimal("171286.6158"))
-        self.assertEqual(self.exchange.available_balances[self.base_asset], Decimal("1"))
+        self.assertEqual(self.exchange.available_balances[self.base_asset], Decimal("11"))
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
