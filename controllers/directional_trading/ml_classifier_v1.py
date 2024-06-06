@@ -52,9 +52,8 @@ class MLClassifierV1ControllerConfig(DirectionalTradingControllerConfigBase):
             return values.get("trading_pair")
         return v
 
-
 class Features:
-    def __init__(self, external_features={}, df=pd.DataFrame()):
+    def __init__(self, external_features = {}, df = pd.DataFrame()):
         self.external_features = external_features
         self.df = df
 
@@ -109,6 +108,11 @@ class Features:
                     self.add_volatility_measures(column_name=key, windows=v)
                 elif k == "drop":
                     drop = v
+                elif k == "drawdowns_and_runups":
+                    print(v)
+                    for l in v:
+                        print(l)
+                        self.calculate_drawdowns_and_runups(gamma=l)
 
             if drop:
                 self.df.drop(columns=key, inplace=True)
@@ -130,6 +134,55 @@ class Features:
         for window in windows:
             self.df[f'{column_name}_volatility_{window}'] = self.df[column_name].pct_change().rolling(window=window).std() * np.sqrt(window)
 
+    def calculate_drawdowns_and_runups(self, gamma):
+        print(self.df.index)
+        self.df["peak_" + str(gamma)] = False
+        self.df["peak_ascending_" + str(gamma)] = False
+        ascending = True if self.df["close"].iloc[0] < self.df["open"].iloc[0] else False
+        threshold = self.df["open"].iloc[0] * (1 - gamma) if ascending else self.df["open"].iloc[0] * (1 + gamma)
+
+        current_peak = self.df["low"].iloc[0] if ascending else self.df["high"].iloc[0]
+
+        for i in range(1, len(self.df)):
+            openp = self.df["open"].iloc[i]
+            high = self.df["high"].iloc[i]
+            low = self.df["low"].iloc[i]
+            close = self.df["close"].iloc[i]
+            if ascending:
+                candle_breaks_run_up_by_itself = (low - openp) / openp <= -gamma
+                if candle_breaks_run_up_by_itself:
+                    self.df["peak_" + str(gamma)].iloc[i] = True
+                    current_peak = high
+                    ascending = True if close > openp else False
+                else:
+                    if high > current_peak:
+                        current_peak = high
+                        threshold = current_peak * (1 - gamma)
+                    if low < threshold:
+                        self.df["peak_" + str(gamma)].iloc[i] = True
+                        current_peak = high
+                        ascending = True if close > openp else False
+            else:
+                candle_breaks_draw_down_by_itself = (high - openp) / openp >= gamma
+                if candle_breaks_draw_down_by_itself:
+                    self.df["peak_" + str(gamma)].iloc[i] = True
+                    current_peak = low
+                    ascending = True if close > openp else False
+                else:
+                    if low < current_peak:
+                        current_peak = min(current_peak, low)
+                        threshold = current_peak * (1 + gamma)
+                    if high > threshold:
+                        self.df["peak_" + str(gamma)].iloc[i] = True
+                        current_peak = low
+                        ascending = True if close > openp else False
+            self.df["peak_ascending_" + str(gamma)].iloc[i] = ascending
+        # self.df["peak_" + str(gamma)].replace(np.nan, False)
+        # self.df["peak_" + str(gamma)] = self.df["peak_" + str(gamma)].astype(int)
+        # print("peak_ascending_nulls",self.df["peak_ascending_" + str(gamma)].isnull().sum())
+        # print("peak_nulls",self.df["peak_" + str(gamma)].isnull().sum())
+        # print(self.df["peak_ascending_" + str(gamma)].describe())
+        # print(self.df["peak_" + str(gamma)].describe())
 
 class MLClassifierV1Controller(DirectionalTradingControllerBase):
 
@@ -161,8 +214,8 @@ class MLClassifierV1Controller(DirectionalTradingControllerBase):
         df.dropna(inplace=True)
         predictions = pipe.predict(df)
         # Generate signal
-        df["signal"] = predictions
-        df["signal"] = df['signal'].rolling(window=5).mean().round(0)
+        df["signal"] = pd.Series(predictions).replace(0,-1)
+        # df["signal"] = df['signal'].rolling(window=5).mean().round(0)
         self.processed_data = {
             "signal": df["signal"].iloc[-1],
             "features": df

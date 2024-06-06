@@ -1,8 +1,8 @@
 version: "3.9"
 services:
-  hummingbot:
-    container_name: hummingbot
-#    image: hummingbot/hummingbot:latest
+  orugo:
+    container_name: orugo
+    image: blaspalmisciano/hummingbot:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -28,8 +28,8 @@ services:
     network_mode: host
     #  environment:
     #    - CONFIG_PASSWORD=a
-    #    - CONFIG_FILE_NAME=simple_pmm_example.py
-    #    - SCRIPT_CONFIG=conf_simple_pmm_example.yaml
+    #    - CONFIG_FILE_NAME=v2_with_controllers.py
+    #    - SCRIPT_CONFIG=conf_v2_generic_with_cash_out_1.yml
 
   # gateway:
   #  container_name: gateway
