@@ -3,7 +3,7 @@ import math
 from decimal import ROUND_DOWN, Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
-from bidict import bidict
+from bidict import ValueDuplicationError, bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.cube import cube_constants as CONSTANTS, cube_utils, cube_web_utils as web_utils
@@ -262,11 +262,29 @@ class CubeExchange(ExchangePyBase):
         try:
             resp = await self._api_post(path_url=CONSTANTS.POST_ORDER_PATH_URL, data=api_params, is_auth_required=True)
 
-            # TODO: Handle when getting rejection from creating new order
-            order_result = resp.get("result", {}).get("Ack", {})
+            order_result = resp.get("result", None).get("Ack", None)
+            order_reject = resp.get("result", None).get("Rej", None)
 
-            o_id = str(order_result.get("exchangeOrderId"))
-            transact_time = order_result.get("transactTime") * 1e-9
+            if order_result is not None:
+                o_id = str(order_result.get("exchangeOrderId"))
+                transact_time = order_result.get("transactTime") * 1e-9
+            elif order_reject is not None:
+                new_state = OrderState.FAILED
+
+                order_update = OrderUpdate(
+                    trading_pair=trading_pair,
+                    update_timestamp=order_reject.get("transactTime") * 1e-9,
+                    new_state=new_state,
+                    client_order_id=order_id,
+                )
+                self._order_tracker.process_order_update(order_update=order_update)
+                o_id = "UNKNOWN"
+                transact_time = order_reject.get("transactTime") * 1e-9,
+                self.logger().error(
+                    f"Order ({order_id}) creation failed: {order_reject.get('reason')}")
+            else:
+                raise ValueError("Unknown response from the exchange when placing order: %s" % resp)
+
         except IOError as e:
             error_description = str(e)
             is_server_overloaded = (
@@ -278,6 +296,7 @@ class CubeExchange(ExchangePyBase):
                 transact_time = self._time_synchronizer.time()
             else:
                 raise
+
         return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -610,16 +629,13 @@ class CubeExchange(ExchangePyBase):
             exchange_order_id = int(order.exchange_order_id)
 
             all_fills_response = await self._api_get(
-                path_url=CONSTANTS.FILLS_PATH_URL,
-                params={"subaccountId": self.cube_subaccount_id, "orderIds": exchange_order_id},
+                path_url=CONSTANTS.FILLS_PATH_URL.format(self.cube_subaccount_id),
+                params={"orderIds": exchange_order_id},
                 is_auth_required=True,
-                limit_id=CONSTANTS.FILLS_PATH_URL,
+                limit_id=CONSTANTS.FILLS_PATH_URL_ID,
             )
 
             fills_data = all_fills_response.get("result", {}).get("fills", [])
-
-            if len(fills_data) <= 0:
-                await self._order_tracker.process_order_not_found(order.client_order_id)
 
             for fill in fills_data:
                 exchange_order_id = str(fill.get("orderId"))
@@ -738,13 +754,13 @@ class CubeExchange(ExchangePyBase):
         #     }
         # }
         orders_rsp = await self._api_get(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.ORDER_PATH_URL.format(self.cube_subaccount_id),
             params={
-                "subaccountId": self.cube_subaccount_id,
                 "createdBefore": int((tracked_order.creation_timestamp + 30) * 1e9),
-                "limit": 1000,
+                "limit": 500,
             },
             is_auth_required=True,
+            limit_id=CONSTANTS.ORDER_PATH_URL_ID,
         )
 
         orders_data = orders_rsp.get("result", {}).get("orders", [])
@@ -756,6 +772,8 @@ class CubeExchange(ExchangePyBase):
 
         if updated_order_data is None:
             # If the order is not found in the response, return an OrderUpdate with the same status as before
+            self.logger().info(f"Order Update for {tracked_order.client_order_id} not found in the response.")
+
             return OrderUpdate(
                 client_order_id=tracked_order.client_order_id,
                 exchange_order_id=tracked_order.exchange_order_id,
@@ -811,7 +829,8 @@ class CubeExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        positions = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True)
+        positions = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL.format(self.cube_subaccount_id),
+                                        is_auth_required=True, limit_id=CONSTANTS.ACCOUNTS_PATH_URL_ID)
         token_map = await self.token_id_map()
         token_info = await self.token_info()
 
@@ -854,9 +873,15 @@ class CubeExchange(ExchangePyBase):
             mapping_symbol[market["symbol"].upper()] = combine_to_hb_trading_pair(
                 base=base_asset["symbol"].upper(), quote=quote_asset["symbol"].upper()
             )
-            mapping_market_id[market.get("marketId")] = combine_to_hb_trading_pair(
-                base=base_asset["symbol"].upper(), quote=quote_asset["symbol"].upper()
-            )
+            try:
+                mapping_market_id[market.get("marketId")] = combine_to_hb_trading_pair(
+                    base=base_asset["symbol"].upper(), quote=quote_asset["symbol"].upper()
+                )
+            except ValueDuplicationError:
+                # Ignore the error if the key already exists
+                self.logger().debug(f"Duplicate key found for {market.get('marketId')}")
+                pass
+
         self._set_trading_pair_symbol_map(mapping_symbol)
         self._set_trading_pair_market_id_map(mapping_market_id)
         self._set_token_id_map(mapping_token_id)
@@ -998,7 +1023,10 @@ class CubeExchange(ExchangePyBase):
         # Get the first item
         ticker = tickers[0]
 
-        return float(ticker["last_price"])
+        if ticker.get("last_price", 0) is None:
+            return float(0)
+
+        return float(ticker.get("last_price", 0))
 
     def buy(
             self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN,
@@ -1144,3 +1172,13 @@ class CubeExchange(ExchangePyBase):
             self.logger().error(f"Invalid domain: {domain}. Domain must be one of {valid_domains}")
             return False
         return True
+
+    async def all_trading_pairs(self) -> List[str]:
+        """
+        Returns a list of all trading pairs on the exchange
+        :return: a list of all trading pairs on the exchange
+        """
+        all_pairs: bidict = await self.trading_pair_symbol_map()
+        all_pairs_inverse = list(all_pairs.inverse)
+
+        return all_pairs_inverse

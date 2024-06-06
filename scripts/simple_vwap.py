@@ -1,16 +1,17 @@
 import logging
-import os
 import math
+import os
 from decimal import Decimal
 from typing import Dict
+
 from pydantic import Field
 
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
-from hummingbot.connector.connector_base import ConnectorBase
 
 
 class VWAPConfig(BaseClientModel):
@@ -19,17 +20,24 @@ class VWAPConfig(BaseClientModel):
     """
 
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector_name: str = Field("binance_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange where the bot will place orders:"))
-    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair:"))
-    is_buy: bool = Field(True, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Are you buying or selling the base asset? (True for buy, False for sell):"))
-    total_volume_quote: Decimal = Field(1000, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the total amount to buy/sell (in quote asset):"))
-    price_spread: float = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the spread used to calculate the order price:"))
-    volume_perc: float = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the maximum percentage of the order book volume to buy/sell:"))
-    order_delay_time: int = Field(10, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the delay time between orders (in seconds):"))
+    connector_name: str = Field("binance_paper_trade", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Exchange where the bot will place orders"))
+    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Trading pair where the bot will place orders"))
+    is_buy: bool = Field(True, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Buying or selling the base asset? (True for buy, False for sell)"))
+    total_volume_quote: Decimal = Field(1000, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Total amount to buy/sell (in quote asset)"))
+    price_spread: float = Field(0.001, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Spread used to calculate the order price"))
+    volume_perc: float = Field(0.001, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Maximum percentage of the order book volume to buy/sell"))
+    order_delay_time: int = Field(10, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Delay time between orders (in seconds)"))
 
 
 class VWAPExample(ScriptStrategyBase):
-    """    
+    """
     BotCamp Cohort: 7 (Apr 2024)
     Description:
     This is an updated version of simple_vwap_example.py. Changes include:
@@ -46,12 +54,12 @@ class VWAPExample(ScriptStrategyBase):
         super().__init__(connectors)
         self.config = config
         self.initialized = False
-        self.vwap: Dict = {"connector_name": self.config.connector_name, 
-                           "trading_pair": self.config.trading_pair, 
-                           "is_buy": self.config.is_buy, 
-                           "total_volume_quote": self.config.total_volume_quote, 
-                           "price_spread": self.config.price_spread, 
-                           "volume_perc": self.config.volume_perc, 
+        self.vwap: Dict = {"connector_name": self.config.connector_name,
+                           "trading_pair": self.config.trading_pair,
+                           "is_buy": self.config.is_buy,
+                           "total_volume_quote": self.config.total_volume_quote,
+                           "price_spread": self.config.price_spread,
+                           "volume_perc": self.config.volume_perc,
                            "order_delay_time": self.config.order_delay_time}
 
     last_ordered_ts = 0
@@ -80,7 +88,8 @@ class VWAPExample(ScriptStrategyBase):
                         trading_pair=self.vwap["trading_pair"],
                         is_buy=self.vwap["is_buy"],
                         amount=vwap_order_adjusted.amount,
-                        order_type=vwap_order_adjusted.order_type)
+                        order_type=vwap_order_adjusted.order_type,
+                        price=vwap_order_adjusted.price)
                     self.last_ordered_ts = self.current_timestamp
 
     def init_vwap_stats(self):
