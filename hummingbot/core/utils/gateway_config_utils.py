@@ -8,6 +8,7 @@ native_tokens = {
     "avalanche": "AVAX",
     "algorand": "ALGO",
     "cosmos": "ATOM",
+    "celo": "CELO",
     "osmosis": "OSMO",
     "polygon": "MATIC",
     "harmony": "ONE",
