@@ -275,10 +275,9 @@ class BybitExchange(ExchangePyBase):
         retval = []
         for rule in trading_pair_rules:
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["symbol"])
                 lot_size_filter = rule.get("lotSizeFilter", {})
                 price_filter = rule.get("priceFilter", {})
-
                 retval.append(
                     TradingRule(
                         trading_pair,
@@ -368,9 +367,14 @@ class BybitExchange(ExchangePyBase):
                     for account in accounts:
                         if account["accountType"] == account_type:
                             balances = account["coin"]
+                            break
                     for balance_entry in balances:
                         asset_name = balance_entry["coin"]
-                        free_balance = Decimal(balance_entry.get("free") or balance_entry.get("availableToWithdraw"))
+                        free_balance = Decimal(
+                            balance_entry.get("free") or
+                            balance_entry.get("availableToWithdraw") or
+                            balance_entry.get("availableToBorrow")
+                        )
                         total_balance = Decimal(balance_entry["walletBalance"])
                         self._account_available_balances[asset_name] = free_balance
                         self._account_balances[asset_name] = total_balance
