@@ -87,12 +87,10 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         data = raw_message["data"]
-        topic = raw_message["topic"]
-        symbol = topic.split('.')[1]
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
-        for trades in data:
+        for trade in data:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade["s"])
             trade_message: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
-                trades,
+                trade,
                 {"trading_pair": trading_pair}
             )
             message_queue.put_nowait(trade_message)
@@ -118,7 +116,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=CONSTANTS.ONE_HOUR)
+                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=CONSTANTS.ONE_SECOND)
             except asyncio.TimeoutError:
                 await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
             except asyncio.CancelledError:
