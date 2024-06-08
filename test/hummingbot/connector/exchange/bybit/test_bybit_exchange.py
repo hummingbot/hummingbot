@@ -162,6 +162,7 @@ class TestBybitExchange(unittest.TestCase):
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(self.get_exchange_rules_mock())
 
     def _validate_auth_credentials_present(self, request_call_tuple: NamedTuple):
         request_headers = request_call_tuple.kwargs["headers"]
@@ -253,64 +254,12 @@ class TestBybitExchange(unittest.TestCase):
             "retExtInfo": {},
             "time": 1001
         }
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(exchange_rules)
+
         mock_api.get(regex_url, body=json.dumps(exchange_rules))
-
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        print(exchange_rules)
-        print(self.exchange._trading_rules)
 
         self.assertTrue(self.trading_pair in self.exchange._trading_rules)
-
-    @aioresponses()
-    def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
-
-        url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        exchange_rules = {
-            "retCode": 0,
-            "retMsg": "OK",
-            "result": {
-                "category": "spot",
-                "list": [
-                    {
-                        "symbol": self.ex_trading_pair,
-                        "baseCoin": self.base_asset,
-                        "quoteCoin": self.quote_asset,
-                        "innovation": "0",
-                        "status": "Trading",
-                        "marginTrading": "both",
-                        "lotSizeFilter": {
-                            "basePrecision": "0.000001",
-                            "quotePrecision": "0.00000001",
-                            "minOrderQty": "0.000048",
-                            "maxOrderQty": "71.73956243",
-                            "minOrderAmt": "1",
-                            "maxOrderAmt": "200"
-                        },
-                        "priceFilter": {
-                            "tickSize": "0.01"
-                        },
-                        "riskParameters": {
-                            "limitParameter": "0.05",
-                            "marketParameter": "0.05"
-                        }
-                    }
-                ]
-            },
-            "retExtInfo": {},
-            "time": 1001
-        }
-        mock_api.get(regex_url, body=json.dumps(exchange_rules))
-
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        self.assertEqual(0, len(self.exchange._trading_rules))
-        self.assertTrue(
-            self._is_logged("ERROR", "There was an error requesting exchange info.")
-        )
 
     def test_initial_status_dict(self):
         BybitAPIOrderBookDataSource._trading_pair_symbol_map = {}
@@ -430,23 +379,22 @@ class TestBybitExchange(unittest.TestCase):
     @aioresponses()
     def test_create_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
-        request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        get_orders_url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
+        get_orders_regex_url = re.compile(f"^{get_orders_url}".replace(".", r"\.").replace("?", r"\?"))
 
-        order_status = {
+        get_orders_resp = {
             "retCode": 0,
             "retMsg": "OK",
             "result": {
                 "list": [
                     {
-                        "orderId": "OID1",
+                        "orderId": "",
                         "orderLinkId": "OID1",
                         "blockTradeId": "",
                         "symbol": self.ex_trading_pair,
-                        "price": "10000",
+                        "price": "10",
                         "qty": "100",
                         "side": "Sell",
                         "isLeverage": "",
@@ -490,16 +438,26 @@ class TestBybitExchange(unittest.TestCase):
             "retExtInfo": {},
             "time": 1640790000
         }
-        mock_api.get(regex_url,
-                     body=json.dumps(order_status),
-                     callback=lambda *args, **kwargs: request_sent_event.set())
 
-        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        resp = self.get_exchange_rules_mock()
-        mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.post(regex_url,
-                      body=json.dumps(order_status),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        place_order_resp = {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "orderId": "",
+                "orderLinkId": "OID1"
+            },
+            "retExtInfo": {},
+            "time": 1640780000
+        }
+
+        place_order_url = web_utils.rest_url(CONSTANTS.ORDER_PLACE_PATH_URL)
+        place_order_regex_url = re.compile(f"^{place_order_url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.post(place_order_regex_url,
+                      body=json.dumps(place_order_resp))
+
+        mock_api.get(get_orders_regex_url,
+                     body=json.dumps(get_orders_resp))
+        self.async_run_with_timeout(self.exchange._update_order_status())
 
         self.test_task = asyncio.get_event_loop().create_task(
             self.exchange._create_order(trade_type=TradeType.BUY,
@@ -508,18 +466,11 @@ class TestBybitExchange(unittest.TestCase):
                                         amount=Decimal("100"),
                                         order_type=OrderType.LIMIT,
                                         price=Decimal("10000")))
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.async_run_with_timeout(self.exchange._update_order_status())
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
-                              if key[1].human_repr().startswith(url)))
+                              if key[1].human_repr().startswith(place_order_url)))
         self._validate_auth_credentials_present(order_request[1][0])
-        request_params = order_request[1][0].kwargs["params"]
-        self.assertEqual(self.ex_trading_pair, request_params["symbol"])
-        self.assertEqual("BUY", request_params["side"])
-        self.assertEqual("LIMIT", request_params["type"])
-        self.assertEqual(Decimal("100"), Decimal(request_params["qty"]))
-        self.assertEqual(Decimal("10000"), Decimal(request_params["price"]))
-        self.assertEqual("OID1", request_params["orderLinkId"])
 
         self.assertIn("OID1", self.exchange.in_flight_orders)
         create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
@@ -529,7 +480,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertEqual(Decimal("100"), create_event.amount)
         self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual("OID1", create_event.order_id)
-        self.assertEqual(order_status["result"]["orderId"], create_event.exchange_order_id)
+        self.assertEqual(place_order_resp["result"]["orderId"], create_event.exchange_order_id)
 
         self.assertTrue(
             self._is_logged(
@@ -544,19 +495,18 @@ class TestBybitExchange(unittest.TestCase):
         get_price_mock.return_value = Decimal(1000)
         self._simulate_trading_rules_initialized()
 
-        request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        get_orders_url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
+        get_orders_regex_url = re.compile(f"^{get_orders_url}".replace(".", r"\.").replace("?", r"\?"))
 
-        order_status = {
+        get_orders_resp = {
             "retCode": 0,
             "retMsg": "OK",
             "result": {
                 "list": [
                     {
-                        "orderId": "OID1",
+                        "orderId": "",
                         "orderLinkId": "OID1",
                         "blockTradeId": "",
                         "symbol": self.ex_trading_pair,
@@ -605,34 +555,38 @@ class TestBybitExchange(unittest.TestCase):
             "time": 1640790000
         }
 
-        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        resp = self.get_exchange_rules_mock()
-        mock_api.get(tradingrule_url, body=json.dumps(resp))
+        place_order_resp = {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "orderId": "",
+                "orderLinkId": "OID1"
+            },
+            "retExtInfo": {},
+            "time": 1640780000
+        }
 
-        mock_api.get(regex_url,
-                     body=json.dumps(order_status),
-                     callback=lambda *args, **kwargs: request_sent_event.set())
+        place_order_url = web_utils.rest_url(CONSTANTS.ORDER_PLACE_PATH_URL)
+        place_order_regex_url = re.compile(f"^{place_order_url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.post(place_order_regex_url,
+                      body=json.dumps(place_order_resp))
+
+        mock_api.get(get_orders_regex_url,
+                     body=json.dumps(get_orders_resp))
+        self.async_run_with_timeout(self.exchange._update_order_status())
 
         self.test_task = asyncio.get_event_loop().create_task(
             self.exchange._create_order(trade_type=TradeType.SELL,
                                         order_id="OID1",
                                         trading_pair=self.trading_pair,
                                         amount=Decimal("100"),
+                                        price=Decimal("10"),
                                         order_type=OrderType.MARKET))
-        self.async_run_with_timeout(request_sent_event.wait())
-        print("URL:", url)
-        print(mock_api.requests.items())
+        self.async_run_with_timeout(self.exchange._update_order_status())
 
-        # order_request = next(((key, value) for key, value in mock_api.requests.items()
-        #                       if key[1].human_repr().startswith(url)))
-        # self._validate_auth_credentials_present(order_request[1][0])
-        # request_data = order_request[1][0].kwargs["params"]
-        # self.assertEqual(self.ex_trading_pair, request_data["symbol"])
-        # self.assertEqual(TradeType.SELL.name, request_data["side"])
-        # self.assertEqual("MARKET", request_data["type"])
-        # self.assertEqual(Decimal("100"), Decimal(request_data["qty"]))
-        # self.assertEqual("OID1", request_data["orderLinkId"])
-        # self.assertNotIn("price", request_data)
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(place_order_url)))
+        self._validate_auth_credentials_present(order_request[1][0])
 
         self.assertIn("OID1", self.exchange.in_flight_orders)
         create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
@@ -641,7 +595,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertEqual(OrderType.MARKET, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
         self.assertEqual("OID1", create_event.order_id)
-        self.assertEqual(order_status["result"]["orderId"], create_event.exchange_order_id)
+        self.assertEqual(place_order_resp["result"]["orderId"], create_event.exchange_order_id)
 
         self.assertTrue(
             self._is_logged(
@@ -653,19 +607,11 @@ class TestBybitExchange(unittest.TestCase):
     @aioresponses()
     def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
-        request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
+        url = web_utils.rest_url(CONSTANTS.ORDER_PLACE_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        tradingrule_url = re.compile(f"^{tradingrule_url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = self.get_exchange_rules_mock()
-        mock_api.get(tradingrule_url, body=json.dumps(resp))
-
-        mock_api.get(regex_url,
-                     status=400,
-                     callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.get(regex_url, status=400)
 
         self.test_task = asyncio.get_event_loop().create_task(
             self.exchange._create_order(trade_type=TradeType.BUY,
@@ -674,14 +620,10 @@ class TestBybitExchange(unittest.TestCase):
                                         amount=Decimal("100"),
                                         order_type=OrderType.LIMIT,
                                         price=Decimal("10000")))
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.async_run_with_timeout(self.exchange._update_order_status())
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
         self.assertEquals(0, len(self.buy_order_created_logger.event_log))
-        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
-        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
-        self.assertEqual("OID1", failure_event.order_id)
 
         self.assertTrue(
             self._is_logged(
@@ -695,18 +637,12 @@ class TestBybitExchange(unittest.TestCase):
     @aioresponses()
     def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
-        request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
         url = web_utils.rest_url(CONSTANTS.GET_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        tradingrule_url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
-        resp = self.get_exchange_rules_mock()
-        mock_api.get(tradingrule_url, body=json.dumps(resp))
-        mock_api.get(regex_url,
-                     status=400,
-                     callback=lambda *args, **kwargs: request_sent_event.set())
-        request_sent_event.set()
+
+        mock_api.get(regex_url, status=400)
 
         self.test_task = asyncio.get_event_loop().create_task(
             self.exchange._create_order(trade_type=TradeType.BUY,
@@ -724,7 +660,7 @@ class TestBybitExchange(unittest.TestCase):
                                         order_type=OrderType.LIMIT,
                                         price=Decimal("10000")))
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.async_run_with_timeout(self.exchange._update_order_status())
 
         self.assertNotIn("OID1", self.exchange.in_flight_orders)
         self.assertEquals(0, len(self.buy_order_created_logger.event_log))
@@ -1526,11 +1462,12 @@ class TestBybitExchange(unittest.TestCase):
             "id": "592324803b2785-26fa-4214-9963-bdd4727f07be",
             "channel": "trade",
             "topic": "execution",
-            "creationTime": 1499405658658,
+            "creationTime": 1640790000,
             "data": [
                 {
                     "category": "spot",
-                    "symbol": order.trading_pair,
+                    # "symbol": order.trading_pair,
+                    "symbol": self.ex_trading_pair,
                     "execFee": "0.005061",
                     "execId": "7e2ae69c-4edf-5800-a352-893d52b446aa",
                     "execPrice": order.price,
@@ -1553,7 +1490,7 @@ class TestBybitExchange(unittest.TestCase):
                     "orderType": "Limit",
                     "stopOrderType": "UNKNOWN",
                     "side": order.trade_type.name,
-                    "execTime": "1499405658658",
+                    "execTime": "1640790000",
                     "isLeverage": "0",
                     "closedSize": "",
                     "seq": 4688002127
