@@ -122,6 +122,24 @@ class CubeRateSourceTest(unittest.TestCase):
                         "feeTableId": 2
                     },
                     {
+                        "marketId": 200008,
+                        "symbol": "tSOLtUSDC",
+                        "baseAssetId": 80005,
+                        "baseLotSize": "10000000",
+                        "quoteAssetId": 80007,
+                        "quoteLotSize": "100",
+                        "priceDisplayDecimals": 2,
+                        "protectionPriceLevels": 1000,
+                        "priceBandBidPct": 25,
+                        "priceBandAskPct": 400,
+                        "minOrderQty": "null",
+                        "maxOrderQty": "null",
+                        "priceTickSize": "0.01",
+                        "quantityTickSize": "0.01",
+                        "status": 1,
+                        "feeTableId": 2
+                    },
+                    {
                         "marketId": 100006,
                         "symbol": "SOLUSDC",
                         "baseAssetId": 5,
