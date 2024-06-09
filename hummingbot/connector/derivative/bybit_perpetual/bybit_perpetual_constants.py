@@ -26,16 +26,15 @@ WSS_PUBLIC_URL_LINEAR = {
     "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"
 }
 
-WSS_PUBLIC_URL_INVERSE = {
-    "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/linear",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"
+WSS_PUBLIC_URL_NON_LINEAR = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/inverse",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/inverse"
 }
 
-WSS_PRIVATE_URL = {
+WSS_PRIVATE_URL_LINEAR = WSS_PRIVATE_URL_NON_LINEAR = WSS_PRIVATE_URL = {
     "bybit_perpetual_main": "wss://stream.bybit.com/v5/private",
     "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/private"
 }
-
 
 # unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
 # It is also used to prevent replay attacks.

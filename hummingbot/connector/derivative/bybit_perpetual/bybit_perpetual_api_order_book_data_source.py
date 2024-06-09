@@ -81,7 +81,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             if non_linear_trading_pairs:
                 tasks.append(
                     self._listen_for_subscriptions_on_url(
-                        url=CONSTANTS.WSS_PUBLIC_URL_INVERSE[self._domain],
+                        url=CONSTANTS.WSS_PUBLIC_URL_NON_LINEAR[self._domain],
                         trading_pairs=non_linear_trading_pairs
                     )
                 )

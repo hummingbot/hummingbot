@@ -171,3 +171,24 @@ def _get_rest_api_market_for_endpoint(trading_pair: Optional[str] = None) -> str
     else:
         market = CONSTANTS.NON_LINEAR_MARKET
     return market
+
+
+def _wss_url(endpoint: Dict[str, str], connector_variant_label: Optional[str]) -> str:
+    variant = connector_variant_label if connector_variant_label else CONSTANTS.DEFAULT_DOMAIN
+    return endpoint.get(variant)
+
+
+def wss_linear_public_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_PUBLIC_URL_LINEAR, connector_variant_label)
+
+
+def wss_linear_private_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_PRIVATE_URL_LINEAR, connector_variant_label)
+
+
+def wss_non_linear_public_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_PUBLIC_URL_NON_LINEAR, connector_variant_label)
+
+
+def wss_non_linear_private_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_PRIVATE_URL_NON_LINEAR, connector_variant_label)
