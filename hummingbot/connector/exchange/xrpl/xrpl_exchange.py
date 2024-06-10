@@ -25,10 +25,16 @@ from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
-from hummingbot.connector.exchange.xrpl.xrpl_utils import autofill, convert_string_to_hex, get_token_from_changes
+from hummingbot.connector.exchange.xrpl.xrpl_utils import (
+    XRPLMarket,
+    autofill,
+    convert_string_to_hex,
+    get_token_from_changes,
+)
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
+from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -44,8 +50,6 @@ if TYPE_CHECKING:
 
 class XrplExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 30.0
-    SHORT_POLL_INTERVAL = 20.0
-    LONG_POLL_INTERVAL = 120.0
 
     web_utils = xrpl_web_utils
 
@@ -57,6 +61,7 @@ class XrplExchange(ExchangePyBase):
             wss_second_node_url: str,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
+            custom_markets: Dict[str, XRPLMarket] = None,
     ):
         self._xrpl_secret_key = xrpl_secret_key
         self._wss_node_url = wss_node_url
@@ -72,6 +77,7 @@ class XrplExchange(ExchangePyBase):
         self._xrpl_place_order_client_lock = asyncio.Lock()
         self._next_valid_sequence = 0
         self._nonce_creator = NonceCreator.for_microseconds()
+        self._custom_markets = custom_markets or {}
 
         super().__init__(client_config_map)
 
@@ -351,6 +357,16 @@ class XrplExchange(ExchangePyBase):
             return False
 
         return True
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+
+        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
+
+        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        """
+        return await super().cancel_all(CONSTANTS.CANCEL_ALL_TIMEOUT)
 
     def _format_trading_rules(self, trading_rules_info: Dict[str, Any]) -> List[TradingRule]:
         trading_rules = []
@@ -975,15 +991,13 @@ class XrplExchange(ExchangePyBase):
                 self._account_balances = account_balances
                 self._account_available_balances = account_available_balances
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        markets = exchange_info.get("markets", {})
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, XRPLMarket]):
+        markets = exchange_info
         mapping_symbol = bidict()
 
-        for market, info in markets.items():
+        for market, _ in markets.items():
             self.logger().debug(f"Processing market {market}")
-            mapping_symbol[market.upper()] = combine_to_hb_trading_pair(
-                base=info["base"].upper(), quote=info["quote"].upper()
-            )
+            mapping_symbol[market.upper()] = market.upper()
         self._set_trading_pair_symbol_map(mapping_symbol)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
@@ -1074,12 +1088,12 @@ class XrplExchange(ExchangePyBase):
         for trading_pair_fee_rule in trading_pair_fee_rules:
             self._trading_pair_fee_rules[trading_pair_fee_rule["trading_pair"]] = trading_pair_fee_rule
 
-        exchange_info = await self._make_trading_pairs_request()
+        exchange_info = self._make_trading_pairs_request()
         self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _initialize_trading_pair_symbol_map(self):
         try:
-            exchange_info = await self._make_trading_pairs_request()
+            exchange_info = self._make_trading_pairs_request()
             self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         except Exception as e:
             self.logger().exception(f"There was an error requesting exchange info: {e}")
@@ -1170,24 +1184,39 @@ class XrplExchange(ExchangePyBase):
 
         return trading_rules_info
 
-    async def _make_trading_pairs_request(self) -> Dict[str, Any]:
+    def _make_trading_pairs_request(self) -> Dict[str, XRPLMarket]:
+        # Load default markets
         markets = CONSTANTS.MARKETS
-        return {"markets": markets}
+        loaded_markets: Dict[str, XRPLMarket] = {}
+
+        # Load each market into XRPLMarket
+        for k, v in markets.items():
+            loaded_markets[k] = XRPLMarket(
+                base=v["base"],
+                base_issuer=v["base_issuer"],
+                quote=v["quote"],
+                quote_issuer=v["quote_issuer"],
+            )
+
+        # Merge default markets with custom markets
+        loaded_markets.update(self._custom_markets)
+
+        return loaded_markets
 
     def get_currencies_from_trading_pair(self, trading_pair: str) -> (
             Tuple)[Union[IssuedCurrency, XRP], Union[IssuedCurrency, XRP]]:
         # Find market in the markets list
-        # TODO: Create a markets list that load from constant file and config file
-        market = CONSTANTS.MARKETS.get(trading_pair, None)
+        all_markets = self._make_trading_pairs_request()
+        market = all_markets.get(trading_pair, None)
 
         if market is None:
             raise ValueError(f"Market {trading_pair} not found in markets list")
 
         # Get all info
-        base = market.get("base")
-        base_issuer = market.get("base_issuer")
-        quote = market.get("quote")
-        quote_issuer = market.get("quote_issuer")
+        base = market.base
+        base_issuer = market.base_issuer
+        quote = market.quote
+        quote_issuer = market.quote_issuer
 
         if base == "XRP":
             base_currency = XRP()

@@ -2,7 +2,7 @@ import binascii
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, SecretStr, validator
+from pydantic import BaseModel, Field, SecretStr, validator
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client
 from xrpl.asyncio.ledger import get_latest_validated_ledger_sequence
@@ -22,6 +22,7 @@ from xrpl.utils.txn_parser.utils.order_book_parser import (
     _group_offer_changes_by_account,
 )
 from xrpl.utils.txn_parser.utils.types import AccountOfferChange, AccountOfferChanges, OfferChange
+from yaml.representer import SafeRepresenter
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import validate_with_regex
@@ -137,7 +138,8 @@ def get_token_from_changes(token_changes: [Dict[str, Any]], token: str) -> Optio
 
 
 async def autofill(
-    transaction: Transaction, client: Client, signers_count: Optional[int] = None, assign_sequence: Optional[int] = None
+        transaction: Transaction, client: Client, signers_count: Optional[int] = None,
+        assign_sequence: Optional[int] = None
 ) -> Transaction:
     """
     Autofills fields in a transaction. This will set `sequence`, `fee`, and
@@ -174,6 +176,23 @@ async def autofill(
     return Transaction.from_dict(transaction_json)
 
 
+class XRPLMarket(BaseModel):
+    base: str
+    quote: str
+    base_issuer: str
+    quote_issuer: str
+
+    def __repr__(self):
+        return str(self.dict())
+
+
+def represent_xrpl_market(dumper, data):
+    return dumper.represent_dict(data.dict())
+
+
+SafeRepresenter.add_representer(XRPLMarket, represent_xrpl_market)
+
+
 class XRPLConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="xrpl", const=True, client_data=None)
     xrpl_secret_key: SecretStr = Field(
@@ -204,6 +223,19 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             is_connect_key=True,
             prompt_on_new=True,
         ),
+    )
+
+    custom_markets: Dict[str, XRPLMarket] = Field(default={
+        "SOLO-XRP": XRPLMarket(
+            base="SOLO",
+            quote="XRP",
+            base_issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+            quote_issuer="",
+        )},
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Enter custom markets: ",
+            is_connect_key=True,
+            prompt_on_new=False)
     )
 
     class Config:
