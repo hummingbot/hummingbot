@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 
 class XrplExchange(ExchangePyBase):
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 30.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = xrpl_web_utils
 
@@ -295,7 +295,7 @@ class XrplExchange(ExchangePyBase):
                     await submit(signed_tx, client)
                     self._next_valid_sequence += 1
                     transact_time = time.time()
-                    await self._sleep(0.1)
+                    # await self._sleep(0.1)
         except Exception as e:
             new_state = OrderState.FAILED
             o_id = "UNKNOWN"
@@ -356,7 +356,7 @@ class XrplExchange(ExchangePyBase):
                     signed_tx = sign(filled_tx, self._auth.get_wallet())
                     await submit(signed_tx, client)
                     self._next_valid_sequence += 1
-                    await self._sleep(0.1)
+                    # await self._sleep(0.1)
         except Exception as e:
             self.logger().error(f"Order cancellation failed: {e}")
             return False
@@ -520,7 +520,7 @@ class XrplExchange(ExchangePyBase):
                                 new_order_state = OrderState.OPEN
 
                         if new_order_state == OrderState.FILLED or new_order_state == OrderState.PARTIALLY_FILLED:
-                            trade_update = self.process_trade_fills(transaction, tracked_order)
+                            trade_update = self.process_trade_fills(event_message, tracked_order)
                             if trade_update is not None:
                                 self._order_tracker.process_trade_update(trade_update)
                             else:
@@ -552,7 +552,7 @@ class XrplExchange(ExchangePyBase):
                             new_order_state = OrderState.FAILED
                         else:
                             new_order_state = OrderState.FILLED
-                            trade_update = self.process_trade_fills(transaction, tracked_order)
+                            trade_update = self.process_trade_fills(event_message, tracked_order)
                             if trade_update is not None:
                                 self._order_tracker.process_trade_update(trade_update)
                             else:
@@ -604,18 +604,18 @@ class XrplExchange(ExchangePyBase):
 
             return trade_fills
 
-    def process_trade_fills(self, transaction: Dict[str, Any], order: InFlightOrder) -> Optional[TradeUpdate]:
+    def process_trade_fills(self, data: Dict[str, Any], order: InFlightOrder) -> Optional[TradeUpdate]:
         base_currency, quote_currency = self.get_currencies_from_trading_pair(order.trading_pair)
         sequence, ledger_index = order.exchange_order_id.split('-')
         fee_rules = self._trading_pair_fee_rules.get(order.trading_pair)
 
-        meta = transaction.get("meta", {})
+        meta = data.get("meta", {})
 
         # check if transaction has key "tx" or "transaction"?
-        if "tx" in transaction:
-            tx = transaction.get("tx", None)
+        if "tx" in data:
+            tx = data.get("tx", None)
         else:
-            tx = transaction.get("transaction", None)
+            tx = data.get("transaction", None)
 
         if not isinstance(tx, dict):
             self.logger().error(f"Transaction not found for order {order.client_order_id} ({order.exchange_order_id})")
@@ -1238,12 +1238,3 @@ class XrplExchange(ExchangePyBase):
             quote_currency = IssuedCurrency(currency=formatted_quote, issuer=quote_issuer)
 
         return base_currency, quote_currency
-
-    def quantize_order_amount_in_quote(self, trading_pair: str, amount: Decimal) -> Decimal:
-        """
-        Applies trading rule to quantize order amount.
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        order_size_quantum = Decimal(trading_rule.min_base_amount_increment)
-
-        return (amount // order_size_quantum) * order_size_quantum
