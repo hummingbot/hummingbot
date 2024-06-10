@@ -1,6 +1,6 @@
 import asyncio
 import time
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from bidict import bidict
@@ -232,42 +232,47 @@ class XrplExchange(ExchangePyBase):
                 price *= 1 - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
         account = self._auth.get_account()
-        total_amount = amount * price
+
+        trading_rule = self._trading_rules[trading_pair]
+        amount_in_base_quantum = Decimal(trading_rule.min_base_amount_increment)
+        amount_in_quote_quantum = Decimal(trading_rule.min_quote_amount_increment)
+        amount_in_base = amount.quantize(amount_in_base_quantum, rounding=ROUND_DOWN)
+        amount_in_quote = Decimal(amount * price).quantize(amount_in_quote_quantum, rounding=ROUND_DOWN)
 
         if trade_type is TradeType.SELL:
             if base_currency.currency == XRP().currency:
-                we_pay = xrp_to_drops(amount)
+                we_pay = xrp_to_drops(amount_in_base)
             else:
                 we_pay = IssuedCurrencyAmount(
                     currency=base_currency.currency,
                     issuer=base_currency.issuer,
-                    value=str(amount)
+                    value=str(amount_in_base)
                 )
 
             if quote_currency.currency == XRP().currency:
-                we_get = xrp_to_drops(total_amount)
+                we_get = xrp_to_drops(amount_in_quote)
             else:
                 we_get = IssuedCurrencyAmount(
                     currency=quote_currency.currency,
                     issuer=quote_currency.issuer,
-                    value=str(total_amount))
+                    value=str(amount_in_quote))
         else:
             if quote_currency.currency == XRP().currency:
-                we_pay = xrp_to_drops(total_amount)
+                we_pay = xrp_to_drops(amount_in_quote)
             else:
                 we_pay = IssuedCurrencyAmount(
                     currency=quote_currency.currency,
                     issuer=quote_currency.issuer,
-                    value=str(total_amount)
+                    value=str(amount_in_quote)
                 )
 
             if base_currency.currency == XRP().currency:
-                we_get = xrp_to_drops(amount)
+                we_get = xrp_to_drops(amount_in_base)
             else:
                 we_get = IssuedCurrencyAmount(
                     currency=base_currency.currency,
                     issuer=base_currency.issuer,
-                    value=str(amount))
+                    value=str(amount_in_base))
 
         flags = CONSTANTS.XRPL_ORDER_TYPE[order_type]
         memo = Memo(
@@ -936,7 +941,8 @@ class XrplExchange(ExchangePyBase):
                 objects = await client.request(AccountObjects(
                     account=account_address,
                 ))
-                open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
+                open_offers = [x for x in objects.result.get("account_objects", []) if
+                               x.get("LedgerEntryType") == "Offer"]
                 balances = [x.get('Balance') for x in objects.result.get("account_objects", []) if
                             x.get("LedgerEntryType") == "RippleState"]
 
@@ -1160,7 +1166,8 @@ class XrplExchange(ExchangePyBase):
                             raise ValueError(f"Quote currency {quote_currency} not found in ledger: {error_message}")
 
                         quoteTickSize = quote_info.result.get("account_data", {}).get("TickSize", 15)
-                        rawTransferRate = quote_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
+                        rawTransferRate = quote_info.result.get("account_data", {}).get("TransferRate",
+                                                                                        zeroTransferRate)
                         quoteTransferRate = float(rawTransferRate / zeroTransferRate) - 1
 
                     if baseTickSize is None or quoteTickSize is None:
@@ -1231,3 +1238,12 @@ class XrplExchange(ExchangePyBase):
             quote_currency = IssuedCurrency(currency=formatted_quote, issuer=quote_issuer)
 
         return base_currency, quote_currency
+
+    def quantize_order_amount_in_quote(self, trading_pair: str, amount: Decimal) -> Decimal:
+        """
+        Applies trading rule to quantize order amount.
+        """
+        trading_rule = self._trading_rules[trading_pair]
+        order_size_quantum = Decimal(trading_rule.min_base_amount_increment)
+
+        return (amount // order_size_quantum) * order_size_quantum
