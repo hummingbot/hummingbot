@@ -95,34 +95,6 @@ class KucoinSpotCandles(CandlesBase):
         candles[:, 0] = candles[:, 0] * 1000
         return candles[::-1]
 
-    async def fill_historical_candles(self):
-        max_request_needed = (self._candles.maxlen // 1500) + 1
-        requests_executed = 0
-        while not self.ready:
-            # missing_records = self._candles.maxlen - len(self._candles)
-            try:
-                if requests_executed < max_request_needed:
-                    end_timestamp = int(self._candles[-1][0] + 1000)
-                    # we have to add one more since, the last row is not going to be included
-                    start_time = (end_timestamp - (1500 * self.get_seconds_from_interval(self.interval)) * 1000) + 1000
-                    candles = await self.fetch_candles(end_time=end_timestamp, start_time=start_time, limit=1500)
-                    # we are computing agaefin the quantity of records again since the websocket process is able to
-                    # modify the deque and if we extend it, the new observations are going to be dropped.
-                    missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[-(missing_records + 1):-1])
-                    requests_executed += 1
-                else:
-                    self.logger().error(f"There is no data available for the quantity of "
-                                        f"candles requested for {self.name}.")
-                    raise
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception(
-                    "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
-                )
-                await self._sleep(1.0)
-
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the candles events through the provided websocket connection.

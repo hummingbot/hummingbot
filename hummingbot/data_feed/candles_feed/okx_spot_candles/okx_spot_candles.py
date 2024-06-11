@@ -3,13 +3,11 @@ import logging
 from typing import Any, Dict, Optional
 
 import numpy as np
-import pandas as pd
 
 from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.okx_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
 
@@ -99,54 +97,6 @@ class OKXSpotCandles(CandlesBase):
 
         arr = [[row[0], row[1], row[2], row[3], row[4], row[5], row[6], 0., 0., 0.] for row in candles["data"]]
         return np.array(arr).astype(float)
-
-    async def fill_historical_candles(self):
-        max_request_needed = (self._candles.maxlen // CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) + 1
-        requests_executed = 0
-        while not self.ready:
-            missing_records = self._candles.maxlen - len(self._candles)
-            end_timestamp = int(self._candles[0][0])
-            try:
-                if requests_executed < max_request_needed:
-                    # we have to add one more since, the last row is not going to be included
-                    candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
-                    # we are computing again the quantity of records again since the websocket process is able to
-                    # modify the deque and if we extend it, the new observations are going to be dropped.
-                    missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[-(missing_records + 1):-1])
-                    requests_executed += 1
-                else:
-                    self.logger().error(f"There is no data available for the quantity of "
-                                        f"candles requested for {self.name}.")
-                    raise
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception(
-                    "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
-                )
-                await self._sleep(1.0)
-
-    async def get_historical_candles(self, config: HistoricalCandlesConfig):
-        try:
-            all_candles = []
-            current_start_time = config.start_time
-            while current_start_time <= config.end_time:
-                current_end_time = current_start_time + self.interval_to_milliseconds_dict[config.interval] * CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
-                fetched_candles = await self.fetch_candles(end_time=current_end_time)
-                if fetched_candles.size == 0:
-                    break
-
-                all_candles.append(fetched_candles[::-1])
-                last_timestamp = fetched_candles[0][0]  # Assuming the first column is the timestamp
-                current_start_time = int(last_timestamp)
-
-            final_candles = np.concatenate(all_candles, axis=0) if all_candles else np.array([])
-            candles_df = pd.DataFrame(final_candles, columns=self.columns)
-            candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
-            return candles_df
-        except Exception as e:
-            self.logger().exception(f"Error fetching historical candles: {str(e)}")
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
