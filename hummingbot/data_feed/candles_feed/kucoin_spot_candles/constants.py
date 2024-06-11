@@ -24,6 +24,7 @@ INTERVALS = bidict({
     "1d": "1day",
     "1w": "1week",
 })
+MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1500
 
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 NO_LIMIT = sys.maxsize
