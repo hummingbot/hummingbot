@@ -163,7 +163,7 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self._last_ws_message_sent_timestamp = ping_time
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        ws_url = f"{CONSTANTS.WSS_URLS[self._domain]}{CONSTANTS.WS_SUBSCRIBE_PATH_URL}"
+        ws_url = f"{CONSTANTS.WS_SUBSCRIBE_URLS[self._domain]}"
 
         self._ping_interval = CONSTANTS.HEARTBEAT_TIME_INTERVAL
 

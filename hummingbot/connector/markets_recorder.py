@@ -35,6 +35,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.controllers import Controllers
 from hummingbot.model.executors import Executors
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_data import MarketData
@@ -45,7 +46,8 @@ from hummingbot.model.range_position_collected_fees import RangePositionCollecte
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigBase
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class MarketsRecorder:
@@ -203,6 +205,17 @@ class MarketsRecorder:
                 serialized_config = executor.executor_info.json()
                 new_executor = Executors(**json.loads(serialized_config))
                 session.add(new_executor)
+            session.commit()
+
+    def store_controller_config(self, controller_config: ControllerConfigBase):
+        with self._sql_manager.get_new_session() as session:
+            config = json.loads(controller_config.json())
+            base_columns = ["id", "timestamp", "type"]
+            controller = Controllers(id=config["id"],
+                                     timestamp=time.time(),
+                                     type=config["controller_type"],
+                                     config={k: v for k, v in config.items() if k not in base_columns})
+            session.add(controller)
             session.commit()
 
     def get_executors_by_ids(self, executor_ids: List[str]):

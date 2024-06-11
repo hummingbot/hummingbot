@@ -140,10 +140,10 @@ class TestKucoinSpotCandles(unittest.TestCase):
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
 
-        resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=start_time, end_time=end_time))
+        resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=start_time * 1000, end_time=end_time * 1000))
 
         self.assertEqual(resp.shape[0], len(data_mock["data"]))
-        self.assertEqual(resp.shape[1], 7)
+        self.assertEqual(resp.shape[1], 10)
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
