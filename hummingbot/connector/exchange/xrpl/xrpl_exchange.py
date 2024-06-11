@@ -232,12 +232,34 @@ class XrplExchange(ExchangePyBase):
                 price *= 1 - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
         account = self._auth.get_account()
-
         trading_rule = self._trading_rules[trading_pair]
-        amount_in_base_quantum = Decimal(trading_rule.min_base_amount_increment)
-        amount_in_quote_quantum = Decimal(trading_rule.min_quote_amount_increment)
-        amount_in_base = amount.quantize(amount_in_base_quantum, rounding=ROUND_DOWN)
-        amount_in_quote = Decimal(amount * price).quantize(amount_in_quote_quantum, rounding=ROUND_DOWN)
+
+        try:
+            amount_in_base_quantum = Decimal(trading_rule.min_base_amount_increment)
+            amount_in_quote_quantum = Decimal(trading_rule.min_quote_amount_increment)
+
+            amount_in_base = Decimal(amount.quantize(amount_in_base_quantum, rounding=ROUND_DOWN))
+            amount_in_quote = Decimal((amount * price).quantize(amount_in_quote_quantum, rounding=ROUND_DOWN))
+
+            # Count the digit in the base and quote amount
+            # If the digit is more than 16, we need to round it to 16
+            # This is to prevent the error of "Decimal precision out of range for issued currency value."
+            # when the amount is too small
+            # TODO: Add 16 to constant as the maximum precision of issued currency is 16
+            total_digits_base = len(str(amount_in_base).split(".")[1]) + len(str(amount_in_base).split(".")[0])
+            if total_digits_base > 16:
+                adjusted_quantum = 16 - len(str(amount_in_base).split(".")[0])
+                amount_in_base = Decimal(
+                    amount_in_base.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN))
+
+            total_digits_quote = len(str(amount_in_quote).split(".")[1]) + len(str(amount_in_quote).split(".")[0])
+            if total_digits_quote > 16:
+                adjusted_quantum = 16 - len(str(amount_in_quote).split(".")[0])
+                amount_in_quote = Decimal(
+                    amount_in_quote.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN))
+        except Exception as e:
+            self.logger().error(f"Error calculating amount in base and quote: {e}")
+            raise e
 
         if trade_type is TradeType.SELL:
             if base_currency.currency == XRP().currency:
@@ -383,7 +405,6 @@ class XrplExchange(ExchangePyBase):
             trading_rule = TradingRule(
                 trading_pair=trading_pair,
                 min_order_size=Decimal(minimum_order_size),
-                # TODO: Minimum order size is already in scientific notation, check if this correct.
                 min_price_increment=Decimal(f"1e-{quote_tick_size}"),
                 min_quote_amount_increment=Decimal(f"1e-{quote_tick_size}"),
                 min_base_amount_increment=Decimal(f"1e-{base_tick_size}"),
@@ -452,7 +473,7 @@ class XrplExchange(ExchangePyBase):
         #         # 2. Is limit order creation?
         #         # 3. Is order fill?
         #         # 4. Is order partial fill?
-        #         # 5. Is order cancel?
+        #         # 5. Is order cancel?verify_iou_value
         #         # 6. Is balance change?
         #
         #     except asyncio.CancelledError:
