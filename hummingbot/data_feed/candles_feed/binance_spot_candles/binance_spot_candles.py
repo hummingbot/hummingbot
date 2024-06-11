@@ -90,7 +90,8 @@ class BinanceSpotCandles(CandlesBase):
         }
         return payload
 
-    def _parse_websocket_message(self, data: dict):
+    @staticmethod
+    def _parse_websocket_message(data: dict):
         candles_row_dict = {}
         if data is not None and data.get("e") == "kline":  # data will be None when the websocket is disconnected
             candles_row_dict["timestamp"] = data["k"]["t"]
