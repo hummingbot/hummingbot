@@ -115,6 +115,10 @@ class CandlesBase(NetworkBase):
         raise NotImplementedError
 
     @property
+    def interval_in_seconds(self):
+        return self.get_seconds_from_interval(self.interval)
+
+    @property
     def candles_df(self) -> pd.DataFrame:
         """
         This property returns the candles stored in the _candles deque as a Pandas DataFrame.
@@ -267,27 +271,33 @@ class CandlesBase(NetworkBase):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data = ws_response.data
-            candles_row_dict = self._parse_websocket_message(data)
-            candles_row = np.array([candles_row_dict["timestamp"],
-                                    candles_row_dict["open"],
-                                    candles_row_dict["high"],
-                                    candles_row_dict["low"],
-                                    candles_row_dict["close"],
-                                    candles_row_dict["volume"],
-                                    candles_row_dict["quote_asset_volume"],
-                                    candles_row_dict["n_trades"],
-                                    candles_row_dict["taker_buy_base_volume"],
-                                    candles_row_dict["taker_buy_quote_volume"]]).astype(float)
-            if len(self._candles) == 0:
-                self._candles.append(candles_row)
-                safe_ensure_future(self.fill_historical_candles())
-            elif int(candles_row_dict["timestamp"]) > int(self._candles[-1][0]):
-                self._candles.append(candles_row)
-            elif int(candles_row_dict["timestamp"]) == int(self._candles[-1][0]):
-                self._candles.pop()
-                self._candles.append(candles_row)
+            parsed_message = self._parse_websocket_message(data)
+            if isinstance(parsed_message, WSJSONRequest):
+                await websocket_assistant.send(request=parsed_message)
+            elif isinstance(parsed_message, dict):
+                candles_row = np.array([parsed_message["timestamp"],
+                                        parsed_message["open"],
+                                        parsed_message["high"],
+                                        parsed_message["low"],
+                                        parsed_message["close"],
+                                        parsed_message["volume"],
+                                        parsed_message["quote_asset_volume"],
+                                        parsed_message["n_trades"],
+                                        parsed_message["taker_buy_base_volume"],
+                                        parsed_message["taker_buy_quote_volume"]]).astype(float)
+                if not self._candles:
+                    self._candles.append(candles_row)
+                    safe_ensure_future(self.fill_historical_candles())
+                else:
+                    latest_timestamp = int(self._candles[-1][0])
+                    current_timestamp = int(parsed_message["timestamp"])
+                    if current_timestamp > latest_timestamp:
+                        self._candles.append(candles_row)
+                    elif current_timestamp == latest_timestamp:
+                        self._candles[-1] = candles_row
 
-    def _parse_websocket_message(self, data: dict):
+    @staticmethod
+    def _parse_websocket_message(data: dict):
         """
         This method must be implemented by a subclass to parse the websocket message into a dictionary with the
         candlestick data.
@@ -345,9 +355,9 @@ class CandlesBase(NetworkBase):
         if timestamp_int >= 1e18:  # Nanoseconds
             return timestamp_int / 1e9
         elif timestamp_int >= 1e15:  # Microseconds
-            return timestamp_int / 1000000
+            return timestamp_int / 1e6
         elif timestamp_int >= 1e12:  # Milliseconds
-            return timestamp_int / 1000
+            return timestamp_int / 1e3
         elif timestamp_int >= 1e9:  # Seconds
             return timestamp_int
         else:
