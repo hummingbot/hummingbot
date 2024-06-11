@@ -202,7 +202,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         args, kwargs = mock_encode.call_args
         jwt_data = args[0]
         self.assertEqual(self.auth.api_key, jwt_data['sub'])
-        self.assertEqual('coinbase-cloud', jwt_data['iss'], )
+        self.assertEqual('cdp', jwt_data['iss'], )
         self.assertEqual(['test_service'], jwt_data['aud'], )
         self.assertEqual('test_uri', jwt_data['uri'], )
 
