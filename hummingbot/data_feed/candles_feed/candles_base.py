@@ -11,6 +11,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
@@ -145,7 +146,7 @@ class CandlesBase(NetworkBase):
                 if fetched_candles.size <= 1:
                     break
                 all_candles.append(fetched_candles)
-                last_timestamp = fetched_candles[-1][0]  # Assuming the first column is the timestamp
+                last_timestamp = self.ensure_timestamp_in_seconds(fetched_candles[-1][0])  # Assuming the first column is the timestamp
                 current_start_time = int(last_timestamp)
 
             final_candles = np.concatenate(all_candles, axis=0) if all_candles else np.array([])
@@ -155,14 +156,25 @@ class CandlesBase(NetworkBase):
         except Exception as e:
             self.logger().exception(f"Error fetching historical candles: {str(e)}")
 
+    def check_sorted_and_equidistant(self, candles: np.ndarray):
+        """
+        This method checks if the given candles are sorted by timestamp in ascending order and equidistant.
+        :param candles: numpy array with the candles
+        """
+        timestamps = candles[:, 0]
+        if not np.all(np.diff(timestamps) > 0):
+            raise ValueError("Candles are not sorted by timestamp in ascending order.")
+        if not np.all(np.diff(timestamps) == self.get_seconds_from_interval(self.interval)):
+            raise ValueError("Candles are not equidistant.")
+
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None,
-                            limit: Optional[int] = 500):
+                            limit: Optional[int] = 500) -> np.ndarray:
         """
         This is an abstract method that must be implemented by a subclass to fetch candles from the exchange API.
-        :param start_time: start time to fetch candles
-        :param end_time: end time to fetch candles
+        :param start_time: start time in seconds to fetch candles
+        :param end_time: end time in seconds to fetch candles
         :param limit: quantity of candles
         :return: numpy array with the candlesticks
         """
@@ -181,6 +193,7 @@ class CandlesBase(NetworkBase):
                 if requests_executed < max_request_needed:
                     # we have to add one more since, the last row is not going to be included
                     candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
+                    self.check_sorted_and_equidistant(candles)
                     # we are computing again the quantity of records again since the websocket process is able to
                     # modify the deque and if we extend it, the new observations are going to be dropped.
                     missing_records = self._candles.maxlen - len(self._candles)
@@ -232,9 +245,68 @@ class CandlesBase(NetworkBase):
         Subscribes to the candles events through the provided websocket connection.
         :param ws: the websocket assistant used to connect to the exchange
         """
+        try:
+            subscribe_candles_request: WSJSONRequest = WSJSONRequest(payload=self.ws_subscription_payload())
+            await ws.send(subscribe_candles_request)
+            self.logger().info("Subscribed to public klines...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to public klines...",
+                exc_info=True
+            )
+            raise
+
+    def ws_subscription_payload(self):
+        """
+        This method returns the subscription payload for the websocket connection.
+        """
         raise NotImplementedError
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        async for ws_response in websocket_assistant.iter_messages():
+            data = ws_response.data
+            candles_row_dict = self._parse_websocket_message(data)
+            candles_row = np.array([candles_row_dict["timestamp"],
+                                    candles_row_dict["open"],
+                                    candles_row_dict["high"],
+                                    candles_row_dict["low"],
+                                    candles_row_dict["close"],
+                                    candles_row_dict["volume"],
+                                    candles_row_dict["quote_asset_volume"],
+                                    candles_row_dict["n_trades"],
+                                    candles_row_dict["taker_buy_base_volume"],
+                                    candles_row_dict["taker_buy_quote_volume"]]).astype(float)
+            if len(self._candles) == 0:
+                self._candles.append(candles_row)
+                safe_ensure_future(self.fill_historical_candles())
+            elif int(candles_row_dict["timestamp"]) > int(self._candles[-1][0]):
+                self._candles.append(candles_row)
+            elif int(candles_row_dict["timestamp"]) == int(self._candles[-1][0]):
+                self._candles.pop()
+                self._candles.append(candles_row)
+
+    def _parse_websocket_message(self, data: dict):
+        """
+        This method must be implemented by a subclass to parse the websocket message into a dictionary with the
+        candlestick data.
+
+        The extracted data is stored in a dict with the following keys:
+            - timestamp: The timestamp of the candlestick in seconds.
+            - open: The opening price of the candlestick.
+            - high: The highest price of the candlestick.
+            - low: The lowest price of the candlestick.
+            - close: The closing price of the candlestick.
+            - volume: The volume of the candlestick.
+            - quote_asset_volume: The quote asset volume of the candlestick.
+            - n_trades: The number of trades of the candlestick.
+            - taker_buy_base_volume: The taker buy base volume of the candlestick.
+            - taker_buy_quote_volume: The taker buy quote volume of the candlestick.
+
+        :param data: the websocket message data
+        :return: dictionary with the candlestick data
+        """
         raise NotImplementedError
 
     async def _sleep(self, delay):
@@ -254,3 +326,30 @@ class CandlesBase(NetworkBase):
         :return: number of seconds
         """
         return self.interval_to_seconds[interval]
+
+    @staticmethod
+    def ensure_timestamp_in_seconds(timestamp: float) -> float:
+        """
+        Ensure the given timestamp is in seconds.
+
+        Args:
+        - timestamp (int): The input timestamp which could be in seconds, milliseconds, or microseconds.
+
+        Returns:
+        - int: The timestamp in seconds.
+
+        Raises:
+        - ValueError: If the timestamp is not in a recognized format.
+        """
+        timestamp_int = int(timestamp)
+        if timestamp_int >= 1e18:  # Nanoseconds
+            return timestamp_int / 1e9
+        elif timestamp_int >= 1e15:  # Microseconds
+            return timestamp_int / 1000000
+        elif timestamp_int >= 1e12:  # Milliseconds
+            return timestamp_int / 1000
+        elif timestamp_int >= 1e9:  # Seconds
+            return timestamp_int
+        else:
+            raise ValueError(
+                "Timestamp is not in a recognized format. Must be in seconds, milliseconds, or microseconds.")
