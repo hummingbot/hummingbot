@@ -120,33 +120,6 @@ class KrakenSpotCandles(CandlesBase):
                                    taker_buy_quote_volume])
         return np.array(new_hb_candles).astype(float)
 
-    async def fill_historical_candles(self):
-        # Note: the last entry in the OHLC array is for the current, not-yet-committed frame and will always be present, regardless of the value of since.
-        max_request_needed = (self._candles.maxlen // 720) + 1
-        requests_executed = 0
-        try:
-            if requests_executed < max_request_needed:
-                # we have to add one more since, the last row is not going to be included
-                end_timestamp = int(self._candles[0][0]) + 1
-                start_time = end_timestamp - (720 * self.get_seconds_from_interval(self.interval)) + 1
-                candles = await self.fetch_candles(start_time=start_time, end_time=end_timestamp)
-                # we are computing again the quantity of records again since the websocket process is able to
-                # modify the deque and if we extend it, the new observations are going to be dropped.
-                missing_records = self._candles.maxlen - len(self._candles)
-                # self._candles.extendleft(candles[::-1][-(missing_records + 1):-1])
-                self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
-                requests_executed += 1
-            else:
-                self.logger().error(f"There is no data available for the quantity of "
-                                    f"candles requested for {self.name}.")
-                raise
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().exception(
-                "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
-            )
-
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the candles events through the provided websocket connection.
