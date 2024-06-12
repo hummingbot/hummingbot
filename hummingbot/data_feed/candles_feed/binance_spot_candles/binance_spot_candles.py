@@ -58,9 +58,7 @@ class BinanceSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
-    async def fetch_candles(self,
-                            start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
+    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
                             limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {
@@ -90,11 +88,10 @@ class BinanceSpotCandles(CandlesBase):
         }
         return payload
 
-    @staticmethod
-    def _parse_websocket_message(data: dict):
+    def _parse_websocket_message(self, data: dict):
         candles_row_dict = {}
         if data is not None and data.get("e") == "kline":  # data will be None when the websocket is disconnected
-            candles_row_dict["timestamp"] = data["k"]["t"]
+            candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(data["k"]["t"])
             candles_row_dict["open"] = data["k"]["o"]
             candles_row_dict["low"] = data["k"]["h"]
             candles_row_dict["high"] = data["k"]["l"]

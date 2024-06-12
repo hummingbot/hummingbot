@@ -174,7 +174,7 @@ class CandlesBase(NetworkBase):
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None,
-                            limit: Optional[int] = 500) -> np.ndarray:
+                            limit: Optional[int] = None) -> np.ndarray:
         """
         This is an abstract method that must be implemented by a subclass to fetch candles from the exchange API.
         :param start_time: start time in seconds to fetch candles
@@ -296,8 +296,7 @@ class CandlesBase(NetworkBase):
                     elif current_timestamp == latest_timestamp:
                         self._candles[-1] = candles_row
 
-    @staticmethod
-    def _parse_websocket_message(data: dict):
+    def _parse_websocket_message(self, data: dict):
         """
         This method must be implemented by a subclass to parse the websocket message into a dictionary with the
         candlestick data.
