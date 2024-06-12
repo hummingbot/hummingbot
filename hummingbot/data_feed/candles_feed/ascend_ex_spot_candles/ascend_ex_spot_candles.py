@@ -117,10 +117,10 @@ class AscendExSpotCandles(CandlesBase):
         return payload
 
     def _parse_websocket_message(self, data: dict):
-        candles_row_dict: Dict[str, Any] = {}
         if data.get("m") == "ping":
             pong_payloads = {"op": "pong"}
             return WSJSONRequest(payload=pong_payloads)
+        candles_row_dict: Dict[str, Any] = {}
         if data is not None and data.get("m") == "bar":
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(data["data"]["ts"])
             candles_row_dict["open"] = data["data"]["o"]
