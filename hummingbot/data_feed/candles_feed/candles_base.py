@@ -66,6 +66,7 @@ class CandlesBase(NetworkBase):
         This method starts the network and starts a task for listen_for_subscriptions.
         """
         await self.stop_network()
+        await self.setup_exchange_data()
         self._listen_candles_task = safe_ensure_future(self.listen_for_subscriptions())
 
     async def stop_network(self):
@@ -75,6 +76,14 @@ class CandlesBase(NetworkBase):
         if self._listen_candles_task is not None:
             self._listen_candles_task.cancel()
             self._listen_candles_task = None
+
+    async def setup_exchange_data(self):
+        """
+        This method is used to set up the exchange data before starting the network.
+
+        (I.E. get the trading pair quanto multiplier, special trading pair or symbol notation, etc.)
+        """
+        pass
 
     @property
     def ready(self):
@@ -143,6 +152,7 @@ class CandlesBase(NetworkBase):
 
     async def get_historical_candles(self, config: HistoricalCandlesConfig):
         try:
+            await self.setup_exchange_data()
             all_candles = []
             current_start_time = config.start_time
             while current_start_time <= config.end_time:
