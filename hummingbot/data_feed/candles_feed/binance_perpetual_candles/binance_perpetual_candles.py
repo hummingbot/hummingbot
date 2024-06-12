@@ -95,7 +95,7 @@ class BinancePerpetualCandles(CandlesBase):
                                                         params=params)
 
         candles = np.array([[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
-                             0., 0., 0., 0.]
+                             row[7], row[8], row[9], row[10]]
                            for row in response]
                            ).astype(float)
         return candles
