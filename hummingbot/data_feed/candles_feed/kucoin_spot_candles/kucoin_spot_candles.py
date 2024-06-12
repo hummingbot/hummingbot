@@ -75,10 +75,8 @@ class KucoinSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair
 
-    async def fetch_candles(self,
-                            start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
-                            limit: Optional[int] = 1500):
+    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
+                            limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {"symbol": self._ex_trading_pair, "type": CONSTANTS.INTERVALS[self.interval]}
         if start_time:

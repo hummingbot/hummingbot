@@ -81,10 +81,8 @@ class GateioPerpetualCandles(CandlesBase):
         self.quanto_multiplier = quanto_multiplier
         return quanto_multiplier
 
-    async def fetch_candles(self,
-                            start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
-                            limit: Optional[int] = 500):
+    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
+                            limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {"contract": self._ex_trading_pair, "interval": self.interval, "limit": limit}
 

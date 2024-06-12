@@ -83,10 +83,8 @@ class OKXPerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return f"{trading_pair}-SWAP"
 
-    async def fetch_candles(self,
-                            start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
-                            limit: Optional[int] = 100):
+    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
+                            limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {"instId": self._ex_trading_pair, "bar": CONSTANTS.INTERVALS[self.interval], "limit": limit}
         if end_time:

@@ -62,9 +62,7 @@ class AscendExSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "/")
 
-    async def fetch_candles(self,
-                            start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
+    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
                             limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         """
         Fetches candles data from the exchange.
@@ -118,14 +116,13 @@ class AscendExSpotCandles(CandlesBase):
                    "ch": f"bar:{CONSTANTS.INTERVALS[self.interval]}:{self._ex_trading_pair}"}
         return payload
 
-    @staticmethod
-    def _parse_websocket_message(data: dict):
+    def _parse_websocket_message(self, data: dict):
         candles_row_dict: Dict[str, Any] = {}
         if data.get("m") == "ping":
             pong_payloads = {"op": "pong"}
             return WSJSONRequest(payload=pong_payloads)
         if data is not None and data.get("m") == "bar":
-            candles_row_dict["timestamp"] = data["data"]["ts"]
+            candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(data["data"]["ts"])
             candles_row_dict["open"] = data["data"]["o"]
             candles_row_dict["low"] = data["data"]["l"]
             candles_row_dict["high"] = data["data"]["h"]
