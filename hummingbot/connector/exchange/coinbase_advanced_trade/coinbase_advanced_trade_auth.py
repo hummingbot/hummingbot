@@ -242,7 +242,18 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
             self.logger().debug("The API key is not PEM format. Falling back to Legacy sign-in.")
             raise e
 
-        time_: int = int(self.time_provider.time())
+        while True:
+            from time import sleep, time
+            self.logger().debug("Time syncing ...")
+            ref: int = int(self.time_provider.time())
+            local_time = int(time())
+            sleep(1)
+            time_ = int(self.time_provider.time())
+            if time_ == ref + 1:
+                self.logger().debug("Done")
+                break
+            self.logger().debug(f"Time sync failed. Local time: {local_time}, Time sync: {time_}, Ref: {ref}")
+
         jwt_data = {
             "sub": self.api_key,
             "iss": "cdp",
