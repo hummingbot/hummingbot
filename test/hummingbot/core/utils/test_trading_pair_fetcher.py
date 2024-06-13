@@ -203,10 +203,10 @@ class TestTradingPairFetcher(unittest.TestCase):
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": [
+                    "permissionSets": [[
                         "SPOT",
                         "MARGIN"
-                    ]
+                    ]]
                 },
                 {
                     "symbol": "LTCBTC",
@@ -231,10 +231,10 @@ class TestTradingPairFetcher(unittest.TestCase):
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": [
+                    "permissionSets": [[
                         "SPOT",
                         "MARGIN"
-                    ]
+                    ]]
                 },
                 {
                     "symbol": "BNBBTC",
@@ -259,9 +259,9 @@ class TestTradingPairFetcher(unittest.TestCase):
                     "isSpotTradingAllowed": True,
                     "isMarginTradingAllowed": True,
                     "filters": [],
-                    "permissions": [
+                    "permissionSets": [[
                         "MARGIN"
-                    ]
+                    ]]
                 },
             ]
         }

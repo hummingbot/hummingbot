@@ -13,27 +13,26 @@ from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import PositionMode
-from hummingbot.core.event.events import ExecutorEvent
-from hummingbot.core.pubsub import PubSub
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.exceptions import InvalidController
-from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.controllers.directional_trading_controller_base import (
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerConfigBase,
 )
-from hummingbot.smart_components.controllers.market_making_controller_base import MarketMakingControllerConfigBase
-from hummingbot.smart_components.executors.executor_orchestrator import ExecutorOrchestrator
-from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.models.executor_actions import (
+from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
+from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executor_actions import (
     CreateExecutorAction,
     ExecutorAction,
     StopExecutorAction,
     StoreExecutorAction,
 )
-from hummingbot.smart_components.models.executors_info import ExecutorInfo
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class StrategyV2ConfigBase(BaseClientModel):
@@ -174,10 +173,9 @@ class StrategyV2Base(ScriptStrategyBase):
     """
     V2StrategyBase is a base class for strategies that use the new smart components architecture.
     """
-    pubsub: PubSub = PubSub()
     markets: Dict[str, Set[str]]
     _last_config_update_ts: float = 0
-    closed_executors_buffer: int = 5
+    closed_executors_buffer: int = 100
 
     @classmethod
     def init_markets(cls, config: StrategyV2ConfigBase):
@@ -216,12 +214,12 @@ class StrategyV2Base(ScriptStrategyBase):
         controllers_configs = self.config.load_controller_configs()
         for controller_config in controllers_configs:
             self.add_controller(controller_config)
+            MarketsRecorder.get_instance().store_controller_config(controller_config)
 
     def add_controller(self, config: ControllerConfigBase):
         try:
             controller = config.get_controller_class()(config, self.market_data_provider, self.actions_queue)
             controller.start()
-            self.pubsub.add_listener(ExecutorEvent.EXECUTOR_INFO_UPDATE, controller.executors_update_listener)
             self.controllers[config.id] = controller
         except Exception as e:
             self.logger().error(f"Error adding controller: {e}", exc_info=True)
@@ -245,19 +243,28 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         while True:
             try:
-                action = await self.actions_queue.get()
-                self.executor_orchestrator.execute_actions(action)
+                actions = await self.actions_queue.get()
+                self.executor_orchestrator.execute_actions(actions)
                 self.update_executors_info()
+                controller_id = actions[0].controller_id
+                controller = self.controllers.get(controller_id)
+                controller.executors_info = self.executors_info.get(controller_id, [])
+                controller.executors_update_event.set()
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 self.logger().error(f"Error executing action: {e}", exc_info=True)
 
     def update_executors_info(self):
         """
         Update the local state of the executors and publish the updates to the active controllers.
+        In this case we are going to update the controllers directly with the executors info so the event is not
+        set and is managed with the async queue.
         """
         try:
             self.executors_info = self.executor_orchestrator.get_executors_report()
-            self.pubsub.trigger_event(ExecutorEvent.EXECUTOR_INFO_UPDATE, self.executors_info)
+            for controllers in self.controllers.values():
+                controllers.executors_info = self.executors_info.get(controllers.config.id, [])
         except Exception as e:
             self.logger().error(f"Error updating executors info: {e}", exc_info=True)
 
@@ -336,7 +343,7 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         Convert a list of executor handler info to a dataframe.
         """
-        df = pd.DataFrame([ei.dict() for ei in executors_info])
+        df = pd.DataFrame([ei.to_dict() for ei in executors_info])
         # Convert the enum values to integers
         df['status'] = df['status'].apply(lambda x: x.value)
 
@@ -344,13 +351,12 @@ class StrategyV2Base(ScriptStrategyBase):
         df.sort_values(by='status', ascending=True, inplace=True)
 
         # Convert back to enums for display
-        df['status'] = df['status'].apply(SmartComponentStatus)
-        return df[["id", "timestamp", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote", "is_trading",
-                   "filled_amount_quote", "close_type"]]
+        df['status'] = df['status'].apply(RunnableStatus)
+        return df
 
     def format_status(self) -> str:
         original_info = super().format_status()
-        columns_to_show = ["id", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
+        columns_to_show = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
                            "filled_amount_quote", "is_trading", "close_type", "age"]
         extra_info = []
 
