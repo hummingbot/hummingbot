@@ -2,7 +2,7 @@ import importlib
 import inspect
 import os
 from decimal import Decimal
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -33,20 +33,29 @@ class BacktestingEngineBase:
     def __init__(self):
         self.controller = None
         self.backtesting_resolution = None
+        self.backtesting_data_provider = BacktestingDataProvider(connectors={})
         self.position_executor_simulator = PositionExecutorSimulator()
         self.dca_executor_simulator = DCAExecutorSimulator()
 
     @classmethod
-    def load_controller_config(cls, config_path: str) -> ControllerConfigBase:
+    def load_controller_config(cls, config_path: str) -> Dict:
         full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
         with open(full_path, 'r') as file:
             config_data = yaml.safe_load(file)
+        return config_data
 
+    @classmethod
+    def get_controller_config_instance_from_yml(cls, config_path: str) -> ControllerConfigBase:
+        config_data = cls.load_controller_config(config_path)
+        return cls.get_controller_config_instance_from_dict(config_data)
+
+    @classmethod
+    def get_controller_config_instance_from_dict(cls, config_data: dict) -> ControllerConfigBase:
         controller_type = config_data.get('controller_type')
         controller_name = config_data.get('controller_name')
 
         if not controller_type or not controller_name:
-            raise ValueError(f"Missing controller_type or controller_name in {config_path}")
+            raise ValueError("Missing controller_type or controller_name in the configuration.")
 
         module_path = f"{settings.CONTROLLERS_MODULE}.{controller_type}.{controller_name}"
         module = importlib.import_module(module_path)
@@ -68,8 +77,8 @@ class BacktestingEngineBase:
                               trade_cost=0.0006):
         # Load historical candles
         controller_class = controller_config.get_controller_class()
-        backtesting_data_provider = BacktestingDataProvider(connectors={}, start_time=start, end_time=end)
-        self.controller = controller_class(config=controller_config, market_data_provider=backtesting_data_provider,
+        self.backtesting_data_provider.update_backtesting_time(start, end)
+        self.controller = controller_class(config=controller_config, market_data_provider=self.backtesting_data_provider,
                                            actions_queue=None)
         self.backtesting_resolution = backtesting_resolution
         await self.initialize_backtesting_data_provider()
@@ -168,6 +177,7 @@ class BacktestingEngineBase:
         backtesting_candles["low"] = backtesting_candles["low_bt"]
         backtesting_candles["close"] = backtesting_candles["close_bt"]
         backtesting_candles["volume"] = backtesting_candles["volume_bt"]
+        backtesting_candles.dropna(inplace=True)
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
 
@@ -248,7 +258,7 @@ class BacktestingEngineBase:
             accuracy_long = correct_long / total_long if total_long > 0 else 0
             accuracy_short = correct_short / total_short if total_short > 0 else 0
             executors_df["close_type_name"] = executors_df["close_type"].apply(lambda x: x.name)
-            close_types = executors_df.groupby("close_type_name")["timestamp"].count()
+            close_types = executors_df.groupby("close_type_name")["timestamp"].count().to_dict()
             executors_with_position = executors_df[executors_df["net_pnl_quote"] != 0].copy()
             # Additional metrics
             total_positions = executors_with_position.shape[0]
@@ -266,31 +276,31 @@ class BacktestingEngineBase:
             max_drawdown_pct = max_draw_down / executors_with_position["inventory"].iloc[0]
             returns = pd.to_numeric(
                 executors_with_position["cumulative_returns"] / executors_with_position["cumulative_volume"])
-            sharpe_ratio = returns.mean() / returns.std()
+            sharpe_ratio = returns.mean() / returns.std() if len(returns) > 1 else 0
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
             total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
             profit_factor = total_won / total_loss if total_loss > 0 else 1
             net_pnl_pct = net_pnl_quote / total_amount_quote
 
             return {
-                "net_pnl": net_pnl_pct,
-                "net_pnl_quote": net_pnl_quote,
-                "total_executors": total_executors,
-                "total_executors_with_position": total_executors_with_position,
-                "total_volume": total_volume,
-                "total_long": total_long,
-                "total_short": total_short,
+                "net_pnl": float(net_pnl_pct),
+                "net_pnl_quote": float(net_pnl_quote),
+                "total_executors": int(total_executors),
+                "total_executors_with_position": int(total_executors_with_position),
+                "total_volume": float(total_volume),
+                "total_long": int(total_long),
+                "total_short": int(total_short),
                 "close_types": close_types,
-                "accuracy_long": accuracy_long,
-                "accuracy_short": accuracy_short,
-                "total_positions": total_positions,
-                "accuracy": accuracy,
-                "max_drawdown_usd": max_draw_down,
-                "max_drawdown_pct": max_drawdown_pct,
-                "sharpe_ratio": sharpe_ratio,
-                "profit_factor": profit_factor,
-                "win_signals": win_signals.shape[0],
-                "loss_signals": loss_signals.shape[0],
+                "accuracy_long": float(accuracy_long),
+                "accuracy_short": float(accuracy_short),
+                "total_positions": int(total_positions),
+                "accuracy": float(accuracy),
+                "max_drawdown_usd": float(max_draw_down),
+                "max_drawdown_pct": float(max_drawdown_pct),
+                "sharpe_ratio": float(sharpe_ratio),
+                "profit_factor": float(profit_factor),
+                "win_signals": int(win_signals.shape[0]),
+                "loss_signals": int(loss_signals.shape[0]),
             }
         return {
             "net_pnl": 0,
