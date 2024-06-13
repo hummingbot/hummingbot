@@ -234,13 +234,14 @@ class XrplExchange(ExchangePyBase):
         if order_type is OrderType.MARKET:
             # If price is none or nan, get last_traded_price
             if price is None or price.is_nan():
-                price = await self._get_last_traded_price(trading_pair)
+                price = Decimal(
+                    await self._get_best_price(trading_pair, is_buy=True if trade_type is TradeType.BUY else False))
             # Increase price by MARKET_ORDER_MAX_SLIPPAGE if it is buy order
             # Decrease price by MARKET_ORDER_MAX_SLIPPAGE if it is sell order
             if trade_type is TradeType.BUY:
-                price *= 1 + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+                price *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
             else:
-                price *= 1 - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+                price *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
         account = self._auth.get_account()
         trading_rule = self._trading_rules[trading_pair]
@@ -335,7 +336,7 @@ class XrplExchange(ExchangePyBase):
                     self.logger().error(f"{prelim_result}: {error_message}")
                     return o_id, transact_time, None
 
-                await self._sleep(0.2)
+                await self._sleep(0.3)
 
         except Exception as e:
             new_state = OrderState.FAILED
@@ -346,7 +347,7 @@ class XrplExchange(ExchangePyBase):
                 client_order_id=order_id,
             )
             self._order_tracker.process_order_update(order_update=order_update)
-            raise f"Order {o_id} ({order_id}) creation failed: {e}"
+            raise Exception(f"Order {o_id} ({order_id}) creation failed: {e}")
 
         return o_id, transact_time, {"transaction": signed_tx, "prelim_result": prelim_result}
 
@@ -372,8 +373,18 @@ class XrplExchange(ExchangePyBase):
 
         transaction: Transaction = submit_data["transaction"]
         prelim_result = submit_data["prelim_result"]
-        await _wait_for_final_transaction_outcome(transaction.get_hash(), self._xrpl_place_order_client, prelim_result, transaction.last_ledger_sequence)
+        resp = await _wait_for_final_transaction_outcome(transaction.get_hash(), self._xrpl_place_order_client,
+                                                         prelim_result, transaction.last_ledger_sequence)
         order_update = await self._request_order_status(order)
+
+        if order_update.new_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED, OrderState.CREATED]:
+            trade_update = self.process_trade_fills(resp.to_dict(), order)
+            if trade_update is not None:
+                self._order_tracker.process_trade_update(trade_update)
+            else:
+                self.logger().error(
+                    f"Failed to process trade fills for order {order.client_order_id} ({order.exchange_order_id}), order state: {order_update.new_state}")
+
         self._order_tracker.process_order_update(order_update)
 
         return exchange_order_id
@@ -406,30 +417,42 @@ class XrplExchange(ExchangePyBase):
                     error_message = submit_response.result["engine_result_message"]
                     self.logger().error(f"{prelim_result}: {error_message}")
                     return False, None
-                await self._sleep(0.2)
+                await self._sleep(0.3)
 
         except Exception as e:
             self.logger().error(f"Order cancellation failed: {e}")
-            return False
+            return False, None
 
         return True, {"transaction": signed_tx, "prelim_result": prelim_result}
 
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
-        cancelled, submit_data = await self._place_cancel(order.client_order_id, order)
-        if cancelled:
-            update_timestamp = self.current_timestamp
-            if update_timestamp is None or math.isnan(update_timestamp):
-                update_timestamp = self._time()
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order.client_order_id,
-                trading_pair=order.trading_pair,
-                update_timestamp=update_timestamp,
-                new_state=(OrderState.CANCELED
-                           if self.is_cancel_request_in_exchange_synchronous
-                           else OrderState.PENDING_CANCEL),
-            )
-            self._order_tracker.process_order_update(order_update)
+        retry = 0
+        submitted = False
+        submit_data = None
 
+        update_timestamp = self.current_timestamp
+        if update_timestamp is None or math.isnan(update_timestamp):
+            update_timestamp = self._time()
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=OrderState.PENDING_CANCEL,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+        while retry < CONSTANTS.CANCEL_MAX_RETRY:
+            submitted, submit_data = await self._place_cancel(order.client_order_id, order)
+
+            if submitted:
+                retry = CONSTANTS.CANCEL_MAX_RETRY
+            else:
+                retry += 1
+                self.logger().info(
+                    f"Order cancellation failed. Retrying in {CONSTANTS.CANCEL_RETRY_INTERVAL} seconds...")
+                await self._sleep(CONSTANTS.CANCEL_RETRY_INTERVAL)
+
+        if submitted:
             # TODO: Refactor this
             transaction: Transaction = submit_data["transaction"]
             prelim_result = submit_data["prelim_result"]
@@ -467,7 +490,7 @@ class XrplExchange(ExchangePyBase):
             else:
                 return False
 
-        return cancelled
+        return False
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
@@ -537,34 +560,6 @@ class XrplExchange(ExchangePyBase):
         stream data source. It keeps reading events from the queue until the task is interrupted.
         The events received are balance updates, order updates and trade events.
         """
-        # all_orders = self.all_active_orders_by_sequence_number()
-        # async for event_message in self._iter_user_event_queue():
-        #     try:
-        #         transaction = event_message.get("transaction")
-        #         meta = event_message.get("meta")
-        #
-        #
-        #
-        #         # Parse these events:
-        #         # Order fills
-        #         # Order partial fills
-        #         # Order cancel
-        #         # Order create
-        #         # Balance change
-        #
-        #         # Check for path
-        #         # 1. Is market order creation?
-        #         # 2. Is limit order creation?
-        #         # 3. Is order fill?
-        #         # 4. Is order partial fill?
-        #         # 5. Is order cancel?verify_iou_value
-        #         # 6. Is balance change?
-        #
-        #     except asyncio.CancelledError:
-        #         raise
-        #     except Exception:
-        #         self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-        #         await self._sleep(5.0)
         async for event_message in self._iter_user_event_queue():
             try:
                 transaction = event_message.get("transaction")
@@ -708,6 +703,12 @@ class XrplExchange(ExchangePyBase):
             trade_fills = []
 
             for transaction in transactions:
+                tx = transaction.get("tx", None)
+                tx_type = tx.get("TransactionType", None)
+
+                if tx_type is None or tx_type != "OfferCreate":
+                    continue
+
                 trade_update = self.process_trade_fills(transaction, order)
                 if trade_update is not None:
                     trade_fills.append(trade_update)
@@ -728,7 +729,8 @@ class XrplExchange(ExchangePyBase):
             tx = data.get("transaction", None)
 
         if not isinstance(tx, dict):
-            self.logger().error(f"Transaction not found for order {order.client_order_id} ({order.exchange_order_id})")
+            self.logger().error(
+                f"Transaction not found for order {order.client_order_id} ({order.exchange_order_id}), data: {data}")
             return None
 
         if tx.get("TransactionType") != "OfferCreate":
@@ -750,7 +752,7 @@ class XrplExchange(ExchangePyBase):
             tx_status = meta.get("TransactionResult")
             if tx_status != "tesSUCCESS":
                 self.logger().error(
-                    f"Order {order.client_order_id} ({order.exchange_order_id}) failed: {tx_status}")
+                    f"Order {order.client_order_id} ({order.exchange_order_id}) failed: {tx_status}, data: {data}")
                 return None
 
             # check if there is no offer changes, if none, this order has been filled
@@ -758,7 +760,7 @@ class XrplExchange(ExchangePyBase):
                 # check if there is any balance changes
                 if len(balance_changes) == 0:
                     self.logger().error(
-                        f"Order {order.client_order_id} ({order.exchange_order_id}) has no balance changes")
+                        f"Order {order.client_order_id} ({order.exchange_order_id}) has no balance changes, data: {data}")
                     return None
 
                 for balance_change in balance_changes:
@@ -860,7 +862,8 @@ class XrplExchange(ExchangePyBase):
                                     fee=fee,
                                     fill_base_amount=abs(Decimal(base_change.get("value"))),
                                     fill_quote_amount=abs(Decimal(quote_change.get("value"))),
-                                    fill_price=abs(Decimal(quote_change.get("value"))) / abs(Decimal(base_change.get("value"))),
+                                    fill_price=abs(Decimal(quote_change.get("value"))) / abs(
+                                        Decimal(base_change.get("value"))),
                                     fill_timestamp=ripple_time_to_posix(tx.get("date")),
                                 )
 
@@ -915,9 +918,20 @@ class XrplExchange(ExchangePyBase):
         async with self._xrpl_client_lock:
             if not self._xrpl_client.is_open():
                 await self._xrpl_client.open()
-
             new_order_state = tracked_order.current_state
             latest_status = "UNKNOWN"
+
+            if tracked_order.exchange_order_id is None:
+                order_update = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=tracked_order.exchange_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=time.time(),
+                    new_state=new_order_state,
+                )
+
+                return order_update
+
             sequence, ledger_index = tracked_order.exchange_order_id.split('-')
 
             if tracked_order.order_type is OrderType.MARKET:
@@ -981,6 +995,7 @@ class XrplExchange(ExchangePyBase):
                 resp = await self._xrpl_client.request(request)
                 transactions = resp.result.get("transactions", [])
                 found = False
+                update_timestamp = time.time()
 
                 for transaction in transactions:
                     if found:
@@ -1008,7 +1023,6 @@ class XrplExchange(ExchangePyBase):
                         # give order at least 60 seconds to be processed
                         if time.time() - tracked_order.last_update_timestamp > 60:
                             new_order_state = OrderState.FAILED
-                            update_timestamp = time.time()
                             self.logger().error(
                                 f"Order status not found for order {tracked_order.client_order_id} ({sequence})")
                         else:
@@ -1016,7 +1030,6 @@ class XrplExchange(ExchangePyBase):
                             update_timestamp = tracked_order.last_update_timestamp
                     else:
                         new_order_state = OrderState.FAILED
-                        update_timestamp = time.time()
                         self.logger().error(
                             f"Order status not found for order {tracked_order.client_order_id} ({sequence})")
                 elif latest_status == "filled":
@@ -1121,6 +1134,11 @@ class XrplExchange(ExchangePyBase):
         last_price = self.order_books.get(trading_pair).last_trade_price
 
         return last_price
+
+    async def _get_best_price(self, trading_pair: str, is_buy: bool) -> float:
+        best_price = self.order_books.get(trading_pair).get_price(is_buy)
+
+        return best_price
 
     def buy(
             self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN,
