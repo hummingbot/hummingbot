@@ -59,6 +59,9 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with self._open_client_lock:
             try:
                 async with self._xrpl_client as client:
+                    if not client.is_open():
+                        await client.open()
+
                     orderbook_asks_info = await client.request(
                         BookOffers(
                             ledger_index="current",
@@ -67,6 +70,13 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             limit=CONSTANTS.ORDER_BOOK_DEPTH,
                         )
                     )
+
+                    if orderbook_asks_info.status != "success":
+                        error = orderbook_asks_info.to_dict().get("error", "")
+                        error_message = orderbook_asks_info.to_dict().get("error_message", "")
+                        exception_msg = f"Error fetching order book (Ask side) snapshot for {trading_pair}: {error} - {error_message}"
+                        self.logger().error(exception_msg)
+                        raise ValueError(exception_msg)
 
                     orderbook_bids_info = await client.request(
                         BookOffers(
@@ -77,16 +87,28 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         )
                     )
 
-                    asks = orderbook_asks_info.result.get("offers", [])
-                    bids = orderbook_bids_info.result.get("offers", [])
+                    if orderbook_bids_info.status != "success":
+                        error = orderbook_bids_info.to_dict().get("error", "")
+                        error_message = orderbook_bids_info.to_dict().get("error_message", "")
+                        exception_msg = f"Error fetching order book (Bid side) snapshot for {trading_pair}: {error} - {error_message}"
+                        self.logger().error(exception_msg)
+                        raise ValueError(exception_msg)
+
+                    asks = orderbook_asks_info.result.get("offers", None)
+                    bids = orderbook_bids_info.result.get("offers", None)
+
+                    if asks is None:
+                        raise ValueError(f"Error fetching order book (Ask side) snapshot for {trading_pair}: {orderbook_asks_info}")
+
+                    if bids is None:
+                        raise ValueError(f"Error fetching order book (Bid side) snapshot for {trading_pair}: {orderbook_bids_info}")
 
                     order_book = {
                         "asks": asks,
                         "bids": bids,
                     }
             except Exception as e:
-                self.logger().error(f"Error fetching order book snapshot for {trading_pair}: {e}")
-                return {}
+                raise Exception(f"Error fetching order book snapshot for {trading_pair}: {e}")
 
         return order_book
 

@@ -64,6 +64,10 @@ RATE_LIMITS = [
 # Cancel All Timeout
 CANCEL_ALL_TIMEOUT = 60.0
 
+# Cancel retry parameters
+CANCEL_MAX_RETRY = 3
+CANCEL_RETRY_INTERVAL = 3
+
 # Markets list
 MARKETS = {
     "XRP-USD": {
