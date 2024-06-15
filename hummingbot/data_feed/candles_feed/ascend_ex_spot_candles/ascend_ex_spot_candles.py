@@ -96,6 +96,8 @@ class AscendExSpotCandles(CandlesBase):
         new_hb_candles = []
         for i in candles["data"]:
             timestamp = self.ensure_timestamp_in_seconds(i["data"]["ts"])
+            if timestamp >= end_time:
+                continue
             open = i["data"]["o"]
             high = i["data"]["h"]
             low = i["data"]["l"]
