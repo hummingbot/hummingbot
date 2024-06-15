@@ -75,7 +75,7 @@ class BinanceSpotCandles(CandlesBase):
                                                         params=params)
         candles = np.array([[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
                              row[7], row[8], row[9], row[10]]
-                            for row in response]
+                            for row in response if self.ensure_timestamp_in_seconds(row[0]) < end_time]
                            ).astype(float)
         return candles
 
