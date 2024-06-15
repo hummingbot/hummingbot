@@ -80,7 +80,7 @@ class GateioSpotCandles(CandlesBase):
             :return: the candles data
         """
         if start_time is None:
-            start_time = end_time - limit * self.interval_in_seconds
+            start_time = end_time - (limit - 1) * self.interval_in_seconds
         if end_time is None:
             end_time = start_time + (limit - 1) * self.interval_in_seconds
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
@@ -99,6 +99,8 @@ class GateioSpotCandles(CandlesBase):
         new_hb_candles = []
         for i in candles:
             timestamp = self.ensure_timestamp_in_seconds(i[0])
+            if timestamp == end_time:
+                continue
             open = i[5]
             high = i[3]
             low = i[4]

@@ -54,6 +54,7 @@ class CandlesBase(NetworkBase):
         self._listen_candles_task: Optional[asyncio.Task] = None
         self._trading_pair = trading_pair
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
+        self._first_candle_ok = asyncio.Event()
         if interval in self.intervals.keys():
             self.interval = interval
         else:
@@ -154,32 +155,44 @@ class CandlesBase(NetworkBase):
         try:
             await self.initialize_exchange_data()
             all_candles = []
-            current_start_time = config.start_time
-            while current_start_time <= config.end_time:
+            current_start_time = config.start_time - self.interval_in_seconds
+            current_end_time = config.end_time + self.interval_in_seconds
+            while current_start_time <= current_end_time:
                 fetched_candles = await self.fetch_candles(start_time=current_start_time)
                 if fetched_candles.size <= 1:
                     break
                 all_candles.append(fetched_candles)
                 last_timestamp = self.ensure_timestamp_in_seconds(fetched_candles[-1][0])  # Assuming the first column is the timestamp
-                current_start_time = int(last_timestamp)
-
+                current_start_time = last_timestamp - self.interval_in_seconds
+                self.check_candles_sorted_and_equidistant(all_candles)
             final_candles = np.concatenate(all_candles, axis=0) if all_candles else np.array([])
             candles_df = pd.DataFrame(final_candles, columns=self.columns)
             candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
+            candles_df = candles_df[(candles_df["timestamp"] <= config.end_time) & (candles_df["timestamp"] >= config.start_time)]
             return candles_df
         except Exception as e:
             self.logger().exception(f"Error fetching historical candles: {str(e)}")
 
-    def check_sorted_and_equidistant(self, candles: np.ndarray):
+    def check_candles_sorted_and_equidistant(self, candles: np.ndarray):
         """
         This method checks if the given candles are sorted by timestamp in ascending order and equidistant.
         :param candles: numpy array with the candles
         """
-        timestamps = candles[:, 0]
-        if not np.all(np.diff(timestamps) > 0):
-            raise ValueError("Candles are not sorted by timestamp in ascending order.")
-        if not np.all(np.diff(timestamps) == self.get_seconds_from_interval(self.interval)):
-            raise ValueError("Candles are not equidistant.")
+        timestamps = [candle[0] for candle in candles]
+        if len(self._candles) <= 1:
+            return
+        if not np.all(np.diff(timestamps) >= 0):
+            self.logger().warning("Candles are not sorted by timestamp in ascending order.")
+            self._reset_candles()
+        timestamp_steps = np.unique(np.diff(timestamps))
+        interval_in_seconds = self.get_seconds_from_interval(self.interval)
+        if not np.all(timestamp_steps == interval_in_seconds):
+            self.logger().warning("Candles are malformed. Restarting...")
+            self._reset_candles()
+
+    def _reset_candles(self):
+        self._first_candle_ok.clear()
+        self._candles.clear()
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
@@ -196,34 +209,29 @@ class CandlesBase(NetworkBase):
 
     async def fill_historical_candles(self):
         """
-        This is an abstract method that must be implemented by a subclass to fill the _candles deque with historical candles.
+        This method fills the historical candles in the _candles deque until it reaches the maximum length.
         """
-        max_request_needed = (self._candles.maxlen // self.max_records) + 1
-        requests_executed = 0
         while not self.ready:
-            missing_records = self._candles.maxlen - len(self._candles)
-            end_timestamp = int(self._candles[0][0])
+            await self._first_candle_ok.wait()
             try:
-                if requests_executed < max_request_needed:
-                    # we have to add one more since, the last row is not going to be included
-                    candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
-                    self.check_sorted_and_equidistant(candles)
-                    # we are computing again the quantity of records again since the websocket process is able to
-                    # modify the deque and if we extend it, the new observations are going to be dropped.
+                end_timestamp = int(self._candles[0][0])
+                if len(self._candles) < self._candles.maxlen:
+                    candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp)
                     missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
-                    requests_executed += 1
+                    records_to_add = min(missing_records, len(candles))
+                    self._candles.extendleft(candles[-records_to_add:][::-1])
                 else:
-                    self.logger().error(f"There is no data available for the quantity of "
-                                        f"candles requested for {self.name}.")
-                    raise
+                    break
             except asyncio.CancelledError:
+                raise
+            except ValueError:
                 raise
             except Exception:
                 self.logger().exception(
                     "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
                 )
                 await self._sleep(1.0)
+        self.check_candles_sorted_and_equidistant(self._candles)
 
     async def listen_for_subscriptions(self):
         """
@@ -282,6 +290,7 @@ class CandlesBase(NetworkBase):
         async for ws_response in websocket_assistant.iter_messages():
             data = ws_response.data
             parsed_message = self._parse_websocket_message(data)
+            # parsed messages may be ping or pong messages
             if isinstance(parsed_message, WSJSONRequest):
                 await websocket_assistant.send(request=parsed_message)
             elif isinstance(parsed_message, dict):
@@ -295,8 +304,9 @@ class CandlesBase(NetworkBase):
                                         parsed_message["n_trades"],
                                         parsed_message["taker_buy_base_volume"],
                                         parsed_message["taker_buy_quote_volume"]]).astype(float)
-                if not self._candles:
+                if len(self._candles) == 0:
                     self._candles.append(candles_row)
+                    self._first_candle_ok.set()
                     safe_ensure_future(self.fill_historical_candles())
                 else:
                     latest_timestamp = int(self._candles[-1][0])
@@ -328,7 +338,8 @@ class CandlesBase(NetworkBase):
         """
         raise NotImplementedError
 
-    async def _sleep(self, delay):
+    @staticmethod
+    async def _sleep(delay):
         """
         Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
         """
@@ -360,7 +371,7 @@ class CandlesBase(NetworkBase):
         Raises:
         - ValueError: If the timestamp is not in a recognized format.
         """
-        timestamp_int = int(timestamp)
+        timestamp_int = int(float(timestamp))
         if timestamp_int >= 1e18:  # Nanoseconds
             return timestamp_int / 1e9
         elif timestamp_int >= 1e15:  # Microseconds
@@ -371,4 +382,4 @@ class CandlesBase(NetworkBase):
             return timestamp_int
         else:
             raise ValueError(
-                "Timestamp is not in a recognized format. Must be in seconds, milliseconds, or microseconds.")
+                "Timestamp is not in a recognized format. Must be in seconds, milliseconds, microseconds or nanoseconds.")

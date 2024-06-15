@@ -107,6 +107,8 @@ class GateioPerpetualCandles(CandlesBase):
         new_hb_candles = []
         for i in candles:
             timestamp = i.get("t")
+            if timestamp == end_time:
+                continue
             open = i.get("o")
             high = i.get("h")
             low = i.get("l")
