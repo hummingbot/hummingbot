@@ -175,8 +175,20 @@ class StatusCommand:
             return False
 
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
+        graphene_timeout = float(self.client_config_map.commands_timeout.graphene_timeout)
         try:
-            invalid_conns = await asyncio.wait_for(self.validate_required_connections(), network_timeout)
+            invalid_conns = await asyncio.wait_for(
+                self.validate_required_connections(),
+                (
+                    network_timeout if not any(
+                        [
+                            i in ["bitshares", "peerplays", "bitshares testnet", "peerplays testnet"]
+                            for i in required_exchanges
+                        ]
+                    )
+                    else graphene_timeout
+                )
+            )
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the connection check to complete. See logs for more details.")
             raise

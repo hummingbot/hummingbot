@@ -159,6 +159,13 @@ class OrderBookTracker:
                         args["domain"] = self._domain
                     last_prices = await self._data_source.get_last_traded_prices(**args)
                     for trading_pair, last_price in last_prices.items():
+                        if trading_pair not in self._order_books:
+                            inverted_pair = "-".join(trading_pair.split("-")[::-1])
+                            if inverted_pair in self._order_books:
+                                trading_pair = inverted_pair
+                                last_price = 1 / last_price
+                            else:
+                                raise ValueError(f"{__class__.__name__} invalid trading pair")
                         self._order_books[trading_pair].last_trade_price = last_price
                         self._order_books[trading_pair].last_trade_price_rest_updated = time.perf_counter()
                 else:

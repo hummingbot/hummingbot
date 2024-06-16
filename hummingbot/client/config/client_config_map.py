@@ -609,7 +609,7 @@ class GlobalTokenConfigMap(BaseClientModel):
         default="$",
         client_data=ClientFieldData(
             prompt=lambda
-                cm: "What is your default display token symbol? (e.g. $,€)",
+                cm: "What is your default display token symbol? (e.g. $, €, ₿, ¤)",
         ),
     )
 
@@ -652,6 +652,15 @@ class CommandsTimeoutConfigMap(BaseClientModel):
             ),
         ),
     )
+    graphene_timeout: Decimal = Field(
+        default=Decimal("120"),
+        gt=Decimal("0"),
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Network timeout to apply to the starting and status checking of graphene"
+            ),
+        )
+    )
 
     class Config:
         title = "commands_timeout"
@@ -659,6 +668,7 @@ class CommandsTimeoutConfigMap(BaseClientModel):
     @validator(
         "create_command_timeout",
         "other_commands_timeout",
+        "graphene_timeout",
         pre=True,
     )
     def validate_decimals(cls, v: str, field: Field):
