@@ -53,7 +53,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
     def _candles_data_mock(self):
         data = self.get_candles_rest_data_mock()
         return self.data_feed._parse_rest_candles(data=data,
-                                                  end_time=self.end_time)
+                                                  end_time=self.end_time)[-4:]
 
     @staticmethod
     def get_candles_rest_data_mock():
