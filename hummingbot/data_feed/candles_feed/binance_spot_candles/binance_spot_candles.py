@@ -16,7 +16,8 @@ class BinanceSpotCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
+    def __init__(self, trading_pair: str, interval: str = "1m",
+                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         super().__init__(trading_pair, interval, max_records)
 
     @property
