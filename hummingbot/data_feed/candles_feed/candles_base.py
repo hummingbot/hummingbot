@@ -139,7 +139,7 @@ class CandlesBase(NetworkBase):
         """
         return pd.DataFrame(self._candles, columns=self.columns, dtype=float)
 
-    def get_exchange_trading_pair(self, trading_pair):
+    def get_exchange_trading_pair(self, trading_pairc):
         raise NotImplementedError
 
     def load_candles_from_csv(self, data_path: str):
@@ -188,11 +188,13 @@ class CandlesBase(NetworkBase):
         if not np.all(np.diff(timestamps) >= 0):
             self.logger().warning("Candles are not sorted by timestamp in ascending order.")
             self._reset_candles()
+            return
         timestamp_steps = np.unique(np.diff(timestamps))
         interval_in_seconds = self.get_seconds_from_interval(self.interval)
         if not np.all(timestamp_steps == interval_in_seconds):
             self.logger().warning("Candles are malformed. Restarting...")
             self._reset_candles()
+            return
 
     def _reset_candles(self):
         self._ws_candle_available.clear()
