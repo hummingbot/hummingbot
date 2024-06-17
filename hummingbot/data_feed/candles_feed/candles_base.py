@@ -282,8 +282,7 @@ class CandlesBase(NetworkBase):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=self.wss_url,
-                         ping_timeout=30)
+        await ws.connect(ws_url=self.wss_url, ping_timeout=30)
         return ws
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -311,6 +310,7 @@ class CandlesBase(NetworkBase):
         raise NotImplementedError
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        # TODO: Implement a way to handle ping pong messages
         async for ws_response in websocket_assistant.iter_messages():
             data = ws_response.data
             parsed_message = self._parse_websocket_message(data)
