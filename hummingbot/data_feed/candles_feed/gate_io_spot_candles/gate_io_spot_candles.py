@@ -1,8 +1,6 @@
 import logging
 import time
-from typing import Optional
-
-import numpy as np
+from typing import List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
@@ -43,6 +41,10 @@ class GateioSpotCandles(CandlesBase):
         return self.rest_url + CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_endpoint(self):
+        return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
@@ -59,25 +61,15 @@ class GateioSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "_")
 
-    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
-                            limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def _get_rest_candles_params(self,
+                                 start_time: Optional[int] = None,
+                                 end_time: Optional[int] = None,
+                                 limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
         """
-            Fetches candles data from the exchange.
+        For API documentation, please refer to:
+        https://www.gate.io/docs/developers/apiv4/en/#market-candlesticks
 
-            - Timestamp must be in seconds
-            - The array must be sorted by timestamp in ascending order. Oldest first, newest last.
-            - The array must be in the format: [timestamp, open, high, low, close, volume, quote_asset_volume, n_trades,
-            taker_buy_base_volume, taker_buy_quote_volume]
-
-            For API documentation, please refer to:
-            https://www.gate.io/docs/developers/apiv4/en/#market-candlesticks
-
-            This API only accepts a limit of 10000 candles ago.
-
-            :param start_time: the start time of the candles data to fetch
-            :param end_time: the end time of the candles data to fetch
-            :param limit: the maximum number of candles to fetch
-            :return: the candles data
+        This API only accepts a limit of 10000 candles ago.
         """
         if start_time is None:
             start_time = end_time - (limit - 1) * self.interval_in_seconds
@@ -86,18 +78,16 @@ class GateioSpotCandles(CandlesBase):
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Gate.io REST API does not support fetching more than 10000 candles ago.")
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        params = {
+        return {
             "currency_pair": self._ex_trading_pair,
             "interval": self.interval,
             "from": start_time,
             "to": end_time
         }
-        candles = await rest_assistant.execute_request(url=self.candles_url,
-                                                       throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
-                                                       params=params)
+
+    def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         new_hb_candles = []
-        for i in candles:
+        for i in data:
             timestamp = self.ensure_timestamp_in_seconds(i[0])
             if timestamp == end_time:
                 continue
@@ -114,7 +104,7 @@ class GateioSpotCandles(CandlesBase):
             new_hb_candles.append([timestamp, open, high, low, close, volume,
                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                    taker_buy_quote_volume])
-        return np.array(new_hb_candles).astype(float)
+        return new_hb_candles
 
     def ws_subscription_payload(self):
         return {

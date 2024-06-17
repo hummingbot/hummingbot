@@ -1,7 +1,7 @@
 import asyncio
 import os
 from collections import deque
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ class CandlesBase(NetworkBase):
         self._listen_candles_task: Optional[asyncio.Task] = None
         self._trading_pair = trading_pair
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
-        self._first_candle_ok = asyncio.Event()
+        self._ws_candle_available = asyncio.Event()
         if interval in self.intervals.keys():
             self.interval = interval
         else:
@@ -107,6 +107,10 @@ class CandlesBase(NetworkBase):
 
     @property
     def candles_url(self):
+        raise NotImplementedError
+
+    @property
+    def candles_endpoint(self):
         raise NotImplementedError
 
     @property
@@ -191,19 +195,42 @@ class CandlesBase(NetworkBase):
             self._reset_candles()
 
     def _reset_candles(self):
-        self._first_candle_ok.clear()
+        self._ws_candle_available.clear()
         self._candles.clear()
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
-                            limit: Optional[int] = None) -> np.ndarray:
+                            end_time: Optional[int] = None):
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        params = self._get_rest_candles_params(start_time, end_time)
+        candles = await rest_assistant.execute_request(url=self.candles_url,
+                                                       throttler_limit_id=self.candles_endpoint,
+                                                       params=params)
+        arr = self._parse_rest_candles(candles, end_time)
+        return np.array(arr).astype(float)
+
+    def _get_rest_candles_params(self,
+                                 start_time: Optional[int] = None,
+                                 end_time: Optional[int] = None,
+                                 limit: Optional[int] = None) -> dict:
         """
-        This is an abstract method that must be implemented by a subclass to fetch candles from the exchange API.
-        :param start_time: start time in seconds to fetch candles
-        :param end_time: end time in seconds to fetch candles
-        :param limit: quantity of candles
-        :return: numpy array with the candlesticks
+        This method returns the parameters for the candles REST request.
+
+        :param start_time: the start time of the candles data to fetch
+        :param end_time: the end time of the candles data to fetch
+        """
+        raise NotImplementedError
+
+    def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
+        """
+        This method parses the candles data fetched from the REST API.
+
+        - Timestamp must be in seconds
+        - The array must be sorted by timestamp in ascending order. Oldest first, newest last.
+        - The array must be in the format: [timestamp, open, high, low, close, volume, quote_asset_volume, n_trades,
+        taker_buy_base_volume, taker_buy_quote_volume]
+
+        :param data: the candles data fetched from the REST API
         """
         raise NotImplementedError
 
@@ -212,16 +239,13 @@ class CandlesBase(NetworkBase):
         This method fills the historical candles in the _candles deque until it reaches the maximum length.
         """
         while not self.ready:
-            await self._first_candle_ok.wait()
+            await self._ws_candle_available.wait()
             try:
                 end_timestamp = int(self._candles[0][0])
-                if len(self._candles) < self._candles.maxlen:
-                    candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp)
-                    missing_records = self._candles.maxlen - len(self._candles)
-                    records_to_add = min(missing_records, len(candles))
-                    self._candles.extendleft(candles[-records_to_add:][::-1])
-                else:
-                    break
+                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp)
+                missing_records = self._candles.maxlen - len(self._candles)
+                records_to_add = min(missing_records, len(candles))
+                self._candles.extendleft(candles[-records_to_add:][::-1])
             except asyncio.CancelledError:
                 raise
             except ValueError:
@@ -306,7 +330,7 @@ class CandlesBase(NetworkBase):
                                         parsed_message["taker_buy_quote_volume"]]).astype(float)
                 if len(self._candles) == 0:
                     self._candles.append(candles_row)
-                    self._first_candle_ok.set()
+                    self._ws_candle_available.set()
                     safe_ensure_future(self.fill_historical_candles())
                 else:
                     latest_timestamp = int(self._candles[-1][0])

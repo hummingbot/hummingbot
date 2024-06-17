@@ -2,8 +2,6 @@ import logging
 import time
 from typing import List, Optional
 
-import numpy as np
-
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.kraken_spot_candles import constants as CONSTANTS
@@ -45,6 +43,10 @@ class KrakenSpotCandles(CandlesBase):
         return self.rest_url + CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_endpoint(self):
+        return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
@@ -80,41 +82,25 @@ class KrakenSpotCandles(CandlesBase):
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
 
-    async def fetch_candles(self,
-                            start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
-                            limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def _get_rest_candles_params(self,
+                                 start_time: Optional[int] = None,
+                                 end_time: Optional[int] = None,
+                                 limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
         """
-        Fetches candles data from the exchange.
-
-        - Timestamp must be in seconds
-        - The array must be sorted by timestamp in ascending order. Oldest first, newest last.
-        - The array must be in the format: [timestamp, open, high, low, close, volume, quote_asset_volume, n_trades,
-        taker_buy_base_volume, taker_buy_quote_volume]
-
         For API documentation, please refer to:
         https://docs.kraken.com/rest/#tag/Spot-Market-Data/operation/getOHLCData
 
         This endpoint allows you to return up to 3600 candles ago.
-
-        :param start_time: the start time of the candles data to fetch
-        :param end_time: the end time of the candles data to fetch
-        :param limit: the maximum number of candles to fetch
-        :return: the candles data
         """
         if start_time is None:
             start_time = end_time - self.interval_in_seconds * (limit - 1)
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Kraken REST API does not support fetching more than 720 candles ago.")
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        params = {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval], "since": start_time}
-        candles = await rest_assistant.execute_request(url=self.candles_url,
-                                                       throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
-                                                       params=params)
+        return {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval], "since": start_time}
 
-        data: List = next(iter(candles["result"].values()))
-
+    def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
+        data: List = next(iter(data["result"].values()))
         new_hb_candles = []
         for i in data:
             timestamp = self.ensure_timestamp_in_seconds(float(i[0])) - self.interval_in_seconds
@@ -130,7 +116,7 @@ class KrakenSpotCandles(CandlesBase):
             new_hb_candles.append([timestamp, open, high, low, close, volume,
                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                    taker_buy_quote_volume])
-        return np.array(new_hb_candles).astype(float)
+        return new_hb_candles
 
     def ws_subscription_payload(self):
         return {
