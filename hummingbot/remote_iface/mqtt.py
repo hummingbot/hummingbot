@@ -61,6 +61,10 @@ class CommandTopicSpecs:
     BALANCE_LIMIT: str = '/balance/limit'
     BALANCE_PAPER: str = '/balance/paper'
     COMMAND_SHORTCUT: str = '/command_shortcuts'
+    EXHCNAGE_INFO: str = '/exchange_info'
+    USER_DIRECTED_TRADE: str = '/user_directed/trade'
+    USER_DIRECTED_CANCEL: str = '/user_directed/cancel'
+    USER_DIRECTED_LIST_ACTIVE_ORDERS: str = '/user_directed/list_active_orders'
 
 
 class TopicSpecs:
@@ -72,6 +76,7 @@ class TopicSpecs:
     STATUS_UPDATES: str = '/status_updates'
     HEARTBEATS: str = '/hb'
     EXTERNAL_EVENTS: str = '/external/event/*'
+    USER_DIRECTED_ORDER_UPDATES: str = '/user_directed/order_updates'
 
 
 class MQTTCommands:
