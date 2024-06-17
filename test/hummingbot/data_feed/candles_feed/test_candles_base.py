@@ -31,6 +31,8 @@ class TestCandlesBase(unittest.TestCase, ABC):
         super().setUp()
         self.mocking_assistant: NetworkMockingAssistant = None
         self.data_feed: CandlesBase = None
+        self.start_time = 10e14
+        self.end_time = 10e17
 
         self.log_records = []
         self.resume_test_event = asyncio.Event()
@@ -49,7 +51,9 @@ class TestCandlesBase(unittest.TestCase, ABC):
         return ret
 
     def _candles_data_mock(self):
-        return self.data_feed._parse_rest_candles(self.get_candles_rest_data_mock())[-4:]
+        data = self.get_candles_rest_data_mock()
+        return self.data_feed._parse_rest_candles(data=data,
+                                                  end_time=self.end_time)
 
     @staticmethod
     def get_candles_rest_data_mock():
@@ -161,13 +165,12 @@ class TestCandlesBase(unittest.TestCase, ABC):
 
     @aioresponses()
     def test_fetch_candles(self, mock_api):
-        start_time = 1672981200
-        end_time = 1672992000
         regex_url = re.compile(f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
 
-        resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=start_time, end_time=end_time))
+        resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
+                                                                        end_time=self.end_time))
 
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))
         self.assertEqual(resp.shape[1], 10)
