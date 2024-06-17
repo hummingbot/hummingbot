@@ -1,7 +1,5 @@
 import logging
-from typing import Optional
-
-import numpy as np
+from typing import List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.data_feed.candles_feed.binance_spot_candles import constants as CONSTANTS
@@ -42,6 +40,10 @@ class BinanceSpotCandles(CandlesBase):
         return self.rest_url + CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_endpoint(self):
+        return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
@@ -58,9 +60,10 @@ class BinanceSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
-    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
-                            limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
-        rest_assistant = await self._api_factory.get_rest_assistant()
+    def _get_rest_candles_params(self,
+                                 start_time: Optional[int] = None,
+                                 end_time: Optional[int] = None,
+                                 limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
         params = {
             "symbol": self._ex_trading_pair,
             "interval": self.interval,
@@ -70,14 +73,13 @@ class BinanceSpotCandles(CandlesBase):
             params["startTime"] = start_time * 1000
         if end_time:
             params["endTime"] = end_time * 1000
-        response = await rest_assistant.execute_request(url=self.candles_url,
-                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
-                                                        params=params)
-        candles = np.array([[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
-                             row[7], row[8], row[9], row[10]]
-                            for row in response if self.ensure_timestamp_in_seconds(row[0]) < end_time]
-                           ).astype(float)
-        return candles
+        return params
+
+    def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
+        return [
+            [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
+             row[7], row[8], row[9], row[10]]
+            for row in data if self.ensure_timestamp_in_seconds(row[0]) < end_time]
 
     def ws_subscription_payload(self):
         candle_params = [f"{self._ex_trading_pair.lower()}@kline_{self.interval}"]
