@@ -90,7 +90,7 @@ class TestOKXSpotCandles(TestCandlesBase):
         data = {
             "arg": {
                 "channel": "candle1H",
-                "instId": "BTC-USDT"},
+                "instId": self.ex_trading_pair},
             "data": [
                 ["1705420800000",
                  "43253.6",
@@ -107,7 +107,7 @@ class TestOKXSpotCandles(TestCandlesBase):
         data = {
             "arg": {
                 "channel": "candle1H",
-                "instId": "BTC-USDT"},
+                "instId": self.ex_trading_pair},
             "data": [
                 ["1705435200000",
                  "43169.8",
