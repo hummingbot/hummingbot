@@ -36,6 +36,7 @@ from hummingbot.remote_iface.messages import (
     BalancePaperCommandMessage,
     CommandShortcutMessage,
     ConfigCommandMessage,
+    ExchangeInfoCommandMessage,
     ExternalEventMessage,
     HistoryCommandMessage,
     ImportCommandMessage,
@@ -46,6 +47,9 @@ from hummingbot.remote_iface.messages import (
     StatusCommandMessage,
     StatusUpdateMessage,
     StopCommandMessage,
+    UserDirectedCancelCommandMessage,
+    UserDirectedListActiveOrdersCommandMessage,
+    UserDirectedTradeCommandMessage,
 )
 
 mqtts_logger: HummingbotLogger = None
@@ -61,7 +65,7 @@ class CommandTopicSpecs:
     BALANCE_LIMIT: str = '/balance/limit'
     BALANCE_PAPER: str = '/balance/paper'
     COMMAND_SHORTCUT: str = '/command_shortcuts'
-    EXHCNAGE_INFO: str = '/exchange_info'
+    EXCHANGE_INFO: str = '/exchange_info'
     USER_DIRECTED_TRADE: str = '/user_directed/trade'
     USER_DIRECTED_CANCEL: str = '/user_directed/cancel'
     USER_DIRECTED_LIST_ACTIVE_ORDERS: str = '/user_directed/list_active_orders'
@@ -105,6 +109,10 @@ class MQTTCommands:
         self._balance_limit_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.BALANCE_LIMIT}'
         self._balance_paper_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.BALANCE_PAPER}'
         self._shortcuts_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.COMMAND_SHORTCUT}'
+        self._exchange_info_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.EXCHANGE_INFO}'
+        self._user_directed_trade_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.USER_DIRECTED_TRADE}'
+        self._user_directed_cancel_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.USER_DIRECTED_CANCEL}'
+        self._user_directed_list_active_orders_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.USER_DIRECTED_LIST_ACTIVE_ORDERS}'
 
         self._init_commands()
 
@@ -363,6 +371,22 @@ class MQTTCommands:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
         return response
+
+    def _on_cmd_exchange_info(self, msg: ExchangeInfoCommandMessage.Request):
+        # TODO: forward this to the user directed trade strategy
+        pass
+
+    def _on_cmd_user_directed_trade(self, msg: UserDirectedTradeCommandMessage):
+        # TODO: forward this to the user directed trade strategy
+        pass
+
+    def _on_cmd_user_directed_cancel(self, msg: UserDirectedCancelCommandMessage):
+        # TODO: forward this to the user directed trade strategy
+        pass
+
+    def _on_cmd_user_directed_list_active_orders(self, msg: UserDirectedListActiveOrdersCommandMessage):
+        # TODO: forward this to the user directed trade strategy
+        pass
 
 
 class MQTTMarketEventForwarder:
