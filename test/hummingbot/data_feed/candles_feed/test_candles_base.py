@@ -4,7 +4,6 @@ import os
 import re
 import unittest
 from abc import ABC
-from collections import deque
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -49,15 +48,14 @@ class TestCandlesBase(unittest.TestCase, ABC):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    @staticmethod
-    def _candles_data_mock():
-        return deque([
-            [1622505600, 36000, 36200, 35800, 36100, 10, 360000, 100, 5, 180000],
-            [1622509200, 36100, 36300, 35900, 36200, 12, 432000, 120, 6, 216000]
-        ])
+    def _candles_data_mock(self):
+        return self.data_feed._parse_rest_candles(self.get_candles_rest_data_mock())[-4:]
 
     @staticmethod
     def get_candles_rest_data_mock():
+        """
+        Returns a mock response from the exchange REST API endpoint. At least it must contain four candles.
+        """
         raise NotImplementedError
 
     def get_fetch_candles_data_mock(self):
@@ -103,7 +101,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
                                                   columns=self.data_feed.columns)
 
         self.data_feed.load_candles_from_csv("/path/to/data")
-        self.assertEqual(len(self.data_feed._candles), 2)
+        self.assertEqual(len(self.data_feed._candles), 4)
 
     @patch("os.path.exists", return_value=False)
     def test_load_candles_from_csv_file_not_found(self, _):
@@ -125,12 +123,12 @@ class TestCandlesBase(unittest.TestCase, ABC):
         correct_data = self._candles_data_mock().copy()
         self.data_feed._candles.extend(correct_data)
         self.assertIsNone(self.data_feed.check_candles_sorted_and_equidistant(correct_data))
-        self.assertEqual(len(self.data_feed._candles), 2)
+        self.assertEqual(len(self.data_feed._candles), 4)
 
     def test_check_candles_sorted_and_equidistant_reset_candles_if_not_ascending(self):
         reversed_data = list(self._candles_data_mock())[::-1]
         self.data_feed._candles.extend(reversed_data)
-        self.assertEqual(len(self.data_feed._candles), 2)
+        self.assertEqual(len(self.data_feed._candles), 4)
         self.data_feed.check_candles_sorted_and_equidistant(reversed_data)
         self.is_logged("WARNING", "Candles are not sorted by timestamp in ascending order.")
         self.assertEqual(len(self.data_feed._candles), 0)
@@ -139,7 +137,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
         not_equidistant_data = self._candles_data_mock()
         not_equidistant_data[0][0] += 1
         self.data_feed._candles.extend(not_equidistant_data)
-        self.assertEqual(len(self.data_feed._candles), 2)
+        self.assertEqual(len(self.data_feed._candles), 4)
         self.data_feed.check_candles_sorted_and_equidistant(not_equidistant_data)
         self.is_logged("WARNING", "Candles are malformed. Restarting...")
         self.assertEqual(len(self.data_feed._candles), 0)
@@ -148,7 +146,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
         self.data_feed._candles.extend(self._candles_data_mock())
         self.data_feed._ws_candle_available.set()
         self.assertEqual(self.data_feed._ws_candle_available.is_set(), True)
-        self.assertEqual(len(self.data_feed._candles), 2)
+        self.assertEqual(len(self.data_feed._candles), 4)
         self.data_feed._reset_candles()
         self.assertEqual(len(self.data_feed._candles), 0)
         self.assertEqual(self.data_feed._ws_candle_available.is_set(), False)
