@@ -31,7 +31,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
         super().setUp()
         self.mocking_assistant: NetworkMockingAssistant = None
         self.data_feed: CandlesBase = None
-        self.start_time = 10e14
+        self.start_time = 10e6
         self.end_time = 10e17
 
         self.log_records = []
