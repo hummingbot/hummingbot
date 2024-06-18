@@ -205,9 +205,11 @@ class CandlesBase(NetworkBase):
                             end_time: Optional[int] = None):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = self._get_rest_candles_params(start_time, end_time)
+        headers = self._get_rest_candles_headers()
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=self.candles_endpoint,
-                                                       params=params)
+                                                       params=params,
+                                                       headers=headers)
         arr = self._parse_rest_candles(candles, end_time)
         return np.array(arr).astype(float)
 
@@ -235,6 +237,12 @@ class CandlesBase(NetworkBase):
         :param data: the candles data fetched from the REST API
         """
         raise NotImplementedError
+
+    def _get_rest_candles_headers(self):
+        """
+        This method returns the headers for the candles REST request.
+        """
+        pass
 
     async def fill_historical_candles(self):
         """
