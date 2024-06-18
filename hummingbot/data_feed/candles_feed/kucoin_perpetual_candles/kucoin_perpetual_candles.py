@@ -28,10 +28,10 @@ class KucoinPerpetualCandles(CandlesBase):
                  interval: str = "1min",
                  max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         self.symbols_dict = {}
-        super().__init__(trading_pair, interval, max_records)
-        self.hb_base_asset = self._trading_pair.split("-")[0]
+        self.hb_base_asset = trading_pair.split("-")[0]
+        self.quote_asset = trading_pair.split("-")[1]
         self.kucoin_base_asset = self.get_kucoin_base_asset()
-        self.quote_asset = self._trading_pair.split("-")[1]
+        super().__init__(trading_pair, interval, max_records)
 
     def get_kucoin_base_asset(self):
         for hb_asset, kucoin_value in CONSTANTS.HB_TO_KUCOIN_MAP.items():
@@ -89,7 +89,7 @@ class KucoinPerpetualCandles(CandlesBase):
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
-        return f"{self.kucoin_base_asset}-{self.quote_asset}" if bool(self.symbols_dict) else None
+        return f"{self.kucoin_base_asset}-{self.quote_asset}"
 
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
@@ -114,7 +114,7 @@ class KucoinPerpetualCandles(CandlesBase):
                 for row in data['data'] if self.ensure_timestamp_in_seconds(row[0]) < end_time]
 
     def ws_subscription_payload(self):
-        topic_candle = f"{self.symbols_dict[self._trading_pair]}_{CONSTANTS.INTERVALS[self.interval]}"
+        topic_candle = f"{self.symbols_dict[self._ex_trading_pair]}_{CONSTANTS.INTERVALS[self.interval]}"
         payload = {
             "id": str(get_tracking_nonce()),
             "type": "subscribe",
@@ -159,7 +159,6 @@ class KucoinPerpetualCandles(CandlesBase):
             for symbol in symbols:
                 symbols_dict[f"{symbol['baseCurrency']}-{symbol['quoteCurrency']}"] = symbol["symbol"]
             self.symbols_dict = symbols_dict
-            self._ex_trading_pair = symbols_dict[self._trading_pair]
         except Exception:
             self.logger().error("Error fetching symbols from Kucoin.")
             raise
