@@ -618,6 +618,22 @@ class KrakenExchange(ExchangePyBase):
             self._account_balances[cleaned_name] = total_balance
             remote_asset_names.add(cleaned_name)
 
+        for cleaned_name, ava_balance in self._account_available_balances.items():
+            if cleaned_name.endswith(".F"):
+                asset_normal_name = cleaned_name.split(".")[0]
+                cleaned_normal_name = convert_from_exchange_symbol(asset_normal_name).upper()
+                new_total_amount = self._account_available_balances.get(cleaned_normal_name, 0) + ava_balance
+                self._account_available_balances.update({cleaned_normal_name: new_total_amount})
+                self._account_available_balances.update({cleaned_name: 0})
+
+        for cleaned_name, total_balance in self._account_balances.items():
+            if cleaned_name.endswith(".F"):
+                asset_normal_name = cleaned_name.split(".")[0]
+                cleaned_normal_name = convert_from_exchange_symbol(asset_normal_name).upper()
+                new_total_amount = self._account_balances.get(cleaned_normal_name, 0) + total_balance
+                self._account_balances.update({cleaned_normal_name: new_total_amount})
+                self._account_balances.update({cleaned_name: 0})
+
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
