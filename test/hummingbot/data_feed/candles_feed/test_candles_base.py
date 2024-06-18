@@ -4,6 +4,7 @@ import os
 import re
 import unittest
 from abc import ABC
+from collections import deque
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -51,9 +52,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
         return ret
 
     def _candles_data_mock(self):
-        data = self.get_candles_rest_data_mock()
-        return self.data_feed._parse_rest_candles(data=data,
-                                                  end_time=self.end_time)[-4:]
+        return deque(self.get_fetch_candles_data_mock()[-4:])
 
     @staticmethod
     def get_candles_rest_data_mock():
