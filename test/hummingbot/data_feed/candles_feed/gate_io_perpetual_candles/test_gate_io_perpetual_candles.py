@@ -31,8 +31,12 @@ class TestGateioPerpetualCandles(TestCandlesBase):
         self.data_feed.logger().addHandler(self)
         self.resume_test_event = asyncio.Event()
 
-    def get_fetch_candles_data_mock(self):
-        return self.get_candles_rest_data_mock()
+    @staticmethod
+    def get_fetch_candles_data_mock():
+        return [[1685167200, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0],
+                [1685170800, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0],
+                [1685174400, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0],
+                [1685178000, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0]]
 
     @staticmethod
     def get_candles_rest_data_mock():

@@ -1,8 +1,6 @@
 import asyncio
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
-import numpy as np
-
 import hummingbot.data_feed.candles_feed.okx_spot_candles.constants as CONSTANTS
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles import OKXPerpetualCandles
@@ -31,11 +29,6 @@ class TestOKXPerpetualCandles(TestCandlesBase):
         self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
-
-    def get_fetched_candles_data_mock(self):
-        candles = self.get_candles_rest_data_mock()
-        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"][::-1]]
-        return np.array(arr).astype(float)
 
     @staticmethod
     def get_candles_rest_data_mock():
@@ -92,7 +85,10 @@ class TestOKXPerpetualCandles(TestCandlesBase):
         return data
 
     def get_fetch_candles_data_mock(self):
-        return self.get_candles_rest_data_mock()["data"]
+        return [[1718647200.0, '66602', '67320', '66543.3', '67087', '13459.959', '900743428.1363', 0.0, 0.0, 0.0],
+                [1718650800.0, '67087.1', '67099.8', '66560', '66683.9', '4499.461', '300581935.693', 0.0, 0.0, 0.0],
+                [1718654400.0, '66684', '66765.1', '66171.3', '66400.6', '5325.668', '353728101.5321', 0.0, 0.0, 0.0],
+                [1718658000.0, '66401', '66734', '66310.1', '66575.3', '2016.056', '134181486.8892', 0.0, 0.0, 0.0]]
 
     def get_candles_ws_data_mock_1(self):
         data = {
