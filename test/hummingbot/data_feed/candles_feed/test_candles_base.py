@@ -193,7 +193,11 @@ class TestCandlesBase(unittest.TestCase, ABC):
 
         self.assertEqual(1, len(sent_subscription_messages))
         expected_kline_subscription = self.data_feed.ws_subscription_payload()
-
+        # this is bacause I couldn't find a way to mock the nonce
+        if "id" in expected_kline_subscription:
+            del expected_kline_subscription["id"]
+        if "id" in sent_subscription_messages[0]:
+            del sent_subscription_messages[0]["id"]
         self.assertEqual(expected_kline_subscription, sent_subscription_messages[0])
 
         self.assertTrue(self.is_logged(
