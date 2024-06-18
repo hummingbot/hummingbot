@@ -10,6 +10,7 @@ from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCan
 from hummingbot.data_feed.candles_feed.kraken_spot_candles.kraken_spot_candles import KrakenSpotCandles
 from hummingbot.data_feed.candles_feed.kucoin_perpetual_candles.kucoin_perpetual_candles import KucoinPerpetualCandles
 from hummingbot.data_feed.candles_feed.kucoin_spot_candles.kucoin_spot_candles import KucoinSpotCandles
+from hummingbot.data_feed.candles_feed.mexc_spot_candles.mexc_spot_candles import MexcSpotCandles
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
 from hummingbot.data_feed.candles_feed.okx_spot_candles.okx_spot_candles import OKXSpotCandles
 
@@ -38,7 +39,8 @@ class CandlesFactory:
         "ascend_ex": AscendExSpotCandles,
         "okx_perpetual": OKXPerpetualCandles,
         "okx": OKXSpotCandles,
-        "kraken": KrakenSpotCandles
+        "kraken": KrakenSpotCandles,
+        "mexc": MexcSpotCandles,
     }
 
     @classmethod
