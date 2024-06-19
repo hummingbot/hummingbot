@@ -2,12 +2,12 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.data_feed.candles_feed.bybit_spot_candles import constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.bybit_perpetual_candles import constants as CONSTANTS
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.logger import HummingbotLogger
 
 
-class BybitSpotCandles(CandlesBase):
+class BybitPerpetualCandles(CandlesBase):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -23,7 +23,7 @@ class BybitSpotCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"bybit_{self._trading_pair}"
+        return f"bybit_perpetual_{self._trading_pair}"
 
     @property
     def rest_url(self):
@@ -94,7 +94,7 @@ class BybitSpotCandles(CandlesBase):
 
     def ws_subscription_payload(self):
         interval = CONSTANTS.INTERVALS[self.interval]
-        trading_pair = self.get_exchange_trading_pair(self._trading_pair)
+        trading_pair = self.get_exchange_trading_pair(self._ex_trading_pair)
         candle_params = [f"kline.{interval}.{trading_pair}"]
         payload = {
             "op": "subscribe",
