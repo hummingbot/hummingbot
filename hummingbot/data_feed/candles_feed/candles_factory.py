@@ -3,6 +3,8 @@ from typing import Dict, Type
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
+from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_candles import BybitPerpetualCandles
+from hummingbot.data_feed.candles_feed.bybit_spot_candles.bybit_spot_candles import BybitSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
@@ -42,7 +44,9 @@ class CandlesFactory:
         "okx": OKXSpotCandles,
         "kraken": KrakenSpotCandles,
         "mexc": MexcSpotCandles,
-        "mexc_perpetual": MexcPerpetualCandles
+        "mexc_perpetual": MexcPerpetualCandles,
+        "bybit": BybitSpotCandles,
+        "bybit_perpetual": BybitPerpetualCandles
     }
 
     @classmethod
