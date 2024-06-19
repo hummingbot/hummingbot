@@ -85,7 +85,7 @@ class MexcPerpetualCandles(CandlesBase):
         if content is not None:
             ohlc = list(zip(content["time"], content["open"], content["high"], content["low"], content["close"],
                             content["vol"], content["amount"]))
-            return [[self.ensure_timestamp_in_seconds(c[0]), c[1], c[2], c[3], c[4], c[5], c[6]] for c in ohlc if c[0] < end_time]
+            return [[self.ensure_timestamp_in_seconds(c[0]), c[1], c[2], c[3], c[4], c[5], c[6], 0., 0., 0.] for c in ohlc if c[0] < end_time]
 
     def ws_subscription_payload(self):
         return {

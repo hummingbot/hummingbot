@@ -1,7 +1,7 @@
 import asyncio
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
-import hummingbot.data_feed.candles_feed.binance_perpetual_candles.constants as CONSTANTS
+import hummingbot.data_feed.candles_feed.mexc_perpetual_candles.constants as CONSTANTS
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.mexc_perpetual_candles import MexcPerpetualCandles
 
@@ -18,7 +18,7 @@ class TestMexcPerpetualCandles(TestCandlesBase):
         cls.quote_asset = "USDT"
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = cls.base_asset + cls.quote_asset
+        cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.max_records = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
 
     def setUp(self) -> None:
@@ -32,112 +32,127 @@ class TestMexcPerpetualCandles(TestCandlesBase):
         self.resume_test_event = asyncio.Event()
 
     def get_fetch_candles_data_mock(self):
-        return
+        return [[1717632000, 3868.6, 3870, 3860.14, 3862.3, 851390, 32903657.9187, 0.0, 0.0, 0.0],
+                [1717635600, 3862.3, 3873.61, 3856.32, 3864.04, 705088, 27251412.0495, 0.0, 0.0, 0.0],
+                [1717639200, 3864.04, 3881.99, 3862.3, 3871.27, 608801, 23576631.8815, 0.0, 0.0, 0.0],
+                [1717642800, 3871.27, 3876.18, 3862.99, 3864.01, 484966, 18769321.3995, 0.0, 0.0, 0.0]]
 
     def get_candles_rest_data_mock(self):
-        return [
-            [
-                1718726400000,
-                "64698.66",
-                "64868.98",
-                "64336",
-                "64700.98",
-                "575.730117",
-                1718730000000,
-                "37155549.91"
-            ],
-            [
-                1718730000000,
-                "64700.98",
-                "64904.91",
-                "64400",
-                "64603.99",
-                "917.852709",
-                1718733600000,
-                "59373594.99"
-            ],
-            [
-                1718733600000,
-                "64603.99",
-                "64867.88",
-                "64321",
-                "64678.01",
-                "1007.168584",
-                1718737200000,
-                "65139730.47"
-            ],
-            [
-                1718737200000,
-                "64678.01",
-                "64738.83",
-                "64066.01",
-                "64422.01",
-                "862.944706",
-                1718740800000,
-                "55564341.51"
-            ],
-            [
-                1718740800000,
-                "64422.01",
-                "64683.84",
-                "64178.1",
-                "64565.49",
-                "552.774673",
-                1718744400000,
-                "35628336.98"
-            ]
-        ]
+        return {
+            "success": True,
+            "code": 0,
+            "data": {
+                "time": [
+                    1717632000,
+                    1717635600,
+                    1717639200,
+                    1717642800
+                ],
+                "open": [
+                    3868.6,
+                    3862.3,
+                    3864.04,
+                    3871.27
+                ],
+                "close": [
+                    3862.3,
+                    3864.04,
+                    3871.27,
+                    3864.01
+                ],
+                "high": [
+                    3870,
+                    3873.61,
+                    3881.99,
+                    3876.18
+                ],
+                "low": [
+                    3860.14,
+                    3856.32,
+                    3862.3,
+                    3862.99
+                ],
+                "vol": [
+                    851390,
+                    705088,
+                    608801,
+                    484966
+                ],
+                "amount": [
+                    32903657.9187,
+                    27251412.0495,
+                    23576631.8815,
+                    18769321.3995
+                ],
+                "realOpen": [
+                    3868.61,
+                    3862.29,
+                    3864.04,
+                    3871.26
+                ],
+                "realClose": [
+                    3862.3,
+                    3864.04,
+                    3871.27,
+                    3864.01
+                ],
+                "realHigh": [
+                    3870,
+                    3873.61,
+                    3881.99,
+                    3876.18
+                ],
+                "realLow": [
+                    3860.14,
+                    3856.32,
+                    3862.3,
+                    3862.99
+                ]
+            }
+        }
 
     def get_candles_ws_data_mock_1(self):
         return {
-            'e': 'kline',
-            'E': 1718667728540,
-            's': 'BTCUSDT',
-            'k': {
-                't': 1718667720000,
-                'T': 1718667779999,
-                's': 'BTCUSDT',
-                'i': '1m',
-                'f': 3640284441,
-                'L': 3640284686,
-                'o': '66477.91000000',
-                'c': '66472.20000000',
-                'h': '66477.91000000',
-                'l': '66468.00000000',
-                'v': '10.75371000',
-                'n': 246,
-                'x': False,
-                'q': '714783.46215380',
-                'V': '9.29532000',
-                'Q': '617844.95963270',
-                'B': '0'
-            }
+            "symbol": "BTC_USDT",
+            "data": {
+                "symbol": "BTC_USDT",
+                "interval": "Min60",
+                "t": 1718751060,
+                "o": 65213.5,
+                "c": 65210.5,
+                "h": 65233.5,
+                "l": 65208.5,
+                "a": 3344326.96161,
+                "q": 512797,
+                "ro": 65213.4,
+                "rc": 65210.5,
+                "rh": 65233.5,
+                "rl": 65208.5
+            },
+            "channel": "push.kline",
+            "ts": 1718751106472
         }
 
     def get_candles_ws_data_mock_2(self):
         return {
-            'e': 'kline',
-            'E': 1718667728540,
-            's': 'BTCUSDT',
-            'k': {
-                't': 1718671320000,
-                'T': 1718674920000,
-                's': 'BTCUSDT',
-                'i': '1m',
-                'f': 3640284441,
-                'L': 3640284686,
-                'o': '66477.91000000',
-                'c': '66472.20000000',
-                'h': '66477.91000000',
-                'l': '66468.00000000',
-                'v': '10.75371000',
-                'n': 246,
-                'x': False,
-                'q': '714783.46215380',
-                'V': '9.29532000',
-                'Q': '617844.95963270',
-                'B': '0'
-            }
+            "symbol": "BTC_USDT",
+            "data": {
+                "symbol": "BTC_USDT",
+                "interval": "Min60",
+                "t": 1718751061,
+                "o": 65213.5,
+                "c": 65210.5,
+                "h": 65233.5,
+                "l": 65208.5,
+                "a": 3344326.96161,
+                "q": 512797,
+                "ro": 65213.4,
+                "rc": 65210.5,
+                "rh": 65233.5,
+                "rl": 65208.5
+            },
+            "channel": "push.kline",
+            "ts": 1718751106472
         }
 
     @staticmethod
