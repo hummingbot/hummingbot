@@ -20,6 +20,11 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         # Set up barriers
         tp = Decimal(config.triple_barrier_config.take_profit) if config.triple_barrier_config.take_profit else None
         sl = Decimal(config.triple_barrier_config.stop_loss) if config.triple_barrier_config.stop_loss else None
+        trailing_sl_trigger_pct = None
+        trailing_sl_delta_pct = None
+        if config.triple_barrier_config.trailing_stop:
+            trailing_sl_trigger_pct = config.triple_barrier_config.trailing_stop.activation_price
+            trailing_sl_delta_pct = config.triple_barrier_config.trailing_stop.trailing_delta
         tl = config.triple_barrier_config.time_limit if config.triple_barrier_config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
 
@@ -30,6 +35,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         df_filtered['cum_fees_quote'] = 0.0
         df_filtered['filled_amount_quote'] = 0.0
         df_filtered["current_position_average_price"] = float(config.entry_price)
+        df_filtered['sl'] = float(sl)
 
         if pd.isna(start_timestamp):
             return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT)
@@ -44,16 +50,23 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         df_filtered['net_pnl_quote'] = df_filtered['net_pnl_pct'] * df_filtered['filled_amount_quote']
         df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
 
+        # Make sure the stop loss rises with the trailing stop trigger price (if any)
+        if trailing_sl_trigger_pct is not None and trailing_sl_trigger_pct is not None:
+            df_filtered.loc[df_filtered['net_pnl_pct'] > trailing_sl_trigger_pct, 'sl'] = df_filtered.loc[df_filtered['net_pnl_pct'] > trailing_sl_trigger_pct, 'net_pnl_pct'] - float(trailing_sl_delta_pct)
+
         # Determine the earliest close event
         first_tp_timestamp = df_filtered[df_filtered['net_pnl_pct'] > tp]['timestamp'].min() if tp else None
-        first_sl_timestamp = df_filtered[df_filtered['net_pnl_pct'] < -sl]['timestamp'].min() if sl else None
-        close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp] if not pd.isna(timestamp)])
+        first_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] < -df_filtered['sl']) & (df_filtered['sl'] == sl)]['timestamp'].min() if sl else None
+        first_trailing_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] < -df_filtered['sl']) & (df_filtered['sl'] != sl)]['timestamp'].min() if sl else None
+        close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp, first_trailing_sl_timestamp] if not pd.isna(timestamp)])
 
         # Determine the close type
         if close_timestamp == first_tp_timestamp:
             close_type = CloseType.TAKE_PROFIT
         elif close_timestamp == first_sl_timestamp:
             close_type = CloseType.STOP_LOSS
+        elif close_timestamp == first_trailing_sl_timestamp:
+            close_type = CloseType.TRAILING_STOP
         else:
             close_type = CloseType.TIME_LIMIT
 
