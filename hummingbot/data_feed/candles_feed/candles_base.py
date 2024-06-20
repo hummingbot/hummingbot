@@ -139,7 +139,7 @@ class CandlesBase(NetworkBase):
         """
         return pd.DataFrame(self._candles, columns=self.columns, dtype=float)
 
-    def get_exchange_trading_pair(self, trading_pairc):
+    def get_exchange_trading_pair(self, trading_pair):
         raise NotImplementedError
 
     def load_candles_from_csv(self, data_path: str):
