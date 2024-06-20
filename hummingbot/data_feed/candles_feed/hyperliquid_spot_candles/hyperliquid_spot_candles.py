@@ -63,11 +63,10 @@ class HyperliquidSpotCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
-        self._universe = await rest_assistant.execute_request(url=self.rest_url,
-                                                              method=RESTMethod.POST,
-                                                              throttler_limit_id=self.rest_url,
-                                                              data=CONSTANTS.HEALTH_CHECK_PAYLOAD)
-        self._universe_ready.set()
+        await rest_assistant.execute_request(url=self.rest_url,
+                                             method=RESTMethod.POST,
+                                             throttler_limit_id=self.rest_url,
+                                             data=CONSTANTS.HEALTH_CHECK_PAYLOAD)
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
@@ -146,7 +145,11 @@ class HyperliquidSpotCandles(CandlesBase):
         await self._initialize_coins_dict()
 
     async def _initialize_coins_dict(self):
-        await self._universe_ready.wait()
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        self._universe = await rest_assistant.execute_request(url=self.rest_url,
+                                                              method=RESTMethod.POST,
+                                                              throttler_limit_id=self.rest_url,
+                                                              data=CONSTANTS.HEALTH_CHECK_PAYLOAD)
         universe = {token["tokens"][0]: token["name"] for token in self._universe["universe"]}
         tokens = {token["index"]: token["name"] for token in self._universe["tokens"]}
         self._coins_dict = {tokens[index]: universe[index] for index in range(1, len(universe))}
