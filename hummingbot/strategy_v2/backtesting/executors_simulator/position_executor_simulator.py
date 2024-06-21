@@ -55,12 +55,14 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         # Make sure the stop loss rises with the trailing stop trigger price (if any)
         if trailing_sl_trigger_pct is not None and trailing_sl_trigger_pct is not None:
-            df_filtered.loc[df_filtered['net_pnl_pct'] > trailing_sl_trigger_pct, 'sl'] = df_filtered.loc[df_filtered['net_pnl_pct'] > trailing_sl_trigger_pct, 'net_pnl_pct'] - float(trailing_sl_delta_pct)
+            df_filtered.loc[df_filtered['net_pnl_pct'] > trailing_sl_trigger_pct, 'sl'] = (
+                df_filtered['net_pnl_pct'] - float(trailing_sl_delta_pct)
+            ).cummax()
 
         # Determine the earliest close event
         first_tp_timestamp = df_filtered[df_filtered['net_pnl_pct'] > tp]['timestamp'].min() if tp else None
         first_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] < -df_filtered['sl']) & (abs(df_filtered['sl'] - float(sl)) <= epsilon)]['timestamp'].min() if sl else None
-        first_trailing_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] > df_filtered['sl']) & (abs(df_filtered['sl'] - float(sl)) > epsilon)]['timestamp'].min() if sl else None
+        first_trailing_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] < df_filtered['sl']) & (abs(df_filtered['sl'] - float(sl)) > epsilon)]['timestamp'].min() if sl else None
         close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp, first_trailing_sl_timestamp] if not pd.isna(timestamp)])
 
         # Determine the close type
