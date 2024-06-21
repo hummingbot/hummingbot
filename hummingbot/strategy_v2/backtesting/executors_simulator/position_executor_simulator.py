@@ -17,6 +17,9 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
             start_timestamp = df['timestamp'].min()
         last_timestamp = df['timestamp'].max()
 
+        # Used to avoid precision errors with comparing floats
+        epsilon = 1e-4
+
         # Set up barriers
         tp = Decimal(config.triple_barrier_config.take_profit) if config.triple_barrier_config.take_profit else None
         sl = Decimal(config.triple_barrier_config.stop_loss) if config.triple_barrier_config.stop_loss else None
@@ -56,8 +59,8 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         # Determine the earliest close event
         first_tp_timestamp = df_filtered[df_filtered['net_pnl_pct'] > tp]['timestamp'].min() if tp else None
-        first_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] < -df_filtered['sl']) & (df_filtered['sl'] == sl)]['timestamp'].min() if sl else None
-        first_trailing_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] < -df_filtered['sl']) & (df_filtered['sl'] != sl)]['timestamp'].min() if sl else None
+        first_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] < -df_filtered['sl']) & (abs(df_filtered['sl'] - float(sl)) <= epsilon)]['timestamp'].min() if sl else None
+        first_trailing_sl_timestamp = df_filtered[(df_filtered['net_pnl_pct'] > df_filtered['sl']) & (abs(df_filtered['sl'] - float(sl)) > epsilon)]['timestamp'].min() if sl else None
         close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp, first_trailing_sl_timestamp] if not pd.isna(timestamp)])
 
         # Determine the close type
