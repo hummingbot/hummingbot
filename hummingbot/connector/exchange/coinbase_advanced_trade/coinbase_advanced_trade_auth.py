@@ -1,9 +1,8 @@
-import binascii
+import asyncio
 import hashlib
 import hmac
 import logging
 import secrets
-import textwrap
 from typing import Dict
 
 import coinbase.constants
@@ -11,12 +10,28 @@ import jwt
 from coinbase import jwt_generator
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey
+from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import endpoint_from_url
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
 from hummingbot.logger import HummingbotLogger
+
+
+class CoinbaseAdvancedTradeAuthPEMError(Exception):
+    pass
+
+
+class CoinbaseAdvancedTradeAuthFORMATError(Exception):
+    pass
 
 
 class CoinbaseAdvancedTradeAuth(AuthBase):
@@ -59,13 +74,14 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         This method is intended to configure a REST request to be authenticated.
         :param request: the request to be configured for authenticated interaction
         """
+        await asyncio.sleep(0)
         try:
-            return await self.rest_jwt_authenticate(request)
-        except ValueError:
+            return self.rest_jwt_authenticate(request)
+        except (CoinbaseAdvancedTradeAuthPEMError, CoinbaseAdvancedTradeAuthFORMATError):
             self.logger().debug("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
-            return await self.rest_legacy_authenticate(request)
+            return self.rest_legacy_authenticate(request)
 
-    async def rest_legacy_authenticate(self, request: RESTRequest) -> RESTRequest:
+    def rest_legacy_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
         Adds the server time and the signature to the request, required for authenticated interactions. It also adds
         the required parameter in the request header.
@@ -104,7 +120,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         return request
 
-    async def rest_jwt_authenticate(self, request: RESTRequest) -> RESTRequest:
+    def rest_jwt_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
         Adds the JWT header to the rest request.
 
@@ -126,7 +142,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
                 "Authorization": f"Bearer {token}",
                 "User-Agent": coinbase.constants.USER_AGENT,
             }
-        except ValueError as e:
+        except Exception as e:
             raise e
 
         request.headers = headers
@@ -138,14 +154,14 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         This method is intended to configure a websocket request to be authenticated.
         :param request: the request to be configured for authenticated interaction
         """
-
+        await asyncio.sleep(0)
         try:
-            return await self.ws_jwt_authenticate(request)
-        except ValueError:
+            return self.ws_jwt_authenticate(request)
+        except (CoinbaseAdvancedTradeAuthPEMError, CoinbaseAdvancedTradeAuthFORMATError):
             self.logger().debug("Failed to authenticate using JWT. Attempting to authenticate using legacy method.")
-            return await self.ws_legacy_authenticate(request)
+            return self.ws_legacy_authenticate(request)
 
-    async def ws_legacy_authenticate(self, request: WSJSONRequest) -> WSRequest:
+    def ws_legacy_authenticate(self, request: WSJSONRequest) -> WSRequest:
         """
         This method is intended to configure a websocket request to be authenticated.
         :param request: the request to be configured for authenticated interaction
@@ -184,7 +200,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         return request
 
-    async def ws_jwt_authenticate(self, request: WSJSONRequest) -> WSRequest:
+    def ws_jwt_authenticate(self, request: WSJSONRequest) -> WSRequest:
         """
         This method is intended to configure a websocket request to be authenticated.
         :param request: the request to be configured for authenticated interaction
@@ -211,7 +227,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
                 "jwt": self._build_jwt(coinbase.constants.WS_SERVICE),
             }
             request.payload = payload
-        except ValueError as e:
+        except Exception as e:
             raise e
 
         self.logger().debug(f"ws_authenticate payload: {payload}")
@@ -232,27 +248,19 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         This is extracted from Coinbase SDK because it relies upon 'time' rather than the eim synchronizer
         """
-        try:
-            private_key_bytes = self._secret_key_pem().encode("utf-8")
-            private_key = serialization.load_pem_private_key(
-                private_key_bytes, password=None
-            )
-        except ValueError as e:
-            # This handles errors like incorrect key format
-            self.logger().debug("The API key is not PEM format. Falling back to Legacy sign-in.")
-            raise e
+        private_key = self._secret_key_pem()
 
-        while True:
-            from time import sleep, time
-            self.logger().debug("Time syncing ...")
-            ref: int = int(self.time_provider.time())
-            local_time = int(time())
-            sleep(1)
-            time_ = int(self.time_provider.time())
-            if time_ == ref + 1:
-                self.logger().debug("Done")
-                break
-            self.logger().debug(f"Time sync failed. Local time: {local_time}, Time sync: {time_}, Ref: {ref}")
+        # while True:
+        #     from time import sleep, time
+        #     self.logger().debug("Time syncing ...")
+        #     ref: int = int(self.time_provider.time())
+        #     local_time = int(time())
+        #     sleep(1)
+        time_ = int(self.time_provider.time())
+        #     if time_ == ref + 1:
+        #         self.logger().debug("Done")
+        #         break
+        #     self.logger().debug(f"Time sync failed. Local time: {local_time}, Time sync: {time_}, Ref: {ref}")
 
         jwt_data = {
             "sub": self.api_key,
@@ -275,52 +283,25 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         return jwt_token
 
-    def _secret_key_pem(self) -> str:
+    def _secret_key_pem(self) -> DHPrivateKey | Ed25519PrivateKey | Ed448PrivateKey | RSAPrivateKey | DSAPrivateKey | EllipticCurvePrivateKey | X25519PrivateKey | X448PrivateKey:
         """
         Converts the secret key to PEM format.
-        Comprehends keys in PEM format, single-line PEM and base64-encoded keys.
+        Comprehends keys in PEM format.
         """
-        # Remove any leading or trailing whitespace and replace \\n with \n
-        private_key_base64 = self.secret_key.strip().replace("\\n", "\n")
-
         # If the key is already in PEM format with \n, return it
-        if private_key_base64.startswith("-----") and "\n" in private_key_base64:
+        if self.secret_key.startswith("-----") and self.secret_key.endswith("-----\\n"):
             try:
                 # Try to load the key to validate its structure
-                serialization.load_pem_private_key(
+                self.logger().debug(f"Verify PEM private_key_base64: >{self.secret_key}<")
+                private_key_base64 = bytes(self.secret_key, encoding="utf8").decode("unicode_escape")
+                return serialization.load_pem_private_key(
                     private_key_base64.encode(),
                     password=None,
-                    backend=default_backend()
+                    backend=default_backend(),
                 )
-            except ValueError:
-                raise ValueError("The secret key is not a valid PEM key.")
-            return private_key_base64
+            except ValueError as e:
+                raise CoinbaseAdvancedTradeAuthPEMError("The secret key is not a valid PEM key.") from e
 
-        # Remove the BEGIN and END lines
-        private_key_base64 = private_key_base64.replace("-----BEGIN EC PRIVATE" + " KEY-----", "").replace("-----END EC PRIVATE" + " KEY-----", "").strip()
-
-        # Verify that the key is a correct base64 string
-        try:
-            binascii.a2b_base64(private_key_base64)
-        except binascii.Error:
-            raise ValueError("The secret key is not a valid base64 string.")
-
-        # Wrap the base64-encoded key into lines of 64 characters
-        wrapped_key = textwrap.wrap(private_key_base64, width=64)
-
-        private_key_base64 = (
-            "-----BEGIN" + " EC " + "PRIVATE" + " KEY-----\n"
-            + "\n".join(wrapped_key)
-            + "\n-----END" + " EC " + "PRIVATE" + " KEY-----"
+        raise CoinbaseAdvancedTradeAuthFORMATError(
+            "The secret key does not start with '-----' nor ends with '-----\\n'."
         )
-
-        try:
-            # Try to load the key to validate its structure
-            serialization.load_pem_private_key(
-                private_key_base64.encode(),
-                password=None,
-                backend=default_backend()
-            )
-        except ValueError:
-            raise ValueError("The secret key is not a valid PEM key.")
-        return private_key_base64

@@ -12,7 +12,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import (
+    CoinbaseAdvancedTradeAuth,
+    CoinbaseAdvancedTradeAuthFORMATError,
+    CoinbaseAdvancedTradeAuthPEMError,
+)
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_current_server_time_s,
     private_rest_url,
@@ -84,44 +88,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
 
             self.assertEqual(mock_response["epochSeconds"], current_server_time_s)
 
-    # These are live test to verify the expectations of the server response unit. They will fail if there is a network issue
-    #    async def test_get_current_server_time_s_fuzzy(self):
-    #        from time import time
-    #        # Get the local time in seconds since the Unix epoch
-    #        local_time_s = time()
-    #
-    #        # Get the server time in seconds since the Unix epoch
-    #        server_time_s = await get_current_server_time_s()
-    #
-    #        # Calculate the time difference between the local and server times
-    #        time_difference = abs(server_time_s - local_time_s)
-    #
-    #        # Allow for a tolerance of up to 5 seconds
-    #        tolerance = 5
-    #
-    #        self.assertTrue(time_difference < tolerance, f"Time difference ({time_difference} seconds) is too large.")
-    #
-    #    @aioresponses()
-    #    async def test_get_current_server_time_ms_fuzzy(self, mock_aioresponse):
-    #        from time import time
-    #        # Get the local time in seconds since the Unix epoch
-    #        local_time_ms = time() * 1000
-    #
-    #        # Get the server time in seconds since the Unix epoch
-    #        server_time_ms = await get_current_server_time_ms()
-    #
-    #        # Calculate the time difference between the local and server times
-    #        time_difference_ms = abs(server_time_ms - local_time_ms)
-    #
-    #        # Allow for a tolerance of up to 5 seconds
-    #        tolerance_ms = 5000
-    #
-    #        self.assertTrue(time_difference_ms < tolerance_ms,
-    #                        f"Live Test: Time difference ({time_difference_ms} seconds) is too large.\n"
-    #                        f"It is likely that there is a unit mismatch between the local and server times.\n"
-    #                        f"Verify the API documentation and the assumptions of the implementation.")
-
-    async def test_rest_legacy_authenticate_on_public_time(self):
+    def test_rest_legacy_authenticate_on_public_time(self):
         self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=1234567890)
 
         params = {
@@ -139,7 +106,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
                    '.get_current_server_time_ms',
                    new_callable=MagicMock) as mocked_time:
             mocked_time.return_value = 1234567890.0
-            configured_request = await auth.rest_legacy_authenticate(request)
+            configured_request = auth.rest_legacy_authenticate(request)
 
         full_params.update({"timestamp": "1234567890"})
         # full url is parsed-down to endpoint only
@@ -154,7 +121,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual("1234567890", configured_request.headers["CB-ACCESS-TIMESTAMP"])
         self.assertEqual(expected_signature, configured_request.headers["CB-ACCESS-SIGN"])
 
-    async def test_ws_legacy_authenticate(self):
+    def test_ws_legacy_authenticate(self):
         ws_request = WSJSONRequest(payload={"channel": "level2", "product_ids": ["ETH-USD", "ETH-EUR"]})
         self.time_synchronizer_mock.update_server_time_offset_with_time_provider = AsyncMock(return_value=None)
         self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=1234567890)
@@ -166,7 +133,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
                    new_callable=MagicMock) as mock_get_current_server_time_ms:
             mock_get_current_server_time_ms.return_value = 12345678900
 
-            authenticated_request = await self.auth.ws_legacy_authenticate(ws_request)
+            authenticated_request = self.auth.ws_legacy_authenticate(ws_request)
 
         self.assertIsInstance(authenticated_request, WSJSONRequest)
         self.assertTrue("signature" in authenticated_request.payload)
@@ -174,16 +141,16 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue("api_key" in authenticated_request.payload)
 
     @patch('jwt.encode')
-    async def test_ws_jwt_authenticate(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str
+    def test_ws_jwt_authenticate(self, mock_encode):
+        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
         self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=12345678900)
-        result = await self.auth.ws_jwt_authenticate(self.request)
+        result = self.auth.ws_jwt_authenticate(self.request)
         self.assertIn('jwt', result.payload)
         mock_encode.assert_called_once()
 
     @patch('jwt.encode')
     def test_build_jwt(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str
+        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
         mock_encode.return_value = 'test_jwt_token'
         result = self.auth._build_jwt(service='test_service', uri='test_uri')
         self.assertEqual('test_jwt_token', result, )
@@ -191,12 +158,12 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
 
     def test_build_jwt_invalid_secret_key(self):
         self.auth.secret_key = 'invalid_secret_key'
-        with self.assertRaises(ValueError):
+        with self.assertRaises(CoinbaseAdvancedTradeAuthFORMATError):
             self.auth._build_jwt(service='test_service', uri='test_uri')
 
     @patch('jwt.encode')
     def test_build_jwt_fields(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str
+        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
         mock_encode.return_value = 'test_jwt_token'
         self.auth._build_jwt(service='test_service', uri='test_uri')
         args, kwargs = mock_encode.call_args
@@ -208,7 +175,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
 
     @patch('jwt.encode')
     def test_build_jwt_algorithm_and_headers(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str
+        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
         mock_encode.return_value = 'test_jwt_token'
         self.auth._build_jwt(service='test_service', uri='test_uri')
         args, kwargs = mock_encode.call_args
@@ -220,33 +187,20 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.auth.secret_key = ("-----BEGIN EC PRIVATE "
                                 "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr"
                                 "\nivate_key_\n-----END EC PRIVATE"
-                                " KEY-----\n")
-        # The key is fake, it will fail the serialization attempt
-        with self.assertRaises(ValueError):
-            self.assertEqual(self.auth._secret_key_pem(), self.auth.secret_key.strip())
+                                " KEY-----\\n")
+        with self.assertRaises(CoinbaseAdvancedTradeAuthPEMError):
+            self.assertEqual(self.auth._secret_key_pem(), self.auth.secret_key)
 
     def test_secret_key_pem_in_base64_format(self):
         self.auth.secret_key = "_private_key__private_key_private_key_private_key_private_key_private_key_"
-        expected_output = ("-----BEGIN EC PRIVATE "
-                           "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
-                           "-----END EC PRIVATE"
-                           " KEY-----")
         # The key is fake, it will fail the serialization attempt
-        with self.assertRaises(ValueError):
-            self.assertEqual(self.auth._secret_key_pem(), expected_output)
+        with self.assertRaises(CoinbaseAdvancedTradeAuthFORMATError):
+            self.auth._secret_key_pem()
 
     def test_secret_key_pem_in_single_line_pem_format(self):
         self.auth.secret_key = ("-----BEGIN EC PRIVATE "
                                 "KEY-----_private_key__private_key_private_key_private_key_private_key_private_key_"
                                 "-----END EC PRIVATE"
                                 " KEY-----")
-        expected_output = ("-----BEGIN EC PRIVATE "
-                           "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr\nivate_key_\n"
-                           "-----END EC PRIVATE"
-                           " KEY-----")
-        with self.assertRaises(ValueError):
-            self.assertEqual(self.auth._secret_key_pem(), expected_output)
-
-    def test_valid_secret_key_pem_in_base64_format(self):
-        self.auth.secret_key = pem_private_key_str
-        self.auth._secret_key_pem()
+        with self.assertRaises(CoinbaseAdvancedTradeAuthFORMATError):
+            self.auth._secret_key_pem()
