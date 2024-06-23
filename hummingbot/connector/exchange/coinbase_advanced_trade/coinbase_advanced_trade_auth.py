@@ -2,22 +2,12 @@ import asyncio
 import hashlib
 import hmac
 import logging
-import secrets
 from typing import Dict
 
 import coinbase.constants
 import jwt
 from coinbase import jwt_generator
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey
-from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
-from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
-from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from coinbase.jwt_generator import build_jwt
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import endpoint_from_url
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -42,9 +32,6 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
     Coinbase API documentation: https://docs.cloud.coinbase.com/sign-in-with-coinbase/docs/api-key-authentication
     """
-    TIME_SYNC_UPDATE_S: float = 30
-    _time_sync_last_updated_s: float = -1
-
     _logger: HummingbotLogger | logging.Logger | None = None
 
     @classmethod
@@ -136,8 +123,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         jwt_uri = jwt_generator.format_jwt_uri(request.method, endpoint)
 
         try:
-            token = self._build_jwt(coinbase.constants.REST_SERVICE, jwt_uri)
-            # token = build_jwt(self.api_key, bytes(self.secret_key, encoding="utf8").decode("unicode_escape"), jwt_uri)
+            token = build_jwt(self.api_key, self.secret_key, jwt_uri)
             headers: Dict = dict(request.headers or {}) | {
                 "content-type": 'application/json',
                 "Authorization": f"Bearer {token}",
@@ -225,8 +211,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         try:
             payload: Dict = dict(request.payload or {}) | {
-                "jwt": self._build_jwt(coinbase.constants.WS_SERVICE),
-                # "jwt": build_jwt(self.api_key, bytes(self.secret_key, encoding="utf8").decode("unicode_escape")),
+                "jwt": build_jwt(self.api_key, self.secret_key),
             }
             request.payload = payload
         except Exception as e:
@@ -246,64 +231,14 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         digest: str = hmac.new(self.secret_key.encode("utf8"), message.encode("utf8"), hashlib.sha256).digest().hex()
         return digest
 
-    def _build_jwt(self, service, uri=None) -> str:
-        """
-        This is extracted from Coinbase SDK because it relies upon 'time' rather than the eim synchronizer
-        """
-        private_key = self._secret_key_pem()
-
-        # while True:
-        #     from time import sleep, time
-        #     self.logger().debug("Time syncing ...")
-        #     ref: int = int(self.time_provider.time())
-        #     local_time = int(time())
-        #     sleep(1)
-        time_ = int(self.time_provider.time())
-        #     if time_ == ref + 1:
-        #         self.logger().debug("Done")
-        #         break
-        #     self.logger().debug(f"Time sync failed. Local time: {local_time}, Time sync: {time_}, Ref: {ref}")
-
-        jwt_data = {
-            "sub": self.api_key,
-            "iss": "cdp",
-            "nbf": time_,
-            "exp": time_ + 120,
-            # "aud": [service],
-        }
-
-        if uri is not None:
-            jwt_data["uri"] = uri
-
-        jwt_token = jwt.encode(
-            jwt_data,
-            private_key,
-            algorithm="ES256",
-            headers={"kid": self.api_key, "nonce": secrets.token_hex()},
-        )
-        self.logger().debug(f"JWT token: {jwt_token}")
-
-        return jwt_token
-
-    def _secret_key_pem(self) -> DHPrivateKey | Ed25519PrivateKey | Ed448PrivateKey | RSAPrivateKey | DSAPrivateKey | EllipticCurvePrivateKey | X25519PrivateKey | X448PrivateKey:
-        """
-        Converts the secret key to PEM format.
-        Comprehends keys in PEM format.
-        """
-        # If the key is already in PEM format with \n, return it
-        if self.secret_key.startswith("-----") and self.secret_key.endswith("-----\\n"):
-            try:
-                # Try to load the key to validate its structure
-                self.logger().debug(f"Verify PEM private_key_base64: >{self.secret_key}<")
-                private_key_base64 = bytes(self.secret_key, encoding="utf8").decode("unicode_escape")
-                return serialization.load_pem_private_key(
-                    private_key_base64.encode(),
-                    password=None,
-                    backend=default_backend(),
-                )
-            except ValueError as e:
-                raise CoinbaseAdvancedTradeAuthPEMError("The secret key is not a valid PEM key.") from e
-
-        raise CoinbaseAdvancedTradeAuthFORMATError(
-            "The secret key does not start with '-----' nor ends with '-----\\n'."
-        )
+    @staticmethod
+    def is_token_valid(token, private_key_var):
+        try:
+            jwt.decode(
+                token,
+                private_key_var,
+                algorithms=["ES256"],
+            )
+            return True
+        except jwt.InvalidTokenError:
+            return False

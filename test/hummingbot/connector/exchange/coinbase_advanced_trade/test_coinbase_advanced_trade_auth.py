@@ -6,17 +6,14 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
+import jwt
 from aioresponses import aioresponses
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import (
-    CoinbaseAdvancedTradeAuth,
-    CoinbaseAdvancedTradeAuthFORMATError,
-    CoinbaseAdvancedTradeAuthPEMError,
-)
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_current_server_time_s,
     private_rest_url,
@@ -45,10 +42,17 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         self.api_key = "testApiKey"
-        self.secret_key = "testSecret"
+        self.legacy_secret_key = "testSecret"
+        self.cdp_secret_key = pem_private_key_str
+        self.cdp_token = jwt.encode({'some': 'payload'}, self.cdp_secret_key, algorithm='ES256', headers={'kid': self.api_key})
+
         self.time_synchronizer_mock = AsyncMock(spec=TimeSynchronizer)
-        self.auth = CoinbaseAdvancedTradeAuth(self.api_key, self.secret_key, self.time_synchronizer_mock)
-        self.request = WSJSONRequest(payload={"type": "subscribe", "product_ids": ["ETH-USD", "ETH-EUR"], "channel": "level2"})
+        self.legacy_auth = CoinbaseAdvancedTradeAuth(self.api_key, self.legacy_secret_key, self.time_synchronizer_mock)
+        self.cdp_auth = CoinbaseAdvancedTradeAuth(self.api_key, self.cdp_secret_key, self.time_synchronizer_mock)
+        self.ws_request = WSJSONRequest(
+            payload={"type": "subscribe", "product_ids": ["ETH-USD", "ETH-EUR"], "channel": "level2"})
+        self.rest_request = RESTRequest(method=RESTMethod.GET, url="https://api.coinbase.com/v2/time",
+                                        is_auth_required=True)
 
     async def asyncTearDown(self):
         logging.info("Close")
@@ -60,10 +64,22 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
     def tearDown(self):
         super().tearDown()
 
+    def test_valid_token(self):
+        result = CoinbaseAdvancedTradeAuth.is_token_valid(self.cdp_token, self.cdp_secret_key)
+        self.assertTrue(result)
+
+    def test_invalid_token(self):
+        invalid_token = f'{self.cdp_token}make_it_invalid'
+        result = CoinbaseAdvancedTradeAuth.is_token_valid(invalid_token, self.cdp_secret_key)
+        self.assertFalse(result)
+
     def test_init(self):
-        self.assertEqual(self.auth.api_key, self.api_key)
-        self.assertEqual(self.auth.secret_key, self.secret_key)
-        self.assertEqual(self.auth.time_provider, self.time_synchronizer_mock)
+        self.assertEqual(self.legacy_auth.api_key, self.api_key)
+        self.assertEqual(self.legacy_auth.secret_key, self.legacy_secret_key)
+        self.assertEqual(self.legacy_auth.time_provider, self.time_synchronizer_mock)
+        self.assertEqual(self.cdp_auth.api_key, self.api_key)
+        self.assertEqual(self.cdp_auth.secret_key, self.cdp_secret_key)
+        self.assertEqual(self.cdp_auth.time_provider, self.time_synchronizer_mock)
 
     async def test_get_current_server_time_s(self):
         with aioresponses() as mocked:
@@ -96,7 +112,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         }
         full_params = copy(params)
 
-        auth = CoinbaseAdvancedTradeAuth(api_key=self.api_key, secret_key=self.secret_key,
+        auth = CoinbaseAdvancedTradeAuth(api_key=self.api_key, secret_key=self.legacy_secret_key,
                                          time_provider=self.time_synchronizer_mock)
         url = "https://api.coinbase.com/v2/time"
         request = RESTRequest(method=RESTMethod.GET, url=url, params=params, is_auth_required=True)
@@ -112,7 +128,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         # full url is parsed-down to endpoint only
         encoded_params = "1234567890" + str(RESTMethod.GET) + "/v2/time" + str(request.data or '')
         expected_signature = hmac.new(
-            self.secret_key.encode("utf-8"),
+            self.legacy_secret_key.encode("utf-8"),
             encoded_params.encode("utf-8"),
             hashlib.sha256).hexdigest()
 
@@ -133,73 +149,27 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
                    new_callable=MagicMock) as mock_get_current_server_time_ms:
             mock_get_current_server_time_ms.return_value = 12345678900
 
-            authenticated_request = self.auth.ws_legacy_authenticate(ws_request)
+            authenticated_request = self.legacy_auth.ws_legacy_authenticate(ws_request)
 
         self.assertIsInstance(authenticated_request, WSJSONRequest)
         self.assertTrue("signature" in authenticated_request.payload)
         self.assertTrue("timestamp" in authenticated_request.payload)
         self.assertTrue("api_key" in authenticated_request.payload)
 
-    @patch('jwt.encode')
-    def test_ws_jwt_authenticate(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
-        self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=12345678900)
-        result = self.auth.ws_jwt_authenticate(self.request)
+    def test_rest_jwt_authenticate(self):
+        self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=1719164082)
+
+        result = self.cdp_auth.rest_jwt_authenticate(self.rest_request)
+
+        self.assertIn('Authorization', result.headers)
+        self.assertIn('User-Agent', result.headers)
+        self.assertIn('content-type', result.headers)
+        token = result.headers["Authorization"].split(" ")[1]
+        self.assertTrue(
+            CoinbaseAdvancedTradeAuth.is_token_valid(token, self.cdp_auth.secret_key))
+
+    def test_ws_jwt_authenticate(self):
+        result = self.cdp_auth.ws_jwt_authenticate(self.ws_request)
         self.assertIn('jwt', result.payload)
-        mock_encode.assert_called_once()
-
-    @patch('jwt.encode')
-    def test_build_jwt(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
-        mock_encode.return_value = 'test_jwt_token'
-        result = self.auth._build_jwt(service='test_service', uri='test_uri')
-        self.assertEqual('test_jwt_token', result, )
-        mock_encode.assert_called_once()
-
-    def test_build_jwt_invalid_secret_key(self):
-        self.auth.secret_key = 'invalid_secret_key'
-        with self.assertRaises(CoinbaseAdvancedTradeAuthFORMATError):
-            self.auth._build_jwt(service='test_service', uri='test_uri')
-
-    @patch('jwt.encode')
-    def test_build_jwt_fields(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
-        mock_encode.return_value = 'test_jwt_token'
-        self.auth._build_jwt(service='test_service', uri='test_uri')
-        args, kwargs = mock_encode.call_args
-        jwt_data = args[0]
-        self.assertEqual(self.auth.api_key, jwt_data['sub'])
-        self.assertEqual('cdp', jwt_data['iss'], )
-        self.assertEqual('test_uri', jwt_data['uri'], )
-
-    @patch('jwt.encode')
-    def test_build_jwt_algorithm_and_headers(self, mock_encode):
-        self.auth.secret_key = pem_private_key_str.replace('\n', '\\n')
-        mock_encode.return_value = 'test_jwt_token'
-        self.auth._build_jwt(service='test_service', uri='test_uri')
-        args, kwargs = mock_encode.call_args
-        self.assertEqual('ES256', kwargs['algorithm'], )
-        self.assertEqual(self.auth.api_key, kwargs['headers']['kid'])
-        self.assertTrue(isinstance(kwargs['headers']['nonce'], str))
-
-    def test_secret_key_pem_already_in_pem_format(self):
-        self.auth.secret_key = ("-----BEGIN EC PRIVATE "
-                                "KEY-----\n_private_key__private_key_private_key_private_key_private_key_pr"
-                                "\nivate_key_\n-----END EC PRIVATE"
-                                " KEY-----\\n")
-        with self.assertRaises(CoinbaseAdvancedTradeAuthPEMError):
-            self.assertEqual(self.auth._secret_key_pem(), self.auth.secret_key)
-
-    def test_secret_key_pem_in_base64_format(self):
-        self.auth.secret_key = "_private_key__private_key_private_key_private_key_private_key_private_key_"
-        # The key is fake, it will fail the serialization attempt
-        with self.assertRaises(CoinbaseAdvancedTradeAuthFORMATError):
-            self.auth._secret_key_pem()
-
-    def test_secret_key_pem_in_single_line_pem_format(self):
-        self.auth.secret_key = ("-----BEGIN EC PRIVATE "
-                                "KEY-----_private_key__private_key_private_key_private_key_private_key_private_key_"
-                                "-----END EC PRIVATE"
-                                " KEY-----")
-        with self.assertRaises(CoinbaseAdvancedTradeAuthFORMATError):
-            self.auth._secret_key_pem()
+        self.assertTrue(
+            CoinbaseAdvancedTradeAuth.is_token_valid(result.payload['jwt'], self.cdp_auth.secret_key))

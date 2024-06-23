@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 from bidict import bidict
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -50,10 +52,24 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.listening_task = None
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        private_key = ec.generate_private_key(
+            ec.SECP256R1(),  # This is equivalent to ES256
+        )
+
+        # Serialize the private key to PEM format
+        pem_private_key = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        # Convert the PEM private key to string
+        pem_private_key_str = pem_private_key.decode('utf-8')
+
         self.connector = CoinbaseAdvancedTradeExchange(
             client_config_map=client_config_map,
             coinbase_advanced_trade_api_key="",
-            coinbase_advanced_trade_api_secret="",
+            coinbase_advanced_trade_api_secret=pem_private_key_str,
             trading_pairs=[],
             trading_required=False,
             domain=self.domain)
