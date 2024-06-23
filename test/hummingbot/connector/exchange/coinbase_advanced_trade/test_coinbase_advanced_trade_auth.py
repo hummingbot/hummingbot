@@ -170,7 +170,6 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         jwt_data = args[0]
         self.assertEqual(self.auth.api_key, jwt_data['sub'])
         self.assertEqual('cdp', jwt_data['iss'], )
-        self.assertEqual(['test_service'], jwt_data['aud'], )
         self.assertEqual('test_uri', jwt_data['uri'], )
 
     @patch('jwt.encode')

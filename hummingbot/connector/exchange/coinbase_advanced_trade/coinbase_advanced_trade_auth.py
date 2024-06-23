@@ -137,6 +137,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         try:
             token = self._build_jwt(coinbase.constants.REST_SERVICE, jwt_uri)
+            # token = build_jwt(self.api_key, bytes(self.secret_key, encoding="utf8").decode("unicode_escape"), jwt_uri)
             headers: Dict = dict(request.headers or {}) | {
                 "content-type": 'application/json',
                 "Authorization": f"Bearer {token}",
@@ -225,6 +226,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         try:
             payload: Dict = dict(request.payload or {}) | {
                 "jwt": self._build_jwt(coinbase.constants.WS_SERVICE),
+                # "jwt": build_jwt(self.api_key, bytes(self.secret_key, encoding="utf8").decode("unicode_escape")),
             }
             request.payload = payload
         except Exception as e:
@@ -267,7 +269,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
             "iss": "cdp",
             "nbf": time_,
             "exp": time_ + 120,
-            "aud": [service],
+            # "aud": [service],
         }
 
         if uri is not None:
