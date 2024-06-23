@@ -44,7 +44,8 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.api_key = "testApiKey"
         self.legacy_secret_key = "testSecret"
         self.cdp_secret_key = pem_private_key_str
-        self.cdp_token = jwt.encode({'some': 'payload'}, self.cdp_secret_key, algorithm='ES256', headers={'kid': self.api_key})
+        self.cdp_token = jwt.encode({'some': 'payload'}, self.cdp_secret_key, algorithm='ES256',
+                                    headers={'kid': self.api_key})
 
         self.time_synchronizer_mock = AsyncMock(spec=TimeSynchronizer)
         self.legacy_auth = CoinbaseAdvancedTradeAuth(self.api_key, self.legacy_secret_key, self.time_synchronizer_mock)
@@ -157,8 +158,6 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue("api_key" in authenticated_request.payload)
 
     def test_rest_jwt_authenticate(self):
-        self.time_synchronizer_mock.time.side_effect = MagicMock(return_value=1719164082)
-
         result = self.cdp_auth.rest_jwt_authenticate(self.rest_request)
 
         self.assertIn('Authorization', result.headers)
@@ -168,8 +167,20 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(
             CoinbaseAdvancedTradeAuth.is_token_valid(token, self.cdp_auth.secret_key))
 
+    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth.build_jwt',
+           side_effect=Exception('Test'))
+    def test_rest_jwt_authenticate_raises(self, mock_build_jwt):
+        with self.assertRaises(Exception):
+            self.cdp_auth.rest_jwt_authenticate(self.rest_request)
+
     def test_ws_jwt_authenticate(self):
         result = self.cdp_auth.ws_jwt_authenticate(self.ws_request)
         self.assertIn('jwt', result.payload)
         self.assertTrue(
             CoinbaseAdvancedTradeAuth.is_token_valid(result.payload['jwt'], self.cdp_auth.secret_key))
+
+    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth.build_jwt',
+           side_effect=Exception('Test'))
+    def test_ws_jwt_authenticate_raises(self, mock_build_jwt):
+        with self.assertRaises(Exception):
+            self.cdp_auth.ws_jwt_authenticate(self.ws_request)
