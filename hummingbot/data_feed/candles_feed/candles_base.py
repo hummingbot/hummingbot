@@ -3,6 +3,7 @@ import os
 from collections import deque
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 from bidict import bidict
 
@@ -12,6 +13,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 
 
 class CandlesBase(NetworkBase):
@@ -133,6 +135,25 @@ class CandlesBase(NetworkBase):
         df = pd.read_csv(file_path)
         df.sort_values(by="timestamp", ascending=False, inplace=True)
         self._candles.extendleft(df.values.tolist())
+
+    async def get_historical_candles(self, config: HistoricalCandlesConfig):
+        try:
+            all_candles = []
+            current_start_time = config.start_time
+            while current_start_time <= config.end_time:
+                fetched_candles = await self.fetch_candles(start_time=current_start_time)
+                if fetched_candles.size <= 1:
+                    break
+                all_candles.append(fetched_candles)
+                last_timestamp = fetched_candles[-1][0]  # Assuming the first column is the timestamp
+                current_start_time = int(last_timestamp)
+
+            final_candles = np.concatenate(all_candles, axis=0) if all_candles else np.array([])
+            candles_df = pd.DataFrame(final_candles, columns=self.columns)
+            candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
+            return candles_df
+        except Exception as e:
+            self.logger().exception(f"Error fetching historical candles: {str(e)}")
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,

@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import cast
 
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.amm.gateway_tezos_amm import GatewayTezosAMM
 from hummingbot.connector.gateway.common_types import Chain
@@ -17,6 +18,7 @@ def start(self):
     market_1 = amm_arb_config_map.get("market_1").value
     connector_2 = amm_arb_config_map.get("connector_2").value.lower()
     market_2 = amm_arb_config_map.get("market_2").value
+    pool_id = "_" + amm_arb_config_map.get("pool_id").value
     order_amount = amm_arb_config_map.get("order_amount").value
     min_profitability = amm_arb_config_map.get("min_profitability").value / Decimal("100")
     market_1_slippage_buffer = amm_arb_config_map.get("market_1_slippage_buffer").value / Decimal("100")
@@ -31,8 +33,16 @@ def start(self):
     base_1, quote_1 = market_1.split("-")
     base_2, quote_2 = market_2.split("-")
 
-    market_info_1 = MarketTradingPairTuple(self.markets[connector_1], market_1, base_1, quote_1)
-    market_info_2 = MarketTradingPairTuple(self.markets[connector_2], market_2, base_2, quote_2)
+    is_connector_1_gateway = connector_1 in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
+
+    is_connector_2_gateway = connector_2 in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
+
+    market_info_1 = MarketTradingPairTuple(
+        self.markets[connector_1], market_1 if not is_connector_1_gateway else market_1 + pool_id, base_1, quote_1
+    )
+    market_info_2 = MarketTradingPairTuple(
+        self.markets[connector_2], market_2 if not is_connector_2_gateway else market_2 + pool_id, base_2, quote_2
+    )
     self.market_trading_pair_tuples = [market_info_1, market_info_2]
 
     if debug_price_shim:

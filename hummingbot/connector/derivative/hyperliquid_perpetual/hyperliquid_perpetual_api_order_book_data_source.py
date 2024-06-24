@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils as web_utils
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
@@ -60,6 +60,29 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                     rate=Decimal(response[1][index]['funding']),
                 )
                 return funding_info
+
+    async def listen_for_funding_info(self, output: asyncio.Queue):
+        """
+        Reads the funding info events queue and updates the local funding info information.
+        """
+        while True:
+            try:
+                for trading_pair in self._trading_pairs:
+                    funding_info = await self.get_funding_info(trading_pair)
+                    funding_info_update = FundingInfoUpdate(
+                        trading_pair=trading_pair,
+                        index_price=funding_info.index_price,
+                        mark_price=funding_info.mark_price,
+                        next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
+                        rate=funding_info.rate,
+                    )
+                    output.put_nowait(funding_info_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error when processing public funding info updates from exchange")
+            finally:
+                await asyncio.sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
