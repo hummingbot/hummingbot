@@ -64,7 +64,6 @@ class KucoinSpotCandles(CandlesBase):
     @property
     def candles_df(self) -> pd.DataFrame:
         df = pd.DataFrame(self._candles, columns=self.columns, dtype=float)
-        df["timestamp"] = df["timestamp"] * 1000
         return df.sort_values(by="timestamp", ascending=True)
 
     async def check_network(self) -> NetworkStatus:
@@ -83,14 +82,18 @@ class KucoinSpotCandles(CandlesBase):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {"symbol": self._ex_trading_pair, "type": CONSTANTS.INTERVALS[self.interval]}
         if start_time:
-            params["startAt"] = start_time
+            params["startAt"] = start_time // 1000
         if end_time:
-            params["endAt"] = end_time
+            params["endAt"] = end_time // 1000
+        else:
+            params["endAt"] = start_time // 1000 + (limit * self.get_seconds_from_interval(self.interval))
+
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
-        arr = [[row[0], row[1], row[3], row[4], row[2], row[5], row[6]] for row in candles['data']]
-        return np.array(arr).astype(float)
+        candles = np.array([[row[0], row[1], row[3], row[4], row[2], row[5], row[6], 0., 0., 0.] for row in candles['data']]).astype(float)
+        candles[:, 0] = candles[:, 0] * 1000
+        return candles[::-1]
 
     async def fill_historical_candles(self):
         max_request_needed = (self._candles.maxlen // 1500) + 1
@@ -99,14 +102,14 @@ class KucoinSpotCandles(CandlesBase):
             # missing_records = self._candles.maxlen - len(self._candles)
             try:
                 if requests_executed < max_request_needed:
-                    end_timestamp = int(self._candles[0][0] + 1)
+                    end_timestamp = int(self._candles[-1][0] + 1000)
                     # we have to add one more since, the last row is not going to be included
-                    start_time = end_timestamp - (1500 * self.get_seconds_from_interval(self.interval)) + 1
-                    candles = await self.fetch_candles(end_time=end_timestamp, start_time=start_time)
+                    start_time = (end_timestamp - (1500 * self.get_seconds_from_interval(self.interval)) * 1000) + 1000
+                    candles = await self.fetch_candles(end_time=end_timestamp, start_time=start_time, limit=1500)
                     # we are computing agaefin the quantity of records again since the websocket process is able to
                     # modify the deque and if we extend it, the new observations are going to be dropped.
                     missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[::-1][-(missing_records + 1):-1])
+                    self._candles.extendleft(candles[-(missing_records + 1):-1])
                     requests_executed += 1
                 else:
                     self.logger().error(f"There is no data available for the quantity of "
@@ -167,7 +170,7 @@ class KucoinSpotCandles(CandlesBase):
             if data is not None and data.get(
                     "subject") == "trade.candles.update":  # data will be None when the websocket is disconnected
                 candles = data["data"]["candles"]
-                timestamp = float(candles[0])
+                timestamp = int(candles[0]) * 1000
                 open = candles[1]
                 close = candles[2]
                 high = candles[3]
