@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from commlib.msg import PubSubMessage, RPCMessage
+from pydantic import BaseModel
 
 
 class MQTT_STATUS_CODE:
@@ -140,15 +141,19 @@ class BalancePaperCommandMessage(RPCMessage):
         data: Optional[str] = ''
 
 
+class ExchangeInfo(BaseModel):
+    name: str
+    trading_pairs: List[str]
+    balances: Dict[str, float]
+
+
 class ExchangeInfoCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
         exchange: Optional[str]
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        exchange_names: Dict[str, str]
-        exchange_balances: Dict[str, Dict[str, float]]
-        exchange_trading_pairs: Dict[str, List[str]]
+        exchanges: List[ExchangeInfo] = []
 
 
 class UserDirectedTradeCommandMessage(RPCMessage):
@@ -174,17 +179,31 @@ class UserDirectedCancelCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        order_id: str
         msg: Optional[str] = ''
+
+
+class OpenOrderInfo(BaseModel):
+    exchange: str
+    trading_pair: str
+    order_id: str
+    is_buy: bool
+    is_limit_order: bool
+    limit_price: Optional[str]
+    amount_total: str
+    amount_remaining: str
+    order_state: str
+    msg: Optional[str]
 
 
 class UserDirectedListActiveOrdersCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
-        exchange: str
+        exchange: Optional[str] = None
         trading_pair: Optional[str] = None
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
-        active_orders: List[Dict[str, Any]] = []
+        active_orders: List[OpenOrderInfo]
 
 
 class UserDirectedOrderUpdateMessage(PubSubMessage):
