@@ -1,11 +1,24 @@
 import asyncio
 import logging
 import platform
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
 
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
-from hummingbot.remote_iface.messages import ExchangeInfo, ExchangeInfoCommandMessage
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.remote_iface.messages import (
+    ExchangeInfo,
+    ExchangeInfoCommandMessage,
+    OpenOrderInfo,
+    UserDirectedCancelCommandMessage,
+    UserDirectedListActiveOrdersCommandMessage,
+    UserDirectedTradeCommandMessage,
+)
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 if TYPE_CHECKING:
@@ -155,6 +168,16 @@ class UserDirectedTradingStrategy(StrategyPyBase):
 
         return self._exchange_connectors_cache[exchange_key]
 
+    async def create_market_trading_pair_tuple(self, exchange: ExchangeBase, trading_pair: str) -> MarketTradingPairTuple:
+        base_asset, quote_asset = trading_pair.split("-")
+        exchange_connector: ExchangeBase = await self.get_trading_exchange_connector(exchange, trading_pair)
+        return MarketTradingPairTuple(
+            market=exchange_connector,
+            trading_pair=trading_pair,
+            base_asset=base_asset,
+            quote_asset=quote_asset
+        )
+
     async def before_stop(self):
         # Cancel all open orders, and mark the strategy as stopped
         from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -209,8 +232,46 @@ class UserDirectedTradingStrategy(StrategyPyBase):
         ]
         return ExchangeInfoCommandMessage.Response(exchanges=exchange_info)
 
-    async def mqtt_list_active_orders(self, exchange: Optional[str], trading_pair: Optional[str]):
-        pass
+    async def mqtt_list_active_orders(
+            self,
+            exchange: Optional[str],
+            trading_pair: Optional[str]
+    ) -> UserDirectedListActiveOrdersCommandMessage.Response:
+        tracked_limit_orders: List[Tuple[ConnectorBase, LimitOrder]] = self.order_tracker.tracked_limit_orders
+        tracked_market_orders: List[Tuple[ConnectorBase, MarketOrder]] = self.order_tracker.tracked_market_orders
+        open_orders: List[OpenOrderInfo] = []
+
+        for connector, limit_order in tracked_limit_orders:
+            if exchange is not None and connector.name != exchange:
+                continue
+            if trading_pair is not None and limit_order.trading_pair != trading_pair:
+                continue
+            open_orders.append(OpenOrderInfo(
+                exchange=connector.name,
+                trading_pair=limit_order.trading_pair,
+                order_id=limit_order.client_order_id,
+                order_type="LIMIT",
+                price=limit_order.price,
+                amount=limit_order.quantity,
+                status=limit_order.status
+            ))
+
+        for connector, market_order in tracked_market_orders:
+            if exchange is not None and connector.name != exchange:
+                continue
+            if trading_pair is not None and market_order.trading_pair != trading_pair:
+                continue
+            open_orders.append(OpenOrderInfo(
+                exchange=connector.name,
+                trading_pair=market_order.trading_pair,
+                order_id=market_order.client_order_id,
+                order_type="MARKET",
+                price=None,
+                amount=market_order.quantity,
+                status=market_order.status
+            ))
+
+        return UserDirectedTradeCommandMessage.Response(active_orders=open_orders)
 
     async def mqtt_user_directed_trade(
             self,
@@ -220,8 +281,46 @@ class UserDirectedTradingStrategy(StrategyPyBase):
             is_limit_order: bool,
             limit_price: Optional[float],
             amount: float,
-    ):
-        pass
+    ) -> UserDirectedTradeCommandMessage.Response:
+        if is_limit_order and limit_price is None:
+            raise ValueError("Limit price must not be None for a limit order")
 
-    async def mqtt_user_directed_cancel(self, exchange: str, trading_pair: str, order_id: str):
-        pass
+        trading_pair_tuple: MarketTradingPairTuple = await self.create_market_trading_pair_tuple(exchange, trading_pair)
+        if is_limit_order:
+            if is_buy:
+                order_id = self.buy_with_specific_market(
+                    market_trading_pair_tuple=trading_pair_tuple,
+                    amount=amount,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal(f"{limit_price:g}")
+                )
+            else:
+                order_id = self.sell_with_specific_market(
+                    market_trading_pair_tuple=trading_pair_tuple,
+                    amount=amount,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal(f"{limit_price:g}")
+                )
+        else:
+            if is_buy:
+                order_id = self.buy_with_specific_market(
+                    market_trading_pair_tuple=trading_pair_tuple,
+                    amount=amount
+                )
+            else:
+                order_id = self.sell_with_specific_market(
+                    market_trading_pair_tuple=trading_pair_tuple,
+                    amount=amount
+                )
+
+        return UserDirectedTradeCommandMessage.Response(order_id=order_id)
+
+    async def mqtt_user_directed_cancel(
+            self,
+            exchange: str,
+            trading_pair: str,
+            order_id: str
+    ) -> UserDirectedCancelCommandMessage.Response:
+        trading_pair_tuple: MarketTradingPairTuple = await self.create_market_trading_pair_tuple(exchange, trading_pair)
+        self.cancel_order(trading_pair_tuple, order_id)
+        return UserDirectedCancelCommandMessage.Response(order_id=order_id)

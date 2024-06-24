@@ -1,0 +1,6 @@
+#############################################
+### User directed trading strategy config ###
+#############################################
+
+template_version: 1
+strategy: null
