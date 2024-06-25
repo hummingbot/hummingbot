@@ -93,7 +93,7 @@ def migrate_global_config() -> List[str]:
     global_config_path = CONF_DIR_PATH / "conf_global.yml"
     errors = []
     if global_config_path.exists():
-        with open(str(global_config_path), "r") as f:
+        with open(str(global_config_path), "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         del data["template_version"]
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -273,7 +273,7 @@ def migrate_strategy_confs_paths():
     logging.getLogger().info("\nMigrating strategies...")
     for child in conf_dir_path.iterdir():
         if child.is_file() and child.name.endswith(".yml"):
-            with open(str(child), "r") as f:
+            with open(str(child), "r", encoding="utf-8") as f:
                 conf = yaml.safe_load(f)
             if "strategy" in conf and _has_connector_field(conf):
                 new_path = strategies_conf_dir_path / child.name
@@ -427,7 +427,7 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
         if el.client_field_data is not None:
             key_path = conf_dir_path / f"{encrypted_conf_prefix}{el.attr}{encrypted_conf_postfix}"
             if key_path.exists():
-                with open(key_path, 'r') as f:
+                with open(key_path, 'r', encoding='utf-8') as f:
                     json_str = f.read()
                 value = binascii.hexlify(json_str.encode()).decode()
                 if not el.client_field_data.is_secure:

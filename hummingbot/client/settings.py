@@ -84,14 +84,14 @@ class GatewayConnectionSetting:
     def load() -> List[Dict[str, str]]:
         connections_conf_path: str = GatewayConnectionSetting.conf_path()
         if exists(connections_conf_path):
-            with open(connections_conf_path) as fd:
+            with open(connections_conf_path, encoding='utf-8') as fd:
                 return json.load(fd)
         return []
 
     @staticmethod
     def save(settings: List[Dict[str, str]]):
         connections_conf_path: str = GatewayConnectionSetting.conf_path()
-        with open(connections_conf_path, "w") as fd:
+        with open(connections_conf_path, "w", encoding="utf-8") as fd:
             json.dump(settings, fd)
 
     @staticmethod
