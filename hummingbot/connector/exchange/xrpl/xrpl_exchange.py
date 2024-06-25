@@ -8,7 +8,7 @@ from bidict import bidict
 
 # XRPL Imports
 from xrpl.asyncio.clients import AsyncWebsocketClient
-from xrpl.asyncio.transaction import sign, submit
+from xrpl.asyncio.transaction import autofill, sign, submit
 from xrpl.asyncio.transaction.reliable_submission import _wait_for_final_transaction_outcome
 from xrpl.models import (
     XRP,
@@ -37,12 +37,7 @@ from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
-from hummingbot.connector.exchange.xrpl.xrpl_utils import (
-    XRPLMarket,
-    autofill,
-    convert_string_to_hex,
-    get_token_from_changes,
-)
+from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket, convert_string_to_hex, get_token_from_changes
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
@@ -330,7 +325,7 @@ class XrplExchange(ExchangePyBase):
                 submit_response = await submit(signed_tx, self._xrpl_place_order_client)
                 transact_time = time.time()
                 prelim_result = submit_response.result["engine_result"]
-                if prelim_result[0:3] == "tem":
+                if prelim_result[0:3] != "tes":
                     error_message = submit_response.result["engine_result_message"]
                     self.logger().error(f"{prelim_result}: {error_message}, data: {submit_response}")
                     return o_id, transact_time, None
@@ -351,31 +346,57 @@ class XrplExchange(ExchangePyBase):
         return o_id, transact_time, {"transaction": signed_tx, "prelim_result": prelim_result}
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
-        exchange_order_id, update_timestamp, submit_data = await self._place_order(
-            order_id=order.client_order_id,
-            trading_pair=order.trading_pair,
-            amount=order.amount,
-            trade_type=order.trade_type,
-            order_type=order.order_type,
-            price=order.price,
-            **kwargs,
-        )
+        retry = 0
+        verified = False
+        exchange_order_id = ""
+        resp = None
 
-        order_update: OrderUpdate = OrderUpdate(
-            client_order_id=order.client_order_id,
-            exchange_order_id=str(exchange_order_id),
-            trading_pair=order.trading_pair,
-            update_timestamp=update_timestamp,
-            new_state=OrderState.PENDING_CREATE,
-        )
-        self._order_tracker.process_order_update(order_update)
+        while retry < CONSTANTS.PLACE_ORDER_MAX_RETRY:
+            exchange_order_id, update_timestamp, submit_data = await self._place_order(
+                order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                amount=order.amount,
+                trade_type=order.trade_type,
+                order_type=order.order_type,
+                price=order.price,
+                **kwargs,
+            )
 
-        transaction: Transaction = submit_data["transaction"]
-        prelim_result = submit_data["prelim_result"]
+            order_update: OrderUpdate = OrderUpdate(
+                client_order_id=order.client_order_id,
+                exchange_order_id=str(exchange_order_id),
+                trading_pair=order.trading_pair,
+                update_timestamp=update_timestamp,
+                new_state=OrderState.PENDING_CREATE,
+            )
+            self._order_tracker.process_order_update(order_update)
 
-        await self._make_network_check_request()
-        resp = await _wait_for_final_transaction_outcome(transaction.get_hash(), self._xrpl_place_order_client,
-                                                         prelim_result, transaction.last_ledger_sequence)
+            verified, resp = await self._verify_transaction_result(submit_data)
+
+            if verified:
+                retry = CONSTANTS.PLACE_ORDER_MAX_RETRY
+            else:
+                retry += 1
+                self.logger().info(
+                    f"Order placing failed. Retrying in {CONSTANTS.PLACE_ORDER_RETRY_INTERVAL} seconds...")
+                await self._order_tracker.process_order_not_found(order.client_order_id)
+                await self._sleep(CONSTANTS.PLACE_ORDER_RETRY_INTERVAL)
+
+        if resp is None:
+            self.logger().error(
+                f"Failed to place order {order.client_order_id} ({exchange_order_id}), data: {order}, submit_data: {submit_data}")
+            return exchange_order_id
+
+        if not verified:
+            self.logger().error(
+                f"Failed to verify transaction result for order {order.client_order_id} ({exchange_order_id}), data: {order}, submit_data: {submit_data}")
+            return exchange_order_id
+
+        if len(exchange_order_id) == 0:
+            self.logger().error(
+                f"Failed to place order {order.client_order_id}, no exchange order id returned, data: {order}, submit_data: {submit_data}")
+            return exchange_order_id
+
         order_update = await self._request_order_status(order)
 
         if order_update.new_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED, OrderState.CREATED]:
@@ -389,6 +410,19 @@ class XrplExchange(ExchangePyBase):
         self._order_tracker.process_order_update(order_update)
 
         return exchange_order_id
+
+    async def _verify_transaction_result(self, submit_data: dict[str, Any]) -> tuple[bool, Optional[Response]]:
+        transaction: Transaction = submit_data["transaction"]
+        prelim_result = submit_data["prelim_result"]
+
+        try:
+            await self._make_network_check_request()
+            resp = await _wait_for_final_transaction_outcome(transaction.get_hash(), self._xrpl_place_order_client,
+                                                             prelim_result, transaction.last_ledger_sequence)
+            return True, resp
+        except Exception as e:
+            self.logger().error(f"Submitted transaction failed: {e}")
+            return False, None
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         exchange_order_id = tracked_order.exchange_order_id
@@ -413,7 +447,7 @@ class XrplExchange(ExchangePyBase):
 
                 submit_response = await submit(signed_tx, self._xrpl_place_order_client)
                 prelim_result = submit_response.result["engine_result"]
-                if prelim_result[0:3] == "tem":
+                if prelim_result[0:3] != "tes":
                     error_message = submit_response.result["engine_result_message"]
                     self.logger().error(f"{prelim_result}: {error_message}, data: {submit_response}")
                     return False, None
@@ -428,6 +462,8 @@ class XrplExchange(ExchangePyBase):
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         retry = 0
         submitted = False
+        verified = False
+        resp = None
         submit_data = None
 
         update_timestamp = self.current_timestamp
@@ -443,8 +479,9 @@ class XrplExchange(ExchangePyBase):
 
         while retry < CONSTANTS.CANCEL_MAX_RETRY:
             submitted, submit_data = await self._place_cancel(order.client_order_id, order)
+            verified, resp = await self._verify_transaction_result(submit_data)
 
-            if submitted:
+            if submitted and verified:
                 retry = CONSTANTS.CANCEL_MAX_RETRY
             else:
                 retry += 1
@@ -453,15 +490,11 @@ class XrplExchange(ExchangePyBase):
                 await self._order_tracker.process_order_not_found(order.client_order_id)
                 await self._sleep(CONSTANTS.CANCEL_RETRY_INTERVAL)
 
-        if submitted:
-            # TODO: Refactor this
-            transaction: Transaction = submit_data["transaction"]
-            prelim_result = submit_data["prelim_result"]
-
-            await self._make_network_check_request()
-            resp: Response = await _wait_for_final_transaction_outcome(
-                transaction.get_hash(), self._xrpl_place_order_client, prelim_result, transaction.last_ledger_sequence
-            )
+        if submitted and verified:
+            if resp is None:
+                self.logger().error(
+                    f"Failed to cancel order {order.client_order_id} ({order.exchange_order_id}), data: {order}, submit_data: {submit_data}")
+                return False
 
             meta = resp.result.get("meta", {})
             sequence, ledger_index = order.exchange_order_id.split('-')

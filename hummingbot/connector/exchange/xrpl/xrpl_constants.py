@@ -61,6 +61,10 @@ RATE_LIMITS = [
     RateLimit(limit_id=RAW_REQUESTS, limit=NO_LIMIT, time_interval=1),
 ]
 
+# Place order retry parameters
+PLACE_ORDER_MAX_RETRY = 3
+PLACE_ORDER_RETRY_INTERVAL = 3
+
 # Cancel All Timeout
 CANCEL_ALL_TIMEOUT = 60.0
 
