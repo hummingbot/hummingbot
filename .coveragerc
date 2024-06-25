@@ -31,7 +31,7 @@ omit =
         hummingbot/user/user_balances.py
         hummingbot/connector/exchange/cube/cube_ws_protobufs/*
         hummingbot/strategy_v2/backtesting/*
-        hummingbot/connector/exchange/xrpl
+        hummingbot/connector/exchange/xrpl*
 dynamic_context = test_function
 branch = true
 
