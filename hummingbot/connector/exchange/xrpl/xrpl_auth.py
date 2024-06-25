@@ -7,8 +7,11 @@ from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WS
 
 
 class XRPLAuth(AuthBase):
-    def __init__(self, xrpl_secret_key: str):
-        self._wallet = Wallet.from_seed(xrpl_secret_key, algorithm=self.get_algorithm(key=xrpl_secret_key))
+    def __init__(self, xrpl_secret_key: str, trading_required=False):
+        if trading_required:
+            self._wallet = Wallet.from_seed(xrpl_secret_key, algorithm=self.get_algorithm(key=xrpl_secret_key))
+        else:
+            self._wallet = Wallet.create()
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         pass
