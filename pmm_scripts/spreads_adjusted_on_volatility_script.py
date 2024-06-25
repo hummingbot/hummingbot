@@ -11,7 +11,7 @@ SCRIPT_LOG_FILE = f"{LOGS_PATH}/logs_script.log"
 
 
 def log_to_file(file_name, message):
-    with open(file_name, "a+") as f:
+    with open(file_name, "a+", encoding="utf-8") as f:
         f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + message + "\n")
 
 

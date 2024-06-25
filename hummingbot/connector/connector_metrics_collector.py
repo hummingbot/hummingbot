@@ -18,7 +18,7 @@ from hummingbot.logger.log_server_client import LogServerClient
 if TYPE_CHECKING:
     from hummingbot.connector.connector_base import ConnectorBase
 
-with open(realpath(join(dirname(__file__), '../VERSION'))) as version_file:
+with open(realpath(join(dirname(__file__), '../VERSION')), encoding='utf-8') as version_file:
     CLIENT_VERSION = version_file.read().strip()
 
 

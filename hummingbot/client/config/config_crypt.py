@@ -63,13 +63,13 @@ class ETHKeyFileSecretManger(BaseSecretsManager):
 
 def store_password_verification(secrets_manager: BaseSecretsManager):
     encrypted_word = secrets_manager.encrypt_secret_value(PASSWORD_VERIFICATION_WORD, PASSWORD_VERIFICATION_WORD)
-    with open(PASSWORD_VERIFICATION_PATH, "w") as f:
+    with open(PASSWORD_VERIFICATION_PATH, "w", encoding="utf-8") as f:
         f.write(encrypted_word)
 
 
 def validate_password(secrets_manager: BaseSecretsManager) -> bool:
     valid = False
-    with open(PASSWORD_VERIFICATION_PATH, "r") as f:
+    with open(PASSWORD_VERIFICATION_PATH, "r", encoding="utf-8") as f:
         encrypted_word = f.read()
     try:
         decrypted_word = secrets_manager.decrypt_secret_value(PASSWORD_VERIFICATION_WORD, encrypted_word)

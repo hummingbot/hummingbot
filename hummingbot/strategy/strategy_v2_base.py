@@ -89,7 +89,7 @@ class StrategyV2ConfigBase(BaseClientModel):
         loaded_configs = []
         for config_path in self.controllers_config:
             full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
-            with open(full_path, 'r') as file:
+            with open(full_path, 'r', encoding='utf-8') as file:
                 config_data = yaml.safe_load(file)
 
             controller_type = config_data.get('controller_type')

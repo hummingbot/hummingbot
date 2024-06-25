@@ -55,8 +55,8 @@ class SillyCommands:
         await self.text_n_wait("I'm well and busy coding for you all.", 2)
         await self.text_n_wait("Get in touch @nullably on Github and Twitter.", 2.5)
         await self.text_n_wait("Happy trading and don't get rekt.", 2.5)
-        jack_1 = open(f"{RESOURCES_PATH}jack_1.txt").readlines()
-        jack_2 = open(f"{RESOURCES_PATH}jack_2.txt").readlines()
+        jack_1 = open(f"{RESOURCES_PATH}jack_1.txt", encoding="utf-8").readlines()
+        jack_2 = open(f"{RESOURCES_PATH}jack_2.txt", encoding="utf-8").readlines()
         await self.cls_display_delay(jack_1, 1.5)
         await self.cls_display_delay(jack_2, 1.5)
         self.placeholder_mode = False
@@ -66,9 +66,9 @@ class SillyCommands:
                          ):
         self.placeholder_mode = True
         self.app.hide_input = True
-        stay_calm = open(f"{RESOURCES_PATH}hodl_stay_calm.txt").readlines()
-        and_hodl = open(f"{RESOURCES_PATH}hodl_and_hodl.txt").readlines()
-        bitcoin = open(f"{RESOURCES_PATH}hodl_bitcoin.txt").readlines()
+        stay_calm = open(f"{RESOURCES_PATH}hodl_stay_calm.txt", encoding="utf-8").readlines()
+        and_hodl = open(f"{RESOURCES_PATH}hodl_and_hodl.txt", encoding="utf-8").readlines()
+        bitcoin = open(f"{RESOURCES_PATH}hodl_bitcoin.txt", encoding="utf-8").readlines()
         await self.cls_display_delay(stay_calm, 1.75)
         await self.cls_display_delay(and_hodl, 1.75)
         for _ in range(3):
@@ -84,10 +84,10 @@ class SillyCommands:
         self.app.hide_input = True
         for _ in range(0, 3):
             await self.cls_display_delay(self.display_alert())
-        hb_with_flower_1 = open(f"{RESOURCES_PATH}hb_with_flower_1.txt").readlines()
-        hb_with_flower_2 = open(f"{RESOURCES_PATH}hb_with_flower_2.txt").readlines()
-        hb_with_flower_up_close_1 = open(f"{RESOURCES_PATH}hb_with_flower_up_close_1.txt").readlines()
-        hb_with_flower_up_close_2 = open(f"{RESOURCES_PATH}hb_with_flower_up_close_2.txt").readlines()
+        hb_with_flower_1 = open(f"{RESOURCES_PATH}hb_with_flower_1.txt", encoding="utf-8").readlines()
+        hb_with_flower_2 = open(f"{RESOURCES_PATH}hb_with_flower_2.txt", encoding="utf-8").readlines()
+        hb_with_flower_up_close_1 = open(f"{RESOURCES_PATH}hb_with_flower_up_close_1.txt", encoding="utf-8").readlines()
+        hb_with_flower_up_close_2 = open(f"{RESOURCES_PATH}hb_with_flower_up_close_2.txt", encoding="utf-8").readlines()
         for _ in range(0, 2):
             for _ in range(0, 5):
                 await self.cls_display_delay(hb_with_flower_1, 0.125)
@@ -104,10 +104,10 @@ class SillyCommands:
         self.app.hide_input = True
         for _ in range(0, 3):
             await self.cls_display_delay(self.display_alert("roger"))
-        roger_1 = open(f"{RESOURCES_PATH}roger_1.txt").readlines()
-        roger_2 = open(f"{RESOURCES_PATH}roger_2.txt").readlines()
-        roger_3 = open(f"{RESOURCES_PATH}roger_3.txt").readlines()
-        roger_4 = open(f"{RESOURCES_PATH}roger_4.txt").readlines()
+        roger_1 = open(f"{RESOURCES_PATH}roger_1.txt", encoding="utf-8").readlines()
+        roger_2 = open(f"{RESOURCES_PATH}roger_2.txt", encoding="utf-8").readlines()
+        roger_3 = open(f"{RESOURCES_PATH}roger_3.txt", encoding="utf-8").readlines()
+        roger_4 = open(f"{RESOURCES_PATH}roger_4.txt", encoding="utf-8").readlines()
         for _ in range(0, 2):
             for _ in range(0, 3):
                 await self.cls_display_delay(roger_1, 0.1)
@@ -129,8 +129,8 @@ class SillyCommands:
                            ):
         self.placeholder_mode = True
         self.app.hide_input = True
-        hb_with_flower_1 = open(f"{RESOURCES_PATH}money-fly_1.txt").readlines()
-        hb_with_flower_2 = open(f"{RESOURCES_PATH}money-fly_2.txt").readlines()
+        hb_with_flower_1 = open(f"{RESOURCES_PATH}money-fly_1.txt", encoding="utf-8").readlines()
+        hb_with_flower_2 = open(f"{RESOURCES_PATH}money-fly_2.txt", encoding="utf-8").readlines()
         for _ in range(0, 5):
             for _ in range(0, 5):
                 await self.cls_display_delay(hb_with_flower_1, 0.125)
@@ -145,9 +145,9 @@ class SillyCommands:
         self.app.hide_input = True
         for _ in range(0, 2):
             await self.cls_display_delay(self.display_alert("rein"))
-        rein_1 = open(f"{RESOURCES_PATH}rein_1.txt").readlines()
-        rein_2 = open(f"{RESOURCES_PATH}rein_2.txt").readlines()
-        rein_3 = open(f"{RESOURCES_PATH}rein_3.txt").readlines()
+        rein_1 = open(f"{RESOURCES_PATH}rein_1.txt", encoding="utf-8").readlines()
+        rein_2 = open(f"{RESOURCES_PATH}rein_2.txt", encoding="utf-8").readlines()
+        rein_3 = open(f"{RESOURCES_PATH}rein_3.txt", encoding="utf-8").readlines()
         for _ in range(0, 2):
             await self.cls_display_delay(rein_1, 0.5)
             await self.cls_display_delay(rein_2, 0.5)
@@ -164,20 +164,20 @@ class SillyCommands:
                            ):
         self.placeholder_mode = True
         self.app.hide_input = True
-        dennis_loading_1 = open(f"{RESOURCES_PATH}dennis_loading_1.txt").readlines()
-        dennis_loading_2 = open(f"{RESOURCES_PATH}dennis_loading_2.txt").readlines()
-        dennis_loading_3 = open(f"{RESOURCES_PATH}dennis_loading_3.txt").readlines()
-        dennis_loading_4 = open(f"{RESOURCES_PATH}dennis_loading_4.txt").readlines()
+        dennis_loading_1 = open(f"{RESOURCES_PATH}dennis_loading_1.txt", encoding="utf-8").readlines()
+        dennis_loading_2 = open(f"{RESOURCES_PATH}dennis_loading_2.txt", encoding="utf-8").readlines()
+        dennis_loading_3 = open(f"{RESOURCES_PATH}dennis_loading_3.txt", encoding="utf-8").readlines()
+        dennis_loading_4 = open(f"{RESOURCES_PATH}dennis_loading_4.txt", encoding="utf-8").readlines()
         for _ in range(0, 1):
             await self.cls_display_delay(dennis_loading_1, 1)
             await self.cls_display_delay(dennis_loading_2, 1)
             await self.cls_display_delay(dennis_loading_3, 1)
             await self.cls_display_delay(dennis_loading_4, 1)
             # await asyncio.sleep(0.5)
-        dennis_1 = open(f"{RESOURCES_PATH}dennis_1.txt").readlines()
-        dennis_2 = open(f"{RESOURCES_PATH}dennis_2.txt").readlines()
-        dennis_3 = open(f"{RESOURCES_PATH}dennis_3.txt").readlines()
-        dennis_4 = open(f"{RESOURCES_PATH}dennis_4.txt").readlines()
+        dennis_1 = open(f"{RESOURCES_PATH}dennis_1.txt", encoding="utf-8").readlines()
+        dennis_2 = open(f"{RESOURCES_PATH}dennis_2.txt", encoding="utf-8").readlines()
+        dennis_3 = open(f"{RESOURCES_PATH}dennis_3.txt", encoding="utf-8").readlines()
+        dennis_4 = open(f"{RESOURCES_PATH}dennis_4.txt", encoding="utf-8").readlines()
         for _ in range(0, 1):
             await self.cls_display_delay(dennis_1, 1)
             await self.cls_display_delay(dennis_2, 1)
@@ -198,7 +198,7 @@ class SillyCommands:
             self.app.live_updates = False
             await asyncio.sleep(1)
 
-    def display_alert(self, custom_alert = None):
+    def display_alert(self, custom_alert=None):
         alert = """
                                 ====================================
                                 ║                                  ║
@@ -208,8 +208,9 @@ class SillyCommands:
         """
         if custom_alert is not None:
             try:
-                lines = open(f"{RESOURCES_PATH}{custom_alert}_alert.txt").readlines()
-                alert = "".join(lines)
+                with open(f"{RESOURCES_PATH}{custom_alert}_alert.txt", "r", encoding="utf-8") as file:
+                    lines = file.readlines()
+                    alert = "".join(lines)
             except Exception:
                 pass
         return f"{alert}" + ("\n" * 18)
