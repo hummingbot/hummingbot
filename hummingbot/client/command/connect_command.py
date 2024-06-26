@@ -115,10 +115,16 @@ class ConnectCommand:
         await Security.wait_til_decryption_done()
         api_keys = Security.api_keys(connector_name)
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
+        graphene_timeout = float(self.client_config_map.commands_timeout.graphene_timeout)
         try:
             err_msg = await asyncio.wait_for(
                 UserBalances.instance().add_exchange(connector_name, self.client_config_map, **api_keys),
-                network_timeout,
+                (
+                    network_timeout
+                    if connector_name not in
+                    ["bitshares", "peerplays", "bitshares testnet", "peerplays testnet"]
+                    else graphene_timeout
+                ),
             )
         except asyncio.TimeoutError:
             self.notify(
