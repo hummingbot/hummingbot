@@ -170,6 +170,9 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         pass
 
+    def _get_client(self) -> AsyncWebsocketClient:
+        return AsyncWebsocketClient(self._connector.node_url)
+
     async def _process_websocket_messages_for_pair(self, trading_pair: str):
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
         account = self._connector.auth.get_account()
@@ -183,7 +186,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         subscribe = Subscribe(books=[subscribe_book_request])
 
-        async with AsyncWebsocketClient(self._connector.node_url) as client:
+        async with self._get_client() as client:
             await client.send(subscribe)
 
             async for message in client:
@@ -197,7 +200,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 order_book_changes = get_order_book_changes(meta)
                 for account_offer_changes in order_book_changes:
                     for offer_change in account_offer_changes["offer_changes"]:
-                        if offer_change["status"] in ["partially_filled", "filled"]:
+                        if offer_change["status"] in ["partially-filled", "filled"]:
                             taker_gets = offer_change["taker_gets"]
                             taker_gets_currency = taker_gets["currency"]
 
@@ -223,8 +226,6 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 "amount": filled_quantity,
                                 "timestamp": timestamp,
                             }
-
-                            # print(f"trade_data: {trade_data}")
 
                             self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
                                 {"trading_pair": trading_pair, "trade": trade_data})
