@@ -197,13 +197,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         "hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.XRPLAPIOrderBookDataSource._request_order_book_snapshot"
     )
     def test_get_new_order_book_successful(self, request_order_book_mock):
-        # url = web_utils.public_rest_url(path_url=CONSTANTS.MARKET_DATA_REQUEST_URL + "/book/100006/snapshot",
-        #                                 domain=self.domain)
-        # regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        #
-        # resp = self._snapshot_response()
-        #
-        # mock_api.get(regex_url, body=json.dumps(resp))
         request_order_book_mock.return_value = self._snapshot_response()
 
         order_book: OrderBook = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
