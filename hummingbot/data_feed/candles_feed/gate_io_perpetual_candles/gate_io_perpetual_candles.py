@@ -87,8 +87,8 @@ class GateioPerpetualCandles(CandlesBase):
         return {
             "contract": self._ex_trading_pair,
             "interval": self.interval,
-            "from": start_time if start_time is not None else end_time - limit * self.interval_in_seconds,
-            "to": end_time if end_time is not None else start_time + limit * self.interval_in_seconds
+            "from": start_time,
+            "to": end_time
         }
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:

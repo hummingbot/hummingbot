@@ -78,11 +78,10 @@ class BybitPerpetualCandles(CandlesBase):
             "interval": CONSTANTS.INTERVALS[self.interval],
             "limit": limit
         }
-        if start_time is not None or end_time is not None:
-            params["startTime"] = start_time if start_time is not None else end_time - limit * self.interval_in_seconds
-            params["startTime"] = params["startTime"] * 1000
-            params["endTime"] = end_time if end_time is not None else start_time + limit * self.interval_in_seconds
-            params["endTime"] = params["endTime"] * 1000
+        if start_time:
+            params["startTime"] = start_time * 1000
+        if end_time:
+            params["endTime"] = end_time * 1000
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:

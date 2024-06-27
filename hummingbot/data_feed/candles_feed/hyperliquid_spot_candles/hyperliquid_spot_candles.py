@@ -73,17 +73,15 @@ class HyperliquidSpotCandles(CandlesBase):
         return trading_pair.replace("-", "")
 
     async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None) -> List[List[float]]:
-        limit = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
         rest_assistant = await self._api_factory.get_rest_assistant()
         reqs = {
             "interval": CONSTANTS.INTERVALS[self.interval],
             "coin": self._coins_dict[self._base_asset],
         }
-        if start_time is not None or end_time is not None:
-            reqs["startTime"] = start_time if start_time is not None else end_time - limit * self.interval_in_seconds
-            reqs["startTime"] = reqs["startTime"] * 1000
-            reqs["endTime"] = end_time if end_time is not None else start_time + limit * self.interval_in_seconds
-            reqs["endTime"] = reqs["endTime"] * 1000
+        if start_time:
+            reqs["startTime"] = start_time * 1000
+        if end_time:
+            reqs["endTime"] = end_time * 1000
         payload = {
             "type": "candleSnapshot",
             "req": reqs
