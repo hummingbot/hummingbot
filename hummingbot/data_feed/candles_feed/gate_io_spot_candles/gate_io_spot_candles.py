@@ -73,9 +73,9 @@ class GateioSpotCandles(CandlesBase):
         This API only accepts a limit of 10000 candles ago.
         """
         if start_time is None:
-            start_time = end_time - (limit - 1) * self.interval_in_seconds
+            start_time = end_time
         if end_time is None:
-            end_time = start_time + (limit - 1) * self.interval_in_seconds
+            end_time = start_time
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Gate.io REST API does not support fetching more than 10000 candles ago.")

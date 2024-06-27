@@ -92,8 +92,6 @@ class KucoinSpotCandles(CandlesBase):
             params["startAt"] = start_time
         if end_time:
             params["endAt"] = end_time
-        else:
-            params["endAt"] = start_time + (limit * self.get_seconds_from_interval(self.interval))
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:

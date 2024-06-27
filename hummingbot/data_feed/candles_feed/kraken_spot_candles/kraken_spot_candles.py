@@ -92,8 +92,6 @@ class KrakenSpotCandles(CandlesBase):
 
         This endpoint allows you to return up to 3600 candles ago.
         """
-        if start_time is None:
-            start_time = end_time - self.interval_in_seconds * (limit - 1)
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Kraken REST API does not support fetching more than 720 candles ago.")
