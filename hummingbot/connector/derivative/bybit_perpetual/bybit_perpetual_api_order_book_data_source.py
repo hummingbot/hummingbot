@@ -66,7 +66,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         """
         tasks_future = None
         try:
-            linear_trading_pairs, non_linear_trading_pairs = bybit_utils.get_linear_non_linear_split(
+            linear_trading_pairs, inverse_trading_pairs = bybit_utils.get_linear_non_linear_split(
                 self._trading_pairs
             )
 
@@ -78,13 +78,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                         trading_pairs=linear_trading_pairs
                     )
                 )
-            if non_linear_trading_pairs:
-                tasks.append(
-                    self._listen_for_subscriptions_on_url(
-                        url=CONSTANTS.WSS_PUBLIC_URL_NON_LINEAR[self._domain],
-                        trading_pairs=non_linear_trading_pairs
-                    )
-                )
+            if inverse_trading_pairs:
+                self.logger.error("Non linear trading pairs are not supported on Bybit Perpetual.")
             if tasks:
                 tasks_future = asyncio.gather(*tasks)
                 await tasks_future

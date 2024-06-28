@@ -43,10 +43,9 @@ class BybitPerpetualUtilsTests(TestCase):
 
     def test_get_linear_non_linear_split(self):
         trading_pairs = ["ETH-USDT", "ETH-BTC"]
-        linear_trading_pairs, non_linear_trading_pairs = utils.get_linear_non_linear_split(trading_pairs)
+        linear_trading_pairs, _ = utils.get_linear_non_linear_split(trading_pairs)
 
         self.assertEqual(["ETH-USDT"], linear_trading_pairs)
-        self.assertEqual(["ETH-BTC"], non_linear_trading_pairs)
 
     def test_get_next_funding_timestamp(self):
         # Simulate 01:00 UTC

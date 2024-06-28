@@ -114,22 +114,27 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     def supported_order_types(self) -> List[OrderType]:
         """
-        :return a list of OrderType supported by this connector
+        Returns a list of order types supported by this connector.
+
+        The Bybit Perpetual Derivative connector supports LIMIT and MARKET order types.
+
+        Returns:
+            List[OrderType]: A list of supported order types.
         """
+
         return [OrderType.LIMIT, OrderType.MARKET]
 
     def supported_position_modes(self) -> List[PositionMode]:
-        if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-            return [PositionMode.ONEWAY, PositionMode.HEDGE]
-        elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-            # As of ByBit API v2, we only support ONEWAY mode for non-linear perpetuals
-            return [PositionMode.ONEWAY]
-        else:
-            self.logger().warning(
-                "Currently there is no support for both linear and non-linear markets concurrently."
-                " Please start another hummingbot instance."
-            )
-            return []
+        """
+        Returns a list of supported position modes for this connector.
+
+        The Bybit Perpetual Derivative connector supports both one-way and hedge position modes.
+
+        Returns:
+            List[PositionMode]: A list containing the supported position modes.
+        """
+
+        return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -246,12 +251,12 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         elif trade_type == TradeType.BUY:
             if position_action == PositionAction.CLOSE:
                 position_idx = CONSTANTS.POSITION_IDX_HEDGE_SELL
-            else:  # position_action == PositionAction.Open
+            else:  # position_action == PositionAction.OPEN
                 position_idx = CONSTANTS.POSITION_IDX_HEDGE_BUY
         elif trade_type == TradeType.SELL:
             if position_action == PositionAction.CLOSE:
                 position_idx = CONSTANTS.POSITION_IDX_HEDGE_BUY
-            else:  # position_action == PositionAction.Open
+            else:  # position_action == PositionAction.OPEN
                 position_idx = CONSTANTS.POSITION_IDX_HEDGE_SELL
         else:  # trade_type == TradeType.RANGE
             raise NotImplementedError
@@ -353,7 +358,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     app_warning_msg=f"Failed to fetch status update for {trading_pair}."
                 )
 
-        # Trade updates must be handled before any order status updates.
         for trade in parsed_history_resps:
             self._process_trade_event_message(trade)
 
@@ -722,8 +726,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         for rule in trading_pair_rules:
             try:
                 trading_pair = combine_to_hb_trading_pair(rule.get('baseCoin'), rule.get('quoteCoin'))
-                is_linear = bybit_utils.is_linear_perpetual(trading_pair)
-                collateral_token = rule["quoteCoin"] if is_linear else rule["baseCoin"]
+                collateral_token = rule["quoteCoin"]
                 lot_size_filter = rule.get("lotSizeFilter", {})
                 price_filter = rule.get("priceFilter", {})
                 # It happens that markets return rules without minNotionalValue.
@@ -755,34 +758,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             base = symbol_data["baseCoin"]
             quote = symbol_data["quoteCoin"]
             trading_pair = combine_to_hb_trading_pair(base, quote)
-
-            if trading_pair in mapping.inverse:
-                self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
-            else:
-                mapping[exchange_symbol] = trading_pair
+            mapping[exchange_symbol] = trading_pair
         self._set_trading_pair_symbol_map(mapping)
-
-    def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
-        """Resolves name conflicts provoked by futures contracts.
-
-        If the expected BASEQUOTE combination matches one of the exchange symbols, it is the one taken, otherwise,
-        the trading pair is removed from the map and an error is logged.
-        """
-        expected_exchange_symbol = f"{base}{quote}"
-        trading_pair = combine_to_hb_trading_pair(base, quote)
-        current_exchange_symbol = mapping.inverse[trading_pair]
-        if current_exchange_symbol == expected_exchange_symbol:
-            pass
-        elif new_exchange_symbol == expected_exchange_symbol:
-            mapping.pop(current_exchange_symbol)
-            mapping[new_exchange_symbol] = trading_pair
-        else:
-            # self.logger().error(f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
-            # print(f"Expected Exchange Symbol: {expected_exchange_symbol}")
-            # print(f"Trading Pair: {trading_pair}")
-            # print(f"Current Exchange Symbol: {current_exchange_symbol}")
-            # print(f"New Exchange Symbol: {new_exchange_symbol}")
-            mapping.pop(current_exchange_symbol)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
@@ -944,18 +921,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         )
         if exch_info_linear["retCode"] != 0:
             self.logger().error(exch_info_linear["retMsg"])
-
-        exch_info_inverse = await self._api_get(
-            path_url=self.trading_rules_request_path,
-            params={
-                'category': "inverse"
-            }
-        )
-        if exch_info_inverse["retCode"] != 0:
-            self.logger().error(exch_info_inverse["retMsg"])
-        merged_list = await self._merge_linear_inverse_exchange_info(exch_info_linear["result"],
-                                                                     exch_info_inverse["result"])
-        exch_info_linear["result"]["list"] = merged_list
         return exch_info_linear
 
     async def _make_trading_pairs_request(self) -> Any:
@@ -967,24 +932,4 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         )
         if exch_info_linear["retCode"] != 0:
             self.logger().error(exch_info_linear["retMsg"])
-
-        exch_info_inverse = await self._api_get(
-            path_url=self.trading_pairs_request_path,
-            params={
-                'category': "inverse"
-            }
-        )
-        if exch_info_inverse["retCode"] != 0:
-            self.logger().error(exch_info_inverse["retMsg"])
-
-        merged_list = await self._merge_linear_inverse_exchange_info(
-            exch_info_linear["result"],
-            exch_info_inverse["result"]
-        )
-        exch_info_linear["result"]["list"] = merged_list
         return exch_info_linear
-
-    async def _merge_linear_inverse_exchange_info(self, linear, inverse):
-        l1 = linear["list"]
-        l2 = inverse["list"]
-        return l1 + l2
