@@ -67,9 +67,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws = None
         while True:
             try:
-                ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL[self._domain])
-                await self._authenticate_connection(ws)
+                ws: WSAssistant = await self._connected_websocket_assistant(self._domain)
                 await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
@@ -186,12 +184,12 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return self._ws_assistant
 
     async def _connected_websocket_assistant(self, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> WSAssistant:
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTIONS_RATE_LIMIT):
-            await ws.connect(
-                ws_url=CONSTANTS.WSS_PRIVATE_URL[domain],
-                ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
-            )
+        ws: WSAssistant = await self._get_ws_assistant()
+        await ws.connect(
+            ws_url=CONSTANTS.WSS_PRIVATE_URL[domain],
+            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+        )
+        await self._authenticate_connection(ws)
         return ws
 
     def _get_server_timestamp(self):
