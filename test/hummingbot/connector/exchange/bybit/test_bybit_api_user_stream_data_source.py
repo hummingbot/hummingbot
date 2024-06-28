@@ -106,7 +106,6 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertEqual(4, len(sent_subscription_messages))
 
-        # expires = int((1000 + 10) * 1000)
         expires = 11000000
         _val = f'GET/realtime{expires}'
         signature = hmac.new(self.api_secret_key.encode("utf8"),
@@ -117,6 +116,14 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
         }
 
         self.assertEqual(auth_subscription, sent_subscription_messages[0])
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_connected_ws_assistant(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
+        self.assertEqual(self.mocking_assistant.json_messages_sent_through_websocket(ws_assistant), [])
+        conn_ws_assistant = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        self.assertEqual(self.mocking_assistant.json_messages_sent_through_websocket(conn_ws_assistant), [])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_ws):

@@ -123,6 +123,10 @@ MAX_REQUEST_LIMIT_DEFAULT = 20 / MAX_REQUEST_SECURE_DIVIDER  # 20/s is the max
 # https://bybit-exchange.github.io/docs/v5/rate-limit#ip-rate-limit
 SHARED_RATE_LIMIT = 600  # per 5 second
 
+# WS_CONNECTIONS_RATE_LIMIT = "WS_CONNECTIONS_RATE_LIMIT"
+# WS_CONNECTIONS_RATE_LIMIT = 500  # Per 5 seconds
+# WS_CONNECTIONS_RATE_LIMIT_SEC = WS_CONNECTIONS_RATE_LIMIT / 5
+
 RATE_LIMITS = {
     # General Limits on REST Verbs (GET/POST)
     RateLimit(
