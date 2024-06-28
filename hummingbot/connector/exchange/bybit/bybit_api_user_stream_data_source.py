@@ -153,8 +153,6 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             if "op" in data:
                 if data.get("op") == "auth":
                     await self._process_ws_auth_msg(data)
-                elif data.get("op") == "pong":
-                    await self._process_ws_pingpong_msg(data)
                 elif data.get("op") == "subscribe":
                     if data.get("success") is False:
                         self.logger().error(
@@ -181,12 +179,6 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             raise IOError(f"Private channel authentication failed - {data['ret_msg']}")
         else:
             self.logger().info("Private channel authentication success.")
-
-    async def _process_ws_pingpong_msg(self, data: dict):
-        if not data.get('args')[0]:
-            raise IOError("Private channel ping-pong failed")
-        else:
-            self.logger().debug("Private channel ping-pong success")
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
