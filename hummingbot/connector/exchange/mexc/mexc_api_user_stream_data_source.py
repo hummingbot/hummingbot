@@ -108,9 +108,12 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _ping_listen_key(self) -> bool:
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
+            params = {"listenKey": self._current_listen_key}
+            # Ensure signature is added to the parameters
+            params_with_signature = self._auth.add_auth_to_params(params)
             data = await rest_assistant.execute_request(
                 url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
-                params={"listenKey": self._current_listen_key},
+                params=params_with_signature,
                 method=RESTMethod.PUT,
                 return_err=True,
                 throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
