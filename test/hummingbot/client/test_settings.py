@@ -9,6 +9,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api
     InjectiveAPIDataSource,
 )
 from hummingbot.connector.gateway.clob_spot.data_sources.kujira.kujira_api_data_source import KujiraAPIDataSource
+from hummingbot.connector.gateway.clob_spot.data_sources.oraidex.oraidex_api_data_source import OraidexAPIDataSource
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 
@@ -194,4 +195,48 @@ class SettingsTest(unittest.TestCase):
         api_data_source = params.pop("api_data_source")
 
         self.assertIsInstance(api_data_source, KujiraAPIDataSource)
+        self.assertEqual(expected_params_without_api_data_source, params)
+
+    @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
+    def test_conn_init_parameters_for_gateway_oraidex_connector(
+        self, get_connector_spec_from_market_name_mock: MagicMock
+    ):
+        get_connector_spec_from_market_name_mock.return_value = {
+            "connector": "oraidex",
+            "chain": "oraichain",
+            "network": "mainnet",
+            "trading_type": "CLOB_SPOT",
+            "wallet_address": "orai1swus8mwu8xjulawqxdwh8hvg4gknh2c64tuc0k",
+            "additional_spenders": [],
+        }
+        conn_settings = ConnectorSetting(
+            name="oraidex_oraichain_mainnet",
+            type=ConnectorType.CLOB_SPOT,
+            example_pair="ORAI-USDT",
+            centralised=True,
+            use_ethereum_wallet=False,
+            trade_fee_schema=TradeFeeSchema(),
+            config_keys=None,
+            is_sub_domain=False,
+            parent_name=None,
+            domain_parameter=None,
+            use_eth_gas_lookup=False,
+        )
+
+        expected_params_without_api_data_source = {
+            "connector_name": "oraidex",
+            "chain": "oraichain",
+            "network": "mainnet",
+            "address": "orai1swus8mwu8xjulawqxdwh8hvg4gknh2c64tuc0k",
+            "trading_pairs": [],
+            "trading_required": False,
+            "client_config_map": None,
+        }
+        params = conn_settings.conn_init_parameters()
+
+        self.assertIn("api_data_source", params)
+
+        api_data_source = params.pop("api_data_source")
+
+        self.assertIsInstance(api_data_source, OraidexAPIDataSource)
         self.assertEqual(expected_params_without_api_data_source, params)
