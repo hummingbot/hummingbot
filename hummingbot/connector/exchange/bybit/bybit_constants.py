@@ -32,6 +32,8 @@ WSS_PRIVATE_URL = {
 # https://bybit-exchange.github.io/docs/v5/guide#parameters-for-authenticated-endpoints
 X_API_RECV_WINDOW = str(50000)
 
+X_API_SIGN_TYPE = str(2)
+
 # https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook
 SPOT_ORDER_BOOK_DEPTH = 50
 

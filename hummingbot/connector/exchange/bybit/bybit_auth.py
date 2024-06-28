@@ -64,7 +64,7 @@ class BybitAuth(AuthBase):
                 timestamp=ts, method=method, payload=request.params)
 
         headers["X-BAPI-SIGN"] = signature
-        headers["X-BAPI-SIGN-TYPE"] = str(2)
+        headers["X-BAPI-SIGN-TYPE"] = str(CONSTANTS.X_API_SIGN_TYPE)
         headers["X-BAPI-RECV-WINDOW"] = str(CONSTANTS.X_API_RECV_WINDOW)
         request.headers = {**request.headers, **headers} if request.headers is not None else headers
         return request
