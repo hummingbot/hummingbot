@@ -153,7 +153,7 @@ class MQTTBridgeConfigMap(BaseClientModel):
 
 class MarketDataCollectionConfigMap(BaseClientModel):
     market_data_collection_enabled: bool = Field(
-        default=True,
+        default=False,
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "Enable/Disable Market Data Collection"
