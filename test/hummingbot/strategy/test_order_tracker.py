@@ -68,7 +68,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
     @staticmethod
     def simulate_place_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple):
         """
-        Simulates an order being succesfully placed.
+        Simulates an order being successfully placed.
         """
         if isinstance(order, LimitOrder):
             order_tracker.add_create_order_pending(order.client_order_id)

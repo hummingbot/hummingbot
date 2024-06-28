@@ -615,7 +615,7 @@ class NdaxExchange(ExchangeBase):
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
 
-        # Note: NDAX's CancelOrder endpoint simply indicates if the cancel requests has been succesfully received.
+        # Note: NDAX's CancelOrder endpoint simply indicates if the cancel requests has been successfully received.
         cancellation_results = []
         tracked_orders = self.in_flight_orders
         try:

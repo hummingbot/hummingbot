@@ -395,7 +395,7 @@ class SpotPerpArb(ScriptStrategyBase):
             return "close position"
         else:
             raise ValueError(
-                f"Strategy state: {self.strategy_state} shouldnt happen during trade."
+                f"Strategy state: {self.strategy_state} shouldn't happen during trade."
             )
 
     def perp_trade_position_action(self) -> PositionAction:
@@ -405,7 +405,7 @@ class SpotPerpArb(ScriptStrategyBase):
             return PositionAction.CLOSE
         else:
             raise ValueError(
-                f"Strategy state: {self.strategy_state} shouldnt happen during trade."
+                f"Strategy state: {self.strategy_state} shouldn't happen during trade."
             )
 
     def format_status(self) -> str:

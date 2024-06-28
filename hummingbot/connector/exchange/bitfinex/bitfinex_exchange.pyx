@@ -1127,7 +1127,7 @@ cdef class BitfinexExchange(ExchangeBase):
             cancellation_results = []
             async for _response in ws.messages(waitFor=waitFor):
                 cancelled_client_oids = [o[-1]['order_id'] for o in _response[2][4]]
-                self.logger().info(f"Succesfully canceled orders: {cancelled_client_oids}")
+                self.logger().info(f"Successfully canceled orders: {cancelled_client_oids}")
                 for c_oid in cancelled_client_oids:
                     cancellation_results.append(CancellationResult(c_oid, True))
                 break
