@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Uni
 from bidict import bidict
 
 # XRPL Imports
-from xrpl.asyncio.clients import AsyncWebsocketClient
+from xrpl.asyncio.clients import AsyncWebsocketClient, Client
 from xrpl.asyncio.transaction import autofill, sign, submit
 from xrpl.asyncio.transaction.reliable_submission import _wait_for_final_transaction_outcome
 from xrpl.models import (
@@ -31,6 +31,7 @@ from xrpl.utils import (
     ripple_time_to_posix,
     xrp_to_drops,
 )
+from xrpl.wallet import Wallet
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl_web_utils
@@ -97,7 +98,7 @@ class XrplExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> XRPLAuth:
-        return XRPLAuth(xrpl_secret_key=self._xrpl_secret_key, trading_required=self._trading_required)
+        return XRPLAuth(xrpl_secret_key=self._xrpl_secret_key)
 
     @property
     def name(self) -> str:
@@ -310,10 +311,10 @@ class XrplExchange(ExchangePyBase):
             while retry < CONSTANTS.PLACE_ORDER_MAX_RETRY:
                 await self._make_network_check_request()
                 async with self._xrpl_place_order_client_lock:
-                    filled_tx = await autofill(request, self._xrpl_place_order_client)
-                    signed_tx = sign(filled_tx, self._auth.get_wallet())
+                    filled_tx = await self.tx_autofill(request, self._xrpl_place_order_client)
+                    signed_tx = self.tx_sign(filled_tx, self._auth.get_wallet())
                     o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
-                    submit_response = await submit(signed_tx, self._xrpl_place_order_client)
+                    submit_response = await self.tx_submit(signed_tx, self._xrpl_place_order_client)
                     transact_time = time.time()
                     prelim_result = submit_response.result["engine_result"]
 
@@ -434,10 +435,10 @@ class XrplExchange(ExchangePyBase):
                     offer_sequence=int(sequence),
                 )
 
-                filled_tx = await autofill(request, self._xrpl_place_order_client)
-                signed_tx = sign(filled_tx, self._auth.get_wallet())
+                filled_tx = await self.tx_autofill(request, self._xrpl_place_order_client)
+                signed_tx = self.tx_sign(filled_tx, self._auth.get_wallet())
 
-                submit_response = await submit(signed_tx, self._xrpl_place_order_client)
+                submit_response = await self.tx_submit(signed_tx, self._xrpl_place_order_client)
                 prelim_result = submit_response.result["engine_result"]
                 if prelim_result[0:3] != "tes":
                     error_message = submit_response.result["engine_result_message"]
@@ -1407,3 +1408,23 @@ class XrplExchange(ExchangePyBase):
             quote_currency = IssuedCurrency(currency=formatted_quote, issuer=quote_issuer)
 
         return base_currency, quote_currency
+
+    async def tx_autofill(self, transaction: Transaction, client: Client, signers_count: Optional[int] = None) -> Transaction:
+        return await autofill(transaction, client, signers_count)
+
+    def tx_sign(
+        self,
+        transaction: Transaction,
+        wallet: Wallet,
+        multisign: bool = False,
+    ) -> Transaction:
+        return sign(transaction, wallet, multisign)
+
+    async def tx_submit(
+        self,
+        transaction: Transaction,
+        client: Client,
+        *,
+        fail_hard: bool = False,
+    ) -> Response:
+        return await submit(transaction, client, fail_hard=fail_hard)

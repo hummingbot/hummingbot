@@ -53,11 +53,11 @@ def _get_offer_change(node: NormalizedNode) -> Optional[AccountOfferChange]:
     flags = _get_fields(node, "Flags")
     # if required fields are None: return None
     if (
-            taker_gets is None
-            or taker_pays is None
-            or account is None
-            or sequence is None
-            # or flags is None # flags can be None
+        taker_gets is None
+        or taker_pays is None
+        or account is None
+        or sequence is None
+        # or flags is None # flags can be None
     ):
         return None
 
@@ -77,7 +77,7 @@ def _get_offer_change(node: NormalizedNode) -> Optional[AccountOfferChange]:
 
 
 def compute_order_book_changes(
-        metadata: TransactionMetadata,
+    metadata: TransactionMetadata,
 ) -> List[AccountOfferChanges]:
     """
     Compute the offer changes from offer objects affected by the transaction.
@@ -90,9 +90,7 @@ def compute_order_book_changes(
         The offer changes are grouped by their owner accounts.
     """
     normalized_nodes = normalize_nodes(metadata)
-    offer_nodes = [
-        node for node in normalized_nodes if node["LedgerEntryType"] == "Offer"
-    ]
+    offer_nodes = [node for node in normalized_nodes if node["LedgerEntryType"] == "Offer"]
     offer_changes = []
     for node in offer_nodes:
         change = _get_offer_change(node)
@@ -115,7 +113,7 @@ def convert_string_to_hex(s, padding: bool = True):
         hex_str = binascii.hexlify(s.encode()).decode()
         if padding:
             while len(hex_str) < 40:
-                hex_str += '00'  # pad with zeros to reach 160 bits (40 hex characters)
+                hex_str += "00"  # pad with zeros to reach 160 bits (40 hex characters)
         return hex_str.upper()
 
     return s
@@ -177,17 +175,18 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         ),
     )
 
-    custom_markets: Dict[str, XRPLMarket] = Field(default={
-        "SOLO-XRP": XRPLMarket(
-            base="SOLO",
-            quote="XRP",
-            base_issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
-            quote_issuer="",
-        )},
+    custom_markets: Dict[str, XRPLMarket] = Field(
+        default={
+            "SOLO-XRP": XRPLMarket(
+                base="SOLO",
+                quote="XRP",
+                base_issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                quote_issuer="",
+            )
+        },
         client_data=ClientFieldData(
-            prompt=lambda mi: "Enter custom markets: ",
-            is_connect_key=True,
-            prompt_on_new=False)
+            prompt=lambda mi: "Enter custom markets: ", is_connect_key=True, prompt_on_new=False
+        ),
     )
 
     class Config:
@@ -195,7 +194,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
 
     @validator("xrpl_secret_key", pre=True)
     def validate_xrpl_secret_key(cls, v: str):
-        pattern = r'^s[A-HJ-NP-Za-km-z1-9]*$'
+        pattern = r"^s[A-HJ-NP-Za-km-z1-9]*$"
         error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
         ret = validate_with_regex(v, pattern, error_message)
         if ret is not None:
@@ -204,7 +203,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
 
     @validator("wss_node_url", pre=True)
     def validate_wss_node_url(cls, v: str):
-        pattern = r'^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$'
+        pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
         ret = validate_with_regex(v, pattern, error_message)
         if ret is not None:
@@ -213,7 +212,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
 
     @validator("wss_second_node_url", pre=True)
     def validate_wss_second_node_url(cls, v: str):
-        pattern = r'^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$'
+        pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
         ret = validate_with_regex(v, pattern, error_message)
         if ret is not None:

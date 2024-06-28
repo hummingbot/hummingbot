@@ -40,7 +40,7 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
             trading_required=False,
         )
         self.data_source = XRPLAPIUserStreamDataSource(
-            auth=XRPLAuth(xrpl_secret_key="", trading_required=False),
+            auth=XRPLAuth(xrpl_secret_key=""),
             connector=self.connector,
         )
         self.data_source.logger().setLevel(1)
