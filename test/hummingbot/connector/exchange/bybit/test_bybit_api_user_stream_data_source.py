@@ -116,9 +116,6 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
             "args": [self.api_key, expires, signature]
         }
 
-        print(auth_subscription)
-        print(sent_subscription_messages[0])
-
         self.assertEqual(auth_subscription, sent_subscription_messages[0])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

@@ -198,6 +198,8 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
         self.assertEqual(403.0416, bid_entries[0].amount)
         self.assertEqual(1, len(ask_entries))
         self.assertEqual(50006.34, ask_entries[0].price)
+        self.assertEqual(int(resp["result"]["u"]), bid_entries[0].update_id)
+        self.assertEqual(int(resp["result"]["u"]), ask_entries[0].update_id)
         self.assertEqual(0.2297, ask_entries[0].amount)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
