@@ -25,7 +25,7 @@ INTERVALS = bidict({
     "1w": "1w",
     "1M": "1m"
 })
-
+MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 500
 ALL_ENDPOINTS_LIMIT = "All"
 
 RATE_LIMITS = [

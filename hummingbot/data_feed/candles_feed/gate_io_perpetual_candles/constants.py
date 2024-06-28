@@ -22,6 +22,7 @@ INTERVALS = bidict({
     "1d": "1d",
     "7d": "7d",
 })
+MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 2000
 PUBLIC_URL_POINTS_LIMIT_ID = "PublicPoints"
 
 RATE_LIMITS = [
