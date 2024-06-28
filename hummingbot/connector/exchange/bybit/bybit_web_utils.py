@@ -6,7 +6,16 @@ from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+
+class HeadersContentRESTPreProcessor(RESTPreProcessorBase):
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        request.headers = request.headers or {}
+        if request.method == RESTMethod.POST:
+            request.headers["Content-Type"] = "application/json"
+        return request
 
 
 def rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -74,9 +83,6 @@ async def api_request(path: str,
     )
     rest_assistant = await api_factory.get_rest_assistant()
 
-    local_headers = {
-        "Content-Type": "application/x-www-form-urlencoded"}
-    local_headers.update(headers)
     url = rest_url(path, domain=domain)
 
     request = RESTRequest(
@@ -84,7 +90,7 @@ async def api_request(path: str,
         url=url,
         params=params,
         data=data,
-        headers=local_headers,
+        headers=headers,
         is_auth_required=is_auth_required,
         throttler_limit_id=limit_id if limit_id else path
     )
@@ -119,6 +125,7 @@ async def get_current_server_time(
         throttler=throttler,
         domain=domain,
         method=RESTMethod.GET)
-    server_time = response["result"]["serverTime"]
-
+    # response["result"] = {"timeSeconds": 0, "timeNano": 0}
+    # Better use nanoseconds and divide by 10^9 for higher resolution
+    server_time = float(response["result"]["timeNano"]) / 10**9
     return server_time

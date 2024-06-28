@@ -20,10 +20,9 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": ts,
+            "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
@@ -42,12 +41,11 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["time"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": ts,
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "update_id": msg["u"],
+            "bids": msg["b"],
+            "asks": msg["a"]
         }, timestamp=timestamp)
 
     @classmethod
@@ -64,10 +62,9 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
-            "update_id": ts,
+            "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
@@ -82,12 +79,12 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
+        trade_msg = OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.BUY.value) if msg["m"] else float(TradeType.SELL.value),
-            "trade_id": ts,
-            "update_id": ts,
+            "trade_type": float(TradeType.BUY.value) if msg["S"] == "BUY" else float(TradeType.SELL.value),
+            "trade_id": msg["i"],
+            "update_id": msg["T"],
             "price": msg["p"],
-            "amount": msg["q"]
-        }, timestamp=ts * 1e-3)
+            "amount": msg["v"]
+        }, timestamp=msg["T"])
+        return trade_msg
