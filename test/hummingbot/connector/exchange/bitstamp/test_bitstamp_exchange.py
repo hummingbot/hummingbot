@@ -123,18 +123,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     @property
     def network_status_request_successful_mock_response(self):
         return {
-            "ask": "2211.00",
-            "bid": "2188.97",
-            "high": "2811.00",
-            "last": "2211.00",
-            "low": "2188.97",
-            "open": "2211.00",
-            "open_24": "2211.00",
-            "percent_change_24": "13.57",
-            "side": "0",
-            "timestamp": "1643640186",
-            "volume": "213.26801100",
-            "vwap": "2189.80"
+            "server_time": 1719654227271
         }
 
     @property
