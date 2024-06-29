@@ -15,12 +15,13 @@ from hummingbot.connector.exchange.bitstamp.bitstamp_api_user_stream_data_source
 from hummingbot.connector.exchange.bitstamp.bitstamp_auth import BitstampAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -50,6 +51,7 @@ class BitstampExchange(ExchangePyBase):
 
         super().__init__(client_config_map)
         self._real_time_balance_update = False
+        self._trading_fees
 
     @staticmethod
     def bitstamp_order_type(order_type: OrderType) -> str:
@@ -167,8 +169,32 @@ class BitstampExchange(ExchangePyBase):
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
+
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+
+        trade_fee_schema = self._trading_fees.get(trading_pair)   
+        if trade_fee_schema:
+            fee_percent: Decimal = (
+                trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
+            )
+            fee = TradeFeeBase.new_spot_fee(
+                fee_schema=trade_fee_schema,
+                trade_type=order_side,
+                percent=fee_percent
+            )
+        else:
+            fee = build_trade_fee(
+                self.name,
+                is_maker,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                order_type=order_type,
+                order_side=order_side,
+                amount=amount,
+                price=price,
+            )
+        return fee
 
     async def _place_order(self,
                            order_id: str,
@@ -243,7 +269,24 @@ class BitstampExchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        pass
+        trading_fees: List[Dict[str, Any]] = await self._api_post(
+            path_url=CONSTANTS.TRADING_FEES_URL,
+            is_auth_required=True
+        )
+
+        for fee_info in trading_fees:
+            try:
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_info.get("market"))
+            except KeyError:
+                continue
+
+            if trading_pair:
+                fees = fee_info.get("fees")
+                self._trading_fees[trading_pair] = TradeFeeSchema(
+                    maker_percent_fee_decimal=Decimal(fees["maker"]),
+                    taker_percent_fee_decimal=Decimal(fees["taker"])
+                )
+
 
     async def _user_stream_event_listener(self):
         """

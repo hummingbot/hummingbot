@@ -310,5 +310,4 @@ class BitstampUserStreamDataSourceTests(TestCase):
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
-
         self.assertTrue(self._is_logged("WARNING", f"The websocket connection was closed (Received request to reconnect. Reconnecting...)"))

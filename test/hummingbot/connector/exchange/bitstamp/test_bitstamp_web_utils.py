@@ -62,3 +62,4 @@ class BitstampWebUtilsTests(TestCase):
 
         self.assertEqual(request.headers["Content-Type"], "")
         self.assertIsNone(request.data)
+        
