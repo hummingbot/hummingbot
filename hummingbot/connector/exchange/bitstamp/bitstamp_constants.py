@@ -40,6 +40,7 @@ TICKER_URL              = "/ticker/{}"
 ACCOUNT_BALANCES_URL    = "/account_balances/"
 ORDER_CANCEL_URL        = "/cancel_order/"
 ORDER_STATUS_URL        = "/order_status/"
+TRADING_FEES_URL        = "/fees/trading/"
 WEBSOCKET_TOKEN_URL     = "/websockets_token/"
 
 # WS Events
@@ -99,6 +100,9 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT_LIMIT_ID),
                              LinkedLimitWeightPair(RAW_REQUESTS_LIMIT_ID)]),
     RateLimit(limit_id=ORDER_STATUS_URL, limit=MAX_REQUESTS_PER_SECOND, time_interval=SECOND,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT_LIMIT_ID),
+                             LinkedLimitWeightPair(RAW_REQUESTS_LIMIT_ID)]),
+    RateLimit(limit_id=TRADING_FEES_URL, limit=MAX_REQUESTS_PER_SECOND, time_interval=SECOND,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT_LIMIT_ID),
                              LinkedLimitWeightPair(RAW_REQUESTS_LIMIT_ID)]),
     RateLimit(limit_id=WEBSOCKET_TOKEN_URL, limit=MAX_REQUESTS_PER_SECOND, time_interval=SECOND,

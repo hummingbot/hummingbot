@@ -11,11 +11,12 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitstamp import bitstamp_constants as CONSTANTS, bitstamp_web_utils as web_utils
 from hummingbot.connector.exchange.bitstamp.bitstamp_exchange import BitstampExchange
+from hummingbot.connector.exchange.bitstamp.bitstamp_utils import DEFAULT_FEES
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import BuyOrderCompletedEvent, BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 
 
@@ -162,6 +163,27 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             "amount": "100",
             "client_order_id": ""
         }
+    
+    @property
+    def trading_fees_mock_response(self):
+        return [
+            {
+                "currency_pair": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "fees": {
+                    "maker": "1.0000",
+                    "taker": "2.0000"
+                }
+            },
+            {
+                "currency_pair": "btcusd",
+                "market": "btcusd",
+                "fees": {
+                    "maker": "0.3000",
+                    "taker": "0.4000"
+                }
+            },
+        ]
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
@@ -428,6 +450,16 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        return url
+    
+    def configure_trading_fees_response(
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.TRADING_FEES_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self.trading_fees_mock_response
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
     
@@ -880,3 +912,44 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
             )
         )
+
+    @aioresponses()
+    def test_update_trading_fees(self, mock_api):
+        self.configure_trading_fees_response(mock_api=mock_api)
+        resp = self.trading_fees_mock_response
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        expected_trading_fees = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal(resp[0]["fees"]["maker"]),
+            taker_percent_fee_decimal=Decimal(resp[0]["fees"]["taker"]),
+        )
+
+        self.assertEqual(expected_trading_fees, self.exchange._trading_fees[self.trading_pair])
+        self.assertEqual(1, len(self.exchange._trading_fees))
+
+    def test_get_fee_default(self):
+        expected_maker_fee = AddedToCostTradeFee(percent=DEFAULT_FEES.maker_percent_fee_decimal)
+        maker_fee = self.exchange._get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY, 1, 2, is_maker=True)
+
+        exptected_taker_fee = AddedToCostTradeFee(percent=DEFAULT_FEES.taker_percent_fee_decimal)
+        taker_fee = self.exchange._get_fee(self.base_asset, self.quote_asset, OrderType.MARKET, TradeType.BUY, 1, 2, is_maker=False)
+
+        self.assertEqual(expected_maker_fee, maker_fee)
+        self.assertEqual(exptected_taker_fee, taker_fee)
+
+    @aioresponses()
+    def test_get_fee(self, mock_api):
+        self.configure_trading_fees_response(mock_api=mock_api)
+        resp = self.trading_fees_mock_response
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        expected_maker_fee = AddedToCostTradeFee(percent=Decimal(resp[0]["fees"]["maker"]))
+        maker_fee = self.exchange._get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY, 1, 2, is_maker=True)
+
+        expected_taker_fee = AddedToCostTradeFee(percent=Decimal(resp[0]["fees"]["taker"]))
+        taker_fee = self.exchange._get_fee(self.base_asset, self.quote_asset, OrderType.MARKET, TradeType.BUY, 1, 2, is_maker=False)
+
+        self.assertEqual(expected_maker_fee, maker_fee)
+        self.assertEqual(expected_taker_fee, taker_fee)
