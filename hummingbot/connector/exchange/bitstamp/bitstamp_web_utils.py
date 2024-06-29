@@ -10,6 +10,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+
 class BitstampRESTPreProcessor(RESTPreProcessorBase):
     CONTENT_TYPE_HEADER = "Content-Type"
 
@@ -38,7 +39,6 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.API_VERSION + path_url
 
-
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided private REST endpoint
@@ -47,7 +47,6 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     :return: the full URL to the endpoint
     """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.API_VERSION + path_url
-
 
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,

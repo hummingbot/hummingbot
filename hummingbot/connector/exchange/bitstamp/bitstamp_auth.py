@@ -8,6 +8,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
+
 class BitstampAuth(AuthBase):
     AUTH_VERSION = "v2"
 
