@@ -23,7 +23,6 @@ ORDER_STATE = {
 # Error Codes
 ORDER_NOT_EXIST_ERROR_CODE = "404.002"
 ORDER_NOT_EXIST_MESSAGE = "Order not found"
-ORDER_NOT_EXIST_MESSAGE_DURING_CANCEL = "HTTP status is 404. Error: {\"message\": \"Not found.\"}"
 TIMESTAMP_ERROR_CODE = "API0017"
 TIMESTAMP_ERROR_MESSAGE = "X-Auth-Timestamp header"
 

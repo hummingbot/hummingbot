@@ -138,7 +138,9 @@ class BitstampExchange(ExchangePyBase):
         ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_NOT_EXIST_MESSAGE_DURING_CANCEL in str(cancelation_exception)
+        return CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE in str(
+            cancelation_exception
+        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(cancelation_exception)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -231,7 +233,7 @@ class BitstampExchange(ExchangePyBase):
         )
 
         if order_result.get("status", "") == "error":
-            raise IOError(f"Error placing order (response_code: '{order_result['response_code']}', reason: '{order_result['reason']}')")
+            raise IOError(f"Error placing order. Error: {order_result}")
 
         o_id = str(order_result["id"])
         transact_time = datetime.fromisoformat(order_result["datetime"]).timestamp()
@@ -246,6 +248,8 @@ class BitstampExchange(ExchangePyBase):
             data={"id": exchange_order_id },
             is_auth_required=True
         )
+        if cancel_response.get("status", "") == "error":
+            raise IOError(f"Error canceling order. Error: {cancel_response}")
 
         return str(cancel_response.get("id", "")) == exchange_order_id
 
@@ -402,9 +406,8 @@ class BitstampExchange(ExchangePyBase):
             is_auth_required = True
         )
         
-        status = updated_order_data.get("status", "")
-        if status == "error":
-            raise IOError(f"Error requesting order status (response_code: '{updated_order_data['response_code']}', reason: '{updated_order_data['reason']}')")
+        if updated_order_data.get("status", "") == "error":
+            raise IOError(f"Error requesting order status. Error: {updated_order_data}")
         
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
         amount_remaining = Decimal(updated_order_data["amount_remaining"])

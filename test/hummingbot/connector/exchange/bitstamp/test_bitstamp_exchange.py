@@ -339,8 +339,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_CANCEL_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        response = {'message': 'Not found.' }
-        mock_api.post(regex_url, status=404, body=json.dumps(response), callback=callback)
+        response = self._get_error_response(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE, CONSTANTS.ORDER_NOT_EXIST_MESSAGE)
+        mock_api.post(regex_url, status=200, body=json.dumps(response), callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
@@ -434,8 +434,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     ) -> List[str]:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        response = {'status': 'error', 'reason': 'Order not found.', 'response_code': '404.002'}
-        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        response = self._get_error_response(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE, CONSTANTS.ORDER_NOT_EXIST_MESSAGE)
+        mock_api.post(regex_url, status=200, body=json.dumps(response), callback=callback)
         return url
 
     def configure_partial_fill_trade_response(
