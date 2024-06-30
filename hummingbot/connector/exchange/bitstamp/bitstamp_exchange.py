@@ -128,7 +128,9 @@ class BitstampExchange(ExchangePyBase):
         return f"{base_asset}-{quote_asset}"
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        return CONSTANTS.TIMESTAMP_ERROR_MESSAGE in str(request_exception)
+        return CONSTANTS.TIMESTAMP_ERROR_CODE in str(
+            request_exception
+        ) and CONSTANTS.TIMESTAMP_ERROR_MESSAGE in str(request_exception)
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE in str(
@@ -281,12 +283,11 @@ class BitstampExchange(ExchangePyBase):
                 continue
 
             if trading_pair:
-                fees = fee_info.get("fees")
+                fees = fee_info["fees"]
                 self._trading_fees[trading_pair] = TradeFeeSchema(
                     maker_percent_fee_decimal=Decimal(fees["maker"]),
                     taker_percent_fee_decimal=Decimal(fees["taker"])
                 )
-
 
     async def _user_stream_event_listener(self):
         """
