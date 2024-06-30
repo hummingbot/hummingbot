@@ -478,7 +478,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
-        self.configure_open_order_status_response(order, mock_api, callback)
+        self.configure_partially_filled_order_status_response(order, mock_api, callback)
 
         return self.trade_url
 
@@ -499,10 +499,11 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
-        self.configure_open_order_status_response(order, mock_api, callback)
+        self.configure_completely_filled_order_status_response(order, mock_api, callback)
 
         return self.trade_url
 

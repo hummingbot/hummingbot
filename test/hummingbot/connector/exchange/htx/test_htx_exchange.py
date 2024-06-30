@@ -526,7 +526,7 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def configure_erroneous_http_fill_trade_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_MATCHES_URL.format(order.exchange_order_id))
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
