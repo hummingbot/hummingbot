@@ -51,7 +51,7 @@ SIDE_SELL = 1
 ORDER_BOOK_DEPTH = 500
 
 # Ledger offset for getting order status:
-LEDGER_OFFSET = _LEDGER_OFFSET
+LEDGER_OFFSET = _LEDGER_OFFSET * 2
 
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
