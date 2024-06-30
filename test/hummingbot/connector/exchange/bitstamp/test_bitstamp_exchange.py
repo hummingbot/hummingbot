@@ -283,10 +283,17 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         )
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
-        self._validate_auth_credentials_taking_parameters_from_argument(
-            request_call_tuple=request_call,
-            params=request_call.kwargs["params"] or request_call.kwargs["data"]
-        )
+        request_headers = request_call.kwargs["headers"]
+        expected_headers = [
+            "X-Auth",
+            "X-Auth-Signature",
+            "X-Auth-Nonce",
+            "X-Auth-Timestamp",
+            "X-Auth-Version"
+        ]
+        self.assertEqual(f"BITSTAMP testAPIKey", request_headers["X-Auth"])
+        for header in expected_headers:
+            self.assertIn(header, request_headers)
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = dict(request_call.kwargs["data"])
@@ -555,18 +562,6 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             'channel': 'private-my_trades_algoeur-1',
             'event': 'trade'
         }
-
-    def test_time_synchronizer_related_request_error_detection(self):
-        # TODO: Implement functionality to detect time synchronizer related request errors
-        pass
-
-    def _validate_auth_credentials_taking_parameters_from_argument(self,
-                                                                   request_call_tuple: RequestCall,
-                                                                   params: Dict[str, Any]):
-        request_headers = request_call_tuple.kwargs["headers"]
-
-        # TODO: Complete this implementation
-        self.assertEqual(f"BITSTAMP testAPIKey", request_headers["X-Auth"])
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
@@ -953,3 +948,15 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
         self.assertEqual(expected_maker_fee, maker_fee)
         self.assertEqual(expected_taker_fee, taker_fee)
+
+    def test_time_synchronizer_related_request_error_detection(self):
+        response = self._get_error_response(CONSTANTS.TIMESTAMP_ERROR_CODE, CONSTANTS.TIMESTAMP_ERROR_MESSAGE)
+        exception = IOError(f"'Error executing request POST {self.balance_url}. HTTP status is 403. Error: {json.dumps(response)}'")       
+        self.assertEqual(True, self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+    def _get_error_response(self, error_code, error_reason):
+        return {
+            "status": "error",
+            "reason": error_reason,
+            "code": error_code
+        }
