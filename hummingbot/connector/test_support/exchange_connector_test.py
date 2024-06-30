@@ -1291,14 +1291,14 @@ class AbstractExchangeConnectorTests:
             )
             order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-            urls = self.configure_completely_filled_order_status_response(
-                order=order,
-                mock_api=mock_api)
-
             if self.is_order_fill_http_update_included_in_status_update:
                 trade_url = self.configure_erroneous_http_fill_trade_response(
                     order=order,
                     mock_api=mock_api)
+
+            urls = self.configure_completely_filled_order_status_response(
+                order=order,
+                mock_api=mock_api)
 
             # Since the trade fill update will fail we need to manually set the event
             # to allow the ClientOrderTracker to process the last status update
