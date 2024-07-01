@@ -726,15 +726,8 @@ class XrplExchange(ExchangePyBase):
 
             _, ledger_index = order.exchange_order_id.split("-")
 
-            request = AccountTx(
-                account=self._auth.get_account(),
-                ledger_index="validated",
-                ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
-                forward=True,
-            )
+            transactions = await self._fetch_account_transactions(ledger_index, is_forward=True)
 
-            resp = await self._xrpl_client.request(request)
-            transactions = resp.result.get("transactions", [])
             trade_fills = []
 
             for transaction in transactions:
@@ -978,14 +971,7 @@ class XrplExchange(ExchangePyBase):
             sequence, ledger_index = tracked_order.exchange_order_id.split("-")
 
             if tracked_order.order_type is OrderType.MARKET:
-                request = AccountTx(
-                    account=self._auth.get_account(),
-                    ledger_index="validated",
-                    ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
-                )
-
-                resp = await self._xrpl_client.request(request)
-                transactions = resp.result.get("transactions", [])
+                transactions = await self._fetch_account_transactions(ledger_index)
 
                 for transaction in transactions:
                     tx = transaction.get("tx")
@@ -1017,7 +1003,7 @@ class XrplExchange(ExchangePyBase):
 
                 update_timestamp = time.time()
                 self.logger().error(
-                    f"Order {tracked_order.client_order_id} ({sequence}) not found in transaction history, data: {resp}"
+                    f"Order {tracked_order.client_order_id} ({sequence}) not found in transaction history, tx history: {transactions}"
                 )
 
                 order_update = OrderUpdate(
@@ -1030,15 +1016,8 @@ class XrplExchange(ExchangePyBase):
 
                 return order_update
             else:
-                request = AccountTx(
-                    account=self._auth.get_account(),
-                    ledger_index="validated",
-                    ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
-                    forward=True,
-                )
+                transactions = await self._fetch_account_transactions(ledger_index, is_forward=True)
 
-                resp = await self._xrpl_client.request(request)
-                transactions = resp.result.get("transactions", [])
                 found = False
                 update_timestamp = time.time()
 
@@ -1068,7 +1047,7 @@ class XrplExchange(ExchangePyBase):
                         if time.time() - tracked_order.last_update_timestamp > 60:
                             new_order_state = OrderState.FAILED
                             self.logger().error(
-                                f"Order status not found for order {tracked_order.client_order_id} ({sequence}), data: {resp}"
+                                f"Order status not found for order {tracked_order.client_order_id} ({sequence}), tx history: {transactions}"
                             )
                         else:
                             new_order_state = current_state
@@ -1076,7 +1055,7 @@ class XrplExchange(ExchangePyBase):
                     else:
                         new_order_state = OrderState.FAILED
                         self.logger().error(
-                            f"Order status not found for order {tracked_order.client_order_id} ({sequence}), data: {resp}"
+                            f"Order status not found for order {tracked_order.client_order_id} ({sequence}), tx history: {transactions}"
                         )
                 elif latest_status == "filled":
                     new_order_state = OrderState.FILLED
@@ -1096,6 +1075,30 @@ class XrplExchange(ExchangePyBase):
                 )
 
                 return order_update
+
+    async def _fetch_account_transactions(self, ledger_index: int, is_forward: bool = False) -> list:
+        """
+        Fetches account transactions from the XRPL ledger.
+
+        :param ledger_index: The ledger index to start fetching transactions from.
+        :param is_forward: If True, fetches transactions in forward order, otherwise in reverse order.
+        :return: A list of transactions.
+        """
+        try:
+            request = AccountTx(
+                account=self._auth.get_account(),
+                ledger_index="validated",
+                ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
+                forward=is_forward,
+            )
+
+            resp = await self._xrpl_client.request(request)
+            transactions = resp.result.get("transactions", [])
+        except Exception as e:
+            self.logger().error(f"Failed to fetch account transactions: {e}")
+            transactions = []
+
+        return transactions
 
     async def _update_balances(self):
         account_address = self._auth.get_account()
