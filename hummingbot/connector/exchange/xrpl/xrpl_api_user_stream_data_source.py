@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from xrpl.asyncio.clients import AsyncWebsocketClient
 from xrpl.models import Subscribe
-from xrpl.models.requests import StreamParameter
 
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -45,7 +44,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             try:
-                subscribe = Subscribe(accounts=[self._auth.get_account()], streams=[StreamParameter.TRANSACTIONS])
+                subscribe = Subscribe(accounts=[self._auth.get_account()])
 
                 async with self._xrpl_client as client:
                     await client.send(subscribe)
