@@ -37,6 +37,8 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
+        self.mock_time_provider = MagicMock()
+        self.mock_time_provider.time.return_value = 1000        
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitstampExchange(
@@ -45,7 +47,8 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
             bitstamp_api_secret="",
             trading_pairs=[],
             trading_required=False,
-            domain=self.domain)
+            domain=self.domain,
+            time_provider=self.mock_time_provider)
         self.data_source = BitstampAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
                                                          connector=self.connector,
                                                          api_factory=self.connector._web_assistants_factory,

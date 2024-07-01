@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -41,12 +41,14 @@ class BitstampExchange(ExchangePyBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 time_provider: Optional[Callable] = None,
                  ):
         self.api_key = bitstamp_api_key
         self.secret_key = bitstamp_api_secret
-        self._domain = domain
-        self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._trading_required = trading_required
+        self._domain = domain
+        self._time_provider = time_provider
         self._last_trades_poll_bitstamp_timestamp = 1.0
 
         super().__init__(client_config_map)
@@ -146,6 +148,7 @@ class BitstampExchange(ExchangePyBase):
         return web_utils.build_api_factory(
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
+            time_provider=self._time_provider,
             domain=self._domain,
             auth=self._auth)
 

@@ -1,6 +1,5 @@
 import asyncio
 
-from copy import copy
 from unittest import TestCase
 from unittest.mock import MagicMock
 from urllib.parse import urlencode

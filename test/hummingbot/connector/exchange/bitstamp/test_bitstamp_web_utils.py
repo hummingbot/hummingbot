@@ -1,9 +1,9 @@
 import asyncio
 import json
+
 from typing import Awaitable
 from unittest import TestCase
-
-from aioresponses import aioresponses
+from unittest.mock import AsyncMock, Mock, patch
 
 import hummingbot.connector.exchange.bitstamp.bitstamp_constants as CONSTANTS
 from hummingbot.connector.exchange.bitstamp.bitstamp_web_utils import BitstampRESTPreProcessor
@@ -34,11 +34,18 @@ class BitstampWebUtilsTests(TestCase):
         expected_url = CONSTANTS.REST_URL + CONSTANTS.API_VERSION + path_url
         self.assertEqual(expected_url, web_utils.private_rest_url(path_url, domain))
 
-    @aioresponses()
-    def test_get_current_server_time(self, mock_api: aioresponses):
+    @patch('hummingbot.connector.exchange.bitstamp.bitstamp_web_utils'
+           '.build_api_factory_without_time_synchronizer_pre_processor',
+        new_callable=Mock)
+    def test_get_current_server_time(self, mock_api_factory: Mock):
         response = { "server_time": 1719431075066 }
-        url = web_utils.public_rest_url(CONSTANTS.STATUS_URL)
-        mock_api.get(url, body=json.dumps(response))
+        mock_rest_assistant = AsyncMock()
+        mock_rest_assistant.execute_request.return_value = { "server_time": 1719431075066 }
+
+        async def get_rest_assistant():
+            return mock_rest_assistant
+
+        mock_api_factory.return_value.get_rest_assistant = get_rest_assistant
 
         time = self.async_run_with_timeout(web_utils.get_current_server_time())
 
