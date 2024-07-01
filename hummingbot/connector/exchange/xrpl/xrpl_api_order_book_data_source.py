@@ -1,8 +1,6 @@
 import asyncio
 import time
 from decimal import Decimal
-
-# import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # XRPL imports
@@ -26,10 +24,7 @@ if TYPE_CHECKING:
 class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'XrplExchange',
-                 api_factory: WebAssistantsFactory):
+    def __init__(self, trading_pairs: List[str], connector: "XrplExchange", api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
         self._connector = connector
         self._api_factory = api_factory
@@ -39,9 +34,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._xrpl_client = AsyncWebsocketClient(self._connector.node_url)
         self._open_client_lock = asyncio.Lock()
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -52,71 +45,55 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        # Create a client to connect to the test network
-        # client = self._client
         base_currency, quote_currency = self._connector.get_currencies_from_trading_pair(trading_pair)
 
         async with self._open_client_lock:
             try:
-                async with self._xrpl_client as client:
-                    if not client.is_open():
-                        await client.open()
+                if not self._xrpl_client.is_open():
+                    await self._xrpl_client.open()
 
-                    orderbook_asks_info = await client.request(
-                        BookOffers(
-                            ledger_index="current",
-                            taker_gets=base_currency,
-                            taker_pays=quote_currency,
-                            limit=CONSTANTS.ORDER_BOOK_DEPTH,
-                        )
-                    )
+                orderbook_asks_task = self.fetch_order_book_side(
+                    self._xrpl_client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                )
+                orderbook_bids_task = self.fetch_order_book_side(
+                    self._xrpl_client, "current", quote_currency, base_currency, CONSTANTS.ORDER_BOOK_DEPTH
+                )
 
-                    if orderbook_asks_info.status != "success":
-                        error = orderbook_asks_info.to_dict().get("error", "")
-                        error_message = orderbook_asks_info.to_dict().get("error_message", "")
-                        exception_msg = f"Error fetching order book (Ask side) snapshot for {trading_pair}: {error} - {error_message}"
-                        self.logger().error(exception_msg)
-                        raise ValueError(exception_msg)
+                orderbook_asks_info, orderbook_bids_info = await safe_gather(orderbook_asks_task, orderbook_bids_task)
 
-                    orderbook_bids_info = await client.request(
-                        BookOffers(
-                            ledger_index="current",
-                            taker_gets=quote_currency,
-                            taker_pays=base_currency,
-                            limit=CONSTANTS.ORDER_BOOK_DEPTH,
-                        )
-                    )
+                asks = orderbook_asks_info.result.get("offers", None)
+                bids = orderbook_bids_info.result.get("offers", None)
 
-                    if orderbook_bids_info.status != "success":
-                        error = orderbook_bids_info.to_dict().get("error", "")
-                        error_message = orderbook_bids_info.to_dict().get("error_message", "")
-                        exception_msg = f"Error fetching order book (Bid side) snapshot for {trading_pair}: {error} - {error_message}"
-                        self.logger().error(exception_msg)
-                        raise ValueError(exception_msg)
+                if asks is None or bids is None:
+                    raise ValueError(f"Error fetching order book snapshot for {trading_pair}")
 
-                    asks = orderbook_asks_info.result.get("offers", None)
-                    bids = orderbook_bids_info.result.get("offers", None)
+                order_book = {
+                    "asks": asks,
+                    "bids": bids,
+                }
 
-                    if asks is None:
-                        raise ValueError(f"Error fetching order book (Ask side) snapshot for {trading_pair}: {orderbook_asks_info}")
-
-                    if bids is None:
-                        raise ValueError(f"Error fetching order book (Bid side) snapshot for {trading_pair}: {orderbook_bids_info}")
-
-                    order_book = {
-                        "asks": asks,
-                        "bids": bids,
-                    }
+                await self._xrpl_client.close()
             except Exception as e:
                 raise Exception(f"Error fetching order book snapshot for {trading_pair}: {e}")
 
         return order_book
 
-    # async def _subscribe_channels(self, ws: WSAssistant):
-    #     pass
-    #
-    # async def _connected_websocket_assistant(self) -> WSAssistant:
-    #     pass
+    async def fetch_order_book_side(self, client: AsyncWebsocketClient, ledger_index, taker_gets, taker_pays, limit):
+        response = await client.request(
+            BookOffers(
+                ledger_index=ledger_index,
+                taker_gets=taker_gets,
+                taker_pays=taker_pays,
+                limit=limit,
+            )
+        )
+        if response.status != "success":
+            error = response.to_dict().get("error", "")
+            error_message = response.to_dict().get("error_message", "")
+            exception_msg = f"Error fetching order book snapshot: {error} - {error_message}"
+            self.logger().error(exception_msg)
+            raise ValueError(exception_msg)
+        return response
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -228,7 +205,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             }
 
                             self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(
-                                {"trading_pair": trading_pair, "trade": trade_data})
+                                {"trading_pair": trading_pair, "trade": trade_data}
+                            )
 
     async def listen_for_subscriptions(self):
         """
@@ -244,10 +222,12 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     raise
                 except ConnectionError as connection_exception:
                     self.logger().warning(
-                        f"The websocket connection to {trading_pair} was closed ({connection_exception})")
+                        f"The websocket connection to {trading_pair} was closed ({connection_exception})"
+                    )
                 except TimeoutError:
                     self.logger().warning(
-                        "Timeout error occurred while listening to user stream. Retrying after 5 seconds...")
+                        "Timeout error occurred while listening to user stream. Retrying after 5 seconds..."
+                    )
                 except Exception:
                     self.logger().exception(
                         "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",

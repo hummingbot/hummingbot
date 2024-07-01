@@ -280,7 +280,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if math.isclose(self.open_filled_amount, self.close_filled_amount) or (self.close_filled_amount > self.open_filled_amount):
+        if math.isclose(self.open_filled_amount, self.close_filled_amount, rel_tol=1e-2):
             if self.open_orders_completed():
                 self.stop()
             else:
