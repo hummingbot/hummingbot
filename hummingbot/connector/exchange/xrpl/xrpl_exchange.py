@@ -306,6 +306,7 @@ class XrplExchange(ExchangePyBase):
             resp: Optional[Response] = None
             verified = False
             submit_data = {}
+            o_id = None
 
             while retry < CONSTANTS.PLACE_ORDER_MAX_RETRY:
                 await self._make_network_check_request()
@@ -409,9 +410,7 @@ class XrplExchange(ExchangePyBase):
 
         try:
             await self._make_network_check_request()
-            resp = await _wait_for_final_transaction_outcome(
-                transaction.get_hash(), self._xrpl_client, prelim_result, transaction.last_ledger_sequence
-            )
+            resp = await self.wait_for_final_transaction_outcome(transaction, prelim_result)
             return True, resp
         except Exception as e:
             self.logger().error(f"Submitted transaction failed: {e}")
@@ -1429,3 +1428,8 @@ class XrplExchange(ExchangePyBase):
         fail_hard: bool = False,
     ) -> Response:
         return await submit(transaction, client, fail_hard=fail_hard)
+
+    async def wait_for_final_transaction_outcome(self, transaction, prelim_result) -> Response:
+        return await _wait_for_final_transaction_outcome(
+            transaction.get_hash(), self._xrpl_client, prelim_result, transaction.last_ledger_sequence
+        )
