@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from typing import Any, Awaitable, Dict, Optional
+from typing import Any, Awaitable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,11 +12,8 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitstamp import bitstamp_constants as CONSTANTS, bitstamp_web_utils as web_utils
 from hummingbot.connector.exchange.bitstamp.bitstamp_api_user_stream_data_source import BitstampAPIUserStreamDataSource
-from hummingbot.connector.exchange.bitstamp.bitstamp_auth import BitstampAuth
 from hummingbot.connector.exchange.bitstamp.bitstamp_exchange import BitstampExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BitstampUserStreamDataSourceTests(TestCase):
@@ -38,26 +35,22 @@ class BitstampUserStreamDataSourceTests(TestCase):
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
-
-        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
-        self.auth = BitstampAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider)
-        self.time_synchronizer = TimeSynchronizer()
-        self.time_synchronizer.add_time_offset_ms_sample(0)
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitstampExchange(
             client_config_map=client_config_map,
-            bitstamp_api_key="",
-            bitstamp_api_secret="",
+            bitstamp_api_key="TEST_API_KEY",
+            bitstamp_api_secret="TEST_SECRET",
             trading_pairs=[],
             trading_required=False,
-            domain=self.domain)
-        self.connector._web_assistants_factory._auth = self.auth
+            domain=self.domain,
+            time_provider=self.mock_time_provider
+        )
 
         self.data_source = BitstampAPIUserStreamDataSource(
-            auth=self.auth,
+            auth=self.connector.authenticator,
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
