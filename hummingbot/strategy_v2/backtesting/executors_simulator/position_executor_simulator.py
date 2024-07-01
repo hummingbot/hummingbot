@@ -50,7 +50,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         df_filtered['net_pnl_quote'] = df_filtered['net_pnl_pct'] * df_filtered['filled_amount_quote']
         df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
 
-        # Make sure the stop loss rises with the trailing stop trigger price (if any)
+        # Make sure the trailing stop pct rises linearly to the net p/l pct when above the trailing stop trigger pct (if any)
         if trailing_sl_trigger_pct is not None and trailing_sl_delta_pct is not None:
             df_filtered.loc[df_filtered['net_pnl_pct'] > trailing_sl_trigger_pct, 'ts'] = (
                 df_filtered['net_pnl_pct'] - float(trailing_sl_delta_pct)
