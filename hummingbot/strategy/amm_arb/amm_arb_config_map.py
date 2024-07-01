@@ -82,6 +82,12 @@ amm_arb_config_map = {
         prompt_on_new=True,
         validator=market_2_validator,
         on_validated=market_2_on_validated),
+    "pool_id": ConfigVar(
+        key="pool_id",
+        prompt="Specify poolId to interract with on the DEX connector >>> ",
+        prompt_on_new=False,
+        type_str="str",
+        default=""),
     "order_amount": ConfigVar(
         key="order_amount",
         prompt=order_amount_prompt,

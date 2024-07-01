@@ -45,3 +45,5 @@ rate_oracle_enabled: true
 
 # What is the fixed_rate used to convert quote assets?
 quote_conversion_rate: 1
+
+pool_id: null
