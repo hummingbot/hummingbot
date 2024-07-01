@@ -17,9 +17,6 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
             start_timestamp = df['timestamp'].min()
         last_timestamp = df['timestamp'].max()
 
-        # Used to avoid precision errors with comparing floats
-        epsilon = 1e-4
-
         # Set up barriers
         tp = Decimal(config.triple_barrier_config.take_profit) if config.triple_barrier_config.take_profit else None
         sl = Decimal(config.triple_barrier_config.stop_loss) if config.triple_barrier_config.stop_loss else None
