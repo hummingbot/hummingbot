@@ -17,7 +17,6 @@ from yaml.representer import SafeRepresenter
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import validate_with_regex
-from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -97,15 +96,6 @@ def compute_order_book_changes(
         if change is not None:
             offer_changes.append(change)
     return _group_offer_changes_by_account(offer_changes)
-
-
-def normalize_price_from_drop(price: str, is_ask: bool = False) -> float:
-    drop = CONSTANTS.ONE_DROP
-
-    if is_ask:
-        return round(float(Decimal(price) * drop), 6)
-
-    return round(float(Decimal(price) / drop), 6)
 
 
 def convert_string_to_hex(s, padding: bool = True):
