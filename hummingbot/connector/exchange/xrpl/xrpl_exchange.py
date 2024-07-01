@@ -479,7 +479,6 @@ class XrplExchange(ExchangePyBase):
                 self.logger().info(
                     f"Order cancellation failed. Retrying in {CONSTANTS.CANCEL_RETRY_INTERVAL} seconds..."
                 )
-                await self._order_tracker.process_order_not_found(order.client_order_id)
                 await self._sleep(CONSTANTS.CANCEL_RETRY_INTERVAL)
 
         if submitted and verified:

@@ -667,86 +667,150 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         resp = Response(
             status=ResponseStatus.SUCCESS,
             result={
-                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
                 "account_objects": [
                     {
                         "Balance": {
-                            "currency": "5553444300000000000000000000000000000000",  # noqa: mock
-                            "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                            "currency": "5553444300000000000000000000000000000000", # noqa: mock
+                            "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji", # noqa: mock
                             "value": "2.981957518895808",
                         },
                         "Flags": 1114112,
                         "HighLimit": {
-                            "currency": "5553444300000000000000000000000000000000",  # noqa: mock
-                            "issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",  # noqa: mock
+                            "currency": "5553444300000000000000000000000000000000", # noqa: mock
+                            "issuer": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu", # noqa: mock
                             "value": "0",
                         },
                         "HighNode": "f9",
                         "LedgerEntryType": "RippleState",
                         "LowLimit": {
-                            "currency": "5553444300000000000000000000000000000000",  # noqa: mock
-                            "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                            "currency": "5553444300000000000000000000000000000000", # noqa: mock
+                            "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
                             "value": "0",
                         },
                         "LowNode": "0",
-                        "PreviousTxnID": "C6EFE5E21ABD5F457BFCCE6D5393317B90821F443AD41FF193620E5980A52E71",  # noqa: mock
+                        "PreviousTxnID": "C6EFE5E21ABD5F457BFCCE6D5393317B90821F443AD41FF193620E5980A52E71", # noqa: mock
                         "PreviousTxnLgrSeq": 86277627,
-                        "index": "55049B8164998B0566FC5CDB3FC7162280EFE5A84DB9333312D3DFF98AB52380",  # noqa: mock
+                        "index": "55049B8164998B0566FC5CDB3FC7162280EFE5A84DB9333312D3DFF98AB52380", # noqa: mock
+                    },
+                    {
+                        "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                        "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F10652F287D59AD", # noqa: mock
+                        "BookNode": "0",
+                        "Flags": 131072,
+                        "LedgerEntryType": "Offer",
+                        "OwnerNode": "0",
+                        "PreviousTxnID": "44038CD94CDD0A6FD7912F788FA5FBC575A3C44948E31F4C21B8BC3AA0C2B643", # noqa: mock
+                        "PreviousTxnLgrSeq": 89078756,
+                        "Sequence": 84439998,
+                        "TakerGets": "499998",
+                        "TakerPays": {
+                            "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                            "value": "2.307417192565501",
+                        },
+                        "index": "BE4ACB6610B39F2A9CD1323F63D479177917C02AA8AF2122C018D34AAB6F4A35", # noqa: mock
                     },
                     {
                         "Balance": {
                             "currency": "USD",
-                            "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                            "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji", # noqa: mock
                             "value": "0.011094399237562",
                         },
                         "Flags": 1114112,
-                        "HighLimit": {
-                            "currency": "USD",
-                            "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-                            "value": "0",
-                        },  # noqa: mock
+                        "HighLimit": {"currency": "USD", "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq", "value": "0"}, # noqa: mock
                         "HighNode": "22d3",
                         "LedgerEntryType": "RippleState",
-                        "LowLimit": {
-                            "currency": "USD",
-                            "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
-                            "value": "0",
-                        },  # noqa: mock
+                        "LowLimit": {"currency": "USD", "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", "value": "0"}, # noqa: mock
                         "LowNode": "0",
-                        "PreviousTxnID": "1A9E685EA694157050803B76251C0A6AFFCF1E69F883BF511CF7A85C3AC002B8",  # noqa: mock
+                        "PreviousTxnID": "1A9E685EA694157050803B76251C0A6AFFCF1E69F883BF511CF7A85C3AC002B8", # noqa: mock
                         "PreviousTxnLgrSeq": 85648064,
-                        "index": "C510DDAEBFCE83469032E78B9F41D352DABEE2FB454E6982AA5F9D4ECC4D56AA",  # noqa: mock
+                        "index": "C510DDAEBFCE83469032E78B9F41D352DABEE2FB454E6982AA5F9D4ECC4D56AA", # noqa: mock
+                    },
+                    {
+                        "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                        "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F10659A9DE833CA", # noqa: mock
+                        "BookNode": "0",
+                        "Flags": 131072,
+                        "LedgerEntryType": "Offer",
+                        "OwnerNode": "0",
+                        "PreviousTxnID": "262201134A376F2E888173680EDC4E30E2C07A6FA94A8C16603EB12A776CBC66", # noqa: mock
+                        "PreviousTxnLgrSeq": 89078756,
+                        "Sequence": 84439997,
+                        "TakerGets": "499998",
+                        "TakerPays": {
+                            "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                            "value": "2.307647957361237",
+                        },
+                        "index": "D6F2B37690FA7540B7640ACC61AA2641A6E803DAF9E46CC802884FA5E1BF424E", # noqa: mock
+                    },
+                    {
+                        "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                        "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B39757FA194D", # noqa: mock
+                        "BookNode": "0",
+                        "Flags": 131072,
+                        "LedgerEntryType": "Offer",
+                        "OwnerNode": "0",
+                        "PreviousTxnID": "254F74BF0E5A2098DDE998609F4E8697CCF6A7FD61D93D76057467366A18DA24", # noqa: mock
+                        "PreviousTxnLgrSeq": 89078757,
+                        "Sequence": 84440000,
+                        "TakerGets": {
+                            "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                            "value": "2.30649459472761",
+                        },
+                        "TakerPays": "499999",
+                        "index": "D8F57C7C230FA5DE98E8FEB6B75783693BDECAD1266A80538692C90138E7BADE", # noqa: mock
                     },
                     {
                         "Balance": {
-                            "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
-                            "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
-                            "value": "41.49115329259071",
+                            "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                            "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji", # noqa: mock
+                            "value": "47.21480375660969",
                         },
                         "Flags": 1114112,
                         "HighLimit": {
-                            "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
-                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                            "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
                             "value": "0",
                         },
                         "HighNode": "3799",
                         "LedgerEntryType": "RippleState",
                         "LowLimit": {
-                            "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
-                            "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
+                            "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                            "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
                             "value": "1000000000",
                         },
                         "LowNode": "0",
-                        "PreviousTxnID": "602B32630738581F2618849B3338401D381139F8458DDF2D0AC9B61BEED99D70",  # noqa: mock
-                        "PreviousTxnLgrSeq": 88981160,
-                        "index": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC",  # noqa: mock
+                        "PreviousTxnID": "E1260EC17725167D0407F73F6B73D7DAF1E3037249B54FC37F2E8B836703AB95", # noqa: mock
+                        "PreviousTxnLgrSeq": 89077268,
+                        "index": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC", # noqa: mock
+                    },
+                    {
+                        "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                        "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B2FFFC6A7DA8", # noqa: mock
+                        "BookNode": "0",
+                        "Flags": 131072,
+                        "LedgerEntryType": "Offer",
+                        "OwnerNode": "0",
+                        "PreviousTxnID": "819FF36C6F44F3F858B25580F1E3A900F56DCC59F2398626DB35796AF9E47E7A", # noqa: mock
+                        "PreviousTxnLgrSeq": 89078756,
+                        "Sequence": 84439999,
+                        "TakerGets": {
+                            "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                            "value": "2.307186473918109",
+                        },
+                        "TakerPays": "499999",
+                        "index": "ECF76E93DBD7923D0B352A7719E5F9BBF6A43D5BA80173495B0403C646184301", # noqa: mock
                     },
                 ],
-                "ledger_hash": "DFDFA9B7226B8AC1FD909BB9C2EEBDBADF4C37E2C3E283DB02C648B2DC90318C",  # noqa: mock
-                "ledger_index": 89003974,
+                "ledger_hash": "5A76A3A3D115DBC7CE0E4D9868D1EA15F593C8D74FCDF1C0153ED003B5621671", # noqa: mock
+                "ledger_index": 89078774,
                 "limit": 200,
                 "validated": True,
-            },
+            },  # noqa: mock
             id="account_objects_144811",
             type=ResponseType.RESPONSE,
         )
@@ -1153,8 +1217,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 )
             )
 
-        print(str(context.exception))
-
         # # Verify the exception was raised and contains the expected message
         self.assertTrue("Order 1-1 (hbot) creation failed: Failed to place order hbot (1-1)" in str(context.exception))
 
@@ -1459,11 +1521,11 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(self.connector._account_balances["XRP"], Decimal("57.030864"))
         self.assertEqual(self.connector._account_balances["USD"], Decimal("0.011094399237562"))
-        self.assertEqual(self.connector._account_balances["SOLO"], Decimal("41.49115329259071"))
+        self.assertEqual(self.connector._account_balances["SOLO"], Decimal("47.21480375660969"))
 
-        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("41.030864"))
+        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("32.030868"))
         self.assertEqual(self.connector._account_available_balances["USD"], Decimal("0.011094399237562"))
-        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("41.49115329259071"))
+        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("42.601122687963971"))
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     def test_make_trading_rules_request(self, network_mock):
@@ -1492,16 +1554,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         trading_rule = self.connector.trading_rules["SOLO-XRP"]
         self.assertEqual(
             trading_rule.min_order_size,
-            Decimal("9.99999999999999954748111825886258685613938723690807819366455078125E-7"), # noqa: mock
+            Decimal("9.99999999999999954748111825886258685613938723690807819366455078125E-7"),  # noqa: mock
         )
 
         self.assertTrue(network_mock.called)
         self.assertEqual(
-            result["SOLO-USD"]["base_currency"].currency, "534F4C4F00000000000000000000000000000000" # noqa: mock
+            result["SOLO-USD"]["base_currency"].currency, "534F4C4F00000000000000000000000000000000"  # noqa: mock
         )
-        self.assertEqual(
-            result["SOLO-USD"]["quote_currency"].currency, "USD"
-        )
+        self.assertEqual(result["SOLO-USD"]["quote_currency"].currency, "USD")
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.wait_for_final_transaction_outcome")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
@@ -1640,16 +1700,16 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         {
                             "ModifiedNode": {
                                 "FinalFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                                     "Balance": "55333348",
                                     "Flags": 0,
                                     "OwnerCount": 4,
                                     "Sequence": 84439853,
                                 },
                                 "LedgerEntryType": "AccountRoot",
-                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC", # noqa: mock
+                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
                                 "PreviousFields": {"Balance": "55333358", "OwnerCount": 3, "Sequence": 84439852},
-                                "PreviousTxnID": "5D402BF9D88BAFB49F28B90912F447840AEBC67776B8522E16F3AD9871725F75", # noqa: mock
+                                "PreviousTxnID": "5D402BF9D88BAFB49F28B90912F447840AEBC67776B8522E16F3AD9871725F75",  # noqa: mock
                                 "PreviousTxnLgrSeq": 89076176,
                             }
                         },
@@ -1657,26 +1717,26 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Flags": 0,
-                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                             }
                         },
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "Offer",
-                                "LedgerIndex": "B0056398D70A57B8A535EB9F32E35486DEAB354CFAF29777E636755A98323B5F", # noqa: mock
+                                "LedgerIndex": "B0056398D70A57B8A535EB9F32E35486DEAB354CFAF29777E636755A98323B5F",  # noqa: mock
                                 "NewFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105E50A1A8ECA4", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105E50A1A8ECA4",  # noqa: mock
                                     "Flags": 131072,
                                     "Sequence": 84439852,
                                     "TakerGets": "499999",
                                     "TakerPays": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "2.303645407683732",
                                     },
                                 },
@@ -1685,12 +1745,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105E50A1A8ECA4", # noqa: mock
+                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105E50A1A8ECA4",  # noqa: mock
                                 "NewFields": {
-                                    "ExchangeRate": "4f105e50a1a8eca4", # noqa: mock
-                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105E50A1A8ECA4", # noqa: mock
-                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6", # noqa: mock
+                                    "ExchangeRate": "4f105e50a1a8eca4",  # noqa: mock
+                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105E50A1A8ECA4",  # noqa: mock
+                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
                                 },
                             }
                         },
@@ -1699,29 +1759,29 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     "TransactionResult": "tesSUCCESS",
                 },
                 "tx": {
-                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                     "Fee": "10",
                     "Flags": 524288,
                     "LastLedgerSequence": 89077154,
                     "Memos": [
                         {
                             "Memo": {
-                                "MemoData": "68626F742D313731393836383934323231373635332D42534F585036316333363331356337316463616132656233626234363139323466343666343333366632" # noqa: mock
+                                "MemoData": "68626F742D313731393836383934323231373635332D42534F585036316333363331356337316463616132656233626234363139323466343666343333366632"  # noqa: mock
                             }
                         }
                     ],
                     "Sequence": 84439852,
-                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923", # noqa: mock
+                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
                     "TakerGets": "499999",
                     "TakerPays": {
-                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "2.303645407683732",
                     },
                     "TransactionType": "OfferCreate",
-                    "TxnSignature": "6C6FA022E59DD9DA59E47D6736FF6DD5473A416D4A96B031D273A3DBE19E3ACA9B12A1719587CE55F19F9EA62884329A6D2C8224053517397308B59C4D39D607", # noqa: mock
+                    "TxnSignature": "6C6FA022E59DD9DA59E47D6736FF6DD5473A416D4A96B031D273A3DBE19E3ACA9B12A1719587CE55F19F9EA62884329A6D2C8224053517397308B59C4D39D607",  # noqa: mock
                     "date": 773184150,
-                    "hash": "E25C2542FEBF4F7728A9AEB015FE00B9938BFA2C08ABB5F1B34670F15964E0F9", # noqa: mock
+                    "hash": "E25C2542FEBF4F7728A9AEB015FE00B9938BFA2C08ABB5F1B34670F15964E0F9",  # noqa: mock
                     "inLedger": 89077136,
                     "ledger_index": 89077136,
                 },
@@ -1735,14 +1795,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                                 "LedgerEntryType": "Offer",
                                 "LedgerIndex": "1612E220D4745CE63F6FF45821317DDFFACFCFF8A4F798A92628977A39E31C55",  # noqa: mock
                                 "NewFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E",  # noqa: mock
                                     "Flags": 131072,
                                     "Sequence": 84439853,
                                     "TakerGets": "499999",
                                     "TakerPays": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "2.303415043142963",
                                     },
                                 },
@@ -1751,16 +1811,16 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         {
                             "ModifiedNode": {
                                 "FinalFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                                     "Balance": "55333338",
                                     "Flags": 0,
                                     "OwnerCount": 5,
                                     "Sequence": 84439854,
                                 },
                                 "LedgerEntryType": "AccountRoot",
-                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC", # noqa: mock
+                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
                                 "PreviousFields": {"Balance": "55333348", "OwnerCount": 4, "Sequence": 84439853},
-                                "PreviousTxnID": "E25C2542FEBF4F7728A9AEB015FE00B9938BFA2C08ABB5F1B34670F15964E0F9", # noqa: mock
+                                "PreviousTxnID": "E25C2542FEBF4F7728A9AEB015FE00B9938BFA2C08ABB5F1B34670F15964E0F9",  # noqa: mock
                                 "PreviousTxnLgrSeq": 89077136,
                             }
                         },
@@ -1768,22 +1828,22 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Flags": 0,
-                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                             }
                         },
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E", # noqa: mock
+                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E",  # noqa: mock
                                 "NewFields": {
-                                    "ExchangeRate": "4f105de55c02fe6e", # noqa: mock
-                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E", # noqa: mock
-                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6", # noqa: mock
+                                    "ExchangeRate": "4f105de55c02fe6e",  # noqa: mock
+                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E",  # noqa: mock
+                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
                                 },
                             }
                         },
@@ -1792,29 +1852,29 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     "TransactionResult": "tesSUCCESS",
                 },
                 "tx": {
-                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                     "Fee": "10",
                     "Flags": 524288,
                     "LastLedgerSequence": 89077154,
                     "Memos": [
                         {
                             "Memo": {
-                                "MemoData": "68626F742D313731393836383934323231373938322D42534F585036316333363331356337333065616132656233626234363139323466343666343333366632" # noqa: mock
+                                "MemoData": "68626F742D313731393836383934323231373938322D42534F585036316333363331356337333065616132656233626234363139323466343666343333366632"  # noqa: mock
                             }
                         }
                     ],
                     "Sequence": 84439853,
-                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923", # noqa: mock
+                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
                     "TakerGets": "499999",
                     "TakerPays": {
-                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "2.303415043142963",
                     },
                     "TransactionType": "OfferCreate",
-                    "TxnSignature": "9F830864D3522824F1E4349EF2FA719513F8E3D2742BDDA37DE42F8982F95571C207A4D5138CCFFE2DA14AA187570AD8FC43D74E88B01BB272B37B9CD6D77E0A", # noqa: mock
+                    "TxnSignature": "9F830864D3522824F1E4349EF2FA719513F8E3D2742BDDA37DE42F8982F95571C207A4D5138CCFFE2DA14AA187570AD8FC43D74E88B01BB272B37B9CD6D77E0A",  # noqa: mock
                     "date": 773184150,
-                    "hash": "CD80F1985807A0824D4C5DAC78C972A0A417B77FE1598FA51E166A105454E767", # noqa: mock
+                    "hash": "CD80F1985807A0824D4C5DAC78C972A0A417B77FE1598FA51E166A105454E767",  # noqa: mock
                     "inLedger": 89077136,
                     "ledger_index": 89077136,
                 },
@@ -1826,15 +1886,15 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "Offer",
-                                "LedgerIndex": "1292552AAC3151AA5A4EA807BC3731B8D2CD45A80AA7DD675501BA7CC051E618", # noqa: mock
+                                "LedgerIndex": "1292552AAC3151AA5A4EA807BC3731B8D2CD45A80AA7DD675501BA7CC051E618",  # noqa: mock
                                 "NewFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B66BAB1A824D", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B66BAB1A824D",  # noqa: mock
                                     "Flags": 131072,
                                     "Sequence": 84439854,
                                     "TakerGets": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "2.303184724670496",
                                     },
                                     "TakerPays": "499998",
@@ -1844,50 +1904,50 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         {
                             "DeletedNode": {
                                 "FinalFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E",  # noqa: mock
                                     "BookNode": "0",
                                     "Flags": 131072,
                                     "OwnerNode": "0",
-                                    "PreviousTxnID": "CD80F1985807A0824D4C5DAC78C972A0A417B77FE1598FA51E166A105454E767", # noqa: mock
+                                    "PreviousTxnID": "CD80F1985807A0824D4C5DAC78C972A0A417B77FE1598FA51E166A105454E767",  # noqa: mock
                                     "PreviousTxnLgrSeq": 89077136,
                                     "Sequence": 84439853,
                                     "TakerGets": "499999",
                                     "TakerPays": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "2.303415043142963",
                                     },
                                 },
                                 "LedgerEntryType": "Offer",
-                                "LedgerIndex": "1612E220D4745CE63F6FF45821317DDFFACFCFF8A4F798A92628977A39E31C55", # noqa: mock
+                                "LedgerIndex": "1612E220D4745CE63F6FF45821317DDFFACFCFF8A4F798A92628977A39E31C55",  # noqa: mock
                             }
                         },
                         {
                             "ModifiedNode": {
                                 "FinalFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                                     "Balance": "55333328",
                                     "Flags": 0,
                                     "OwnerCount": 5,
                                     "Sequence": 84439855,
                                 },
                                 "LedgerEntryType": "AccountRoot",
-                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC", # noqa: mock
+                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
                                 "PreviousFields": {"Balance": "55333338", "Sequence": 84439854},
-                                "PreviousTxnID": "CD80F1985807A0824D4C5DAC78C972A0A417B77FE1598FA51E166A105454E767", # noqa: mock
+                                "PreviousTxnID": "CD80F1985807A0824D4C5DAC78C972A0A417B77FE1598FA51E166A105454E767",  # noqa: mock
                                 "PreviousTxnLgrSeq": 89077136,
                             }
                         },
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B66BAB1A824D", # noqa: mock
+                                "LedgerIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B66BAB1A824D",  # noqa: mock
                                 "NewFields": {
-                                    "ExchangeRate": "5a07b66bab1a824d", # noqa: mock
-                                    "RootIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B66BAB1A824D", # noqa: mock
+                                    "ExchangeRate": "5a07b66bab1a824d",  # noqa: mock
+                                    "RootIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B66BAB1A824D",  # noqa: mock
                                     "TakerGetsCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
-                                    "TakerGetsIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6", # noqa: mock
+                                    "TakerGetsIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
                                 },
                             }
                         },
@@ -1895,26 +1955,26 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Flags": 0,
-                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                             }
                         },
                         {
                             "DeletedNode": {
                                 "FinalFields": {
-                                    "ExchangeRate": "4f105de55c02fe6e", # noqa: mock
+                                    "ExchangeRate": "4f105de55c02fe6e",  # noqa: mock
                                     "Flags": 0,
-                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E", # noqa: mock
-                                    "TakerGetsCurrency": "0000000000000000000000000000000000000000", # noqa: mock
-                                    "TakerGetsIssuer": "0000000000000000000000000000000000000000", # noqa: mock
-                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6", # noqa: mock
+                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E",  # noqa: mock
+                                    "TakerGetsCurrency": "0000000000000000000000000000000000000000",  # noqa: mock
+                                    "TakerGetsIssuer": "0000000000000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E", # noqa: mock
+                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F105DE55C02FE6E",  # noqa: mock
                             }
                         },
                     ],
@@ -1922,29 +1982,29 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     "TransactionResult": "tesSUCCESS",
                 },
                 "tx": {
-                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                     "Fee": "10",
                     "Flags": 524288,
                     "LastLedgerSequence": 89077154,
                     "Memos": [
                         {
                             "Memo": {
-                                "MemoData": "68626F742D313731393836383934323231383930302D53534F585036316333363331356337366132616132656233626234363139323466343666343333366632" # noqa: mock
+                                "MemoData": "68626F742D313731393836383934323231383930302D53534F585036316333363331356337366132616132656233626234363139323466343666343333366632"  # noqa: mock
                             }
                         }
                     ],
                     "Sequence": 84439854,
-                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923", # noqa: mock
+                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
                     "TakerGets": {
-                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "2.303184724670496",
                     },
                     "TakerPays": "499998",
                     "TransactionType": "OfferCreate",
-                    "TxnSignature": "0E62B49938249F9AED6C6D3C893C21569F23A84CE44F9B9189D22545D5FA05896A5F0C471C68079C8CF78682D74F114038E10DA2995C18560C2259C7590A0304", # noqa: mock
+                    "TxnSignature": "0E62B49938249F9AED6C6D3C893C21569F23A84CE44F9B9189D22545D5FA05896A5F0C471C68079C8CF78682D74F114038E10DA2995C18560C2259C7590A0304",  # noqa: mock
                     "date": 773184150,
-                    "hash": "5BAF81CF16BA62153F31096DDDEFC12CE39EC41025A9625357BF084411045517", # noqa: mock
+                    "hash": "5BAF81CF16BA62153F31096DDDEFC12CE39EC41025A9625357BF084411045517",  # noqa: mock
                     "inLedger": 89077136,
                     "ledger_index": 89077136,
                 },
@@ -1956,28 +2016,28 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         {
                             "ModifiedNode": {
                                 "FinalFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                                     "Balance": "55333318",
                                     "Flags": 0,
                                     "OwnerCount": 6,
                                     "Sequence": 84439856,
                                 },
                                 "LedgerEntryType": "AccountRoot",
-                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC", # noqa: mock
+                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
                                 "PreviousFields": {"Balance": "55333328", "OwnerCount": 5, "Sequence": 84439855},
-                                "PreviousTxnID": "5BAF81CF16BA62153F31096DDDEFC12CE39EC41025A9625357BF084411045517", # noqa: mock
+                                "PreviousTxnID": "5BAF81CF16BA62153F31096DDDEFC12CE39EC41025A9625357BF084411045517",  # noqa: mock
                                 "PreviousTxnLgrSeq": 89077136,
                             }
                         },
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B70349E902F1", # noqa: mock
+                                "LedgerIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B70349E902F1",  # noqa: mock
                                 "NewFields": {
-                                    "ExchangeRate": "5a07b70349e902f1", # noqa: mock
-                                    "RootIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B70349E902F1", # noqa: mock
-                                    "TakerGetsCurrency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                    "TakerGetsIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6", # noqa: mock
+                                    "ExchangeRate": "5a07b70349e902f1",  # noqa: mock
+                                    "RootIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B70349E902F1",  # noqa: mock
+                                    "TakerGetsCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerGetsIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
                                 },
                             }
                         },
@@ -1985,25 +2045,25 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Flags": 0,
-                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                             }
                         },
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "Offer",
-                                "LedgerIndex": "BC66BC739E696FEEB8063F9C30027C1E016D6AB6467F830DE9F6DE5E04EDC937", # noqa: mock
+                                "LedgerIndex": "BC66BC739E696FEEB8063F9C30027C1E016D6AB6467F830DE9F6DE5E04EDC937",  # noqa: mock
                                 "NewFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B70349E902F1", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07B70349E902F1",  # noqa: mock
                                     "Flags": 131072,
                                     "Sequence": 84439855,
                                     "TakerGets": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "2.302494045524753",
                                     },
                                     "TakerPays": "499998",
@@ -2015,29 +2075,29 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     "TransactionResult": "tesSUCCESS",
                 },
                 "tx": {
-                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                     "Fee": "10",
                     "Flags": 524288,
                     "LastLedgerSequence": 89077154,
                     "Memos": [
                         {
                             "Memo": {
-                                "MemoData": "68626F742D313731393836383934323231393137382D53534F585036316333363331356337376331616132656233626234363139323466343666343333366632" # noqa: mock
+                                "MemoData": "68626F742D313731393836383934323231393137382D53534F585036316333363331356337376331616132656233626234363139323466343666343333366632"  # noqa: mock
                             }
                         }
                     ],
                     "Sequence": 84439855,
-                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923", # noqa: mock
+                    "SigningPubKey": "ED23BA20D57103E05BA762F0A04FE50878C11BD36B7BF9ADACC3EDBD9E6D320923",  # noqa: mock
                     "TakerGets": {
-                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "2.302494045524753",
                     },
                     "TakerPays": "499998",
                     "TransactionType": "OfferCreate",
-                    "TxnSignature": "505B250B923C6330CE415B6CB182767AB11A633E0D30D5FF1B3A93638AC88D5078F33E3B6D6DAE67599D02DA86494B2AD8A7A23DCA54EBE0B4928F3E86DF7E01", # noqa: mock
+                    "TxnSignature": "505B250B923C6330CE415B6CB182767AB11A633E0D30D5FF1B3A93638AC88D5078F33E3B6D6DAE67599D02DA86494B2AD8A7A23DCA54EBE0B4928F3E86DF7E01",  # noqa: mock
                     "date": 773184150,
-                    "hash": "B4D9196A5F2BFDC33B820F27E4499C22F1D4E4EAACCB58E02B640CF0B9B73BED", # noqa: mock
+                    "hash": "B4D9196A5F2BFDC33B820F27E4499C22F1D4E4EAACCB58E02B640CF0B9B73BED",  # noqa: mock
                     "inLedger": 89077136,
                     "ledger_index": 89077136,
                 },
@@ -2046,10 +2106,10 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         ]
 
         fetch_account_transactions_mock.return_value = transactions
-        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK" # noqa: mock
+        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
 
         in_flight_order = InFlightOrder(
-            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2", # noqa: mock
+            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
             exchange_order_id="84439854-89077154",
             trading_pair="SOLO-XRP",
             order_type=OrderType.LIMIT,
@@ -2062,13 +2122,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         order_update = self.async_run_with_timeout(self.connector._request_order_status(in_flight_order))
 
         self.assertEqual(
-            order_update.client_order_id, "hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2" # noqa: mock
+            order_update.client_order_id,
+            "hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
         )
         self.assertEqual(order_update.exchange_order_id, "84439854-89077154")
         self.assertEqual(order_update.new_state, OrderState.OPEN)
 
         in_flight_order = InFlightOrder(
-            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2", # noqa: mock
+            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
             exchange_order_id="84439854-89077154",
             trading_pair="SOLO-XRP",
             order_type=OrderType.MARKET,
@@ -2087,7 +2148,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(order_update.new_state, OrderState.PENDING_CREATE)
 
         in_flight_order = InFlightOrder(
-            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2", # noqa: mock
+            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
             exchange_order_id="84439854-89077154",
             trading_pair="SOLO-XRP",
             order_type=OrderType.LIMIT,
@@ -2101,7 +2162,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(order_update.new_state, OrderState.FAILED)
 
         in_flight_order = InFlightOrder(
-            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2", # noqa: mock
+            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
             exchange_order_id="84439854-89077154",
             trading_pair="SOLO-XRP",
             order_type=OrderType.LIMIT,
@@ -2125,32 +2186,32 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         {
                             "ModifiedNode": {
                                 "FinalFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                                     "Balance": "59912051",
                                     "Flags": 0,
                                     "OwnerCount": 6,
                                     "Sequence": 84436575,
                                 },
                                 "LedgerEntryType": "AccountRoot",
-                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC", # noqa: mock
+                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
                                 "PreviousFields": {"Balance": "61162046", "OwnerCount": 7},
-                                "PreviousTxnID": "5220A3E8F0F1814621E6A346078A22F32596487FA8D0C35BCAF2CF1B2415B92C", # noqa: mock
+                                "PreviousTxnID": "5220A3E8F0F1814621E6A346078A22F32596487FA8D0C35BCAF2CF1B2415B92C",  # noqa: mock
                                 "PreviousTxnLgrSeq": 88824963,
                             }
                         },
                         {
                             "ModifiedNode": {
                                 "FinalFields": {
-                                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa", # noqa: mock
+                                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
                                     "Balance": "41317279592",
                                     "Flags": 0,
                                     "OwnerCount": 14,
                                     "Sequence": 86464581,
                                 },
                                 "LedgerEntryType": "AccountRoot",
-                                "LedgerIndex": "547BD7E3B75FDEE721B73AED1D39AD94D3250E520358CC6521F39F15C6ADE46D", # noqa: mock
+                                "LedgerIndex": "547BD7E3B75FDEE721B73AED1D39AD94D3250E520358CC6521F39F15C6ADE46D",  # noqa: mock
                                 "PreviousFields": {"Balance": "41316029612", "OwnerCount": 13, "Sequence": 86464580},
-                                "PreviousTxnID": "82BDFD72A5BD1A423E54C9C880DEDC3DC002261050001B04C28C00036640D591", # noqa: mock
+                                "PreviousTxnID": "82BDFD72A5BD1A423E54C9C880DEDC3DC002261050001B04C28C00036640D591",  # noqa: mock
                                 "PreviousTxnLgrSeq": 88824963,
                             }
                         },
@@ -2158,22 +2219,22 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Flags": 0,
-                                    "Owner": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa", # noqa: mock
-                                    "RootIndex": "54A167B9559FAA8E617B87CE2F24702769BF18C20EE8BDB21025186B76479465", # noqa: mock
+                                    "Owner": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
+                                    "RootIndex": "54A167B9559FAA8E617B87CE2F24702769BF18C20EE8BDB21025186B76479465",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "54A167B9559FAA8E617B87CE2F24702769BF18C20EE8BDB21025186B76479465", # noqa: mock
+                                "LedgerIndex": "54A167B9559FAA8E617B87CE2F24702769BF18C20EE8BDB21025186B76479465",  # noqa: mock
                             }
                         },
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281", # noqa: mock
+                                "LedgerIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281",  # noqa: mock
                                 "NewFields": {
-                                    "ExchangeRate": "5a07e6deeedc1281", # noqa: mock
-                                    "RootIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281", # noqa: mock
-                                    "TakerGetsCurrency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                    "TakerGetsIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6", # noqa: mock
+                                    "ExchangeRate": "5a07e6deeedc1281",  # noqa: mock
+                                    "RootIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281",  # noqa: mock
+                                    "TakerGetsCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerGetsIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
                                 },
                             }
                         },
@@ -2181,38 +2242,38 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Flags": 0,
-                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B", # noqa: mock
+                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
                             }
                         },
                         {
                             "DeletedNode": {
                                 "FinalFields": {
-                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6", # noqa: mock
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6",  # noqa: mock
                                     "BookNode": "0",
                                     "Flags": 131072,
                                     "OwnerNode": "0",
-                                    "PreviousTxnID": "6D0197A7D6CA87B2C90A92C80ACBC5DDB39C21BDCA9C60EAB49D7506BA560119", # noqa: mock
+                                    "PreviousTxnID": "6D0197A7D6CA87B2C90A92C80ACBC5DDB39C21BDCA9C60EAB49D7506BA560119",  # noqa: mock
                                     "PreviousTxnLgrSeq": 88824963,
                                     "Sequence": 84436571,
                                     "TakerGets": "0",
                                     "TakerPays": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "0",
                                     },
                                 },
                                 "LedgerEntryType": "Offer",
-                                "LedgerIndex": "AFAE88AD69BC25C5DF122C38DF727F41C8F1793E2FA436382A093247BE2A3418", # noqa: mock
+                                "LedgerIndex": "AFAE88AD69BC25C5DF122C38DF727F41C8F1793E2FA436382A093247BE2A3418",  # noqa: mock
                                 "PreviousFields": {
                                     "TakerGets": "1249995",
                                     "TakerPays": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "5.619196007179491",
                                     },
                                 },
@@ -2222,64 +2283,64 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Balance": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
                                         "value": "-75772.00199150676",
                                     },
                                     "Flags": 2228224,
                                     "HighLimit": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
                                         "value": "100000000",
                                     },
                                     "HighNode": "0",
                                     "LowLimit": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "0",
                                     },
                                     "LowNode": "3778",
                                 },
                                 "LedgerEntryType": "RippleState",
-                                "LedgerIndex": "BF2F4026A88BF068A5DF2ADF7A22C67193DE3E57CAE95C520EE83D02EDDADE64", # noqa: mock
+                                "LedgerIndex": "BF2F4026A88BF068A5DF2ADF7A22C67193DE3E57CAE95C520EE83D02EDDADE64",  # noqa: mock
                                 "PreviousFields": {
                                     "Balance": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
                                         "value": "-75777.62174943354",
                                     }
                                 },
-                                "PreviousTxnID": "D5E4213C132A2EBC09C7258D727CAAC2C04FE2D9A73BE2901A41975C27943044", # noqa: mock
+                                "PreviousTxnID": "D5E4213C132A2EBC09C7258D727CAAC2C04FE2D9A73BE2901A41975C27943044",  # noqa: mock
                                 "PreviousTxnLgrSeq": 88824411,
                             }
                         },
                         {
                             "DeletedNode": {
                                 "FinalFields": {
-                                    "ExchangeRate": "4f0ff88501536af6", # noqa: mock
+                                    "ExchangeRate": "4f0ff88501536af6",  # noqa: mock
                                     "Flags": 0,
-                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6", # noqa: mock
-                                    "TakerGetsCurrency": "0000000000000000000000000000000000000000", # noqa: mock
-                                    "TakerGetsIssuer": "0000000000000000000000000000000000000000", # noqa: mock
-                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6", # noqa: mock
+                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6",  # noqa: mock
+                                    "TakerGetsCurrency": "0000000000000000000000000000000000000000",  # noqa: mock
+                                    "TakerGetsIssuer": "0000000000000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
                                 },
                                 "LedgerEntryType": "DirectoryNode",
-                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6", # noqa: mock
+                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6",  # noqa: mock
                             }
                         },
                         {
                             "CreatedNode": {
                                 "LedgerEntryType": "Offer",
-                                "LedgerIndex": "C8EA027E0D2E9D1627C0D1B41DCFD165A748D396B5B1FCDF2C201FA0CC97EF2D", # noqa: mock
+                                "LedgerIndex": "C8EA027E0D2E9D1627C0D1B41DCFD165A748D396B5B1FCDF2C201FA0CC97EF2D",  # noqa: mock
                                 "NewFields": {
-                                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa", # noqa: mock
-                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281", # noqa: mock
+                                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
+                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281",  # noqa: mock
                                     "Flags": 131072,
                                     "Sequence": 86464580,
                                     "TakerGets": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "1347.603946992821",
                                     },
                                     "TakerPays": "299730027",
@@ -2290,34 +2351,34 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                             "ModifiedNode": {
                                 "FinalFields": {
                                     "Balance": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
                                         "value": "29.36723384518376",
                                     },
                                     "Flags": 1114112,
                                     "HighLimit": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                                         "value": "0",
                                     },
                                     "HighNode": "3799",
                                     "LowLimit": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
                                         "value": "1000000000",
                                     },
                                     "LowNode": "0",
                                 },
                                 "LedgerEntryType": "RippleState",
-                                "LedgerIndex": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC", # noqa: mock
+                                "LedgerIndex": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC",  # noqa: mock
                                 "PreviousFields": {
                                     "Balance": {
-                                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji", # noqa: mock
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
                                         "value": "23.74803783800427",
                                     }
                                 },
-                                "PreviousTxnID": "5C537801A80FBB8D673B19B0C3BCBF5F85B2A380064FA133D1E328C88DFC73F1", # noqa: mock
+                                "PreviousTxnID": "5C537801A80FBB8D673B19B0C3BCBF5F85B2A380064FA133D1E328C88DFC73F1",  # noqa: mock
                                 "PreviousTxnLgrSeq": 88824265,
                             }
                         },
@@ -2326,29 +2387,29 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     "TransactionResult": "tesSUCCESS",
                 },
                 "tx": {
-                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa", # noqa: mock
+                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
                     "Fee": "15",
                     "Flags": 524288,
                     "Memos": [
                         {
                             "Memo": {
-                                "MemoData": "3559334C4E412D4D66496D4E7A576A6C7367724B74", # noqa: mock
-                                "MemoType": "696E7465726E616C6F726465726964", # noqa: mock
+                                "MemoData": "3559334C4E412D4D66496D4E7A576A6C7367724B74",  # noqa: mock
+                                "MemoType": "696E7465726E616C6F726465726964",  # noqa: mock
                             }
                         }
                     ],
                     "Sequence": 86464580,
-                    "SigningPubKey": "02DFB5DD7091EC6E99A12AD016439DBBBBB8F60438D17B21B97E9F83C57106F8DB", # noqa: mock
+                    "SigningPubKey": "02DFB5DD7091EC6E99A12AD016439DBBBBB8F60438D17B21B97E9F83C57106F8DB",  # noqa: mock
                     "TakerGets": {
-                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
-                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "value": "1353.223143",
                     },
                     "TakerPays": "300979832",
                     "TransactionType": "OfferCreate",
-                    "TxnSignature": "30450221009A265D011DA57D9C9A9FC3657D5DFE249DBA5D3BD5819B90D3F97E121571F51F02207ACE9130D47AF28CCE24E4D07DC58E7B51B717CA0FCB2FDBB2C9630F72642AEB", # noqa: mock
+                    "TxnSignature": "30450221009A265D011DA57D9C9A9FC3657D5DFE249DBA5D3BD5819B90D3F97E121571F51F02207ACE9130D47AF28CCE24E4D07DC58E7B51B717CA0FCB2FDBB2C9630F72642AEB",  # noqa: mock
                     "date": 772221290,
-                    "hash": "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41", # noqa: mock
+                    "hash": "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41",  # noqa: mock
                     "inLedger": 88824964,
                     "ledger_index": 88824964,
                 },
@@ -2357,7 +2418,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         ]
 
         in_flight_order = InFlightOrder(
-            client_order_id="hbot-1718906078435341-BSOXP61b56023518294a8eb046fb3701345edf3cf5", # noqa: mock
+            client_order_id="hbot-1718906078435341-BSOXP61b56023518294a8eb046fb3701345edf3cf5",  # noqa: mock
             exchange_order_id="84436571-88824981",
             trading_pair="SOLO-XRP",
             order_type=OrderType.LIMIT,
@@ -2368,15 +2429,17 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         )
 
         fetch_account_transactions_mock.return_value = transactions
-        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK" # noqa: mock
+        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
 
         trade_fills = self.async_run_with_timeout(self.connector._all_trade_updates_for_order(in_flight_order))
-        print(trade_fills)
 
         self.assertEqual(len(trade_fills), 1)
-        self.assertEqual(trade_fills[0].trade_id, "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41") # noqa: mock
         self.assertEqual(
-            trade_fills[0].client_order_id, "hbot-1718906078435341-BSOXP61b56023518294a8eb046fb3701345edf3cf5" # noqa: mock
+            trade_fills[0].trade_id, "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41" # noqa: mock
+        )  # noqa: mock
+        self.assertEqual(
+            trade_fills[0].client_order_id,
+            "hbot-1718906078435341-BSOXP61b56023518294a8eb046fb3701345edf3cf5",  # noqa: mock
         )
         self.assertEqual(trade_fills[0].exchange_order_id, "84436571-88824981")
         self.assertEqual(trade_fills[0].trading_pair, "SOLO-XRP")
@@ -2385,8 +2448,274 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(trade_fills[0].fill_base_amount, Decimal("5.619196007179491"))
         self.assertEqual(trade_fills[0].fill_quote_amount, Decimal("1.249995"))
         self.assertEqual(
-            trade_fills[0].fee.percent, Decimal("0.01000000000000000020816681711721685132943093776702880859375")
+            trade_fills[0].fee.percent, Decimal("0.01000000000000000020816681711721685132943093776702880859375") # noqa: mock
         )
         self.assertEqual(trade_fills[0].fee.percent_token, "XRP")
         self.assertEqual(trade_fills[0].fee.flat_fees, [])
         self.assertEqual(trade_fills[0].is_taker, True)
+
+        transactions = [
+            {
+                "meta": {
+                    "AffectedNodes": [
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "Balance": "59912051",
+                                    "Flags": 0,
+                                    "OwnerCount": 6,
+                                    "Sequence": 84436575,
+                                },
+                                "LedgerEntryType": "AccountRoot",
+                                "LedgerIndex": "2B3020738E7A44FBDE454935A38D77F12DC5A11E0FA6DAE2D9FCF4719FFAA3BC",  # noqa: mock
+                                "PreviousFields": {"Balance": "61162046", "OwnerCount": 7},
+                                "PreviousTxnID": "5220A3E8F0F1814621E6A346078A22F32596487FA8D0C35BCAF2CF1B2415B92C",  # noqa: mock
+                                "PreviousTxnLgrSeq": 88824963,
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
+                                    "Balance": "41317279592",
+                                    "Flags": 0,
+                                    "OwnerCount": 14,
+                                    "Sequence": 86464581,
+                                },
+                                "LedgerEntryType": "AccountRoot",
+                                "LedgerIndex": "547BD7E3B75FDEE721B73AED1D39AD94D3250E520358CC6521F39F15C6ADE46D",  # noqa: mock
+                                "PreviousFields": {"Balance": "41316029612", "OwnerCount": 13, "Sequence": 86464580},
+                                "PreviousTxnID": "82BDFD72A5BD1A423E54C9C880DEDC3DC002261050001B04C28C00036640D591",  # noqa: mock
+                                "PreviousTxnLgrSeq": 88824963,
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Flags": 0,
+                                    "Owner": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
+                                    "RootIndex": "54A167B9559FAA8E617B87CE2F24702769BF18C20EE8BDB21025186B76479465",  # noqa: mock
+                                },
+                                "LedgerEntryType": "DirectoryNode",
+                                "LedgerIndex": "54A167B9559FAA8E617B87CE2F24702769BF18C20EE8BDB21025186B76479465",  # noqa: mock
+                            }
+                        },
+                        {
+                            "CreatedNode": {
+                                "LedgerEntryType": "DirectoryNode",
+                                "LedgerIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281",  # noqa: mock
+                                "NewFields": {
+                                    "ExchangeRate": "5a07e6deeedc1281",  # noqa: mock
+                                    "RootIndex": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281",  # noqa: mock
+                                    "TakerGetsCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerGetsIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
+                                },
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Flags": 0,
+                                    "Owner": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "RootIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
+                                },
+                                "LedgerEntryType": "DirectoryNode",
+                                "LedgerIndex": "96A6199A80137B4B000352202D95C7F977EEBED39070B485D41903BD991E1F4B",  # noqa: mock
+                            }
+                        },
+                        {
+                            "DeletedNode": {
+                                "FinalFields": {
+                                    "Account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                    "BookDirectory": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6",  # noqa: mock
+                                    "BookNode": "0",
+                                    "Flags": 131072,
+                                    "OwnerNode": "0",
+                                    "PreviousTxnID": "6D0197A7D6CA87B2C90A92C80ACBC5DDB39C21BDCA9C60EAB49D7506BA560119",  # noqa: mock
+                                    "PreviousTxnLgrSeq": 88824963,
+                                    "Sequence": 84436571,
+                                    "TakerGets": "0",
+                                    "TakerPays": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "0",
+                                    },
+                                },
+                                "LedgerEntryType": "Offer",
+                                "LedgerIndex": "AFAE88AD69BC25C5DF122C38DF727F41C8F1793E2FA436382A093247BE2A3418",  # noqa: mock
+                                "PreviousFields": {
+                                    "TakerGets": "1249995",
+                                    "TakerPays": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "5.619196007179491",
+                                    },
+                                },
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "-75772.00199150676",
+                                    },
+                                    "Flags": 2228224,
+                                    "HighLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
+                                        "value": "100000000",
+                                    },
+                                    "HighNode": "0",
+                                    "LowLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "0",
+                                    },
+                                    "LowNode": "3778",
+                                },
+                                "LedgerEntryType": "RippleState",
+                                "LedgerIndex": "BF2F4026A88BF068A5DF2ADF7A22C67193DE3E57CAE95C520EE83D02EDDADE64",  # noqa: mock
+                                "PreviousFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "-75777.62174943354",
+                                    }
+                                },
+                                "PreviousTxnID": "D5E4213C132A2EBC09C7258D727CAAC2C04FE2D9A73BE2901A41975C27943044",  # noqa: mock
+                                "PreviousTxnLgrSeq": 88824411,
+                            }
+                        },
+                        {
+                            "DeletedNode": {
+                                "FinalFields": {
+                                    "ExchangeRate": "4f0ff88501536af6",  # noqa: mock
+                                    "Flags": 0,
+                                    "RootIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6",  # noqa: mock
+                                    "TakerGetsCurrency": "0000000000000000000000000000000000000000",  # noqa: mock
+                                    "TakerGetsIssuer": "0000000000000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysCurrency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                    "TakerPaysIssuer": "1EB3EAA3AD86242E1D51DC502DD6566BD39E06A6",  # noqa: mock
+                                },
+                                "LedgerEntryType": "DirectoryNode",
+                                "LedgerIndex": "C73FAC6C294EBA5B9E22A8237AAE80725E85372510A6CA794F0FF88501536AF6",  # noqa: mock
+                            }
+                        },
+                        {
+                            "CreatedNode": {
+                                "LedgerEntryType": "Offer",
+                                "LedgerIndex": "C8EA027E0D2E9D1627C0D1B41DCFD165A748D396B5B1FCDF2C201FA0CC97EF2D",  # noqa: mock
+                                "NewFields": {
+                                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
+                                    "BookDirectory": "5C8970D155D65DB8FF49B291D7EFFA4A09F9E8A68D9974B25A07E6DEEEDC1281",  # noqa: mock
+                                    "Flags": 131072,
+                                    "Sequence": 86464580,
+                                    "TakerGets": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "1347.603946992821",
+                                    },
+                                    "TakerPays": "299730027",
+                                },
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "29.36723384518376",
+                                    },
+                                    "Flags": 1114112,
+                                    "HighLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                                        "value": "0",
+                                    },
+                                    "HighNode": "3799",
+                                    "LowLimit": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                                        "value": "1000000000",
+                                    },
+                                    "LowNode": "0",
+                                },
+                                "LedgerEntryType": "RippleState",
+                                "LedgerIndex": "E1C84325F137AD05CB78F59968054BCBFD43CB4E70F7591B6C3C1D1C7E44C6FC",  # noqa: mock
+                                "PreviousFields": {
+                                    "Balance": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                                        "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",  # noqa: mock
+                                        "value": "23.74803783800427",
+                                    }
+                                },
+                                "PreviousTxnID": "5C537801A80FBB8D673B19B0C3BCBF5F85B2A380064FA133D1E328C88DFC73F1",  # noqa: mock
+                                "PreviousTxnLgrSeq": 88824265,
+                            }
+                        },
+                    ],
+                    "TransactionIndex": 20,
+                    "TransactionResult": "tesSUCCESS",
+                },
+                "tx": {
+                    "Account": "r9aZRryD8AZzGqQjYrQQuBBzebjF555Xsa",  # noqa: mock
+                    "Fee": "15",
+                    "Flags": 524288,
+                    "Memos": [
+                        {
+                            "Memo": {
+                                "MemoData": "3559334C4E412D4D66496D4E7A576A6C7367724B74",  # noqa: mock
+                                "MemoType": "696E7465726E616C6F726465726964",  # noqa: mock
+                            }
+                        }
+                    ],
+                    "Sequence": 84436571,
+                    "SigningPubKey": "02DFB5DD7091EC6E99A12AD016439DBBBBB8F60438D17B21B97E9F83C57106F8DB",  # noqa: mock
+                    "TakerGets": {
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                        "value": "1353.223143",
+                    },
+                    "TakerPays": "300979832",
+                    "TransactionType": "OfferCreate",
+                    "TxnSignature": "30450221009A265D011DA57D9C9A9FC3657D5DFE249DBA5D3BD5819B90D3F97E121571F51F02207ACE9130D47AF28CCE24E4D07DC58E7B51B717CA0FCB2FDBB2C9630F72642AEB",  # noqa: mock
+                    "date": 772221290,
+                    "hash": "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41",  # noqa: mock
+                    "inLedger": 88824981,
+                    "ledger_index": 88824981,
+                },
+                "validated": True,
+            }
+        ]
+
+        fetch_account_transactions_mock.return_value = transactions
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1718906078435341-BSOXP61b56023518294a8eb046fb3701345edf3cf5",  # noqa: mock
+            exchange_order_id="84436571-88824981",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("0.222451"),
+            amount=Decimal("5.619196007179491"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = self.async_run_with_timeout(self.connector._all_trade_updates_for_order(in_flight_order))
+
+        self.assertEqual(len(trade_fills), 1)
+        self.assertEqual(trade_fills[0].trade_id, "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41") # noqa: mock
+        self.assertEqual(
+            trade_fills[0].client_order_id,
+            "hbot-1718906078435341-BSOXP61b56023518294a8eb046fb3701345edf3cf5", # noqa: mock
+        )
+        self.assertEqual(trade_fills[0].exchange_order_id, "84436571-88824981")
+        self.assertEqual(trade_fills[0].trading_pair, "SOLO-XRP")
+        self.assertEqual(trade_fills[0].fill_timestamp, 1718906090)
+        self.assertEqual(trade_fills[0].fill_price, Decimal("4.417734611892777801348826549"))
+        self.assertEqual(trade_fills[0].fill_base_amount, Decimal("306.599028007179491"))
+        self.assertEqual(trade_fills[0].fill_quote_amount, Decimal("1354.473138"))
