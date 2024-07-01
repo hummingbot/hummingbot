@@ -160,18 +160,18 @@ class XrplExchange(ExchangePyBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        # API documentation does not clarify the error message for timestamp related problems
+        # We do not use time synchronizer in XRPL connector
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
+        # TODO: this will be important to implement in case that we request an order that is in memory but the update of it wasn't correct
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
         # when replacing the dummy implementation
         return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
+        # TODO: this will be important to implement in case that we request an order that is in memory but the update of it wasn't correct
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
         # when replacing the dummy implementation
@@ -220,30 +220,29 @@ class XrplExchange(ExchangePyBase):
         price: Decimal,
         **kwargs,
     ) -> tuple[str, float, Response | None]:
-        base_currency, quote_currency = self.get_currencies_from_trading_pair(trading_pair)
-
-        if order_type is OrderType.MARKET:
-            # If price is none or nan, get last_traded_price
+        try:
             if price is None or price.is_nan():
                 price = Decimal(
                     await self._get_best_price(trading_pair, is_buy=True if trade_type is TradeType.BUY else False)
                 )
-            # Increase price by MARKET_ORDER_MAX_SLIPPAGE if it is buy order
-            # Decrease price by MARKET_ORDER_MAX_SLIPPAGE if it is sell order
-            if trade_type is TradeType.BUY:
-                price *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
-            else:
-                price *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
-        account = self._auth.get_account()
-        trading_rule = self._trading_rules[trading_pair]
+            base_currency, quote_currency = self.get_currencies_from_trading_pair(trading_pair)
+            account = self._auth.get_account()
+            trading_rule = self._trading_rules[trading_pair]
 
-        try:
             amount_in_base_quantum = Decimal(trading_rule.min_base_amount_increment)
             amount_in_quote_quantum = Decimal(trading_rule.min_quote_amount_increment)
 
             amount_in_base = Decimal(amount.quantize(amount_in_base_quantum, rounding=ROUND_DOWN))
             amount_in_quote = Decimal((amount * price).quantize(amount_in_quote_quantum, rounding=ROUND_DOWN))
+
+            if order_type is OrderType.MARKET:
+                # Increase price by MARKET_ORDER_MAX_SLIPPAGE if it is buy order
+                # Decrease price by MARKET_ORDER_MAX_SLIPPAGE if it is sell order
+                if trade_type is TradeType.SELL:
+                    amount_in_quote *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+                else:
+                    amount_in_quote *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
             # Count the digit in the base and quote amount
             # If the digit is more than 16, we need to round it to 16
@@ -1409,7 +1408,9 @@ class XrplExchange(ExchangePyBase):
 
         return base_currency, quote_currency
 
-    async def tx_autofill(self, transaction: Transaction, client: Client, signers_count: Optional[int] = None) -> Transaction:
+    async def tx_autofill(
+        self, transaction: Transaction, client: Client, signers_count: Optional[int] = None
+    ) -> Transaction:
         return await autofill(transaction, client, signers_count)
 
     def tx_sign(
