@@ -30,47 +30,47 @@ SIDE_BUY = "buy"
 SIDE_SELL = "sell"
 
 # Public API endpoints
-STATUS_URL              = "/status/"
-CURRENCIES_URL          = "/currencies/"
-EXCHANGE_INFO_PATH_URL  = "/trading-pairs-info/"
-ORDER_BOOK_URL          = "/order_book/{}"
-TICKER_URL              = "/ticker/{}"
+STATUS_URL = "/status/"
+CURRENCIES_URL = "/currencies/"
+EXCHANGE_INFO_PATH_URL = "/trading-pairs-info/"
+ORDER_BOOK_URL = "/order_book/{}"
+TICKER_URL = "/ticker/{}"
 
-#Private API endpoints
-ACCOUNT_BALANCES_URL    = "/account_balances/"
-ORDER_CANCEL_URL        = "/cancel_order/"
-ORDER_STATUS_URL        = "/order_status/"
-TRADING_FEES_URL        = "/fees/trading/"
-WEBSOCKET_TOKEN_URL     = "/websockets_token/"
+# Private API endpoints
+ACCOUNT_BALANCES_URL = "/account_balances/"
+ORDER_CANCEL_URL = "/cancel_order/"
+ORDER_STATUS_URL = "/order_status/"
+TRADING_FEES_URL = "/fees/trading/"
+WEBSOCKET_TOKEN_URL = "/websockets_token/"
 
 # WS Events
-DIFF_EVENT_TYPE         = "data"
-TRADE_EVENT_TYPE        = "trade"
-USER_ORDER_CREATED      = "order_created"
-USER_ORDER_CHANGED      = "order_changed"
-USER_ORDER_DELETED      = "order_deleted"
-USER_TRADE              = "trade"
+DIFF_EVENT_TYPE = "data"
+TRADE_EVENT_TYPE = "trade"
+USER_ORDER_CREATED = "order_created"
+USER_ORDER_CHANGED = "order_changed"
+USER_ORDER_DELETED = "order_deleted"
+USER_TRADE = "trade"
 
 # WS Public channels
-WS_PUBLIC_DIFF_ORDER_BOOK   = "diff_order_book_{}"
-WS_PUBLIC_LIVE_TRADES       = "live_trades_{}"
+WS_PUBLIC_DIFF_ORDER_BOOK = "diff_order_book_{}"
+WS_PUBLIC_LIVE_TRADES = "live_trades_{}"
 
 # WS Private channels
 WS_PRIVATE_MY_ORDERS = "private-my_orders_{}-{}"
 WS_PRIVATE_MY_TRADES = "private-my_trades_{}-{}"
 
-#WS Other
+# WS Other
 WS_HEARTBEAT_TIME_INTERVAL = 30.0
 
 # Rate Limit
 MAX_REQUEST = 10000
 MAX_REQUESTS_PER_SECOND = 400
 
-RAW_REQUESTS_LIMIT_ID     = "raw_requests"
-REQUEST_WEIGHT_LIMIT_ID   = "request_weight"
-ORDER_BOOK_URL_LIMIT_ID   = 'order_book'
+RAW_REQUESTS_LIMIT_ID = "raw_requests"
+REQUEST_WEIGHT_LIMIT_ID = "request_weight"
+ORDER_BOOK_URL_LIMIT_ID = 'order_book'
 ORDER_CREATE_URL_LIMIT_ID = 'order_create'
-TICKER_URL_LIMIT_ID       = 'ticker'
+TICKER_URL_LIMIT_ID = 'ticker'
 
 RATE_LIMITS = [
     RateLimit(limit_id=RAW_REQUESTS_LIMIT_ID, limit=MAX_REQUEST, time_interval=10 * MINUTE),

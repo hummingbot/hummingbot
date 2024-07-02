@@ -36,11 +36,11 @@ class BitstampWebUtilsTests(TestCase):
 
     @patch('hummingbot.connector.exchange.bitstamp.bitstamp_web_utils'
            '.build_api_factory_without_time_synchronizer_pre_processor',
-        new_callable=Mock)
+           new_callable=Mock)
     def test_get_current_server_time(self, mock_api_factory: Mock):
-        response = { "server_time": 1719431075066 }
+        response = {"server_time": 1719431075066}
         mock_rest_assistant = AsyncMock()
-        mock_rest_assistant.execute_request.return_value = { "server_time": 1719431075066 }
+        mock_rest_assistant.execute_request.return_value = {"server_time": 1719431075066}
 
         async def get_rest_assistant():
             return mock_rest_assistant

@@ -13,6 +13,7 @@ DEFAULT_FEES = TradeFeeSchema(
     taker_percent_fee_decimal=Decimal("0.2")
 )
 
+
 class BitstampConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="bitstamp", const=True, client_data=None)
     bitstamp_api_key: SecretStr = Field(

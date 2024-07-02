@@ -37,7 +37,6 @@ class BitstampAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._domain = domain
         self._api_factory = api_factory
 
-
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
         Creates an instance of WSAssistant connected to the exchange
@@ -78,7 +77,7 @@ class BitstampAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                 }
                 my_trades_subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
-                
+
                 payload = {
                     "event": "bts:subscribe",
                     "data": {
@@ -102,12 +101,12 @@ class BitstampAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if len(event_message) > 0:
             event = event_message.get("event", "")
             channel = event_message.get("channel", "")
-            
+
             if event in self.USER_STREAM_EVENTS:
                 queue.put_nowait(event_message)
             else:
                 if event == "bts:subscription_succeeded":
-                    self.logger().info(f"Successfully subscribed to '{channel}'...")          
+                    self.logger().info(f"Successfully subscribed to '{channel}'...")
                 elif event == "bts:request_reconnect":
                     raise ConnectionError("Received request to reconnect. Reconnecting...")
                 else:

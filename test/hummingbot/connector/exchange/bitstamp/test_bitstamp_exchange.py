@@ -36,7 +36,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     @property
     def network_status_url(self):
-        url = web_utils.public_rest_url(CONSTANTS.STATUS_URL , domain=self.exchange._domain)
+        url = web_utils.public_rest_url(CONSTANTS.STATUS_URL, domain=self.exchange._domain)
         return url
 
     @property
@@ -48,7 +48,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def order_creation_url(self):
         url = web_utils.private_rest_url("/", domain=self.exchange._domain)
         return url
-    
+
     def order_creation_url_for_trade_type(self, trade_type: TradeType, trading_pair: str):
         type = "buy" if trade_type == TradeType.BUY else "sell"
         url = web_utils.private_rest_url(f"/{type}/{trading_pair}/", domain=self.exchange._domain)
@@ -163,7 +163,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             "amount": "100",
             "client_order_id": ""
         }
-    
+
     @property
     def trading_fees_mock_response(self):
         return [
@@ -291,7 +291,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             "X-Auth-Timestamp",
             "X-Auth-Version"
         ]
-        self.assertEqual(f"BITSTAMP testAPIKey", request_headers["X-Auth"])
+        self.assertEqual("BITSTAMP testAPIKey", request_headers["X-Auth"])
         for header in expected_headers:
             self.assertIn(header, request_headers)
 
@@ -459,7 +459,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
-    
+
     def configure_trading_fees_response(
             self,
             mock_api: aioresponses,
@@ -469,7 +469,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         response = self.trading_fees_mock_response
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
-    
+
     def _configure_balance_response(
             self,
             response: Dict[str, Any],
@@ -631,8 +631,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 {
                     "tid": self.expected_fill_trade_id,
                     "price": str(self.expected_partial_fill_price),
-                     order.base_asset.lower(): str(self.expected_partial_fill_amount),
-                     order.quote_asset.lower(): str(self.expected_partial_fill_price * self.expected_partial_fill_amount),
+                    order.base_asset.lower(): str(self.expected_partial_fill_amount),
+                    order.quote_asset.lower(): str(self.expected_partial_fill_price * self.expected_partial_fill_amount),
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                     "datetime": "2022-01-31 14:43:16.000",
                     "type": 0
@@ -653,8 +653,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 {
                     "tid": self.expected_fill_trade_id,
                     "price": str(order.price),
-                     order.base_asset.lower(): str(order.amount),
-                     order.quote_asset.lower(): str(order.price * order.amount),
+                    order.base_asset.lower(): str(order.amount),
+                    order.quote_asset.lower(): str(order.price * order.amount),
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                     "datetime": "2022-01-31 14:43:16.000",
                     "type": 0
@@ -681,8 +681,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         creation_response = self.order_creation_request_successful_mock_response
 
         mock_api.post(url,
-                        body=json.dumps(creation_response),
-                        callback=lambda *args, **kwargs: request_sent_event.set())
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_order()
         self.async_run_with_timeout(request_sent_event.wait())
@@ -721,8 +721,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         creation_response = self.order_creation_request_successful_mock_response
 
         mock_api.post(url,
-                        body=json.dumps(creation_response),
-                        callback=lambda *args, **kwargs: request_sent_event.set())
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_sell_order()
         self.async_run_with_timeout(request_sent_event.wait())
@@ -758,8 +758,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self.exchange._set_current_timestamp(1640780000)
         url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
         mock_api.post(url,
-                        status=400,
-                        callback=lambda *args, **kwargs: request_sent_event.set())
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_order()
         self.async_run_with_timeout(request_sent_event.wait())
@@ -803,8 +803,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
         url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
         mock_api.post(url,
-                        status=400,
-                        callback=lambda *args, **kwargs: request_sent_event.set())
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id_for_invalid_order = self.place_buy_order(
             amount=Decimal("0.0001"), price=Decimal("0.0001")
@@ -882,7 +882,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def test_time_synchronizer_related_request_error_detection(self):
         response = self._get_error_response(CONSTANTS.TIMESTAMP_ERROR_CODE, CONSTANTS.TIMESTAMP_ERROR_MESSAGE)
-        exception = IOError(f"'Error executing request POST {self.balance_url}. HTTP status is 403. Error: {json.dumps(response)}'")       
+        exception = IOError(f"'Error executing request POST {self.balance_url}. HTTP status is 403. Error: {json.dumps(response)}'")
         self.assertEqual(True, self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     def _get_error_response(self, error_code, error_reason):
