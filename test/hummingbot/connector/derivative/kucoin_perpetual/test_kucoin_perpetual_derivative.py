@@ -1186,7 +1186,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     def test_time_synchronizer_related_request_error_detection(self):
         error_code = CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR
-        response = {"code":error_code,"msg":"Invalid KC-API-TIMESTAMP"}
+        response = {"code": error_code, "msg": "Invalid KC-API-TIMESTAMP"}
         exception = IOError(f"Error executing request GET https://someurl. HTTP status is 400. Error: {json.dumps(response)}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
