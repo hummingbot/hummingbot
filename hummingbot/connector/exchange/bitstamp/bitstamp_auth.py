@@ -55,11 +55,11 @@ class BitstampAuth(AuthBase):
             'X-Auth-Signature': self._generate_signature(self._generate_message(method, request_url, content_type, payload, nonce, timestamp_str)),
             'X-Auth-Nonce': nonce,
             'X-Auth-Timestamp': timestamp_str,
-            'X-Auth-Version': self.AUTH_VERSION 
+            'X-Auth-Version': self.AUTH_VERSION
         }
 
         return headers
-    
+
     def _generate_message(self, method: RESTMethod, request_url: str, content_type: str, payload, nonce: str, timestamp_str: str) -> str:
         content_type = content_type or ""
         payload_str = urlencode(payload) if payload else ""

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from typing import Any, Awaitable, Optional
+from typing import Awaitable, Optional
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -89,7 +89,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
-    
+
     def _authentication_response(self, user_id: int) -> str:
         message = {
             "token": "some-token",
@@ -98,7 +98,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
         }
 
         return json.dumps(message)
-    
+
     def _subscription_response(self, channel: str, user_id: int) -> str:
         private_channel = f"{channel}-{user_id}"
         message = {
@@ -126,7 +126,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
         self.assertTrue(
             self._is_logged("INFO", "Subscribed to private account and orders channels...")
         )
-    
+
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
     def test_subscribe_channels_raises_cancel_exception(self, mock_ws, mock_api):
@@ -162,7 +162,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading...")
         )
-    
+
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
     def test_listen_for_user_stream_logs_subscribed_message(self, mock_ws, mock_api):
@@ -303,4 +303,4 @@ class BitstampUserStreamDataSourceTests(TestCase):
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
-        self.assertTrue(self._is_logged("WARNING", f"The websocket connection was closed (Received request to reconnect. Reconnecting...)"))
+        self.assertTrue(self._is_logged("WARNING", "The websocket connection was closed (Received request to reconnect. Reconnecting...)"))

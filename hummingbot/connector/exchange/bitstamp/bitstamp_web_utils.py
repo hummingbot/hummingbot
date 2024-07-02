@@ -20,7 +20,7 @@ class BitstampRESTPreProcessor(RESTPreProcessorBase):
             # aiohttp adds the Content-Type header which is not allowed by bitstamp when sending an empty body.
             request.headers[self.CONTENT_TYPE_HEADER] = ''
             return request
-        
+
         if request.method != RESTMethod.GET:
             request.headers[self.CONTENT_TYPE_HEADER] = "application/x-www-form-urlencoded"
 
@@ -29,6 +29,7 @@ class BitstampRESTPreProcessor(RESTPreProcessorBase):
             request.data = json.loads(request.data)
 
         return request
+
 
 def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
@@ -39,6 +40,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.API_VERSION + path_url
 
+
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided private REST endpoint
@@ -47,6 +49,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     :return: the full URL to the endpoint
     """
     return CONSTANTS.REST_URL.format(domain) + CONSTANTS.API_VERSION + path_url
+
 
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
@@ -66,12 +69,15 @@ def build_api_factory(
     )
     return api_factory
 
+
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
 
+
 def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+
 
 async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,

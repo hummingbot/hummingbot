@@ -120,7 +120,7 @@ class BitstampExchange(ExchangePyBase):
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         pairs_prices = await self._api_get(path_url=CONSTANTS.CURRENCIES_URL)
         return pairs_prices
-    
+
     def convert_from_exchange_trading_pair(self, exchange_trading_pair: str) -> Optional[str]:
         try:
             base_asset, quote_asset = exchange_trading_pair.split("/")
@@ -180,7 +180,7 @@ class BitstampExchange(ExchangePyBase):
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
 
-        trade_fee_schema = self._trading_fees.get(trading_pair)   
+        trade_fee_schema = self._trading_fees.get(trading_pair)
         if trade_fee_schema:
             fee_percent: Decimal = (
                 trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
@@ -248,7 +248,7 @@ class BitstampExchange(ExchangePyBase):
 
         cancel_response = await self._api_post(
             path_url=f"{CONSTANTS.ORDER_CANCEL_URL}",
-            data={"id": exchange_order_id },
+            data={"id": exchange_order_id},
             is_auth_required=True
         )
         if cancel_response.get("status", "") == "error":
@@ -408,10 +408,10 @@ class BitstampExchange(ExchangePyBase):
             },
             is_auth_required = True
         )
-        
+
         if updated_order_data.get("status", "") == "error":
             raise IOError(f"Error requesting order status. Error: {updated_order_data}")
-        
+
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
         amount_remaining = Decimal(updated_order_data["amount_remaining"])
         if new_state == OrderState.OPEN and amount_remaining < tracked_order.amount:
@@ -455,7 +455,7 @@ class BitstampExchange(ExchangePyBase):
                     continue
 
                 mapping[info["url_symbol"]] = self.convert_from_exchange_trading_pair(info["name"])
-            except Exception as e:
+            except Exception:
                 self.logger().error(f"Error parsing trading pair symbol data {info}. Skipping.")
 
         self._set_trading_pair_symbol_map(mapping)

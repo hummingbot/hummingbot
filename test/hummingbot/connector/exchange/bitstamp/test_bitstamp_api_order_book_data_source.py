@@ -38,7 +38,7 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
         self.mock_time_provider = MagicMock()
-        self.mock_time_provider.time.return_value = 1000        
+        self.mock_time_provider.time.return_value = 1000
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitstampExchange(
@@ -50,9 +50,9 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
             domain=self.domain,
             time_provider=self.mock_time_provider)
         self.data_source = BitstampAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                         connector=self.connector,
-                                                         api_factory=self.connector._web_assistants_factory,
-                                                         domain=self.domain)
+                                                          connector=self.connector,
+                                                          api_factory=self.connector._web_assistants_factory,
+                                                          domain=self.domain)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -104,7 +104,7 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
                 "buy_order_id": 1763073367883776,
                 "sell_order_id": 1763073362448385},
             "channel": "live_trades_COINALPHAHBOT",
-            "event":"trade"
+            "event": "trade"
         }
         return resp
 
@@ -113,31 +113,25 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
             "data": {
                 "timestamp": "1719273313",
                 "microtimestamp": "1719273313441554",
-                "bids":[
-                    ["60362","0.11602627"]
+                "bids": [
+                    ["60362", "0.11602627"]
                 ],
-                "asks":[
-                    ["60341","0.22347000"]
+                "asks": [
+                    ["60341", "0.22347000"]
                 ]
             },
             "channel": "diff_order_book_COINALPHAHBOT",
-            "event":"data"
+            "event": "data"
         }
         return resp
 
     def _snapshot_response(self):
         resp = {
             "asks": [
-                [
-                "4.000002",
-                "12"
-                ]
+                ["4.000002", "12"]
             ],
             "bids": [
-                [
-                "4",
-                "431"
-                ]
+                ["4", "431"]
             ],
             "microtimestamp": "1643643584684047",
             "timestamp": "1643643584"
@@ -250,10 +244,10 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(self._is_logged(
-            "WARNING", 
+            "WARNING",
             "The websocket connection was closed (Received request to reconnect. Reconnecting...)"))
         self.assertTrue(self._is_logged(
-            "INFO", 
+            "INFO",
             "Subscribed to public order book and trade channels..."))
 
     @patch("aiohttp.ClientSession.ws_connect")
@@ -318,7 +312,7 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
         incomplete_resp = {
             "data": {},
             "channel": "live_trades_COINALPHAHBOT",
-            "event":"trade"
+            "event": "trade"
         }
 
         mock_queue = AsyncMock()
@@ -372,7 +366,7 @@ class BitstampApiOrderBookDataSourceTests(TestCase):
         incomplete_resp = {
             "data": {},
             "channel": "diff_order_book_COINALPHAHBOT",
-            "event":"data"
+            "event": "data"
         }
 
         mock_queue = AsyncMock()

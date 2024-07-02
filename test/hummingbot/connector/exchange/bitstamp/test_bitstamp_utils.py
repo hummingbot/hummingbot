@@ -3,7 +3,6 @@ from decimal import Decimal
 
 from pydantic import SecretStr
 
-from hummingbot.connector.exchange.bitstamp.bitstamp_utils import BitstampConfigMap
 from hummingbot.connector.exchange.bitstamp.bitstamp_utils import (
     DEFAULT_FEES,
     BitstampConfigMap

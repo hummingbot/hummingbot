@@ -9,6 +9,7 @@ from typing_extensions import Awaitable
 from hummingbot.connector.exchange.bitstamp.bitstamp_auth import BitstampAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
+
 class BitstampAuthTests(TestCase):
 
     def setUp(self) -> None:
@@ -18,7 +19,7 @@ class BitstampAuthTests(TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
-    
+
     def test_rest_authenticate(self):
         now = 1234567890.000
         mock_time_provider = MagicMock()

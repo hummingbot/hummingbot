@@ -121,7 +121,7 @@ class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         trade_message = BitstampOrderBook.trade_message_from_exchange(
             raw_message, {"trading_pair": trading_pair})
-        
+
         message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -129,12 +129,12 @@ class BitstampAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         order_book_message: OrderBookMessage = BitstampOrderBook.diff_message_from_exchange(
             raw_message, time.time(), {"trading_pair": trading_pair})
-        
+
         message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         return event_message.get("event", "")
-    
+
     async def _process_message_for_unknown_channel(self, event_message: Dict[str, Any], websocket_assistant: WSAssistant):
         event = event_message.get("event", "")
         channel = event_message.get("channel")
