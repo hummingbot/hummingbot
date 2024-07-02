@@ -95,13 +95,14 @@ class KrakenSpotCandles(CandlesBase):
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Kraken REST API does not support fetching more than 720 candles ago.")
-        return {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval], "since": start_time}
+        return {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval],
+                "since": start_time + self.interval_in_seconds}
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         data: List = next(iter(data["result"].values()))
         new_hb_candles = []
         for i in data:
-            timestamp = self.ensure_timestamp_in_seconds(float(i[0])) - self.interval_in_seconds
+            timestamp = self.ensure_timestamp_in_seconds(float(i[0]))
             open = i[1]
             high = i[2]
             low = i[3]
@@ -114,7 +115,7 @@ class KrakenSpotCandles(CandlesBase):
             new_hb_candles.append([timestamp, open, high, low, close, volume,
                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                    taker_buy_quote_volume])
-        return new_hb_candles
+        return [candle for candle in new_hb_candles if candle[0] < end_time]
 
     def ws_subscription_payload(self):
         return {
