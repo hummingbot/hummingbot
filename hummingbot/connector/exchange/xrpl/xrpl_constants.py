@@ -41,14 +41,14 @@ XRPL_ORDER_TYPE = {
 }
 
 # Market Order Max Slippage
-MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.005")
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.009")
 
 # Order Side
 SIDE_BUY = 0
 SIDE_SELL = 1
 
 # Orderbook settings
-ORDER_BOOK_DEPTH = 500
+ORDER_BOOK_DEPTH = 150
 
 # Ledger offset for getting order status:
 LEDGER_OFFSET = _LEDGER_OFFSET * 2
