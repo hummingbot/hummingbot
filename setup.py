@@ -81,7 +81,7 @@ def main():
         "msgpack",
         "nose",
         "nose-exclude",
-        "numpy",
+        "numpy==1.26.4",
         "pandas",
         "pip",
         "pre-commit",
