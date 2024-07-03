@@ -38,8 +38,10 @@ class BacktestingEngineBase:
         self.dca_executor_simulator = DCAExecutorSimulator()
 
     @classmethod
-    def load_controller_config(cls, config_path: str) -> Dict:
-        full_path = os.path.join(settings.CONTROLLERS_CONF_DIR_PATH, config_path)
+    def load_controller_config(cls,
+                               config_path: str,
+                               controllers_conf_dir_path: str = settings.CONTROLLERS_CONF_DIR_PATH) -> Dict:
+        full_path = os.path.join(controllers_conf_dir_path, config_path)
         with open(full_path, 'r') as file:
             config_data = yaml.safe_load(file)
         return config_data
@@ -50,14 +52,16 @@ class BacktestingEngineBase:
         return cls.get_controller_config_instance_from_dict(config_data)
 
     @classmethod
-    def get_controller_config_instance_from_dict(cls, config_data: dict) -> ControllerConfigBase:
+    def get_controller_config_instance_from_dict(cls,
+                                                 config_data: dict,
+                                                 controllers_module: str = settings.CONTROLLERS_MODULE) -> ControllerConfigBase:
         controller_type = config_data.get('controller_type')
         controller_name = config_data.get('controller_name')
 
         if not controller_type or not controller_name:
             raise ValueError("Missing controller_type or controller_name in the configuration.")
 
-        module_path = f"{settings.CONTROLLERS_MODULE}.{controller_type}.{controller_name}"
+        module_path = f"{controllers_module}.{controller_type}.{controller_name}"
         module = importlib.import_module(module_path)
 
         config_class = next((member for member_name, member in inspect.getmembers(module)
