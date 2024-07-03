@@ -2,6 +2,7 @@ import asyncio
 import copy
 import importlib
 import inspect
+import json
 import os
 import shutil
 import sys
@@ -28,10 +29,16 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
-from hummingbot.client.settings import SCRIPT_STRATEGY_CONFIG_PATH, STRATEGIES_CONF_DIR_PATH, required_exchanges
+from hummingbot.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH, required_exchanges
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.exceptions import InvalidScriptModule
+from hummingbot.exceptions import InvalidController, InvalidScriptModule
+from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
+from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigBase
+from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
+    DirectionalTradingControllerConfigBase,
+)
+from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -43,15 +50,65 @@ class OrderedDumper(yaml.SafeDumper):
 
 class CreateCommand:
     def create(self,  # type: HummingbotApplication
-               script_to_config: Optional[str] = None,):
+               script_to_config: Optional[str] = None,
+               controller_name: Optional[str] = None, ) -> None:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
         required_exchanges.clear()
-        if script_to_config is not None:
+        if script_to_config and controller_name:
+            self.notify("Please provide only one of script or controller name.")
+            return
+        if script_to_config:
             safe_ensure_future(self.prompt_for_configuration_v2(script_to_config))
+        elif controller_name:
+            safe_ensure_future(self.prompt_for_controller_config(controller_name))
         else:
             safe_ensure_future(self.prompt_for_configuration())
+
+    async def prompt_for_controller_config(self,  # type: HummingbotApplication
+                                           controller_name: str):
+        try:
+
+            # Attempt to find and load the correct module
+            module = None
+            try:
+                module_path = f"{settings.CONTROLLERS_MODULE}.{controller_name}"
+                module = importlib.import_module(module_path)
+            except ImportError:
+                pass
+
+            if not module:
+                raise InvalidController(f"The controller {controller_name} was not found in any subfolder.")
+
+            # Load the configuration class from the module
+            config_class = next((member for member_name, member in inspect.getmembers(module)
+                                 if inspect.isclass(member) and member not in [ControllerConfigBase,
+                                                                               MarketMakingControllerConfigBase,
+                                                                               DirectionalTradingControllerConfigBase,]
+                                 and (issubclass(member, ControllerConfigBase))), None)
+            if not config_class:
+                raise InvalidController(f"No configuration class found in the module {controller_name}.")
+
+            config_class_instance = config_class.construct()
+            config_class_instance.id = config_class_instance.set_id(None)
+            config_map = ClientConfigAdapter(config_class_instance)
+
+            await self.prompt_for_model_config(config_map)
+            if not self.app.to_stop_config:
+                file_name = await self.save_config(controller_name, config_map, settings.CONTROLLERS_CONF_DIR_PATH)
+                self.notify(f"A new config file has been created: {file_name}")
+
+            self.app.change_prompt(prompt=">>> ")
+            self.app.input_field.completer = load_completer(self)
+            self.placeholder_mode = False
+            self.app.hide_input = False
+
+        except StopIteration:
+            raise InvalidController(f"The module {controller_name} does not contain any subclass of BaseModel")
+        except Exception as e:
+            self.notify(f"An error occurred: {str(e)}")
+            self.reset_application_state()
 
     async def prompt_for_configuration_v2(self,  # type: HummingbotApplication
                                           script_to_config: str):
@@ -59,13 +116,14 @@ class CreateCommand:
             module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_to_config}")
             script_module = importlib.reload(module)
             config_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                 if inspect.isclass(member) and
-                                 issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
+                                 if
+                                 inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
+                                 (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
             config_map = ClientConfigAdapter(config_class.construct())
 
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
-                file_name = await self.save_config_strategy_v2(script_to_config, config_map)
+                file_name = await self.save_config(script_to_config, config_map, SCRIPT_STRATEGY_CONF_DIR_PATH)
                 self.notify(f"A new config file has been created: {file_name}")
             self.app.change_prompt(prompt=">>> ")
             self.app.input_field.completer = load_completer(self)
@@ -74,28 +132,33 @@ class CreateCommand:
 
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_to_config} does not contain any subclass of BaseModel")
+        except Exception as e:
+            self.notify(f"An error occurred: {str(e)}")
+            self.reset_application_state()
 
-    async def save_config_strategy_v2(self, strategy_name: str, config_instance: BaseClientModel):
-        file_name = await self.prompt_new_file_name(strategy_name, True)
+    async def save_config(self, name: str, config_instance: BaseClientModel, config_dir_path: Path):
+        file_name = await self.prompt_new_file_name(name, True)
         if self.app.to_stop_config:
             self.app.set_text("")
             return
+        config_path = config_dir_path / file_name
 
-        strategy_path = Path(SCRIPT_STRATEGY_CONFIG_PATH) / file_name
-        # Extract the ordered field names from the Pydantic model
+        # Check if the file already exists
+        if config_path.exists():
+            self.notify(f"File {file_name} already exists. Please enter a different file name.")
+            return await self.save_config(name, config_instance, config_dir_path)  # Recursive call
+
+        config_path = config_dir_path / file_name
         field_order = list(config_instance.__fields__.keys())
+        config_json_str = config_instance.json()
+        config_data = json.loads(config_json_str)
+        ordered_config_data = OrderedDict((field, config_data.get(field)) for field in field_order)
 
-        # Use ordered field names to create an ordered dictionary
-        ordered_config_data = OrderedDict((field, getattr(config_instance, field)) for field in field_order)
-
-        # Add a representer to use the ordered dictionary and dump the YAML file
         def _dict_representer(dumper, data):
             return dumper.represent_dict(data.items())
 
         OrderedDumper.add_representer(OrderedDict, _dict_representer)
-
-        # Write the configuration data to the YAML file
-        with open(strategy_path, 'w') as file:
+        with open(config_path, 'w') as file:
             yaml.dump(ordered_config_data, file, Dumper=OrderedDumper, default_flow_style=False)
 
         return file_name
@@ -278,7 +341,7 @@ class CreateCommand:
         self.app.set_text(file_name)
         input = await self.app.prompt(prompt="Enter a new file name for your configuration >>> ")
         input = format_config_file_name(input)
-        conf_dir_path = STRATEGIES_CONF_DIR_PATH if not is_script else SCRIPT_STRATEGY_CONFIG_PATH
+        conf_dir_path = STRATEGIES_CONF_DIR_PATH if not is_script else SCRIPT_STRATEGY_CONF_DIR_PATH
         file_path = os.path.join(conf_dir_path, input)
         if input is None or input == "":
             self.notify("Value is required.")
@@ -308,3 +371,9 @@ class CreateCommand:
     def restore_config_legacy(config_map: Dict[str, ConfigVar], config_map_backup: Dict[str, ConfigVar]):
         for key in config_map:
             config_map[key] = config_map_backup[key]
+
+    def reset_application_state(self):
+        self.app.change_prompt(prompt=">>> ")
+        self.app.input_field.completer = load_completer(self)
+        self.placeholder_mode = False
+        self.app.hide_input = False

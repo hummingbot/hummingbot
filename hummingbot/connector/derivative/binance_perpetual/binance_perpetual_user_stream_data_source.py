@@ -91,28 +91,28 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         return True
 
     async def _manage_listen_key_task_loop(self):
-        try:
-            while True:
+        while True:
+            try:
                 now = int(time.time())
                 if self._current_listen_key is None:
                     self._current_listen_key = await self._get_listen_key()
-                    self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
                     self._listen_key_initialized_event.set()
                     self._last_listen_key_ping_ts = int(time.time())
+                    self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
 
                 if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
                     success: bool = await self._ping_listen_key()
-                    if not success:
-                        self.logger().error("Error occurred renewing listen key ...")
-                        break
-                    else:
+                    if success:
                         self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
                         self._last_listen_key_ping_ts = int(time.time())
-                else:
-                    await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
-        finally:
-            self._current_listen_key = None
-            self._listen_key_initialized_event.clear()
+                    else:
+                        raise Exception(f"Error occurred renewing listen key {self._current_listen_key}")
+            except Exception as e:
+                self.logger().error(f"Error occurred managing the user stream listen key: {e}")
+                self._current_listen_key = None
+                self._listen_key_initialized_event.clear()
+            finally:
+                await asyncio.sleep(5.0)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """

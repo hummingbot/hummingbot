@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import os
 import re
 import sys
 from os import listdir
@@ -16,16 +17,16 @@ from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     PMM_SCRIPTS_PATH,
     SCRIPT_STRATEGIES_PATH,
-    SCRIPT_STRATEGY_CONFIG_PATH,
+    SCRIPT_STRATEGY_CONF_DIR_PATH,
     STRATEGIES,
     STRATEGIES_CONF_DIR_PATH,
     AllConnectorSettings,
-    GatewayTokenSetting,
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES
 from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
 
 
 def file_name_list(path, file_extension):
@@ -64,12 +65,29 @@ class HummingbotCompleter(Completer):
         self._gateway_completer = WordCompleter(["balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "list", "approve-tokens"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_connector_tokens_completer = WordCompleter(
-            GatewayTokenSetting.get_gateway_chains_with_network(), ignore_case=True
+            sorted(
+                AllConnectorSettings.get_gateway_amm_connector_names().union(
+                    AllConnectorSettings.get_gateway_clob_connector_names().union(
+                        AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
+                    )
+                )
+            ), ignore_case=True
+        )
+        self._gateway_balance_completer = WordCompleter(
+            sorted(
+                AllConnectorSettings.get_gateway_amm_connector_names().union(
+                    AllConnectorSettings.get_gateway_clob_connector_names().union(
+                        AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
+                    )
+                )
+            ), ignore_case=True
         )
         self._gateway_approve_tokens_completer = WordCompleter(
             sorted(
                 AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_clob_connector_names()
+                    AllConnectorSettings.get_gateway_clob_connector_names().union(
+                        AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
+                    )
                 )
             ), ignore_case=True
         )
@@ -77,8 +95,9 @@ class HummingbotCompleter(Completer):
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
-        self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONFIG_PATH), "yml"))
+        self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONF_DIR_PATH), "yml"))
         self._strategy_v2_create_config_completer = self.get_strategies_v2_with_config()
+        self._controller_completer = self.get_available_controllers()
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
         self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
         self._gateway_chains = []
@@ -99,13 +118,27 @@ class HummingbotCompleter(Completer):
                     script_module = importlib.import_module(f".{script_name}",
                                                             package=settings.SCRIPT_STRATEGIES_MODULE)
                 config_class = next((member for member_name, member in inspect.getmembers(script_module)
-                                     if inspect.isclass(member) and
-                                     issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
+                                     if inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
+                                     (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
                 if config_class:
                     strategies_with_config.append(script_name)
             except Exception:
                 pass
         return WordCompleter(strategies_with_config, ignore_case=True)
+
+    def get_available_controllers(self):
+        controllers_path = settings.CONTROLLERS_PATH  # Ensure this points to the controllers directory
+        available_controllers = []
+
+        for root, dirs, files in os.walk(controllers_path):
+            for file in files:
+                if file.endswith(".py") and not file.startswith("__"):
+                    # Extract controller name from file path
+                    relative_path = os.path.relpath(os.path.join(root, file), controllers_path)
+                    controller_name = os.path.splitext(relative_path)[0].replace(os.path.sep, ".")
+                    available_controllers.append(controller_name)
+
+        return WordCompleter(available_controllers, ignore_case=True)
 
     def set_gateway_chains(self, gateway_chains):
         self._gateway_chains = gateway_chains
@@ -226,6 +259,10 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connector-tokens ")
 
+    def _complete_gateway_balance_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway balance ")
+
     def _complete_gateway_approve_tokens_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway approve-tokens ")
@@ -249,6 +286,10 @@ class HummingbotCompleter(Completer):
     def _complete_strategy_v2_files_with_config(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("create --script-config ")
+
+    def _complete_controllers_config(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("create --controller-config ")
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
@@ -308,6 +349,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_strategy_v2_files_with_config(document):
             for c in self._strategy_v2_create_config_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_controllers_config(document):
+            for c in self._controller_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_paths(document):
@@ -387,6 +432,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_connector_tokens_arguments(document):
             for c in self._gateway_connector_tokens_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_balance_arguments(document):
+            for c in self._gateway_balance_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_approve_tokens_arguments(document):

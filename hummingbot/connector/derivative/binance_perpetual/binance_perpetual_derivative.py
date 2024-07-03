@@ -179,6 +179,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                  quote_currency: str,
                  order_type: OrderType,
                  order_side: TradeType,
+                 position_action: PositionAction,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
@@ -741,7 +742,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         initial_mode = await self._get_position_mode()
         if initial_mode != mode:
             params = {
-                "dualSidePosition": mode.value
+                "dualSidePosition": True if mode == PositionMode.HEDGE else False,
             }
             response = await self._api_post(
                 path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,

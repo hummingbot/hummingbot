@@ -1,63 +1,59 @@
-from pydantic import BaseModel
+from typing import Dict, Type
 
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
+from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
 from hummingbot.data_feed.candles_feed.kraken_spot_candles.kraken_spot_candles import KrakenSpotCandles
 from hummingbot.data_feed.candles_feed.kucoin_spot_candles.kucoin_spot_candles import KucoinSpotCandles
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
+from hummingbot.data_feed.candles_feed.okx_spot_candles.okx_spot_candles import OKXSpotCandles
 
 
-class CandlesConfig(BaseModel):
+class UnsupportedConnectorException(Exception):
     """
-    The CandlesConfig class is a data class that stores the configuration of a Candle object.
-    It has the following attributes:
-    - connector: str
-    - trading_pair: str
-    - interval: str
-    - max_records: int
+    Exception raised when an unsupported connector is requested.
     """
-    connector: str
-    trading_pair: str
-    interval: str = "1m"
-    max_records: int = 500
+    def __init__(self, connector: str):
+        message = f"The connector {connector} is not available. Please select another one."
+        super().__init__(message)
 
 
 class CandlesFactory:
     """
-    The CandlesFactory class creates and returns a Candle object based on the specified connector and trading pair.
-    It has a class method, get_candle which takes in a connector, trading pair, interval, and max_records as parameters.
-    Based on the connector provided, the method returns either a BinancePerpetualsCandles or a BinanceSpotCandles object.
-    If an unsupported connector is provided, it raises an exception.
+    The CandlesFactory class creates and returns a Candle object based on the specified configuration.
+    It uses a mapping of connector names to their respective candle classes.
     """
+    _candles_map: Dict[str, Type[CandlesBase]] = {
+        "binance_perpetual": BinancePerpetualCandles,
+        "binance": BinanceSpotCandles,
+        "gate_io": GateioSpotCandles,
+        "gate_io_perpetual": GateioPerpetualCandles,
+        "kucoin": KucoinSpotCandles,
+        "ascend_ex": AscendExSpotCandles,
+        "okx_perpetual": OKXPerpetualCandles,
+        "okx": OKXSpotCandles,
+        "kraken": KrakenSpotCandles
+    }
+
     @classmethod
-    def get_candle(cls, candles_config: CandlesConfig):
+    def get_candle(cls, candles_config: CandlesConfig) -> CandlesBase:
         """
-        Returns a Candle object based on the specified connector and trading pair.
+        Returns a Candle object based on the specified configuration.
+
         :param candles_config: CandlesConfig
-        :return: Candles
+        :return: Instance of CandleBase or its subclass.
+        :raises UnsupportedConnectorException: If the connector is not supported.
         """
-        connector = candles_config.connector
-        trading_pair = candles_config.trading_pair
-        interval = candles_config.interval
-        max_records = candles_config.max_records
-        if connector == "binance_perpetual":
-            return BinancePerpetualCandles(trading_pair, interval, max_records)
-        elif connector == "binance":
-            return BinanceSpotCandles(trading_pair, interval, max_records)
-        elif connector == "gate_io":
-            return GateioSpotCandles(trading_pair, interval, max_records)
-        elif connector == "gate_io_perpetual":
-            return GateioPerpetualCandles(trading_pair, interval, max_records)
-        elif connector == "kucoin":
-            return KucoinSpotCandles(trading_pair, interval, max_records)
-        elif connector == "ascend_ex":
-            return AscendExSpotCandles(trading_pair, interval, max_records)
-        elif connector == "okx_perpetual":
-            return OKXPerpetualCandles(trading_pair, interval, max_records)
-        elif connector == "kraken":
-            return KrakenSpotCandles(trading_pair, interval, max_records)
+        connector_class = cls._candles_map.get(candles_config.connector)
+        if connector_class:
+            return connector_class(
+                candles_config.trading_pair,
+                candles_config.interval,
+                candles_config.max_records
+            )
         else:
-            raise Exception(f"The connector {connector} is not available. Please select another one.")
+            raise UnsupportedConnectorException(candles_config.connector)

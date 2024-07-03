@@ -10,9 +10,13 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
-from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import (
+    PositionExecutorConfig,
+    TrailingStop,
+    TripleBarrierConfig,
+)
+from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 
 
 class DirectionalStrategyBase(ScriptStrategyBase):
@@ -81,7 +85,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         """
         Checks if the candlesticks are full.
         """
-        return all([candle.is_ready for candle in self.candles])
+        return all([candle.ready for candle in self.candles])
 
     @property
     def is_perpetual(self):
@@ -107,6 +111,18 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         # Is necessary to start the Candles Feed.
         super().__init__(connectors)
+        self.triple_barrier_conf = TripleBarrierConfig(
+            stop_loss=Decimal(self.stop_loss),
+            take_profit=Decimal(self.take_profit),
+            time_limit=self.time_limit,
+            trailing_stop=TrailingStop(
+                activation_price=Decimal(self.trailing_stop_activation_delta),
+                trailing_delta=Decimal(self.trailing_stop_trailing_delta)),
+            open_order_type=self.open_order_type,
+            take_profit_order_type=self.take_profit_order_type,
+            stop_loss_order_type=self.stop_loss_order_type,
+            time_limit_order_type=self.time_limit_order_type
+        )
         for candle in self.candles:
             candle.start()
 
@@ -165,28 +181,14 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             side = TradeType.BUY if signal == 1 else TradeType.SELL
             if self.open_order_type.is_limit_type():
                 price = price * (1 - signal * self.open_order_slippage_buffer)
-            if self.trailing_stop_activation_delta and self.trailing_stop_trailing_delta:
-                trailing_stop = TrailingStop(
-                    activation_price=Decimal(self.trailing_stop_activation_delta),
-                    trailing_delta=Decimal(self.trailing_stop_trailing_delta),
-                )
-            else:
-                trailing_stop = None
             position_config = PositionExecutorConfig(
                 timestamp=self.current_timestamp,
                 trading_pair=self.trading_pair,
-                exchange=self.exchange,
+                connector_name=self.exchange,
                 side=side,
                 amount=self.order_amount_usd / price,
-                take_profit=Decimal(self.take_profit),
-                stop_loss=Decimal(self.stop_loss),
-                time_limit=self.time_limit,
                 entry_price=price,
-                open_order_type=self.open_order_type,
-                take_profit_order_type=self.take_profit_order_type,
-                stop_loss_order_type=self.stop_loss_order_type,
-                time_limit_order_type=self.time_limit_order_type,
-                trailing_stop=trailing_stop,
+                triple_barrier_config=self.triple_barrier_conf,
                 leverage=self.leverage,
             )
             return position_config
@@ -206,7 +208,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         if len(self.stored_executors) > 0:
             lines.extend(["\n################################## Closed Executors ##################################"])
         for executor in self.stored_executors:
-            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
+            lines.extend([f"|Signal id: {executor.config.timestamp}"])
             lines.extend(executor.to_format_status())
             lines.extend([
                 "-----------------------------------------------------------------------------------------------------------"])
@@ -215,7 +217,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             lines.extend(["\n################################## Active Executors ##################################"])
 
         for executor in self.active_executors:
-            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
+            lines.extend([f"|Signal id: {executor.config.timestamp}"])
             lines.extend(executor.to_format_status())
         if self.all_candles_ready:
             lines.extend(["\n################################## Market Data ##################################\n"])
@@ -249,7 +251,6 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                                        "net_pnl_quote",
                                        "net_pnl",
                                        "close_timestamp",
-                                       "executor_status",
                                        "close_type",
                                        "entry_price",
                                        "close_price",
@@ -265,28 +266,27 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             df_header.to_csv(csv_path, mode='a', header=False, index=False)
         for executor in executors_to_store:
             self.stored_executors.append(executor)
-            df = pd.DataFrame([(executor.position_config.timestamp,
-                                executor.exchange,
-                                executor.trading_pair,
-                                executor.side,
-                                executor.amount,
-                                executor.trade_pnl,
+            df = pd.DataFrame([(executor.config.timestamp,
+                                executor.config.connector_name,
+                                executor.config.trading_pair,
+                                executor.config.side,
+                                executor.config.amount,
+                                executor.trade_pnl_pct,
                                 executor.trade_pnl_quote,
                                 executor.cum_fees_quote,
                                 executor.net_pnl_quote,
                                 executor.net_pnl_pct,
                                 executor.close_timestamp,
-                                executor.executor_status,
                                 executor.close_type,
                                 executor.entry_price,
                                 executor.close_price,
-                                executor.position_config.stop_loss,
-                                executor.position_config.take_profit,
-                                executor.position_config.time_limit,
-                                executor.open_order_type,
-                                executor.take_profit_order_type,
-                                executor.stop_loss_order_type,
-                                executor.time_limit_order_type,
+                                executor.config.triple_barrier_config.stop_loss,
+                                executor.config.triple_barrier_config.take_profit,
+                                executor.config.triple_barrier_config.time_limit,
+                                executor.config.triple_barrier_config.open_order_type,
+                                executor.config.triple_barrier_config.take_profit_order_type,
+                                executor.config.triple_barrier_config.stop_loss_order_type,
+                                executor.config.triple_barrier_config.time_limit_order_type,
                                 self.leverage)])
             df.to_csv(self.get_csv_path(), mode='a', header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]

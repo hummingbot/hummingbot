@@ -6,8 +6,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import urlparse
 
+import gql
 from bidict import bidict
-from gql.transport.appsync_auth import AppSyncJWTAuthentication
 from scalecodec.base import RuntimeConfiguration
 from scalecodec.type_registry import load_type_registry_preset
 from substrateinterface import Keypair, KeypairType
@@ -48,23 +48,26 @@ class PolkadexDataSource:
         seed_phrase: str,
         domain: Optional[str] = CONSTANTS.DEFAULT_DOMAIN,
         trading_required: bool = True,
+        trading_pairs: list = [],
     ):
         self._connector = connector
         self._domain = domain
         self._trading_required = trading_required
         graphql_host = CONSTANTS.GRAPHQL_ENDPOINTS[self._domain]
-        netloc_host = urlparse(graphql_host).netloc
+        self.netloc_host = urlparse(graphql_host).netloc
         self._keypair = None
         self._user_main_address = None
+        self._seed_phrase = seed_phrase
+        self._trading_pairs = trading_pairs
         if seed_phrase is not None and len(seed_phrase) > 0:
             self._keypair = Keypair.create_from_mnemonic(
                 seed_phrase, CONSTANTS.POLKADEX_SS58_PREFIX, KeypairType.SR25519
             )
             self._user_proxy_address = self._keypair.ss58_address
-            self._auth = AppSyncJWTAuthentication(netloc_host, self._user_proxy_address)
+            self._auth = gql.transport.appsync_auth.AppSyncJWTAuthentication(self.netloc_host, self._user_proxy_address)
         else:
             self._user_proxy_address = "READ_ONLY"
-            self._auth = AppSyncJWTAuthentication(netloc_host, "READ_ONLY")
+            self._auth = gql.transport.appsync_auth.AppSyncJWTAuthentication(self.netloc_host, "READ_ONLY")
 
         # Load Polkadex Runtime Config
         self._runtime_config = RuntimeConfiguration()
@@ -73,8 +76,6 @@ class PolkadexDataSource:
         # Register Orderbook specific types
         self._runtime_config.update_type_registry(CONSTANTS.CUSTOM_TYPES)
 
-        self._query_executor = GrapQLQueryExecutor(auth=self._auth, domain=self._domain)
-
         self._publisher = PubSub()
         self._last_received_message_time = 0
         # We create a throttler instance here just to have a fully valid instance from the first moment.
@@ -82,6 +83,12 @@ class PolkadexDataSource:
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self._events_listening_tasks = []
         self._assets_map: Dict[str, str] = {}
+
+        self._query_executor = GrapQLQueryExecutor(
+            auth=self._auth,
+            domain=self._domain,
+            throttler=self._throttler
+        )
 
         self._polkadex_order_type = {
             OrderType.MARKET: "MARKET",
@@ -102,12 +109,12 @@ class PolkadexDataSource:
         }
 
     def is_started(self) -> bool:
+        # adds another status check
         return len(self._events_listening_tasks) > 0
 
     async def start(self, market_symbols: List[str]):
         if len(self._events_listening_tasks) > 0:
             raise AssertionError("Polkadex datasource is already listening to events and can't be started again")
-        await self._query_executor.create_ws_session()
 
         for market_symbol in market_symbols:
             self._events_listening_tasks.append(
@@ -141,11 +148,40 @@ class PolkadexDataSource:
                     )
                 )
             )
+            self.logger().info("Started Polkadex_data_source")
+
+    async def check_status(self):
+        self.logger().info(f"Polkadex status is checked. self._query_executor._restart_initialization: {self._query_executor._restart_initialization}, self.trading_pairs {self._trading_pairs}")
+        if self._query_executor._restart_initialization:
+            self.logger().info("Polkadex status check - Need to reinitiate the query_executor")
+            await self.stop()
+            self.logger().info("Polkadex status check - Stopped the stackers")
+            await self.reinitiaite_query_executor()
+            self.logger().info("Polkadex status check - Reinitiated the trackers")
+            await self.start(self._trading_pairs)
+            self.logger().info("Polkadex status check - Started Again")
+
+    async def reinitiaite_query_executor(self):
+        self._query_executor = None
+        self.logger().info("Polkadex status check - Reinitiating the query executor")
+        if self._seed_phrase is not None and len(self._seed_phrase) > 0:
+            self._keypair = Keypair.create_from_mnemonic(
+                self._seed_phrase, CONSTANTS.POLKADEX_SS58_PREFIX, KeypairType.SR25519
+            )
+            self._user_proxy_address = self._keypair.ss58_address
+            self._auth = gql.transport.appsync_auth.AppSyncJWTAuthentication(self.netloc_host, self._user_proxy_address)
+        else:
+            self._user_proxy_address = "READ_ONLY"
+            self._auth = gql.transport.appsync_auth.AppSyncJWTAuthentication(self.netloc_host, "READ_ONLY")
+
+        self._query_executor = GrapQLQueryExecutor(auth=self._auth, domain=self._domain, throttler=self._throttler)
+        self.logger().info("Polkadex - Finished reinitiation")
 
     async def stop(self):
         for task in self._events_listening_tasks:
             task.cancel()
         self._events_listening_tasks = []
+        self.logger().info("Stopped Polkadex_data_source")
 
     def configure_throttler(self, throttler: AsyncThrottlerBase):
         self._throttler = throttler
@@ -160,6 +196,7 @@ class PolkadexDataSource:
         self._publisher.remove_listener(event_tag=event_tag, listener=listener)
 
     async def exchange_status(self):
+        await self.check_status()
         all_assets = await self.assets_map()
 
         if len(all_assets) > 0:
@@ -169,14 +206,18 @@ class PolkadexDataSource:
 
         return result
 
+    async def get_all_open_orders(self) -> List[Dict[str, Any]]:
+        await self.check_status()
+        return await self._query_executor.list_open_orders_by_main_account(main_account=await self.user_main_address())
+
     async def assets_map(self) -> Dict[str, str]:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ALL_ASSETS_LIMIT_ID):
-            all_assets = await self._query_executor.all_assets()
+        all_assets = await self._query_executor.all_assets()
+
         self._assets_map = {
             asset["asset_id"]: polkadex_utils.normalized_asset_name(
                 asset_id=asset["asset_id"], asset_name=asset["name"]
             )
-            for asset in all_assets["getAllAssets"]["items"]
+            for asset in all_assets
         }
 
         if len(self._assets_map) > 0:
@@ -188,10 +229,9 @@ class PolkadexDataSource:
         symbols_map = bidict()
         assets_map = await self.assets_map()
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ALL_MARKETS_LIMIT_ID):
-            markets = await self._query_executor.all_markets()
+        all_markets = await self._query_executor.all_markets()
 
-        for market_info in markets["getAllMarkets"]["items"]:
+        for market_info in all_markets:
             try:
                 base_asset, quote_asset = market_info["market"].split("-")
                 base = assets_map[base_asset]
@@ -202,61 +242,59 @@ class PolkadexDataSource:
         return symbols_map
 
     async def all_trading_rules(self) -> List[TradingRule]:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ALL_MARKETS_LIMIT_ID):
-            markets = await self._query_executor.all_markets()
+        all_markets = await self._query_executor.all_markets()
 
         trading_rules = []
-        for market_info in markets["getAllMarkets"]["items"]:
+        for market_info in all_markets:
             try:
                 exchange_trading_pair = market_info["market"]
                 trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
                     symbol=exchange_trading_pair
                 )
-                min_order_size = Decimal(market_info["min_order_qty"])
-                max_order_size = Decimal(market_info["max_order_qty"])
-                min_order_price = Decimal(market_info["min_order_price"])
                 amount_increment = Decimal(market_info["qty_step_size"])
                 price_increment = Decimal(market_info["price_tick_size"])
+                min_order_value = Decimal(market_info["min_volume"])
                 trading_rules.append(
                     TradingRule(
                         trading_pair=trading_pair,
-                        min_order_size=min_order_size,
-                        max_order_size=max_order_size,
+                        # New API doesn't return min/max order size
+                        # so we're trying to put some reasonable numbers here
+                        min_order_size=0,
+                        max_order_size=10**6,
                         min_price_increment=price_increment,
                         min_base_amount_increment=amount_increment,
                         min_quote_amount_increment=price_increment,
-                        min_notional_size=min_order_size * min_order_price,
-                        min_order_value=min_order_size * min_order_price,
+                        min_notional_size=min_order_value,
+                        min_order_value=min_order_value,
                     )
                 )
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule: {market_info}. Skipping...")
+                # QUICKFIX (dmitry): previously we were following "all or nothing" strategy here, but it was
+                # blocking the startup of the bot
 
         return trading_rules
 
     async def order_book_snapshot(self, market_symbol: str, trading_pair: str) -> OrderBookMessage:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ORDERBOOK_LIMIT_ID):
-            snapshot_data = await self._query_executor.get_orderbook(market_symbol=market_symbol)
-
-        orderbook_entries = snapshot_data["getOrderbook"]["items"]
+        orderbook_items = await self._query_executor.get_orderbook(market_symbol)
 
         timestamp = self._time()
         update_id = -1
         bids = []
         asks = []
 
-        for orderbook_entry in orderbook_entries:
-            price = Decimal(str(orderbook_entry["p"]))
-            amount = Decimal(str(orderbook_entry["q"]))
+        for orderbook_item in orderbook_items:
+            price = Decimal(str(orderbook_item["p"]))
+            amount = Decimal(str(orderbook_item["q"]))
 
-            if orderbook_entry["s"] == "Bid":
+            if orderbook_item["s"] == "Bid":
                 bids.append((price, amount))
             else:
                 asks.append((price, amount))
 
-            update_id = max(update_id, int(orderbook_entry["stid"]))
+            update_id = max(update_id, int(orderbook_item["stid"]))
 
         order_book_message_content = {
             "trading_pair": trading_pair,
@@ -274,27 +312,21 @@ class PolkadexDataSource:
 
     async def user_main_address(self):
         if self._user_main_address is None:
-            async with self._throttler.execute_task(limit_id=CONSTANTS.FIND_USER_LIMIT_ID):
-                self._user_main_address = await self._query_executor.main_account_from_proxy(
-                    proxy_account=self._user_proxy_address,
-                )
+            self._user_main_address = await self._query_executor.main_account_from_proxy(
+                proxy_account=self._user_proxy_address)
         return self._user_main_address
 
     async def last_price(self, market_symbol: str) -> float:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.PUBLIC_TRADES_LIMIT_ID):
-            response = await self._query_executor.recent_trades(market_symbol=market_symbol, limit=1)
-        last_price = response["getRecentTrades"]["items"][0]["p"]
-
-        return float(last_price)
+        recent_trade = await self._query_executor.recent_trade(market_symbol=market_symbol)
+        return float(recent_trade["p"])
 
     async def all_balances(self) -> List[Dict[str, Any]]:
         result = []
         assets_map = await self.assets_map()
         main_account = await self.user_main_address()
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ALL_BALANCES_LIMIT_ID):
-            balances = await self._query_executor.get_all_balances_by_main_account(main_account=main_account)
+        balances = await self._query_executor.get_all_balances_by_main_account(main_account=main_account)
 
-        for token_balance in balances["getAllBalancesByMainAccount"]["items"]:
+        for token_balance in balances:
             try:
                 balance_info = {}
                 available_balance = Decimal(token_balance["f"])
@@ -305,6 +337,7 @@ class PolkadexDataSource:
                 result.append(balance_info)
             except KeyError:
                 continue
+
         return result
 
     async def place_order(
@@ -336,16 +369,10 @@ class PolkadexDataSource:
         place_order_request = self._runtime_config.create_scale_object("OrderPayload").encode(order_parameters)
         signature = self._keypair.sign(place_order_request)
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.PLACE_ORDER_LIMIT_ID):
-            response = await self._query_executor.place_order(
-                polkadex_order=order_parameters,
-                signature={"Sr25519": signature.hex()},
-            )
-            place_order_data = json.loads(response["place_order"])
-
-        exchange_order_id = None
-        if place_order_data["is_success"] is True:
-            exchange_order_id = place_order_data["body"]
+        exchange_order_id = await self._query_executor.place_order(
+            polkadex_order=order_parameters,
+            signature={"Sr25519": signature.hex()}
+        )
 
         if exchange_order_id is None:
             raise ValueError(f"Error in Polkadex creating order {client_order_id}")
@@ -353,6 +380,7 @@ class PolkadexDataSource:
         return exchange_order_id, timestamp
 
     async def cancel_order(self, order: InFlightOrder, market_symbol: str, timestamp: float) -> OrderState:
+        # TODO (dmitry): analyze this logic and move to query executor
         try:
             cancel_result = await self._place_order_cancel(order=order, market_symbol=market_symbol)
         except Exception as e:
@@ -361,19 +389,14 @@ class PolkadexDataSource:
             else:
                 raise
         else:
-            new_order_state = OrderState.PENDING_CANCEL if cancel_result["cancel_order"] else order.current_state
+            new_order_state = OrderState.PENDING_CANCEL if cancel_result else order.current_state
 
         return new_order_state
 
     async def order_update(self, order: InFlightOrder, market_symbol: str) -> OrderUpdate:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ORDER_UPDATE_LIMIT_ID):
-            response = await self._query_executor.find_order_by_main_account(
-                main_account=self._user_proxy_address,
-                market_symbol=market_symbol,
-                order_id=order.exchange_order_id,
-            )
+        # TODO (dmitry): remove `market_symbol` from function signature, it's not needed
 
-        order_info = response["findOrderByMainAccount"]
+        order_info = await self._query_executor.find_order_by_id(order_id=order.exchange_order_id)
 
         if order_info is None:
             raise IOError(f"Order not found {order.client_order_id} ({order.exchange_order_id})")
@@ -396,13 +419,14 @@ class PolkadexDataSource:
     ) -> List[TradeUpdate]:
         trade_updates = []
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.ALL_FILLS_LIMIT_ID):
-            fills = await self._query_executor.get_order_fills_by_main_account(
-                from_timestamp=from_timestamp, to_timestamp=to_timestamp, main_account=self._user_proxy_address
-            )
+        fills = await self._query_executor.get_order_fills_by_main_account(
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+            main_account=self._user_proxy_address
+        )
 
         exchange_order_id_to_order = {order.exchange_order_id: order for order in orders}
-        for fill in fills["listTradesByMainAccount"]["items"]:
+        for fill in fills:
             exchange_trading_pair = fill["m"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
                 symbol=exchange_trading_pair
@@ -410,9 +434,9 @@ class PolkadexDataSource:
 
             price = Decimal(fill["p"])
             size = Decimal(fill["q"])
-            order = exchange_order_id_to_order.get(fill["m_id"], None)
+            order = exchange_order_id_to_order.get(fill["maker_id"], None)
             if order is None:
-                order = exchange_order_id_to_order.get(fill["t_id"], None)
+                order = exchange_order_id_to_order.get(fill["taker_id"], None)
             if order is not None:
                 exchange_order_id = order.exchange_order_id
                 client_order_id = order.client_order_id
@@ -438,14 +462,13 @@ class PolkadexDataSource:
         cancel_request = self._runtime_config.create_scale_object("H256").encode(order.exchange_order_id)
         signature = self._keypair.sign(cancel_request)
 
-        async with self._throttler.execute_task(limit_id=CONSTANTS.CANCEL_ORDER_LIMIT_ID):
-            cancel_result = await self._query_executor.cancel_order(
-                order_id=order.exchange_order_id,
-                market_symbol=market_symbol,
-                main_address=self._user_main_address,
-                proxy_address=self._user_proxy_address,
-                signature={"Sr25519": signature.hex()},
-            )
+        cancel_result = await self._query_executor.cancel_order(
+            order_id=order.exchange_order_id,
+            market_symbol=market_symbol,
+            main_address=self._user_main_address,
+            proxy_address=self._user_proxy_address,
+            signature={"Sr25519": signature.hex()},
+        )
 
         return cancel_result
 
