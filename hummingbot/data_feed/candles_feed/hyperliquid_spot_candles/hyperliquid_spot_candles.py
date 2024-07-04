@@ -80,8 +80,8 @@ class HyperliquidSpotCandles(CandlesBase):
         }
         if start_time:
             reqs["startTime"] = start_time * 1000
-        if end_time:
-            reqs["endTime"] = end_time * 1000
+        else:
+            reqs["startTime"] = (end_time - self.max_records * self.interval_in_seconds) * 1000
         payload = {
             "type": "candleSnapshot",
             "req": reqs
@@ -150,4 +150,4 @@ class HyperliquidSpotCandles(CandlesBase):
                                                               data=CONSTANTS.HEALTH_CHECK_PAYLOAD)
         universe = {token["tokens"][0]: token["name"] for token in self._universe["universe"]}
         tokens = {token["index"]: token["name"] for token in self._universe["tokens"]}
-        self._coins_dict = {tokens[index]: universe[index] for index in range(1, len(universe))}
+        self._coins_dict = {tokens[index]: universe[index] for index in universe.keys()}
