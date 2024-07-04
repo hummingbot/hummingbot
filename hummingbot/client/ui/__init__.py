@@ -15,7 +15,7 @@ from hummingbot.client.settings import CONF_DIR_PATH
 sys.path.insert(0, str(root_path()))
 
 
-with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
+with open(realpath(join(dirname(__file__), '../../VERSION')), encoding='utf-8') as version_file:
     version = version_file.read().strip()
 
 

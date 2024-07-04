@@ -82,7 +82,7 @@ class DownloadTradesAndOrderBookSnapshots(ScriptStrategyBase):
     @staticmethod
     def get_file(exchange: str, trading_pair: str, source_type: str, current_date: str):
         file_path = data_path() + f"/{exchange}_{trading_pair}_{source_type}_{current_date}.txt"
-        return open(file_path, "a")
+        return open(file_path, "a", encoding="utf-8")
 
     def _process_public_trade(self, event_tag: int, market: ConnectorBase, event: OrderBookTradeEvent):
         self.trades_temp_storage[event.trading_pair].append({

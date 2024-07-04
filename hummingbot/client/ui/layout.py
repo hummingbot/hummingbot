@@ -76,7 +76,7 @@ Useful Commands:
 
 """
 
-with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
+with open(realpath(join(dirname(__file__), '../../VERSION')), encoding='utf-8') as version_file:
     version = version_file.read().strip()
 
 

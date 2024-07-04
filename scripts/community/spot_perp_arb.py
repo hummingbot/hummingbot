@@ -79,7 +79,7 @@ class SpotPerpArb(ScriptStrategyBase):
 
     def init_order_book_csv(self) -> None:
         self.logger().info("Preparing order book csv...")
-        with open(self.order_book_csv, "a") as f_object:
+        with open(self.order_book_csv, "a", newline="", encoding="utf-8") as f_object:
             writer = csv_writer(f_object)
             writer.writerow(
                 [
@@ -116,7 +116,7 @@ class SpotPerpArb(ScriptStrategyBase):
             str(perp_best_bid_price),
             str(perp_best_ask_price),
         ]
-        with open(self.order_book_csv, "a", newline="") as f_object:
+        with open(self.order_book_csv, "a", newline="", encoding="utf-8") as f_object:
             writer = csv_writer(f_object)
             writer.writerow(row)
         self.logger().info(f"Order book csv updated: {self.order_book_csv}")

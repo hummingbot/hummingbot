@@ -158,7 +158,7 @@ class CreateCommand:
             return dumper.represent_dict(data.items())
 
         OrderedDumper.add_representer(OrderedDict, _dict_representer)
-        with open(config_path, 'w') as file:
+        with open(config_path, 'w', encoding='utf-8') as file:
             yaml.dump(ordered_config_data, file, Dumper=OrderedDumper, default_flow_style=False)
 
         return file_name
