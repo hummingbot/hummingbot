@@ -4,6 +4,7 @@ from typing import cast
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.amm.gateway_tezos_amm import GatewayTezosAMM
+from hummingbot.connector.gateway.amm.gateway_ergo_amm import GatewayErgoAMM
 from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -57,6 +58,8 @@ def start(self):
             amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, amm_market_info.market)
         elif Chain.TEZOS.chain == amm_market_info.market.chain:
             amm_connector: GatewayTezosAMM = cast(GatewayTezosAMM, amm_market_info.market)
+        elif Chain.ERGO.chain == amm_market_info.market.chain:
+            amm_connector: GatewayErgoAMM = cast(GatewayErgoAMM, amm_market_info.market)
         else:
             raise ValueError(f"Unsupported chain: {amm_market_info.market.chain}")
         GatewayPriceShim.get_instance().patch_prices(
@@ -65,24 +68,29 @@ def start(self):
             amm_connector.connector_name,
             amm_connector.chain,
             amm_connector.network,
-            amm_market_info.trading_pair
+            amm_market_info.trading_pair,
         )
 
     if rate_oracle_enabled:
         rate_source = RateOracle.get_instance()
     else:
         rate_source = FixedRateSource()
-        rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
-        rate_source.add_rate(f"{quote_1}-{quote_2}", Decimal(str(1 / quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
+        rate_source.add_rate(
+            f"{quote_2}-{quote_1}", Decimal(str(quote_conversion_rate))
+        )  # reverse rate is already handled in FixedRateSource find_rate method.
+        rate_source.add_rate(
+            f"{quote_1}-{quote_2}", Decimal(str(1 / quote_conversion_rate))
+        )  # reverse rate is already handled in FixedRateSource find_rate method.
 
     self.strategy = AmmArbStrategy()
-    self.strategy.init_params(market_info_1=market_info_1,
-                              market_info_2=market_info_2,
-                              min_profitability=min_profitability,
-                              order_amount=order_amount,
-                              market_1_slippage_buffer=market_1_slippage_buffer,
-                              market_2_slippage_buffer=market_2_slippage_buffer,
-                              concurrent_orders_submission=concurrent_orders_submission,
-                              gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
-                              rate_source=rate_source,
-                              )
+    self.strategy.init_params(
+        market_info_1=market_info_1,
+        market_info_2=market_info_2,
+        min_profitability=min_profitability,
+        order_amount=order_amount,
+        market_1_slippage_buffer=market_1_slippage_buffer,
+        market_2_slippage_buffer=market_2_slippage_buffer,
+        concurrent_orders_submission=concurrent_orders_submission,
+        gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
+        rate_source=rate_source,
+    )
