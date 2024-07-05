@@ -1184,13 +1184,14 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.non_linear_quote_asset, non_linear_buy_collateral_token)
         self.assertEqual(self.non_linear_quote_asset, non_linear_sell_collateral_token)
 
-    def test_time_synchronizer_related_reqeust_error_detection(self):
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
-        exception = IOError(f"{error_code_str} - Failed to cancel order for timestamp reason.")
+    def test_time_synchronizer_related_request_error_detection(self):
+        error_code = CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR
+        response = {"code": error_code, "msg": "Invalid KC-API-TIMESTAMP"}
+        exception = IOError(f"Error executing request GET https://someurl. HTTP status is 400. Error: {json.dumps(response)}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_ORDER_NOT_EXISTS)
-        exception = IOError(f"{error_code_str} - Failed to cancel order because it was not found.")
+        error_code = CONSTANTS.RET_CODE_ORDER_NOT_EXISTS
+        exception = IOError(f"{error_code} - Failed to cancel order because it was not found.")
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     def place_buy_limit_maker_order(
