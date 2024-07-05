@@ -73,7 +73,7 @@ class BybitPerpetualCandles(CandlesBase):
         startTime and endTime must be used at the same time.
         """
         params = {
-            "category": "spot",
+            "category": "linear",
             "symbol": self._ex_trading_pair,
             "interval": CONSTANTS.INTERVALS[self.interval],
             "limit": limit
