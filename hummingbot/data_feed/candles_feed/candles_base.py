@@ -331,7 +331,7 @@ class CandlesBase(NetworkBase):
         raise NotImplementedError
 
     async def _process_websocket_messages_task(self, websocket_assistant: WSAssistant):
-        # TODO: Implement a way to handle ping pong messages
+        # TODO: Isolate ping pong logic
         async for ws_response in websocket_assistant.iter_messages():
             data = ws_response.data
             parsed_message = self._parse_websocket_message(data)
