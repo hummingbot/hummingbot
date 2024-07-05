@@ -162,6 +162,7 @@ class CandlesBase(NetworkBase):
             all_candles = []
             current_end_time = config.end_time + self.interval_in_seconds
             current_start_time = config.start_time - self.interval_in_seconds
+            self.max_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
             while current_end_time >= current_start_time:
                 fetched_candles = await self.fetch_candles(end_time=current_end_time)
                 if fetched_candles.size <= 1:
