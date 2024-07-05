@@ -2,12 +2,8 @@ import logging
 import time
 from typing import List, Optional
 
-import numpy as np
-import pandas as pd
-
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.kraken_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
 
@@ -85,30 +81,6 @@ class KrakenSpotCandles(CandlesBase):
 
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
-
-    async def get_historical_candles(self, config: HistoricalCandlesConfig):
-        try:
-            await self.initialize_exchange_data()
-            all_candles = []
-            current_end_time = config.end_time + self.interval_in_seconds
-            current_start_time = config.start_time - self.interval_in_seconds
-            while current_end_time >= current_start_time:
-                fetched_candles = await self.fetch_candles(start_time=current_start_time, end_time=current_end_time)
-                if fetched_candles.size <= 1:
-                    break
-                all_candles.append(fetched_candles)
-                last_timestamp = self.ensure_timestamp_in_seconds(
-                    fetched_candles[0][0])  # Assuming the first column is the timestamp
-                current_end_time = last_timestamp - self.interval_in_seconds
-                self.check_candles_sorted_and_equidistant(all_candles)
-            final_candles = np.concatenate(all_candles[::-1], axis=0) if all_candles else np.array([])
-            candles_df = pd.DataFrame(final_candles, columns=self.columns)
-            candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
-            candles_df = candles_df[
-                (candles_df["timestamp"] <= config.end_time) & (candles_df["timestamp"] >= config.start_time)]
-            return candles_df
-        except Exception as e:
-            self.logger().exception(f"Error fetching historical candles: {str(e)}")
 
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
