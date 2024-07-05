@@ -55,6 +55,7 @@ class CandlesBase(NetworkBase):
         self._trading_pair = trading_pair
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
         self._ws_candle_available = asyncio.Event()
+        self._ping_timeout = None
         if interval in self.intervals.keys():
             self.interval = interval
         else:
@@ -298,8 +299,12 @@ class CandlesBase(NetworkBase):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=self.wss_url, ping_timeout=30)
+        await ws.connect(ws_url=self.wss_url, ping_timeout=self._ping_timeout)
         return ws
+
+    @property
+    def _ping_payload(self):
+        return None
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -325,7 +330,7 @@ class CandlesBase(NetworkBase):
         """
         raise NotImplementedError
 
-    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+    async def _process_websocket_messages_task(self, websocket_assistant: WSAssistant):
         # TODO: Implement a way to handle ping pong messages
         async for ws_response in websocket_assistant.iter_messages():
             data = ws_response.data
@@ -355,6 +360,16 @@ class CandlesBase(NetworkBase):
                         self._candles.append(candles_row)
                     elif current_timestamp == latest_timestamp:
                         self._candles[-1] = candles_row
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        while True:
+            try:
+                await asyncio.wait_for(self._process_websocket_messages_task(websocket_assistant=websocket_assistant),
+                                       timeout=self._ping_timeout)
+            except asyncio.TimeoutError:
+                if self._ping_timeout is not None:
+                    ping_request = WSJSONRequest(payload=self._ping_payload)
+                    await websocket_assistant.send(request=ping_request)
 
     def _parse_websocket_message(self, data: dict):
         """

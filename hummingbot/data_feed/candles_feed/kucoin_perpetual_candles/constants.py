@@ -36,7 +36,7 @@ INTERVALS = bidict({
 
 GRANULARITIES = bidict({
     "1m": 1,
-    "3m": 5,
+    "5m": 5,
     "15m": 15,
     "30m": 30,
     "1h": 60,
