@@ -70,6 +70,12 @@ class KucoinSpotCandles(CandlesBase):
         df = pd.DataFrame(self._candles, columns=self.columns, dtype=float)
         return df.sort_values(by="timestamp", ascending=True)
 
+    @property
+    def _ping_payload(self):
+        return {
+            "type": "ping"
+        }
+
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
         await rest_assistant.execute_request(url=self.health_check_url,
@@ -133,7 +139,7 @@ class KucoinSpotCandles(CandlesBase):
         )
 
         self._ws_url = connection_info["data"]["instanceServers"][0]["endpoint"]
-        self._ping_interval = int(connection_info["data"]["instanceServers"][0]["pingInterval"]) * 0.8 * 1e-3
+        self._ping_timeout = int(connection_info["data"]["instanceServers"][0]["pingTimeout"]) * 1e-3
         self._ws_token = connection_info["data"]["token"]
 
     @staticmethod

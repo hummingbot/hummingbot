@@ -1,5 +1,3 @@
-import sys
-
 from bidict import bidict
 
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
@@ -51,7 +49,6 @@ MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 500
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 MAX_REQUEST = 2000
 TIME_INTERVAL = 30
-NO_LIMIT = sys.maxsize
 
 
 RATE_LIMITS = [
