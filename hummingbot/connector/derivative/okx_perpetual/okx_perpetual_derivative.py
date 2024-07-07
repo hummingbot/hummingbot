@@ -262,7 +262,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             data["posSide"] = "net"
 
         exchange_order_id = await self._api_post(
-            path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER,
             data=data,
             is_auth_required=True,
             trading_pair=ex_trading_pair,
@@ -282,7 +282,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if tracked_order.client_order_id:
             data["clOrdId"] = tracked_order.client_order_id
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_CANCEL_ACTIVE_ORDER,
             data=data,
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
@@ -301,7 +301,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         params = {"uly": trading_pair, "instType": "SWAP"}
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
             params=params,
         )
 
@@ -312,7 +312,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         params = {"instType": "SWAP"}
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
             params=params,
         )
 
@@ -324,7 +324,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         Calls REST API to update total and available balances
         """
         wallet_balance: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_GET_WALLET_BALANCE,
             is_auth_required=True,
             params={"ccy": "USDT,USDC"},
         )
@@ -412,7 +412,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "instId": exchange_symbol,
         }
         res = await self._api_get(
-            path_url=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_USER_TRADE_RECORDS,
             params=body_params,
             is_auth_required=True,
             trading_pair=order.trading_pair,
@@ -483,7 +483,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_request(
             method=RESTMethod.GET,
-            path_url=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_QUERY_ACTIVE_ORDER,
             params={
                 "instId": await self.exchange_symbol_associated_to_pair(order.trading_pair),
                 "clOrdId": order.client_order_id},
@@ -546,7 +546,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
             trade_history_tasks.append(
                 asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
+                    path_url=CONSTANTS.REST_USER_TRADE_RECORDS,
                     params=body_params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
@@ -585,7 +585,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             body_params = {"instId": ex_trading_pair}
             position_tasks.append(
                 asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT],
+                    path_url=CONSTANTS.REST_GET_POSITIONS,
                     params=body_params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
@@ -765,7 +765,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         data = {"posMode": api_mode}
 
         response = await self._api_post(
-            path_url=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_SET_POSITION_MODE,
             data=data,
             is_auth_required=True,
         )
@@ -790,7 +790,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "mgnMode": "cross"
         }
         resp: Dict[str, Any] = await self._api_post(
-            path_url=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_SET_LEVERAGE,
             data=data,
             is_auth_required=True,
             trading_pair=trading_pair,
@@ -826,7 +826,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "type": 8
         }
         raw_response: Dict[str, Any] = await self._api_get(
-            path_url=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_BILLS_DETAILS,
             params=params,
             is_auth_required=True,
             trading_pair=trading_pair,

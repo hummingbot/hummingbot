@@ -12,14 +12,8 @@ MAX_ID_LEN = 32
 # BASE URLS
 # -------------------------------------------
 DEFAULT_DOMAIN = EXCHANGE_NAME
-AWS_DOMAIN = "okx_perpetual_aws"
-DEMO_DOMAIN = "okx_perpetual_demo"
+REST_URLS = {DEFAULT_DOMAIN: "https://www.okx.com"}
 
-REST_URLS = {DEFAULT_DOMAIN: "https://www.okx.com",
-             AWS_DOMAIN: "https://aws.okx.com",
-             DEMO_DOMAIN: "https://www.okx.com"}
-
-ACCOUNT_MODE = "Single-currency margin mode"
 # -------------------------------------------
 # DATA TYPES
 # -------------------------------------------
@@ -56,17 +50,11 @@ FUNDING_PAYMENT_TYPE = "8"
 # -------------------------------------------
 # WEB SOCKET ENDPOINTS
 # -------------------------------------------
-WSS_PUBLIC_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/public",
-                   AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/public",
-                   DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/public?brokerId=9999"}
+WSS_PUBLIC_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/public"}
+WSS_PRIVATE_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/private"}
+WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/business"}
 
-WSS_PRIVATE_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/private",
-                    AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/private",
-                    DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/private?brokerId=9999"}
-
-WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/business",
-                     AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/business",
-                     DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/business?brokerId=9999"}
+# WS CONFIG
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 25
 WS_PING_REQUEST = "ping"
 WS_PONG_RESPONSE = "pong"
@@ -94,44 +82,27 @@ WS_ORDERS_CHANNEL = "orders"
 # different methods. This is also useful for rate limit ids.
 # -------------------------------------------
 # REST API Public Endpoints
-REST_LATEST_SYMBOL_INFORMATION = {METHOD: GET,
-                                  ENDPOINT: f"/api/{REST_API_VERSION}/market/tickers"}
-REST_ORDER_BOOK = {METHOD: GET,
-                   ENDPOINT: f"/api/{REST_API_VERSION}/market/books"}
-REST_SERVER_TIME = {METHOD: GET,
-                    ENDPOINT: f"/api/{REST_API_VERSION}/public/time"}
-REST_MARK_PRICE = {METHOD: GET,
-                   ENDPOINT: f"/api/{REST_API_VERSION}/public/mark-price"}
-REST_INDEX_TICKERS = {METHOD: GET,
-                      ENDPOINT: f"/api/{REST_API_VERSION}/market/index-tickers"}
-REST_GET_INSTRUMENTS = {METHOD: GET,
-                        ENDPOINT: f"/api/{REST_API_VERSION}/public/instruments"}
+REST_LATEST_SYMBOL_INFORMATION = f"/api/{REST_API_VERSION}/market/tickers"
+REST_ORDER_BOOK = f"/api/{REST_API_VERSION}/market/books"
+REST_SERVER_TIME = f"/api/{REST_API_VERSION}/public/time"
+REST_MARK_PRICE = f"/api/{REST_API_VERSION}/public/mark-price"
+REST_INDEX_TICKERS = f"/api/{REST_API_VERSION}/market/index-tickers"
+REST_GET_INSTRUMENTS = f"/api/{REST_API_VERSION}/public/instruments"
 
 # REST API Private General Endpoints
-REST_GET_WALLET_BALANCE = {METHOD: GET,
-                           ENDPOINT: f"/api/{REST_API_VERSION}/account/balance"}
-REST_SET_POSITION_MODE = {METHOD: POST,
-                          ENDPOINT: f"/api/{REST_API_VERSION}/account/set-position-mode"}
+REST_GET_WALLET_BALANCE = f"/api/{REST_API_VERSION}/account/balance"
+REST_SET_POSITION_MODE = f"/api/{REST_API_VERSION}/account/set-position-mode"
 
 # REST API Private Pair Specific Endpoints
-REST_SET_LEVERAGE = {METHOD: POST,
-                     ENDPOINT: f"/api/{REST_API_VERSION}/account/set-leverage"}
-REST_FUNDING_RATE_INFO = {METHOD: GET,
-                          ENDPOINT: f"/api/{REST_API_VERSION}/public/funding-rate"}
-REST_GET_POSITIONS = {METHOD: GET,
-                      ENDPOINT: f"/api/{REST_API_VERSION}/account/positions"}
-REST_PLACE_ACTIVE_ORDER = {METHOD: POST,
-                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/order"}
-REST_CANCEL_ACTIVE_ORDER = {METHOD: POST,
-                            ENDPOINT: f"/api/{REST_API_VERSION}/trade/cancel-order"}
-REST_QUERY_ACTIVE_ORDER = {METHOD: GET,
-                           ENDPOINT: REST_PLACE_ACTIVE_ORDER[ENDPOINT]}
-REST_USER_TRADE_RECORDS = {METHOD: GET,
-                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills"}
-REST_BILLS_DETAILS = {METHOD: GET,
-                      ENDPOINT: f"/api/{REST_API_VERSION}/account/bills"}
-REST_WS_LOGIN_PATH = {METHOD: GET,
-                      ENDPOINT: "/users/self/verify"}
+REST_SET_LEVERAGE = f"/api/{REST_API_VERSION}/account/set-leverage"
+REST_FUNDING_RATE_INFO = f"/api/{REST_API_VERSION}/public/funding-rate"
+REST_GET_POSITIONS = f"/api/{REST_API_VERSION}/account/positions"
+REST_PLACE_ACTIVE_ORDER = f"/api/{REST_API_VERSION}/trade/order"
+REST_CANCEL_ACTIVE_ORDER = f"/api/{REST_API_VERSION}/trade/cancel-order"
+REST_QUERY_ACTIVE_ORDER = REST_PLACE_ACTIVE_ORDER[ENDPOINT]
+REST_USER_TRADE_RECORDS = f"/api/{REST_API_VERSION}/trade/fills"
+REST_BILLS_DETAILS = f"/api/{REST_API_VERSION}/account/bills"
+REST_WS_LOGIN_PATH = "/users/self/verify"
 
 
 # -------------------------------------------

@@ -45,13 +45,14 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def all_symbols_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def latest_prices_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
                                                   domain=CONSTANTS.DEFAULT_DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
@@ -59,45 +60,50 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     # OK
     @property
     def network_status_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SERVER_TIME,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         return url
 
     @property
     def order_creation_url(self):
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
+            endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER,
+            domain=CONSTANTS.DEFAULT_DOMAIN
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def balance_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_WALLET_BALANCE,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         return url
 
     @property
     def funding_info_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_FUNDING_RATE_INFO,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url_regex
 
     @property
     def mark_price_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_MARK_PRICE,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url_regex
 
     @property
     def index_price_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_INDEX_TICKERS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url_regex
 
     @property
     def funding_payment_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_BILLS_DETAILS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url_regex
 
@@ -177,7 +183,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def trading_rules_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT],
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS,
                                                   domain=CONSTANTS.DEFAULT_DOMAIN)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
@@ -769,9 +775,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         """
         :return: the URL configured for the cancelation
         """
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._order_cancelation_request_successful_mock_response(order=order, response_scode=response_scode)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
@@ -783,9 +788,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = {
             "code": "0",
@@ -838,7 +842,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_QUERY_ACTIVE_ORDER,
                                                   domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -851,9 +855,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -865,9 +868,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -879,9 +881,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=404, callback=callback)
         return url
@@ -892,9 +893,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -906,9 +906,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_USER_TRADE_RECORDS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -920,9 +919,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_USER_TRADE_RECORDS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -934,9 +932,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_USER_TRADE_RECORDS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
@@ -947,7 +944,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         response = {
             "code": "0",
             "data": [
@@ -966,7 +964,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE,
                                                   domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}")
 
@@ -987,9 +985,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_LEVERAGE,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}")
 
         err_code = 1
@@ -1009,9 +1006,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_LEVERAGE,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}")
 
         mock_response = {
@@ -1224,7 +1220,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             order_type=OrderType.LIMIT,
         )
         response = self._order_fills_request_full_fill_mock_response(self.exchange.in_flight_orders["11"])
-        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_USER_TRADE_RECORDS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url = f"{url}?instId={self.exchange_trading_pair}&limit=100"
         regex_url = re.compile(f"^{url}")
         mock_api.get(regex_url, body=json.dumps(response))
@@ -1260,7 +1257,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             order_type=OrderType.LIMIT,
         )
         response = self.position_event_for_full_fill_websocket_update(self.exchange.in_flight_orders["11"], 0.1)
-        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_POSITIONS,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         url = f"{url}?instId={self.exchange_trading_pair}"
         regex_url = re.compile(f"^{url}")
         mock_api.get(regex_url, body=json.dumps(response))
