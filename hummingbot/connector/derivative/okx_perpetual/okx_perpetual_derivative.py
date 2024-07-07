@@ -61,6 +61,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trade_history_timestamp = None
         self._contract_sizes = {}
         self._exchange_position_mode = None
+        self.tickers = {}
 
         super().__init__(client_config_map)
 
@@ -224,6 +225,17 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         except IOError as e:
             self.logger().error(f"Error fetching account position mode. {e}")
             return None
+
+    async def _get_tickers_info(self) -> float:
+        params = {"instType": "SWAP"}
+
+        resp_json = await self._api_get(
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+            params=params,
+        )
+
+        self.tickers = resp_json["data"]
+        return self.tickers
 
     def _get_fee(self,
                  base_currency: str,
