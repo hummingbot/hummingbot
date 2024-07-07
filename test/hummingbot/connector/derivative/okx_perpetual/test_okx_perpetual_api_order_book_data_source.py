@@ -395,7 +395,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self,
             mock_api: aioresponses,
     ) -> List[str]:
-        base_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT],
+        base_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS,
                                                        domain=CONSTANTS.DEFAULT_DOMAIN)
         params = {
             "instType": "SWAP"
@@ -411,8 +411,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
         self.configure_trading_rules_response(mock_api)
-        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.domain)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_ORDER_BOOK,
+                                                  domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_rest_snapshot_msg()
         mock_api.get(regex_url, body=json.dumps(resp))
@@ -438,8 +438,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
         self.configure_trading_rules_response(mock_api)
-        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.domain)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_ORDER_BOOK,
+                                                  domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -450,7 +450,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_last_traded_prices(self, mock_api):
-        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT], self.domain)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
+                                                  domain=self.domain)
         url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(url_regex, body=json.dumps(self.get_last_traded_prices_rest_msg()))
         last_traded_prices = self.async_run_with_timeout(
@@ -461,20 +462,20 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
-        funding_endpoint = CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT]
-        funding_url = web_utils.get_rest_url_for_endpoint(funding_endpoint, self.domain)
+        funding_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_FUNDING_RATE_INFO,
+                                                          domain=self.domain)
         funding_regex_url = re.compile(f"^{funding_url}".replace(".", r"\.").replace("?", r"\?"))
         funding_info_resp = self.get_funding_info_rest_msg()
         mock_api.get(funding_regex_url, body=json.dumps(funding_info_resp))
 
-        index_price_endpoint = CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]
-        index_price_url = web_utils.get_rest_url_for_endpoint(index_price_endpoint, self.domain)
+        index_price_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_INDEX_TICKERS,
+                                                              domain=self.domain)
         index_price_regex_url = re.compile(f"^{index_price_url}".replace(".", r"\.").replace("?", r"\?"))
         index_price_resp = self.get_index_price_info_rest_msg()
         mock_api.get(index_price_regex_url, body=json.dumps(index_price_resp))
 
-        mark_price_endpoint = CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]
-        mark_price_url = web_utils.get_rest_url_for_endpoint(mark_price_endpoint, self.domain)
+        mark_price_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_MARK_PRICE,
+                                                             domain=self.domain)
         mark_price_regex_url = re.compile(f"^{mark_price_url}".replace(".", r"\.").replace("?", r"\?"))
         mark_price_resp = self.get_mark_price_info_rest_msg()
         mock_api.get(mark_price_regex_url, body=json.dumps(mark_price_resp))
@@ -756,8 +757,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         self.configure_trading_rules_response(mock_api)
-        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
-        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self.domain)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_ORDER_BOOK,
+                                                  domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -774,8 +775,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
-        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self.domain)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_ORDER_BOOK,
+                                                  domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception)

@@ -71,14 +71,11 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
+        endpoint = CONSTANTS.REST_ORDER_BOOK
         url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
-            method=CONSTANTS.REST_ORDER_BOOK[CONSTANTS.METHOD],
-            endpoint=endpoint)
         data = await rest_assistant.execute_request(
             url=url,
-            throttler_limit_id=limit_id,
+            throttler_limit_id=endpoint,
             params=params,
             method=RESTMethod.GET,
         )
@@ -97,14 +94,11 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "instType": "SWAP"
         }
         rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint = CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
+        endpoint = CONSTANTS.REST_GET_INSTRUMENTS
         url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
-            method=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.METHOD],
-            endpoint=endpoint)
         data = await rest_assistant.execute_request(
             url=url,
-            throttler_limit_id=limit_id,
+            throttler_limit_id=endpoint,
             method=RESTMethod.GET,
             params=params
         )
@@ -138,15 +132,11 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         params_index_price = {
             "instId": trading_pair
         }
-        endpoint_index_price = CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]
+        endpoint_index_price = CONSTANTS.REST_INDEX_TICKERS
         url_index_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_index_price, domain=self._domain)
-        limit_id_index_price = web_utils.get_pair_specific_limit_id(
-            method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
-            endpoint=endpoint_index_price,
-            trading_pair=trading_pair)
         tasks.append(rest_assistant.execute_request(
             url=url_index_price,
-            throttler_limit_id=limit_id_index_price,
+            throttler_limit_id=endpoint_index_price,
             params=params_index_price,
             method=RESTMethod.GET,
         ))
@@ -155,10 +145,9 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "instId": inst_id,
             "instType": "SWAP",
         }
-        endpoint_mark_price = CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]
+        endpoint_mark_price = CONSTANTS.REST_MARK_PRICE
         url_mark_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_mark_price, domain=self._domain)
         limit_id_mark_price = web_utils.get_pair_specific_limit_id(
-            method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
             endpoint=endpoint_mark_price,
             trading_pair=trading_pair
         )
@@ -173,10 +162,9 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         params_funding_data = {
             "instId": inst_id
         }
-        endpoint_funding_data = CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT]
+        endpoint_funding_data = CONSTANTS.REST_FUNDING_RATE_INFO
         url_funding_data = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_funding_data, domain=self._domain)
         limit_id_funding_data = web_utils.get_pair_specific_limit_id(
-            method=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.METHOD],
             endpoint=endpoint_funding_data,
             trading_pair=trading_pair
         )
@@ -266,7 +254,6 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             }
             subscribe_index_price_request = WSJSONRequest(payload=index_price_payload)
 
-            # TODO: Add 3 rps Rate Limit / 480 prh Rate Limit?
             await ws.send(subscribe_trades_request)
             await ws.send(subscribe_orderbook_request)
             await ws.send(subscribe_instruments_request)
