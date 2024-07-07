@@ -193,6 +193,7 @@ def _build_private_general_rate_limits() -> List[RateLimit]:
         RateLimit(limit_id=CONSTANTS.REST_GET_POSITIONS, limit=10, time_interval=2),
         RateLimit(limit_id=CONSTANTS.REST_GET_WALLET_BALANCE, limit=10, time_interval=2),
         RateLimit(limit_id=CONSTANTS.REST_SET_POSITION_MODE, limit=5, time_interval=2),
-        RateLimit(limit_id=CONSTANTS.REST_BILLS_DETAILS, limit=5, time_interval=1)
+        RateLimit(limit_id=CONSTANTS.REST_BILLS_DETAILS, limit=5, time_interval=1),
+        RateLimit(limit_id=CONSTANTS.REST_GET_ACCOUNT_CONFIG, limit=5, time_interval=2)
     ]
     return rate_limits

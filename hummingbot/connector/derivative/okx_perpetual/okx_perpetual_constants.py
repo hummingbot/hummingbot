@@ -91,6 +91,7 @@ REST_GET_INSTRUMENTS = f"/api/{REST_API_VERSION}/public/instruments"
 
 # REST API Private General Endpoints
 REST_GET_WALLET_BALANCE = f"/api/{REST_API_VERSION}/account/balance"
+REST_GET_ACCOUNT_CONFIG = f"/api/{REST_API_VERSION}/account/config"
 REST_SET_POSITION_MODE = f"/api/{REST_API_VERSION}/account/set-position-mode"
 
 # REST API Private Pair Specific Endpoints

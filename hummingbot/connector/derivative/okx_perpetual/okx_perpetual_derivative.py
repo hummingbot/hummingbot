@@ -25,7 +25,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -60,6 +60,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._last_trade_history_timestamp = None
         self._contract_sizes = {}
+        self._exchange_position_mode = None
 
         super().__init__(client_config_map)
 
@@ -192,6 +193,37 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         super().start(clock, timestamp)
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
+
+    @property
+    def position_mode(self) -> PositionMode:
+        if self._exchange_position_mode is None:
+            return PositionMode.HEDGE
+        return self._exchange_position_mode
+
+    def set_position_mode(self, mode: PositionMode):
+        """
+        Sets position mode for perpetual trading, a child class might need to override this to set position mode on
+        the exchange
+        :param mode: the position mode
+        """
+        if mode in self.supported_position_modes():
+            safe_ensure_future(self._get_and_process_account_position_mode(mode))
+        else:
+            self.logger().error(f"Position mode {mode} is not supported. Mode not set.")
+
+    async def _get_and_process_account_position_mode(self, mode: PositionMode):
+        try:
+            account_config = await self._api_get(path_url=CONSTANTS.REST_GET_ACCOUNT_CONFIG[CONSTANTS.ENDPOINT],
+                                                 is_auth_required=True)
+            if account_config.get("data") is not None:
+                position_mode_api = account_config["data"][0]["posMode"]
+                reverse_position_mode_map = {v: k for k, v in CONSTANTS.POSITION_MODE_MAP.items()}
+                self._exchange_position_mode = reverse_position_mode_map.get(position_mode_api)
+                if self._exchange_position_mode != PositionMode.HEDGE:
+                    safe_ensure_future(self._execute_set_position_mode(mode))
+        except IOError as e:
+            self.logger().error(f"Error fetching account position mode. {e}")
+            return None
 
     def _get_fee(self,
                  base_currency: str,
