@@ -1,13 +1,12 @@
 import asyncio
 import json
-
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, Mock, patch
 
 import hummingbot.connector.exchange.bitstamp.bitstamp_constants as CONSTANTS
-from hummingbot.connector.exchange.bitstamp.bitstamp_web_utils import BitstampRESTPreProcessor
 from hummingbot.connector.exchange.bitstamp import bitstamp_web_utils as web_utils
+from hummingbot.connector.exchange.bitstamp.bitstamp_web_utils import BitstampRESTPreProcessor
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
