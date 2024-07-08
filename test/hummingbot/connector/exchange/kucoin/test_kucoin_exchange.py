@@ -2671,3 +2671,13 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(expected_initial_dict, status_dict)
         self.assertFalse(self.exchange.ready)
+
+    def test_time_synchronizer_related_request_error_detection(self):
+        error_code = CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR
+        response = {"code": error_code, "msg": "Invalid KC-API-TIMESTAMP"}
+        exception = IOError(f"Error executing request GET https://someurl. HTTP status is 400. Error: {json.dumps(response)}")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+        error_code = CONSTANTS.RET_CODE_ORDER_NOT_EXIST_OR_NOT_ALLOW_TO_CANCEL
+        exception = IOError(f"{error_code} - Failed to cancel order because it was not found.")
+        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
