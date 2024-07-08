@@ -113,11 +113,11 @@ class XEMMMultipleLevels(ControllerBase):
         )
         stopped_buy_executors = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.BUY and e.filled_amount != 0
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.BUY and e.filled_amount_quote != 0
         )
         stopped_sell_executors = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.SELL and e.filled_amount != 0
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.SELL and e.filled_amount_quote != 0
         )
         imbalance = len(stopped_buy_executors) - len(stopped_sell_executors)
         for target_profitability, amount in self.buy_levels_targets_amount:

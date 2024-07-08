@@ -97,7 +97,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | tables_format                     | psql                 |\n"
                            "    | tick_size                         | 1.0                  |\n"
                            "    | market_data_collection            |                      |\n"
-                           "    | ∟ market_data_collection_enabled  | True                 |\n"
+                           "    | ∟ market_data_collection_enabled  | False                |\n"
                            "    | ∟ market_data_collection_interval | 60                   |\n"
                            "    | ∟ market_data_collection_depth    | 20                   |\n"
                            "    +-----------------------------------+----------------------+")
