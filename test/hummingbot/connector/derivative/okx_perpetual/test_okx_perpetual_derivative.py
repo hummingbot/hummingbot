@@ -938,11 +938,37 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api.get(regex_url, status=400, callback=callback)
         return url
 
+    def _simulate_account_config_initialized(self, position_mode: str):
+        self.exchange.account_config = {
+            "acctLv": "2",
+            "acctStpMode": "cancel_maker",
+            "autoLoan": False,
+            "ctIsoMode": "automatic",
+            "greeksType": "PA",
+            "ip": "",
+            "kycLv": "2",
+            "label": "hbot",
+            "level": "Lv1",
+            "levelTmp": "",
+            "liquidationGear": "0",
+            "mainUid": "000000000000000000",
+            "mgnIsoMode": "automatic",
+            "opAuth": "0",
+            "perm": "read_only,trade",
+            "posMode": position_mode,
+            "roleType": "0",
+            "spotOffsetType": "",
+            "spotRoleType": "0",
+            "spotTraderInsts": [],
+            "traderInsts": [],
+            "uid": "000000000000000000"
+        }
+
     def configure_successful_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE,
                                                   domain=CONSTANTS.DEFAULT_DOMAIN)
@@ -958,12 +984,33 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
+    @aioresponses()
+    def test_set_position_mode_success(self, mock_api):
+        self._simulate_account_config_initialized("net_mode")
+        request_sent_event = asyncio.Event()
+
+        self.configure_successful_set_position_mode(
+            position_mode=PositionMode.HEDGE,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+        self.exchange.set_position_mode(PositionMode.HEDGE)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertTrue(
+            self.is_logged(
+                log_level="DEBUG",
+                message=f"Position mode switched to {PositionMode.HEDGE}.",
+            )
+        )
+
     def configure_failed_set_position_mode(
         self,
         position_mode: PositionMode,
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
+        self._simulate_account_config_initialized("net_mode")
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE,
                                                   domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}")
@@ -978,6 +1025,12 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
         return url, f"ret_code <{error_code}> - {error_msg}"
+
+    @aioresponses()
+    def test_set_position_mode_is_not_called_if_already_set(self, mock_api):
+        self._simulate_account_config_initialized("long_short_mode")
+        self.exchange.set_position_mode(PositionMode.HEDGE)
+        self.assertEqual(0, len(mock_api.requests))
 
     def configure_failed_set_leverage(
         self,
@@ -1748,7 +1801,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         self.assertIn("11", self.exchange.in_flight_orders)
         order: InFlightOrder = self.exchange.in_flight_orders["11"]
 
-        for response_scode in (0, 51400, 51401):
+        for response_scode in (0, 51400, 51401, 51402, 51403):
             url = self.configure_successful_cancelation_response(
                 order=order,
                 mock_api=mock_api,

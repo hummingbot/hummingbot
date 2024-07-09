@@ -62,6 +62,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         self._contract_sizes = {}
         self._exchange_position_mode = None
         self.tickers = {}
+        self.account_config = {}
 
         super().__init__(client_config_map)
 
@@ -119,6 +120,10 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def funding_fee_poll_interval(self) -> int:
         return 120
+
+    @property
+    def position_mode(self) -> PositionMode:
+        return PositionMode.HEDGE
 
     def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
         return amount / self._contract_sizes[trading_pair]
@@ -194,12 +199,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
 
-    @property
-    def position_mode(self) -> PositionMode:
-        if self._exchange_position_mode is None:
-            return PositionMode.HEDGE
-        return self._exchange_position_mode
-
     def set_position_mode(self, mode: PositionMode):
         """
         Sets position mode for perpetual trading, a child class might need to override this to set position mode on
@@ -213,16 +212,27 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _get_and_process_account_position_mode(self, mode: PositionMode):
         try:
-            account_config = await self._api_get(path_url=CONSTANTS.REST_GET_ACCOUNT_CONFIG,
-                                                 is_auth_required=True)
-            if account_config.get("data") is not None:
-                position_mode_api = account_config["data"][0]["posMode"]
-                reverse_position_mode_map = {v: k for k, v in CONSTANTS.POSITION_MODE_MAP.items()}
-                self._exchange_position_mode = reverse_position_mode_map.get(position_mode_api)
-                if self._exchange_position_mode != PositionMode.HEDGE:
-                    safe_ensure_future(self._execute_set_position_mode(mode))
+            await self._get_account_config()
+            position_mode_api = self.account_config["posMode"]
+            reverse_position_mode_map = {v: k for k, v in CONSTANTS.POSITION_MODE_MAP.items()}
+            self._exchange_position_mode = reverse_position_mode_map.get(position_mode_api)
+            if self._exchange_position_mode != mode:
+                safe_ensure_future(self._execute_set_position_mode(mode))
+            else:
+                self.logger().debug(f"Position mode already set to {self._perpetual_trading.position_mode}. No action required.")
         except IOError as e:
             self.logger().error(f"Error fetching account position mode. {e}")
+            return None
+
+    async def _get_account_config(self) -> Dict[str, Any]:
+        try:
+            response = await self._api_get(path_url=CONSTANTS.REST_GET_ACCOUNT_CONFIG,
+                                           is_auth_required=True)
+            account_config = response.get("data")
+            if account_config is not None:
+                self.account_config = account_config[0]
+        except Exception as e:
+            self.logger().error(f"Error fetching account info. {e}")
             return None
 
     async def _get_tickers_info(self) -> float:
@@ -331,12 +341,12 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pair=tracked_order.trading_pair,
         )
         data = cancel_result["data"][0]
-        ret_code_ok = data["sCode"] == CONSTANTS.RET_CODE_OK
-        ret_code_order_not_exists = data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILED_BECAUSE_ORDER_NOT_EXISTS
-        ret_code_already_canceled = data["sCode"] == CONSTANTS.RET_CODE_ORDER_ALREADY_CANCELLED
-        if ret_code_ok or ret_code_order_not_exists or ret_code_already_canceled:
-            final_result = True
-        else:
+        final_result = data["sCode"] == CONSTANTS.RET_CODE_OK
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_ORDER_DOES_NOT_EXIST
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_ORDER_ALREADY_CANCELED
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_ORDER_ALREADY_COMPLETED
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_UNSUPPORTED_ORDER_TYPE
+        if not final_result:
             raise IOError(f"Error cancelling order {order_id}: {cancel_result}")
         return final_result
 
