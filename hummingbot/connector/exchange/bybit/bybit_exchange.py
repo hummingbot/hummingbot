@@ -235,8 +235,7 @@ class BybitExchange(ExchangePyBase):
             path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
             data=api_params,
             is_auth_required=True,
-            trading_pair=trading_pair,
-            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
+            trading_pair=trading_pair
         )
         if response["retCode"] != 0:
             raise ValueError(f"{response['retMsg']}")
@@ -344,7 +343,7 @@ class BybitExchange(ExchangePyBase):
                                 fill_timestamp=int(trade["execTime"]) * 1e-3,
                             )
                             self._order_tracker.process_trade_update(trade_update)
-                if channel == CONSTANTS.PRIVATE_ORDER_CHANNEL:
+                elif channel == CONSTANTS.PRIVATE_ORDER_CHANNEL:
                     data = event_message.get("data")
                     for order in data:
                         client_order_id = order.get("orderLinkId")
@@ -392,7 +391,8 @@ class BybitExchange(ExchangePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {
             "category": self._category,
-            "symbol": symbol
+            "symbol": symbol,
+            "execType": "Trade"
         }
         if exchange_order_id:
             api_params["orderId"] = exchange_order_id
@@ -406,32 +406,34 @@ class BybitExchange(ExchangePyBase):
         )
         result = all_fills_response.get("result", [])
         if result not in (None, {}):
-            for trade in result["list"]:
-                # exchange_order_id = trade["orderId"]
-                ptoken = trading_pair.split("-")[1]
-                fee = TradeFeeBase.new_spot_fee(
-                    fee_schema=self.trade_fee_schema(),
-                    trade_type=order.trade_type,
-                    percent_token=ptoken,
-                    flat_fees=[
-                        TokenAmount(
-                            amount=Decimal(trade["execFee"]),
-                            token=ptoken
-                        )
-                    ]
-                )
-                trade_update = TradeUpdate(
-                    trade_id=str(trade["execId"]),
-                    client_order_id=client_order_id,
-                    exchange_order_id=exchange_order_id,
-                    trading_pair=trading_pair,
-                    fee=fee,
-                    fill_base_amount=Decimal(trade["execQty"]),
-                    fill_quote_amount=Decimal(trade["execPrice"]) * Decimal(trade["execQty"]),
-                    fill_price=Decimal(trade["execPrice"]),
-                    fill_timestamp=int(trade["execTime"]) * 1e-3,
-                )
-                trade_updates.append(trade_update)
+            if len(result["list"]) == 0:
+                return trade_updates
+            trade = result["list"][0]
+            ptoken = trading_pair.split("-")[1]
+            fee_amount = trade["execFee"] or "0"
+            fee = TradeFeeBase.new_spot_fee(
+                fee_schema=self.trade_fee_schema(),
+                trade_type=order.trade_type,
+                percent_token=ptoken,
+                flat_fees=[
+                    TokenAmount(
+                        amount=Decimal(fee_amount),
+                        token=ptoken
+                    )
+                ]
+            )
+            trade_update = TradeUpdate(
+                trade_id=str(trade["execId"]),
+                client_order_id=client_order_id,
+                exchange_order_id=exchange_order_id,
+                trading_pair=trading_pair,
+                fee=fee,
+                fill_base_amount=Decimal(trade["execQty"]),
+                fill_quote_amount=Decimal(trade["execPrice"]) * Decimal(trade["execQty"]),
+                fill_price=Decimal(trade["execPrice"]),
+                fill_timestamp=int(trade["execTime"]) * 1e-3,
+            )
+            trade_updates.append(trade_update)
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
@@ -460,7 +462,7 @@ class BybitExchange(ExchangePyBase):
 
         order_update = OrderUpdate(
             client_order_id=client_order_id,
-            exchange_order_id=str(order_data["orderId"]),
+            exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
             update_timestamp=int(order_data["updatedTime"]) * 1e-3,
             new_state=new_state,
