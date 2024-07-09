@@ -96,8 +96,8 @@ class BinanceSpotCandles(CandlesBase):
         if data is not None and data.get("e") == "kline":  # data will be None when the websocket is disconnected
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(data["k"]["t"])
             candles_row_dict["open"] = data["k"]["o"]
-            candles_row_dict["low"] = data["k"]["h"]
-            candles_row_dict["high"] = data["k"]["l"]
+            candles_row_dict["high"] = data["k"]["h"]
+            candles_row_dict["low"] = data["k"]["l"]
             candles_row_dict["close"] = data["k"]["c"]
             candles_row_dict["volume"] = data["k"]["v"]
             candles_row_dict["quote_asset_volume"] = data["k"]["q"]
