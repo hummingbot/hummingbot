@@ -94,15 +94,15 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def trading_rules_request_path(self) -> str:
-        return CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
+        return CONSTANTS.REST_GET_INSTRUMENTS
 
     @property
     def trading_pairs_request_path(self) -> str:
-        return CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
+        return CONSTANTS.REST_GET_INSTRUMENTS
 
     @property
     def check_network_request_path(self) -> str:
-        return CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]
+        return CONSTANTS.REST_SERVER_TIME
 
     @property
     def trading_pairs(self):
@@ -130,7 +130,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         """
         :return a list of OrderType supported by this connector
         """
-        # TODO: Check if it's market or limit_maker
         return [OrderType.LIMIT, OrderType.MARKET]
 
     def supported_position_modes(self) -> List[PositionMode]:
@@ -214,7 +213,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _get_and_process_account_position_mode(self, mode: PositionMode):
         try:
-            account_config = await self._api_get(path_url=CONSTANTS.REST_GET_ACCOUNT_CONFIG[CONSTANTS.ENDPOINT],
+            account_config = await self._api_get(path_url=CONSTANTS.REST_GET_ACCOUNT_CONFIG,
                                                  is_auth_required=True)
             if account_config.get("data") is not None:
                 position_mode_api = account_config["data"][0]["posMode"]
@@ -230,7 +229,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         params = {"instType": "SWAP"}
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
             params=params,
         )
 
@@ -902,11 +901,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                            **kwargs) -> Dict[str, Any]:
 
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        if limit_id is None:
-            limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
-                method=method.value,
-                endpoint=path_url,
-            )
         url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, domain=self._domain)
 
         resp = await rest_assistant.execute_request(
