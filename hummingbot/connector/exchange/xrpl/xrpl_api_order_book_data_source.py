@@ -78,22 +78,37 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return order_book
 
-    async def fetch_order_book_side(self, client: AsyncWebsocketClient, ledger_index, taker_gets, taker_pays, limit):
-        response = await client.request(
-            BookOffers(
-                ledger_index=ledger_index,
-                taker_gets=taker_gets,
-                taker_pays=taker_pays,
-                limit=limit,
+    async def fetch_order_book_side(
+        self, client: AsyncWebsocketClient, ledger_index, taker_gets, taker_pays, limit, try_count: int = 0
+    ):
+        try:
+            response = await client.request(
+                BookOffers(
+                    ledger_index=ledger_index,
+                    taker_gets=taker_gets,
+                    taker_pays=taker_pays,
+                    limit=limit,
+                )
             )
-        )
-        if response.status != "success":
-            error = response.to_dict().get("error", "")
-            error_message = response.to_dict().get("error_message", "")
-            exception_msg = f"Error fetching order book snapshot: {error} - {error_message}"
-            self.logger().error(exception_msg)
-            raise ValueError(exception_msg)
-        return response
+            if response.status != "success":
+                error = response.to_dict().get("error", "")
+                error_message = response.to_dict().get("error_message", "")
+                exception_msg = f"Error fetching order book snapshot: {error} - {error_message}"
+                self.logger().error(exception_msg)
+                raise ValueError(exception_msg)
+            return response
+        except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
+            self.logger().debug(
+                f"Verify transaction timeout error, Attempt {try_count + 1}/{CONSTANTS.FETCH_ORDER_BOOK_MAX_RETRY}"
+            )
+            if try_count < CONSTANTS.FETCH_ORDER_BOOK_MAX_RETRY:
+                await self._sleep(CONSTANTS.FETCH_ORDER_BOOK_RETRY_INTERVAL)
+                return await self.fetch_order_book_side(
+                    client, ledger_index, taker_gets, taker_pays, limit, try_count + 1
+                )
+            else:
+                self.logger().error("Max retries reached. Fetching order book failed due to timeout.")
+                raise e
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
