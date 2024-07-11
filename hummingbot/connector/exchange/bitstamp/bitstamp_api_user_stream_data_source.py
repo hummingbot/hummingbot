@@ -19,6 +19,7 @@ class BitstampAPIUserStreamDataSource(UserStreamTrackerDataSource):
         CONSTANTS.USER_ORDER_CHANGED,
         CONSTANTS.USER_ORDER_DELETED,
         CONSTANTS.USER_TRADE,
+        CONSTANTS.USER_SELF_TRADE,
     }
 
     _logger: Optional[HummingbotLogger] = None
@@ -81,6 +82,15 @@ class BitstampAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 payload = {
                     "event": "bts:subscribe",
                     "data": {
+                        "channel": CONSTANTS.WS_PRIVATE_MY_SELF_TRADES.format(symbol, user_id),
+                        "auth": token
+                    }
+                }
+                my_self_trades_subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+                payload = {
+                    "event": "bts:subscribe",
+                    "data": {
                         "channel": CONSTANTS.WS_PRIVATE_MY_ORDERS.format(symbol, user_id),
                         "auth": token
                     }
@@ -88,6 +98,7 @@ class BitstampAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 my_orders_subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
                 await websocket_assistant.send(my_trades_subscribe_request)
+                await websocket_assistant.send(my_self_trades_subscribe_request)
                 await websocket_assistant.send(my_orders_subscribe_request)
 
                 self.logger().info("Subscribed to private account and orders channels...")

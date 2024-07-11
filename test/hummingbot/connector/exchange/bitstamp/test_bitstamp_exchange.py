@@ -3,6 +3,7 @@ import json
 import re
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -17,7 +18,12 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase, TradeFeeSchema
-from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    SellOrderCreatedEvent,
+)
 
 
 class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -30,7 +36,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     @property
     def latest_prices_url(self):
-        symbol = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        symbol = self.exchange_trading_pair
         url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_URL.format(symbol), domain=self.exchange._domain)
         return url
 
@@ -168,8 +174,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def trading_fees_mock_response(self):
         return [
             {
-                "currency_pair": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                "market": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "currency_pair": self.exchange_trading_pair,
+                "market": self.exchange_trading_pair,
                 "fees": {
                     "maker": "1.0000",
                     "taker": "2.0000"
@@ -307,11 +313,11 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = request_call.kwargs["data"]
-        self.assertEqual(order.exchange_order_id, str(request_data["id"]))
+        self.assertEqual(order.client_order_id, str(request_data["client_order_id"]))
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = request_call.kwargs["data"]
-        self.assertEqual(order.exchange_order_id, str(request_data["id"]))
+        self.assertEqual(order.client_order_id, str(request_data["client_order_id"]))
 
     def configure_successful_cancelation_response(
             self,
@@ -500,7 +506,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 'trade_account_id': 0,
                 'client_order_id': order.client_order_id,
             },
-            'channel': 'private-my_orders_algoeur-1',
+            'channel': CONSTANTS.WS_PRIVATE_MY_ORDERS.format(self.exchange_trading_pair, 1),
             'event': 'order_created'
         }
 
@@ -521,7 +527,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 'trade_account_id': 0,
                 'client_order_id': order.client_order_id,
             },
-            'channel': 'private-my_orders_algoeur-1',
+            'channel': CONSTANTS.WS_PRIVATE_MY_ORDERS.format(self.exchange_trading_pair, 1),
             'event': 'order_deleted'
         }
 
@@ -542,7 +548,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 'trade_account_id': 0,
                 'client_order_id': order.client_order_id,
             },
-            'channel': 'private-my_orders_algoeur-1',
+            'channel': CONSTANTS.WS_PRIVATE_MY_ORDERS.format(self.exchange_trading_pair, 1),
             'event': 'order_deleted'
         }
 
@@ -559,8 +565,27 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 'trade_account_id': 0,
                 'side': order.trade_type.name.lower(),
             },
-            'channel': 'private-my_trades_algoeur-1',
+            'channel': CONSTANTS.WS_PRIVATE_MY_TRADES.format(self.exchange_trading_pair, 1),
             'event': 'trade'
+        }
+
+    def trade_event_for_self_trade_websocket_update(self, buy_order: InFlightOrder, sell_order: InFlightOrder):
+        return {
+            'data': {
+                'timestamp': 1720288033,
+                'amount': buy_order.amount,
+                'amount_str': str(buy_order.amount),
+                'price': buy_order.price,
+                'price_str': str(buy_order.price),
+                'type': 0,
+                'microtimestamp': '1720288033933000',
+                'buy_order_id': buy_order.exchange_order_id,
+                'sell_order_id': sell_order.exchange_order_id,
+                'sellers_trade_account_id': 0,
+                'buyers_trade_account_id': 0
+            },
+            'channel': CONSTANTS.WS_PRIVATE_MY_SELF_TRADES.format(self.exchange_trading_pair, 1),
+            'event': 'self_trade'
         }
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
@@ -676,7 +701,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
+        url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_trading_pair)
 
         creation_response = self.order_creation_request_successful_mock_response
 
@@ -717,7 +742,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        url = self.order_creation_url_for_trade_type(TradeType.SELL, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
+        url = self.order_creation_url_for_trade_type(TradeType.SELL, self.exchange_trading_pair)
         creation_response = self.order_creation_request_successful_mock_response
 
         mock_api.post(url,
@@ -756,7 +781,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
+        url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_trading_pair)
         mock_api.post(url,
                       status=400,
                       callback=lambda *args, **kwargs: request_sent_event.set())
@@ -801,7 +826,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
-        url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
+        url = self.order_creation_url_for_trade_type(TradeType.BUY, self.exchange_trading_pair)
         mock_api.post(url,
                       status=400,
                       callback=lambda *args, **kwargs: request_sent_event.set())
@@ -884,6 +909,69 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         response = self._get_error_response(CONSTANTS.TIMESTAMP_ERROR_CODE, CONSTANTS.TIMESTAMP_ERROR_MESSAGE)
         exception = IOError(f"'Error executing request POST {self.balance_url}. HTTP status is 403. Error: {json.dumps(response)}'")
         self.assertEqual(True, self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+    def test_user_stream_update_for_self_trade_fill(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        buy_order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "2",
+            exchange_order_id=str(self.expected_exchange_order_id) + "1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("10"),
+        )
+        sell_order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "2"]
+
+        trade_event = self.trade_event_for_self_trade_websocket_update(buy_order=buy_order, sell_order=sell_order)
+
+        mock_queue = AsyncMock()
+        event_messages = []
+        if trade_event:
+            event_messages.append(trade_event)
+
+        event_messages.append(asyncio.CancelledError)
+        mock_queue.get.side_effect = event_messages
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(buy_order.client_order_id, fill_event.order_id)
+        self.assertEqual(buy_order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(buy_order.trade_type, fill_event.trade_type)
+        self.assertEqual(buy_order.order_type, fill_event.order_type)
+        self.assertEqual(buy_order.price, fill_event.price)
+        self.assertEqual(buy_order.amount, fill_event.amount)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"The BUY order {buy_order.client_order_id} amounting to {buy_order.executed_amount_base}/{buy_order.amount} COINALPHA has been filled."
+            )
+        )
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"The SELL order {sell_order.client_order_id} amounting to {sell_order.executed_amount_base}/{sell_order.amount} COINALPHA has been filled."
+            )
+        )
 
     def _get_error_response(self, error_code, error_reason):
         return {
