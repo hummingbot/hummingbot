@@ -18,6 +18,7 @@ from xrpl.models import (
     Memo,
     OfferCancel,
     OfferCreate,
+    Request,
     Transaction,
 )
 from xrpl.models.amounts import IssuedCurrencyAmount
@@ -325,7 +326,7 @@ class XrplExchange(ExchangePyBase):
 
                     submit_data = {"transaction": signed_tx, "prelim_result": prelim_result}
 
-                    if prelim_result[0:3] != "tes":
+                    if prelim_result[0:3] != "tes" and prelim_result != "terQUEUED":
                         error_message = submit_response.result["engine_result_message"]
                         self.logger().error(f"{prelim_result}: {error_message}, data: {submit_response}")
                         raise Exception(f"Failed to place order {order_id} ({o_id})")
@@ -401,7 +402,9 @@ class XrplExchange(ExchangePyBase):
 
         return exchange_order_id
 
-    async def _verify_transaction_result(self, submit_data: dict[str, Any], try_count: int = 0) -> tuple[bool, Optional[Response]]:
+    async def _verify_transaction_result(
+        self, submit_data: dict[str, Any], try_count: int = 0
+    ) -> tuple[bool, Optional[Response]]:
         transaction: Transaction = submit_data.get("transaction")
         prelim_result = submit_data.get("prelim_result")
 
@@ -417,13 +420,18 @@ class XrplExchange(ExchangePyBase):
             await self._make_network_check_request()
             resp = await self.wait_for_final_transaction_outcome(transaction, prelim_result)
             return True, resp
+        except (TimeoutError, asyncio.exceptions.TimeoutError):
+            self.logger().error(
+                f"Verify transaction timeout error, Attempt {try_count + 1}/{CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY}"
+            )
+            if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:
+                await self._sleep(CONSTANTS.VERIFY_TRANSACTION_RETRY_INTERVAL)
+                return await self._verify_transaction_result(submit_data, try_count + 1)
+            else:
+                self.logger().error("Max retries reached. Verify transaction failed due to timeout.")
         except Exception as e:
             self.logger().error(f"Submitted transaction failed: {e}")
-            # If e is TimeoutError, call this method again and return it to the caller
-            if e.__class__ == TimeoutError:
-                if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:
-                    await self._sleep(CONSTANTS.VERIFY_TRANSACTION_RETRY_INTERVAL)
-                    return await self._verify_transaction_result(submit_data, try_count + 1)
+
             return False, None
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -1101,7 +1109,8 @@ class XrplExchange(ExchangePyBase):
                 forward=is_forward,
             )
 
-            resp = await self._xrpl_client.request(request)
+            resp = await self.request_with_retry(self._xrpl_client, request)
+
             transactions = resp.result.get("transactions", [])
         except Exception as e:
             self.logger().error(f"Failed to fetch account transactions: {e}")
@@ -1114,17 +1123,17 @@ class XrplExchange(ExchangePyBase):
 
         async with self._xrpl_client_lock:
             await self._make_network_check_request()
-            account_info = await self._xrpl_client.request(
-                AccountInfo(
-                    account=account_address,
-                    ledger_index="validated",
-                )
+            account_info = await self.request_with_retry(
+                self._xrpl_client, AccountInfo(account=account_address, ledger_index="validated")
             )
-            objects = await self._xrpl_client.request(
+
+            objects = await self.request_with_retry(
+                self._xrpl_client,
                 AccountObjects(
                     account=account_address,
-                )
+                ),
             )
+
             open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
             balances = [
                 x.get("Balance")
@@ -1315,11 +1324,8 @@ class XrplExchange(ExchangePyBase):
                     baseTickSize = 6
                     baseTransferRate = 0
                 else:
-                    base_info = await self._xrpl_client.request(
-                        AccountInfo(
-                            account=base_currency.issuer,
-                            ledger_index="validated",
-                        )
+                    base_info = await self.request_with_retry(
+                        self._xrpl_client, AccountInfo(account=base_currency.issuer, ledger_index="validated")
                     )
 
                     if base_info.status == ResponseStatus.ERROR:
@@ -1334,11 +1340,8 @@ class XrplExchange(ExchangePyBase):
                     quoteTickSize = 6
                     quoteTransferRate = 0
                 else:
-                    quote_info = await self._xrpl_client.request(
-                        AccountInfo(
-                            account=quote_currency.issuer,
-                            ledger_index="validated",
-                        )
+                    quote_info = await self.request_with_retry(
+                        self._xrpl_client, AccountInfo(account=quote_currency.issuer, ledger_index="validated")
                     )
 
                     if quote_info.status == ResponseStatus.ERROR:
@@ -1445,3 +1448,18 @@ class XrplExchange(ExchangePyBase):
         return await _wait_for_final_transaction_outcome(
             transaction.get_hash(), self._xrpl_client, prelim_result, transaction.last_ledger_sequence
         )
+
+    async def request_with_retry(
+        self, client: AsyncWebsocketClient, request: Request, max_retries: int = 3
+    ) -> Response:
+        try:
+            return await client.request(request)
+        except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
+            self.logger().debug(f"Request {request} timeout error: {e}")
+            if max_retries > 0:
+                await self._sleep(CONSTANTS.REQUEST_RETRY_INTERVAL)
+                return await self.request_with_retry(client, request, max_retries - 1)
+            else:
+                self.logger().error(f"Max retries reached. Request {request} failed due to timeout.")
+        except Exception as e:
+            self.logger().error(f"Request {request} failed: {e}")

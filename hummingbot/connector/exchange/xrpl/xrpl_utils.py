@@ -165,7 +165,9 @@ class Ledger(Request, LookupByLedgerRequest):
     queue: bool = False
 
 
-async def autofill(transaction: Transaction, client: Client, signers_count: Optional[int] = None) -> Transaction:
+async def autofill(
+    transaction: Transaction, client: Client, signers_count: Optional[int] = None, try_count: int = 0
+) -> Transaction:
     """
     Autofills fields in a transaction. This will set `sequence`, `fee`, and
     `last_ledger_sequence` according to the current state of the server this Client is
@@ -180,22 +182,28 @@ async def autofill(transaction: Transaction, client: Client, signers_count: Opti
     Returns:
         The autofilled transaction.
     """
-    transaction_json = transaction.to_dict()
-    if not client.network_id:
-        await _get_network_id_and_build_version(client)
-    if "network_id" not in transaction_json and _tx_needs_networkID(client):
-        transaction_json["network_id"] = client.network_id
-    if "sequence" not in transaction_json:
-        sequence = await get_next_valid_seq_number(transaction_json["account"], client)
-        transaction_json["sequence"] = sequence
-    if "fee" not in transaction_json:
-        fee = int(await _calculate_fee_per_transaction_type(transaction, client, signers_count))
-        fee = fee * CONSTANTS.FEE_MULTIPLIER
-        transaction_json["fee"] = str(fee)
-    if "last_ledger_sequence" not in transaction_json:
-        ledger_sequence = await get_latest_validated_ledger_sequence(client)
-        transaction_json["last_ledger_sequence"] = ledger_sequence + _LEDGER_OFFSET
-    return Transaction.from_dict(transaction_json)
+    try:
+        transaction_json = transaction.to_dict()
+        if not client.network_id:
+            await _get_network_id_and_build_version(client)
+        if "network_id" not in transaction_json and _tx_needs_networkID(client):
+            transaction_json["network_id"] = client.network_id
+        if "sequence" not in transaction_json:
+            sequence = await get_next_valid_seq_number(transaction_json["account"], client)
+            transaction_json["sequence"] = sequence
+        if "fee" not in transaction_json:
+            fee = int(await _calculate_fee_per_transaction_type(transaction, client, signers_count))
+            fee = fee * CONSTANTS.FEE_MULTIPLIER
+            transaction_json["fee"] = str(fee)
+        if "last_ledger_sequence" not in transaction_json:
+            ledger_sequence = await get_latest_validated_ledger_sequence(client)
+            transaction_json["last_ledger_sequence"] = ledger_sequence + _LEDGER_OFFSET
+        return Transaction.from_dict(transaction_json)
+    except Exception as e:
+        if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:
+            return await autofill(transaction, client, signers_count, try_count + 1)
+        else:
+            raise Exception(f"Autofill failed: {e}")
 
 
 async def get_latest_validated_ledger_sequence(client: Client) -> int:

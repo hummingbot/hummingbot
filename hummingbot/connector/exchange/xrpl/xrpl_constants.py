@@ -49,6 +49,8 @@ SIDE_SELL = 1
 
 # Orderbook settings
 ORDER_BOOK_DEPTH = 150
+FETCH_ORDER_BOOK_MAX_RETRY = 3
+FETCH_ORDER_BOOK_RETRY_INTERVAL = 1
 
 # Ledger offset for getting order status:
 LEDGER_OFFSET = _LEDGER_OFFSET * 2
@@ -78,6 +80,12 @@ CANCEL_RETRY_INTERVAL = 3
 # Verify transaction retry parameters
 VERIFY_TRANSACTION_MAX_RETRY = 3
 VERIFY_TRANSACTION_RETRY_INTERVAL = 2
+
+# Autofill transaction retry parameters
+AUTOFILL_TRANSACTION_MAX_RETRY = 5
+
+# Request retry interval
+REQUEST_RETRY_INTERVAL = 1
 
 # Markets list
 MARKETS = {
