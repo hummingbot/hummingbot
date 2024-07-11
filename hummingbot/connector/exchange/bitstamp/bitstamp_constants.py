@@ -50,6 +50,7 @@ USER_ORDER_CREATED = "order_created"
 USER_ORDER_CHANGED = "order_changed"
 USER_ORDER_DELETED = "order_deleted"
 USER_TRADE = "trade"
+USER_SELF_TRADE = "self_trade"
 
 # WS Public channels
 WS_PUBLIC_DIFF_ORDER_BOOK = "diff_order_book_{}"
@@ -58,6 +59,7 @@ WS_PUBLIC_LIVE_TRADES = "live_trades_{}"
 # WS Private channels
 WS_PRIVATE_MY_ORDERS = "private-my_orders_{}-{}"
 WS_PRIVATE_MY_TRADES = "private-my_trades_{}-{}"
+WS_PRIVATE_MY_SELF_TRADES = "private-live_trades_{}-{}"
 
 # WS Other
 WS_HEARTBEAT_TIME_INTERVAL = 30.0

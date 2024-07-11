@@ -299,27 +299,35 @@ class BitstampExchange(ExchangePyBase):
         stream data source. It keeps reading events from the queue until the task is interrupted.
         The events received are balance updates, order updates and trade events.
         """
+        trade_events = {
+            CONSTANTS.USER_TRADE,
+            CONSTANTS.USER_SELF_TRADE,
+        }
         async for event_message in self._iter_user_event_queue():
             try:
-                self._process_user_stream_event(event_message)
+                event = event_message.get("event")
+
+                if event in trade_events:
+                    self._process_user_stream_trade_event(event, event_message)
+                else:
+                    self._process_user_stream_order_event(event, event_message)
+
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
-    def _process_user_stream_event(self, event_message: Dict[str, Any]):
+    def _process_user_stream_trade_event(self, event: str, event_message: Dict[str, Any]):
         try:
             event_data = event_message.get("data", {})
-            client_order_id = str(event_data.get("client_order_id"))
-            order: InFlightOrder = self._order_tracker.all_fillable_orders.get(client_order_id)
-            if order is None:
-                self.logger().debug(f"Received event for unknown order ID: {event_message}")
-                return
 
-            event = event_message.get("event")
             if event == CONSTANTS.USER_TRADE:
-                self.logger().debug(f"Received an trade event: {event_message}")
+                client_order_id = str(event_data.get("client_order_id"))
+                order: InFlightOrder = self._order_tracker.all_fillable_orders.get(client_order_id)
+                if order is None:
+                    self.logger().debug(f"Received event for unknown order ID: {event_message}")
+                    return
 
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
@@ -342,39 +350,93 @@ class BitstampExchange(ExchangePyBase):
                 )
                 self._order_tracker.process_trade_update(trade_update)
             else:
-                self.logger().debug(f"Received an order event: {event_message}")
+                # These trades don't incur any fees, but they do offset each other.
+                # We register them as regular fills so that the executed amount is updated correctly.
 
-                # Determine the new state of the order
-                new_state = OrderState.OPEN
-                if event == CONSTANTS.USER_ORDER_CHANGED and Decimal(event_data["amount_traded"]) > 0:
-                    new_state = OrderState.PARTIALLY_FILLED
-                elif event == CONSTANTS.USER_ORDER_DELETED:
-                    new_state = OrderState.FILLED if event_data["amount"] == 0 else OrderState.CANCELED
+                buy_order_id = str(event_data.get("buy_order_id"))
+                sell_order_id = str(event_data.get("sell_order_id"))
 
-                order_update = OrderUpdate(
-                    client_order_id=order.client_order_id,
-                    exchange_order_id=order.exchange_order_id,
-                    trading_pair=order.trading_pair,
-                    update_timestamp=float(event_data["datetime"]),
-                    new_state=new_state,
-                )
-                self._order_tracker.process_order_update(order_update)
+                amount = Decimal(event_data["amount"])
+                price = Decimal(event_data["price"])
+
+                buy_order: InFlightOrder = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(buy_order_id)
+                if buy_order:
+                    buy_trade_update = TradeUpdate(
+                        trade_id=f"{buy_order_id}-{sell_order_id}",
+                        client_order_id=buy_order.client_order_id,
+                        exchange_order_id=buy_order_id,
+                        trading_pair=buy_order.trading_pair,
+                        fee=TradeFeeBase.new_spot_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            trade_type=buy_order.trade_type,
+                            flat_fees=TokenAmount(amount=Decimal(0), token=buy_order.quote_asset)),
+                        fill_base_amount=amount,
+                        fill_quote_amount=price * amount,
+                        fill_price=price,
+                        fill_timestamp=float(event_data["timestamp"])
+                    )
+                    self._order_tracker.process_trade_update(buy_trade_update)
+
+                sell_order: InFlightOrder = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(sell_order_id)
+                if sell_order:
+                    sell_trade_update = TradeUpdate(
+                        trade_id=f"{buy_order_id}-{sell_order_id}",
+                        client_order_id=sell_order.client_order_id,
+                        exchange_order_id=sell_order_id,
+                        trading_pair=sell_order.trading_pair,
+                        fee=TradeFeeBase.new_spot_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            trade_type=sell_order.trade_type,
+                            flat_fees=TokenAmount(amount=Decimal(0), token=sell_order.quote_asset)),
+                        fill_base_amount=amount,
+                        fill_quote_amount=price * amount,
+                        fill_price=price,
+                        fill_timestamp=float(event_data["timestamp"]),
+                    )
+                    self._order_tracker.process_trade_update(sell_trade_update)
+
         except Exception as e:
-            raise ValueError(f"Error parsing the user stream event {event_message}: {e}")
+            raise ValueError(f"Error parsing the user stream trade event {event_message}: {e}")
+
+    def _process_user_stream_order_event(self, event: str, event_message: Dict[str, Any]):
+        try:
+            event_data = event_message.get("data", {})
+            client_order_id = str(event_data.get("client_order_id"))
+            order: InFlightOrder = self._order_tracker.all_fillable_orders.get(client_order_id)
+            if order is None:
+                self.logger().debug(f"Received event for unknown order ID: {event_message}")
+                return
+
+            # Determine the new state of the order
+            new_state = OrderState.OPEN
+            if event == CONSTANTS.USER_ORDER_CHANGED and Decimal(event_data["amount_traded"]) > 0:
+                new_state = OrderState.PARTIALLY_FILLED
+            elif event == CONSTANTS.USER_ORDER_DELETED:
+                new_state = OrderState.FILLED if event_data["amount"] == 0 else OrderState.CANCELED
+
+            order_update = OrderUpdate(
+                client_order_id=order.client_order_id,
+                exchange_order_id=order.exchange_order_id,
+                trading_pair=order.trading_pair,
+                update_timestamp=float(event_data["datetime"]),
+                new_state=new_state,
+            )
+            self._order_tracker.process_order_update(order_update)
+        except Exception as e:
+            raise ValueError(f"Error parsing the user stream order event {event_message}: {e}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        trade_updates = []
-
-        exchange_order_id = await order.get_exchange_order_id()
         all_fills_response = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_URL,
             data={
-                "id": exchange_order_id,
+                "client_order_id": order.client_order_id,
                 "omit_transactions": "false",
             },
             is_auth_required=True
         )
 
+        exchange_order_id = await order.get_exchange_order_id()
+        trade_updates = []
         for trade in all_fills_response.get("transactions", []):
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
