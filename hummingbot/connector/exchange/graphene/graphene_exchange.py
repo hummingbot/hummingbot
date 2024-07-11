@@ -176,8 +176,8 @@ class GrapheneExchange(ExchangeBase):
                 self.signal_metanode(False)
 
         self.constants = GrapheneConstants(domain)
-
         self.constants.process_pairs()
+
         self.metanode = GrapheneTrustlessClient(self.constants)
         self._metanode_server = GrapheneMetanode(self.constants)
 
@@ -438,7 +438,10 @@ class GrapheneExchange(ExchangeBase):
         try:
             # if the metanode is less than 2 minutes stale, we're connected
             # in practice, once live it should always pass this test
-            blocktime = self.metanode.timing["blocktime"]
+            try:
+                blocktime = self.metanode.timing["blocktime"]
+            except IndexError:  # the metanode has not created a database yet
+                blocktime = 0
             latency = time.time() - blocktime
             if 0 < latency < 60:
                 msg = f"Metanode Connected, latency {latency:.2f}"
@@ -451,6 +454,11 @@ class GrapheneExchange(ExchangeBase):
                     "ALERT: Check your system monitor to ensure hardware compliance, "
                     "Metanode is cpu intensive, requires ram, and rapid read/write"
                 )
+                self.logger().info(
+                    "This may hang for a moment while starting "
+                    "the Metanode, please be patient."
+                )
+                await asyncio.sleep(0.1)  # display message to hummingbot ui
                 try:
                     self.signal_metanode(False)
                     self._metanode_process.join()
@@ -532,7 +540,12 @@ class GrapheneExchange(ExchangeBase):
         """
         # self.dev_log("get_order_book")
         if trading_pair not in self._order_book_tracker.order_books:
-            raise ValueError(f"No order book exists for '{trading_pair}'.")
+            inverted_pair = "-".join(trading_pair.split("-")[::-1])
+            if inverted_pair in self._order_book_tracker.order_books:
+                trading_pair = inverted_pair
+                return self._order_book_tracker.order_books[trading_pair]
+            else:
+                raise ValueError(f"No order book exists for '{trading_pair}'.")
         return self._order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(
@@ -972,7 +985,7 @@ class GrapheneExchange(ExchangeBase):
                 client_order_id=order_id,
                 exchange_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int(time.time() * 1e3),
                 new_state=OrderState.OPEN,
             )
             self._order_tracker.process_order_update(order_update)
@@ -1009,7 +1022,7 @@ class GrapheneExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int(time.time() * 1e3),
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -1093,7 +1106,7 @@ class GrapheneExchange(ExchangeBase):
                     client_order_id=order_id,
                     exchange_order_id=exchange_order_id,
                     trading_pair=trading_pair,
-                    update_timestamp=int(self.current_timestamp * 1e3),
+                    update_timestamp=int(time.time() * 1e3),
                     new_state=OrderState.OPEN,
                 )
                 self._order_tracker.process_order_update(order_update)
@@ -1116,7 +1129,7 @@ class GrapheneExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int(time.time() * 1e3),
                 new_state=OrderState.FAILED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -1136,7 +1149,7 @@ class GrapheneExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int(time.time() * 1e3),
                 new_state=OrderState.CANCELED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -1153,7 +1166,7 @@ class GrapheneExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int(time.time() * 1e3),
                 new_state=OrderState.PENDING_CANCEL,
             )
             self._order_tracker.process_order_update(order_update)
@@ -1189,7 +1202,7 @@ class GrapheneExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int(time.time() * 1e3),
                 new_state=OrderState.CANCELED,
             )
             self._order_tracker.process_order_update(order_update)
@@ -1199,7 +1212,7 @@ class GrapheneExchange(ExchangeBase):
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
                 trading_pair=trading_pair,
-                update_timestamp=int(self.current_timestamp * 1e3),
+                update_timestamp=int(time.time() * 1e3),
                 new_state=OrderState.OPEN,
             )
             self.dev_log("ORDER STATUS RETURNED TO OPEN")

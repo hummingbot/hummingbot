@@ -122,7 +122,7 @@ class ConnectCommand:
                 (
                     network_timeout
                     if connector_name not in
-                    ["bitshares", "peerplays", "bitshares testnet", "peerplays testnet"]
+                    ["bitshares", "peerplays", "bitshares_testnet", "peerplays_testnet"]
                     else graphene_timeout
                 ),
             )

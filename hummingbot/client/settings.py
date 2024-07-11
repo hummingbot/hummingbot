@@ -300,9 +300,9 @@ class ConnectorSetting(NamedTuple):
 
     def base_name(self) -> str:
         if self.is_sub_domain:
-            return self.parent_name if self.parent_name not in ["peerplays", "bitshares", "peerplays testnet", "bitshares testnet"] else "graphene"
+            return self.parent_name if self.parent_name not in ["peerplays", "bitshares", "peerplays_testnet", "bitshares_testnet"] else "graphene"
         else:
-            return self.name if self.name not in ["peerplays", "bitshares", "peerplays testnet", "bitshares testnet"] else "graphene"
+            return self.name if self.name not in ["peerplays", "bitshares", "peerplays_testnet", "bitshares_testnet"] else "graphene"
 
     def non_trading_connector_instance_with_default_configuration(
             self,

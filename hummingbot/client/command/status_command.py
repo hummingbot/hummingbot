@@ -182,7 +182,7 @@ class StatusCommand:
                 (
                     network_timeout if not any(
                         [
-                            i in ["bitshares", "peerplays", "bitshares testnet", "peerplays testnet"]
+                            i in ["bitshares", "peerplays", "bitshares_testnet", "peerplays_testnet"]
                             for i in required_exchanges
                         ]
                     )

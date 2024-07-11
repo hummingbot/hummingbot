@@ -76,7 +76,7 @@ class PeerplaysTestnetConfigMap(BaseConnectorConfigMap):
         )
     )
     peerplays_testnet_pairs: str = Field(
-        default="TEST-ABC,TEST-XYZ",
+        default="TEST-ABC,TEST-DEFG",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Peerplays Testnet trading pairs in this format",
             is_connect_key=True,

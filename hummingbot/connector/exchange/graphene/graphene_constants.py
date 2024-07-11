@@ -33,11 +33,11 @@ class GrapheneConstants(MetanodeGrapheneConstants):
         domain: str = "",
     ):
         # ~ print("GrapheneConstants", domain)
+        domain = domain.lower().replace("_", " ")
         super().__init__(
-            chain_name=domain.lower().replace("_", " ") if domain else None
+            chain_name=domain if domain else None
         )
         self.hummingbot = HummingbotConfig
-        domain = domain.replace("_", " ")
         if domain != "":
             # initialize config for this blockchain domain; eg. peerplays or bitshares
             self.chains["peerplays"]["config"] = PeerplaysConfig
@@ -57,7 +57,7 @@ class GrapheneConstants(MetanodeGrapheneConstants):
             )
             self.DATABASE_FOLDER = str(os.path.dirname(os.path.abspath(__file__))) + "/database/"
             try:
-                with open(self.DATABASE_FOLDER + domain + "_pairs.txt", "r") as handle:
+                with open(self.DATABASE_FOLDER + self.chain.NAME.replace(" ", "_") + "_pairs.txt", "r") as handle:
                     data = json.loads(handle.read())
                     handle.close()
                 self.chain.PAIRS = data[0]
@@ -75,7 +75,7 @@ class GrapheneConstants(MetanodeGrapheneConstants):
             i for i in self.chain.PAIRS if i not in invert_pairs(self.chain.PAIRS)
         ]
         self.chain.INVERTED_PAIRS = invert_pairs(self.chain.PAIRS)
-        self.chain.ASSETS = assets_from_pairs(self.chain.PAIRS) + [self.chain.CORE]
+        self.chain.ASSETS = list(set(assets_from_pairs(self.chain.PAIRS) + [self.chain.CORE]))
         self.chain.CORE_PAIRS = [
             i
             for i in [
@@ -139,9 +139,9 @@ class PeerplaysTestnetConfig:
     """
 
     ACCOUNT = "litepresence1"
-    NODES = ["wss://ymir.peerplays.download/api"]
-    PAIRS = ["TEST-ABC", "TEST-XYZ"]
-    BASES = ["ABC", "XYZ"]
+    NODES = ["wss://testnet.peerplays.download/api"]
+    PAIRS = ["TEST-HIVE", "TEST-HBD"]
+    BASES = ["HIVE", "HBD", "ABC", "DEFG"]
     CORE = "TEST"
     WHITELIST = []
 
