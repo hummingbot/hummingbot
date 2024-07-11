@@ -1,9 +1,23 @@
+import asyncio
 import binascii
+from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from random import randrange
+from typing import Any, Dict, Final, List, Optional, cast
 
 from pydantic import BaseModel, Field, SecretStr, validator
-from xrpl.models import TransactionMetadata
+from xrpl.asyncio.account import get_next_valid_seq_number
+from xrpl.asyncio.clients import Client, XRPLRequestFailureException
+from xrpl.asyncio.transaction import XRPLReliableSubmissionException
+from xrpl.asyncio.transaction.main import (
+    _LEDGER_OFFSET,
+    _calculate_fee_per_transaction_type,
+    _get_network_id_and_build_version,
+    _tx_needs_networkID,
+)
+from xrpl.models import Request, Response, Transaction, TransactionMetadata, Tx
+from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
+from xrpl.models.utils import require_kwargs_on_init
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
 from xrpl.utils.txn_parser.utils.order_book_parser import (
     _get_change_amount,
@@ -17,6 +31,7 @@ from yaml.representer import SafeRepresenter
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import validate_with_regex
+from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -27,6 +42,7 @@ DEFAULT_FEES = TradeFeeSchema(
     taker_percent_fee_decimal=Decimal("0"),
     buy_percent_fee_deducted_from_returns=True,
 )
+_REQ_ID_MAX: Final[int] = 1_000_000
 
 
 def get_order_book_changes(metadata: TransactionMetadata) -> List[AccountOfferChanges]:
@@ -131,6 +147,130 @@ def represent_xrpl_market(dumper, data):
 
 
 SafeRepresenter.add_representer(XRPLMarket, represent_xrpl_market)
+
+
+@require_kwargs_on_init
+@dataclass(frozen=True)
+class Ledger(Request, LookupByLedgerRequest):
+    """
+    Retrieve information about the public ledger.
+    `See ledger <https://xrpl.org/ledger.html>`_
+    """
+
+    method: RequestMethod = field(default=RequestMethod.LEDGER, init=False)
+    transactions: bool = False
+    expand: bool = False
+    owner_funds: bool = False
+    binary: bool = False
+    queue: bool = False
+
+
+async def autofill(transaction: Transaction, client: Client, signers_count: Optional[int] = None) -> Transaction:
+    """
+    Autofills fields in a transaction. This will set `sequence`, `fee`, and
+    `last_ledger_sequence` according to the current state of the server this Client is
+    connected to. It also converts all X-Addresses to classic addresses.
+
+    Args:
+        transaction: the transaction to be signed.
+        client: a network client.
+        signers_count: the expected number of signers for this transaction.
+            Only used for multisigned transactions.
+
+    Returns:
+        The autofilled transaction.
+    """
+    transaction_json = transaction.to_dict()
+    if not client.network_id:
+        await _get_network_id_and_build_version(client)
+    if "network_id" not in transaction_json and _tx_needs_networkID(client):
+        transaction_json["network_id"] = client.network_id
+    if "sequence" not in transaction_json:
+        sequence = await get_next_valid_seq_number(transaction_json["account"], client)
+        transaction_json["sequence"] = sequence
+    if "fee" not in transaction_json:
+        fee = int(await _calculate_fee_per_transaction_type(transaction, client, signers_count))
+        fee = fee * CONSTANTS.FEE_MULTIPLIER
+        transaction_json["fee"] = str(fee)
+    if "last_ledger_sequence" not in transaction_json:
+        ledger_sequence = await get_latest_validated_ledger_sequence(client)
+        transaction_json["last_ledger_sequence"] = ledger_sequence + _LEDGER_OFFSET
+    return Transaction.from_dict(transaction_json)
+
+
+async def get_latest_validated_ledger_sequence(client: Client) -> int:
+    """
+    Returns the sequence number of the latest validated ledger.
+
+    Args:
+        client: The network client to use to send the request.
+
+    Returns:
+        The sequence number of the latest validated ledger.
+
+    Raises:
+        XRPLRequestFailureException: if the rippled API call fails.
+    """
+
+    request = Ledger(ledger_index="validated")
+    request_dict = request.to_dict()
+    request_dict["id"] = f"{request.method}_{randrange(_REQ_ID_MAX)}"
+    request_with_id = Ledger.from_dict(request_dict)
+
+    response = await client._request_impl(request_with_id)
+    if response.is_successful():
+        return cast(int, response.result["ledger_index"])
+
+    raise XRPLRequestFailureException(response.result)
+
+
+_LEDGER_CLOSE_TIME: Final[int] = 1
+
+
+async def _wait_for_final_transaction_outcome(
+    transaction_hash: str, client: Client, prelim_result: str, last_ledger_sequence: int
+) -> Response:
+    """
+    The core logic of reliable submission.  Polls the ledger until the result of the
+    transaction can be considered final, meaning it has either been included in a
+    validated ledger, or the transaction's LastLedgerSequence has been surpassed by the
+    latest ledger sequence (meaning it will never be included in a validated ledger).
+    """
+    await asyncio.sleep(_LEDGER_CLOSE_TIME)
+
+    current_ledger_sequence = await get_latest_validated_ledger_sequence(client)
+
+    if current_ledger_sequence >= last_ledger_sequence:
+        raise XRPLReliableSubmissionException(
+            f"The latest validated ledger sequence {current_ledger_sequence} is "
+            f"greater than LastLedgerSequence {last_ledger_sequence} in "
+            f"the transaction. Prelim result: {prelim_result}"
+        )
+
+    # query transaction by hash
+    transaction_response = await client._request_impl(Tx(transaction=transaction_hash))
+    if not transaction_response.is_successful():
+        if transaction_response.result["error"] == "txnNotFound":
+            """
+            For the case if a submitted transaction is still
+            in queue and not processed on the ledger yet.
+            """
+            return await _wait_for_final_transaction_outcome(
+                transaction_hash, client, prelim_result, last_ledger_sequence
+            )
+        else:
+            raise XRPLRequestFailureException(transaction_response.result)
+
+    result = transaction_response.result
+    if "validated" in result and result["validated"]:
+        # result is in a validated ledger, outcome is final
+        return_code = result["meta"]["TransactionResult"]
+        if return_code != "tesSUCCESS":
+            raise XRPLReliableSubmissionException(f"Transaction failed: {return_code}")
+        return transaction_response
+
+    # outcome is not yet final
+    return await _wait_for_final_transaction_outcome(transaction_hash, client, prelim_result, last_ledger_sequence)
 
 
 class XRPLConfigMap(BaseConnectorConfigMap):
