@@ -8,8 +8,7 @@ from bidict import bidict
 
 # XRPL Imports
 from xrpl.asyncio.clients import AsyncWebsocketClient, Client
-from xrpl.asyncio.transaction import autofill, sign, submit
-from xrpl.asyncio.transaction.reliable_submission import _wait_for_final_transaction_outcome
+from xrpl.asyncio.transaction import sign, submit
 from xrpl.models import (
     XRP,
     AccountInfo,
@@ -38,7 +37,13 @@ from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS, xrpl
 from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import XRPLAPIOrderBookDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
-from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket, convert_string_to_hex, get_token_from_changes
+from hummingbot.connector.exchange.xrpl.xrpl_utils import (
+    XRPLMarket,
+    _wait_for_final_transaction_outcome,
+    autofill,
+    convert_string_to_hex,
+    get_token_from_changes,
+)
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
@@ -396,7 +401,7 @@ class XrplExchange(ExchangePyBase):
 
         return exchange_order_id
 
-    async def _verify_transaction_result(self, submit_data: dict[str, Any]) -> tuple[bool, Optional[Response]]:
+    async def _verify_transaction_result(self, submit_data: dict[str, Any], try_count: int = 0) -> tuple[bool, Optional[Response]]:
         transaction: Transaction = submit_data.get("transaction")
         prelim_result = submit_data.get("prelim_result")
 
@@ -414,6 +419,11 @@ class XrplExchange(ExchangePyBase):
             return True, resp
         except Exception as e:
             self.logger().error(f"Submitted transaction failed: {e}")
+            # If e is TimeoutError, call this method again and return it to the caller
+            if e.__class__ == TimeoutError:
+                if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:
+                    await self._sleep(CONSTANTS.VERIFY_TRANSACTION_RETRY_INTERVAL)
+                    return await self._verify_transaction_result(submit_data, try_count + 1)
             return False, None
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):

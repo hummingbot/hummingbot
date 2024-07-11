@@ -65,12 +65,19 @@ RATE_LIMITS = [
 PLACE_ORDER_MAX_RETRY = 3
 PLACE_ORDER_RETRY_INTERVAL = 3
 
+# Transaction fee multiplier
+FEE_MULTIPLIER = 2
+
 # Cancel All Timeout
 CANCEL_ALL_TIMEOUT = 60.0
 
 # Cancel retry parameters
 CANCEL_MAX_RETRY = 3
 CANCEL_RETRY_INTERVAL = 3
+
+# Verify transaction retry parameters
+VERIFY_TRANSACTION_MAX_RETRY = 3
+VERIFY_TRANSACTION_RETRY_INTERVAL = 2
 
 # Markets list
 MARKETS = {
