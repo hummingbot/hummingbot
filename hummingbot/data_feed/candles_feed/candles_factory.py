@@ -1,16 +1,25 @@
 from typing import Dict, Type
 
-from pydantic import BaseModel
-
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
+from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_candles import BybitPerpetualCandles
+from hummingbot.data_feed.candles_feed.bybit_spot_candles.bybit_spot_candles import BybitSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
+from hummingbot.data_feed.candles_feed.hyperliquid_perpetual_candles.hyperliquid_perpetual_candles import (
+    HyperliquidPerpetualCandles,
+)
+from hummingbot.data_feed.candles_feed.hyperliquid_spot_candles.hyperliquid_spot_candles import HyperliquidSpotCandles
 from hummingbot.data_feed.candles_feed.kraken_spot_candles.kraken_spot_candles import KrakenSpotCandles
+from hummingbot.data_feed.candles_feed.kucoin_perpetual_candles.kucoin_perpetual_candles import KucoinPerpetualCandles
 from hummingbot.data_feed.candles_feed.kucoin_spot_candles.kucoin_spot_candles import KucoinSpotCandles
+from hummingbot.data_feed.candles_feed.mexc_perpetual_candles.mexc_perpetual_candles import MexcPerpetualCandles
+from hummingbot.data_feed.candles_feed.mexc_spot_candles.mexc_spot_candles import MexcSpotCandles
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
+from hummingbot.data_feed.candles_feed.okx_spot_candles.okx_spot_candles import OKXSpotCandles
 
 
 class UnsupportedConnectorException(Exception):
@@ -20,21 +29,6 @@ class UnsupportedConnectorException(Exception):
     def __init__(self, connector: str):
         message = f"The connector {connector} is not available. Please select another one."
         super().__init__(message)
-
-
-class CandlesConfig(BaseModel):
-    """
-    The CandlesConfig class is a data class that stores the configuration of a Candle object.
-    It has the following attributes:
-    - connector: str
-    - trading_pair: str
-    - interval: str
-    - max_records: int
-    """
-    connector: str
-    trading_pair: str
-    interval: str = "1m"
-    max_records: int = 500
 
 
 class CandlesFactory:
@@ -48,9 +42,17 @@ class CandlesFactory:
         "gate_io": GateioSpotCandles,
         "gate_io_perpetual": GateioPerpetualCandles,
         "kucoin": KucoinSpotCandles,
+        "kucoin_perpetual": KucoinPerpetualCandles,
         "ascend_ex": AscendExSpotCandles,
         "okx_perpetual": OKXPerpetualCandles,
-        "kraken": KrakenSpotCandles
+        "okx": OKXSpotCandles,
+        "kraken": KrakenSpotCandles,
+        "mexc": MexcSpotCandles,
+        "mexc_perpetual": MexcPerpetualCandles,
+        "bybit": BybitSpotCandles,
+        "bybit_perpetual": BybitPerpetualCandles,
+        "hyperliquid": HyperliquidSpotCandles,
+        "hyperliquid_perpetual": HyperliquidPerpetualCandles
     }
 
     @classmethod

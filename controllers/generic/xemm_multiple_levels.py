@@ -8,11 +8,11 @@ from pydantic import Field, validator
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import PriceType, TradeType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.executors.data_types import ConnectorPair
-from hummingbot.smart_components.executors.xemm_executor.data_types import XEMMExecutorConfig
-from hummingbot.smart_components.models.executor_actions import CreateExecutorAction, ExecutorAction
+from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
+from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
 
 
 class XEMMMultipleLevelsConfig(ControllerConfigBase):
@@ -66,6 +66,12 @@ class XEMMMultipleLevelsConfig(ControllerConfigBase):
             prompt=lambda e: "Enter the maximum profitability: ",
             prompt_on_new=True
         ))
+    max_executors_imbalance: int = Field(
+        default=1,
+        client_data=ClientFieldData(
+            prompt=lambda e: "Enter the maximum executors imbalance: ",
+            prompt_on_new=True
+        ))
 
     @validator("buy_levels_targets_amount", "sell_levels_targets_amount", pre=True, always=True)
     def validate_levels_targets_amount(cls, v, values):
@@ -105,12 +111,22 @@ class XEMMMultipleLevels(ControllerBase):
             executors=self.executors_info,
             filter_func=lambda e: not e.is_done and e.config.maker_side == TradeType.SELL
         )
+        stopped_buy_executors = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.BUY and e.filled_amount_quote != 0
+        )
+        stopped_sell_executors = self.filter_executors(
+            executors=self.executors_info,
+            filter_func=lambda e: e.is_done and e.config.maker_side == TradeType.SELL and e.filled_amount_quote != 0
+        )
+        imbalance = len(stopped_buy_executors) - len(stopped_sell_executors)
         for target_profitability, amount in self.buy_levels_targets_amount:
             active_buy_executors_target = [e.config.target_profitability == target_profitability for e in active_buy_executors]
-            if len(active_buy_executors_target) == 0:
+
+            if len(active_buy_executors_target) == 0 and imbalance < self.config.max_executors_imbalance:
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
-                    timestamp=time.time(),
+                    timestamp=self.market_data_provider.time(),
                     buying_market=ConnectorPair(connector_name=self.config.maker_connector,
                                                 trading_pair=self.config.maker_trading_pair),
                     selling_market=ConnectorPair(connector_name=self.config.taker_connector,
@@ -124,7 +140,7 @@ class XEMMMultipleLevels(ControllerBase):
                 executor_actions.append(CreateExecutorAction(executor_config=config, controller_id=self.config.id))
         for target_profitability, amount in self.sell_levels_targets_amount:
             active_sell_executors_target = [e.config.target_profitability == target_profitability for e in active_sell_executors]
-            if len(active_sell_executors_target) == 0:
+            if len(active_sell_executors_target) == 0 and imbalance > -self.config.max_executors_imbalance:
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
                     timestamp=time.time(),
