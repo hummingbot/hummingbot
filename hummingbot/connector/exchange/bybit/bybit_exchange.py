@@ -513,7 +513,8 @@ class BybitExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=CONSTANTS.GET_ORDERS_PATH_URL
         )
-
+        if not len(updated_order_data["result"]["list"]):
+            raise ValueError(f"No order found for {client_order_id} or {exchange_order_id}")
         order_data = updated_order_data["result"]["list"][0]
         order_status = order_data["orderStatus"]
 
