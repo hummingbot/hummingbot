@@ -1,5 +1,6 @@
 import asyncio
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from unittest.mock import patch
 
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
@@ -60,7 +61,7 @@ class NetworkBaseTest(IsolatedAsyncioWrapperTestCase):
         nb.stop()
         self.assertEqual(nb.started, False)
 
-    def test_update_network_status(self):
+    async def test_update_network_status(self):
         """
         Use SampleNetwork to test that the network status gets updated
         """
@@ -73,11 +74,41 @@ class NetworkBaseTest(IsolatedAsyncioWrapperTestCase):
         sample.check_network_timeout = 0.1
 
         sample.start()
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.2))
 
+        await asyncio.sleep(0.2)
         self.assertEqual(sample.network_status, NetworkStatus.CONNECTED)
 
         sample.stop()
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.2))
+        await asyncio.sleep(0.2)
 
         self.assertEqual(sample.started, False)
+
+    @patch.object(SampleNetwork, "check_network")
+    @patch.object(NetworkBase, "_sleep")
+    async def test_check_network_loop_raises_timeout(self, mock_sleep, mock_check_network):
+        """
+        Test that the check_network_loop raises a timeout error
+        """
+        mock_check_network.side_effect = [asyncio.TimeoutError]
+        mock_sleep.side_effect = [asyncio.CancelledError]
+        nb = SampleNetwork()
+        nb._check_network_timeout = 0.1
+        with self.assertRaises(asyncio.CancelledError):
+            await nb._check_network_loop()
+
+        self.assertEqual(nb.network_status, NetworkStatus.NOT_CONNECTED)
+
+    @patch.object(SampleNetwork, "check_network")
+    @patch.object(NetworkBase, "_sleep")
+    async def test_check_network_loop_raises_exception(self, mock_sleep, mock_check_network):
+        """
+        Test that the check_network_loop raises an exception
+        """
+        mock_check_network.side_effect = [Exception]
+        mock_sleep.side_effect = [asyncio.CancelledError]
+        nb = SampleNetwork()
+        nb._check_network_timeout = 0.1
+        with self.assertRaises(asyncio.CancelledError):
+            await nb._check_network_loop()
+
+        self.assertEqual(nb.network_status, NetworkStatus.NOT_CONNECTED)
