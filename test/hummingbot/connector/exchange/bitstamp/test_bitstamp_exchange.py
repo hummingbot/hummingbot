@@ -153,8 +153,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def trading_rules_request_erroneous_mock_response(self):
         return [
             {
-                "name": f"{self.base_asset}/{self.quote_asset}",
                 "url_symbol": f"{self.base_asset.lower()}{self.quote_asset.lower()}",
+                "trading": "Enabled",
             }
         ]
 
