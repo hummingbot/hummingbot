@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.bitstamp import bitstamp_constants as CONSTANTS, bitstamp_web_utils as web_utils
+from hummingbot.connector.exchange.bitstamp import (
+    bitstamp_constants as CONSTANTS,
+    bitstamp_utils,
+    bitstamp_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.bitstamp.bitstamp_api_order_book_data_source import BitstampAPIOrderBookDataSource
 from hummingbot.connector.exchange.bitstamp.bitstamp_api_user_stream_data_source import BitstampAPIUserStreamDataSource
 from hummingbot.connector.exchange.bitstamp.bitstamp_auth import BitstampAuth
@@ -255,10 +259,8 @@ class BitstampExchange(ExchangePyBase):
 
     async def _format_trading_rules(self, exchange_info: List[Dict[str, Any]]) -> List[TradingRule]:
         retval = []
-        for info in exchange_info:
+        for info in filter(bitstamp_utils.is_exchange_information_valid, exchange_info):
             try:
-                if info["trading"] != "Enabled":
-                    continue
                 retval.append(
                     TradingRule(
                         trading_pair=self.convert_from_exchange_trading_pair(info["name"]),
@@ -508,11 +510,8 @@ class BitstampExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()
-        for info in exchange_info:
+        for info in filter(bitstamp_utils.is_exchange_information_valid, exchange_info):
             try:
-                if (info["trading"] != "Enabled"):
-                    continue
-
                 mapping[info["url_symbol"]] = self.convert_from_exchange_trading_pair(info["name"])
             except Exception:
                 self.logger().error(f"Error parsing trading pair symbol data {info}. Skipping.")
