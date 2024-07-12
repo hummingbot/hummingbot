@@ -446,9 +446,13 @@ class XrplExchange(ExchangePyBase):
                 await self._make_network_check_request()
 
                 sequence, _ = exchange_order_id.split("-")
+                memo = Memo(
+                    memo_data=convert_string_to_hex(order_id, padding=False),
+                )
                 request = OfferCancel(
                     account=self._auth.get_account(),
                     offer_sequence=int(sequence),
+                    memos=[memo]
                 )
 
                 filled_tx = await self.tx_autofill(request, self._xrpl_place_order_client)
