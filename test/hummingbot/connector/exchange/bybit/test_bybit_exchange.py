@@ -1470,8 +1470,8 @@ class TestBybitExchange(unittest.TestCase):
                     "symbol": self.ex_trading_pair,
                     "execFee": "0.005061",
                     "execId": "7e2ae69c-4edf-5800-a352-893d52b446aa",
-                    "execPrice": order.price,
-                    "execQty": order.amount,
+                    "execPrice": order.price + Decimal("0.5"),
+                    "execQty": order.amount + Decimal("0.5"),
                     "execType": "Trade",
                     "execValue": "8.435",
                     "isMaker": False,
@@ -1498,8 +1498,61 @@ class TestBybitExchange(unittest.TestCase):
             ]
         }
 
+        order_status_event = {
+            "id": "5923240c6880ab-c59f-420b-9adb-3639adc9dd90",
+            "topic": "order",
+            "channel": "order",
+            "creationTime": 1672364262474,
+            "data": [
+                {
+                    "symbol": self.ex_trading_pair,
+                    "orderId": order.exchange_order_id,
+                    "side": order.trade_type.name,
+                    "orderType": "Limit",
+                    "cancelType": "UNKNOWN",
+                    "price": order.price,
+                    "qty": order.amount,
+                    "orderIv": "",
+                    "timeInForce": "IOC",
+                    "orderStatus": "PartiallyFilled",
+                    "orderLinkId": order.client_order_id,
+                    "lastPriceOnCreated": "",
+                    "reduceOnly": False,
+                    "leavesQty": "",
+                    "leavesValue": "",
+                    "cumExecQty": "1",
+                    "cumExecValue": "75",
+                    "avgPrice": "75",
+                    "blockTradeId": "",
+                    "positionIdx": 0,
+                    "cumExecFee": "0.358635",
+                    "createdTime": "1672364262444",
+                    "updatedTime": "1672364262457",
+                    "rejectReason": "EC_NoError",
+                    "stopOrderType": "",
+                    "tpslMode": "",
+                    "triggerPrice": "",
+                    "takeProfit": "",
+                    "stopLoss": "",
+                    "tpTriggerBy": "",
+                    "slTriggerBy": "",
+                    "tpLimitPrice": "",
+                    "slLimitPrice": "",
+                    "triggerDirection": 0,
+                    "triggerBy": "",
+                    "closeOnTrigger": False,
+                    "category": "option",
+                    "placeType": "price",
+                    "smpType": "None",
+                    "smpGroup": 0,
+                    "smpOrderId": "",
+                    "feeCurrency": ""
+                }
+            ]
+        }
+
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
+        mock_queue.get.side_effect = [event_message, order_status_event, asyncio.CancelledError]
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         try:
@@ -1508,7 +1561,7 @@ class TestBybitExchange(unittest.TestCase):
             pass
 
         self.assertTrue(order.is_open)
-        # self.assertEqual(OrderState.PARTIALLY_FILLED, order.current_state)
+        self.assertEqual(OrderState.PARTIALLY_FILLED, order.current_state)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1519,6 +1572,221 @@ class TestBybitExchange(unittest.TestCase):
         self.assertEqual(Decimal(event_message["data"][0]["execPrice"]), fill_event.price)
         self.assertEqual(Decimal(event_message["data"][0]["execQty"]), fill_event.amount)
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+
+    def test_user_stream_update_for_order_partial_fill_completed(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        event_message_1 = {
+            "id": "592324803b2785-26fa-4214-9963-bdd4727f07be",
+            "channel": "trade",
+            "topic": "execution",
+            "creationTime": 1640790000,
+            "data": [
+                {
+                    "category": "spot",
+                    "symbol": self.ex_trading_pair,
+                    "execFee": "0.005061",
+                    "execId": "7e2ae69c-4edf-5800-a352-893d52b446aa",
+                    "execPrice": order.price * Decimal("0.5"),
+                    "execQty": order.amount * Decimal("0.5"),
+                    "execType": "Trade",
+                    "execValue": "8.435",
+                    "isMaker": False,
+                    "feeRate": "0.0006",
+                    "tradeIv": "",
+                    "markIv": "",
+                    "blockTradeId": "",
+                    "markPrice": "0.3391",
+                    "indexPrice": "",
+                    "underlyingPrice": "",
+                    "leavesQty": "0",
+                    "orderId": order.exchange_order_id,
+                    "orderLinkId": order.client_order_id,
+                    "orderPrice": "0.3207",
+                    "orderQty": "25",
+                    "orderType": "Limit",
+                    "stopOrderType": "UNKNOWN",
+                    "side": order.trade_type.name,
+                    "execTime": "1640790000",
+                    "isLeverage": "0",
+                    "closedSize": "",
+                    "seq": 4688002127
+                }
+            ]
+        }
+
+        event_message_2 = {
+            "id": "592324803b2785-26fa-4214-9963-bdd4727f17be",
+            "channel": "trade",
+            "topic": "execution",
+            "creationTime": 1640790000,
+            "data": [
+                {
+                    "category": "spot",
+                    "symbol": self.ex_trading_pair,
+                    "execFee": "0.005061",
+                    "execId": "7e2ae69c-4edf-5800-a352-893d52b446ab",
+                    "execPrice": order.price * Decimal("0.5"),
+                    "execQty": order.amount * Decimal("0.5"),
+                    "execType": "Trade",
+                    "execValue": "8.435",
+                    "isMaker": False,
+                    "feeRate": "0.0006",
+                    "tradeIv": "",
+                    "markIv": "",
+                    "blockTradeId": "",
+                    "markPrice": "0.3391",
+                    "indexPrice": "",
+                    "underlyingPrice": "",
+                    "leavesQty": "0",
+                    "orderId": order.exchange_order_id,
+                    "orderLinkId": order.client_order_id,
+                    "orderPrice": "0.3207",
+                    "orderQty": "25",
+                    "orderType": "Limit",
+                    "stopOrderType": "UNKNOWN",
+                    "side": order.trade_type.name,
+                    "execTime": "1640790000",
+                    "isLeverage": "0",
+                    "closedSize": "",
+                    "seq": 4688002127
+                }
+            ]
+        }
+
+        order_status_event_1 = {
+            "id": "5923240c6880ab-c59f-420b-9adb-3639adc9dd90",
+            "topic": "order",
+            "channel": "order",
+            "creationTime": 1672364262474,
+            "data": [
+                {
+                    "symbol": self.ex_trading_pair,
+                    "orderId": order.exchange_order_id,
+                    "side": order.trade_type.name,
+                    "orderType": "Limit",
+                    "cancelType": "UNKNOWN",
+                    "price": order.price,
+                    "qty": order.amount,
+                    "orderIv": "",
+                    "timeInForce": "IOC",
+                    "orderStatus": "PartiallyFilled",
+                    "orderLinkId": order.client_order_id,
+                    "lastPriceOnCreated": "",
+                    "reduceOnly": False,
+                    "leavesQty": "",
+                    "leavesValue": "",
+                    "cumExecQty": "1",
+                    "cumExecValue": "75",
+                    "avgPrice": "75",
+                    "blockTradeId": "",
+                    "positionIdx": 0,
+                    "cumExecFee": "0.358635",
+                    "createdTime": "1672364262444",
+                    "updatedTime": "1672364262457",
+                    "rejectReason": "EC_NoError",
+                    "stopOrderType": "",
+                    "tpslMode": "",
+                    "triggerPrice": "",
+                    "takeProfit": "",
+                    "stopLoss": "",
+                    "tpTriggerBy": "",
+                    "slTriggerBy": "",
+                    "tpLimitPrice": "",
+                    "slLimitPrice": "",
+                    "triggerDirection": 0,
+                    "triggerBy": "",
+                    "closeOnTrigger": False,
+                    "category": "option",
+                    "placeType": "price",
+                    "smpType": "None",
+                    "smpGroup": 0,
+                    "smpOrderId": "",
+                    "feeCurrency": ""
+                }
+            ]
+        }
+
+        order_status_event_2 = {
+            "id": "5923240c6880ab-c59f-420b-9adb-3639adc9dd90",
+            "topic": "order",
+            "channel": "order",
+            "creationTime": 1672364263474,
+            "data": [
+                {
+                    "symbol": self.ex_trading_pair,
+                    "orderId": order.exchange_order_id,
+                    "side": order.trade_type.name,
+                    "orderType": "Limit",
+                    "cancelType": "UNKNOWN",
+                    "price": order.price,
+                    "qty": order.amount,
+                    "orderIv": "",
+                    "timeInForce": "IOC",
+                    "orderStatus": "Filled",
+                    "orderLinkId": order.client_order_id,
+                    "lastPriceOnCreated": "",
+                    "reduceOnly": False,
+                    "leavesQty": "",
+                    "leavesValue": "",
+                    "cumExecQty": "1",
+                    "cumExecValue": "75",
+                    "avgPrice": "75",
+                    "blockTradeId": "",
+                    "positionIdx": 0,
+                    "cumExecFee": "0.358635",
+                    "createdTime": "1672364262444",
+                    "updatedTime": "1672364263457",
+                    "rejectReason": "EC_NoError",
+                    "stopOrderType": "",
+                    "tpslMode": "",
+                    "triggerPrice": "",
+                    "takeProfit": "",
+                    "stopLoss": "",
+                    "tpTriggerBy": "",
+                    "slTriggerBy": "",
+                    "tpLimitPrice": "",
+                    "slLimitPrice": "",
+                    "triggerDirection": 0,
+                    "triggerBy": "",
+                    "closeOnTrigger": False,
+                    "category": "option",
+                    "placeType": "price",
+                    "smpType": "None",
+                    "smpGroup": 0,
+                    "smpOrderId": "",
+                    "feeCurrency": ""
+                }
+            ]
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [event_message_1, event_message_2, order_status_event_1, order_status_event_2, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(order.is_filled)
+        self.assertTrue(order.is_done)
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     def test_user_stream_update_for_order_fill(self):
         self.exchange._set_current_timestamp(1640780000)
