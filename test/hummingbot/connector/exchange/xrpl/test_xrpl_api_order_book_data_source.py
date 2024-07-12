@@ -262,6 +262,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue("Error fetching order book snapshot" in str(context.exception))
 
+    def test_fetch_order_book_side_exception(self):
+        self.data_source._xrpl_client.request.side_effect = TimeoutError
+
+        with self.assertRaises(TimeoutError):
+            self.async_run_with_timeout(self.data_source.fetch_order_book_side(self.data_source._xrpl_client, 12345, {}, {}, 50))
+
     @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.XRPLAPIOrderBookDataSource._get_client")
     def test_process_websocket_messages_for_pair(self, mock_get_client):
         mock_client = AsyncMock()
