@@ -49,6 +49,8 @@ class PositionExecutor(ExecutorBase):
             self.logger().error(error)
             raise ValueError(error)
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name], update_interval=update_interval)
+        if not config.entry_price:
+            config.entry_price = self.get_price(config.connector_name, config.trading_pair, price_type=self.open_order_price_type)
         self.config: PositionExecutorConfig = config
 
         # Order tracking
@@ -160,11 +162,15 @@ class PositionExecutor(ExecutorBase):
         """
         if self._open_order and self._open_order.is_done:
             return self._open_order.average_executed_price
-        elif self.config.entry_price:
-            return self.config.entry_price
+        elif self.config.triple_barrier_config.open_order_type == OrderType.LIMIT_MAKER:
+            if self.config.side == TradeType.BUY:
+                best_bid = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.BestBid)
+                return min(self.config.entry_price, best_bid)
+            else:
+                best_ask = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.BestAsk)
+                return max(self.config.entry_price, best_ask)
         else:
-            price_type = PriceType.BestAsk if self.config.side == TradeType.BUY else PriceType.BestBid
-            return self.get_price(self.config.connector_name, self.config.trading_pair, price_type=price_type)
+            return self.config.entry_price
 
     @property
     def close_price(self) -> Decimal:
@@ -246,8 +252,16 @@ class PositionExecutor(ExecutorBase):
 
         :return: The take profit price.
         """
-        take_profit_price = self.entry_price * (1 + self.config.triple_barrier_config.take_profit) \
-            if self.config.side == TradeType.BUY else self.entry_price * (1 - self.config.triple_barrier_config.take_profit)
+        if self.config.side == TradeType.BUY:
+            take_profit_price = self.entry_price * (1 + self.config.triple_barrier_config.take_profit)
+            if self.config.triple_barrier_config.take_profit_order_type == OrderType.LIMIT_MAKER:
+                take_profit_price = max(take_profit_price,
+                                        self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.BestAsk))
+        else:
+            take_profit_price = self.entry_price * (1 - self.config.triple_barrier_config.take_profit)
+            if self.config.triple_barrier_config.take_profit_order_type == OrderType.LIMIT_MAKER:
+                take_profit_price = min(take_profit_price,
+                                        self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.BestBid))
         return take_profit_price
 
     async def control_task(self):
@@ -472,6 +486,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
+
         order_id = self.place_order(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
