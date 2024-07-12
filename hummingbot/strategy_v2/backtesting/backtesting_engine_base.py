@@ -47,9 +47,11 @@ class BacktestingEngineBase:
         return config_data
 
     @classmethod
-    def get_controller_config_instance_from_yml(cls, config_path: str) -> ControllerConfigBase:
-        config_data = cls.load_controller_config(config_path)
-        return cls.get_controller_config_instance_from_dict(config_data)
+    def get_controller_config_instance_from_yml(cls,
+                                                config_path: str,
+                                                controllers_conf_dir_path: str = settings.CONTROLLERS_CONF_DIR_PATH) -> ControllerConfigBase:
+        config_data = cls.load_controller_config(config_path, controllers_conf_dir_path)
+        return cls.get_controller_config_instance_from_dict(config_data, controllers_conf_dir_path)
 
     @classmethod
     def get_controller_config_instance_from_dict(cls,
