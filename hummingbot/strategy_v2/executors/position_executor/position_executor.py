@@ -50,7 +50,8 @@ class PositionExecutor(ExecutorBase):
             raise ValueError(error)
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name], update_interval=update_interval)
         if not config.entry_price:
-            config.entry_price = self.get_price(config.connector_name, config.trading_pair, price_type=self.open_order_price_type)
+            open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
+            config.entry_price = self.get_price(config.connector_name, config.trading_pair, price_type=open_order_price_type)
         self.config: PositionExecutorConfig = config
 
         # Order tracking
