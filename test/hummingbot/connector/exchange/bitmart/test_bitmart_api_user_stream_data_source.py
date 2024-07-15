@@ -260,11 +260,11 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
                 self.data_source._subscribe_channels(ws_assistant))
             self.ev_loop.run_until_complete(self.listening_task)
 
-    # @unittest.skip("Test with error")
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     def test_listening_process_logs_exception_during_events_subscription(self, sleep_mock, mock_ws):
-        self.connector._set_trading_pair_symbol_map({})
+        # This is to force a KeyError in _subscribe_channels
+        self.connector._set_trading_pair_symbol_map(bidict({'some-pair': 'some-pair'}))
 
         messages = asyncio.Queue()
         sleep_mock.side_effect = asyncio.CancelledError
