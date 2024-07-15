@@ -375,11 +375,12 @@ class TestBitComPerpetualAPIUserStreamDataSource(unittest.TestCase):
             self._is_logged("ERROR",
                             "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
-    # @unittest.skip("Test with error")
+    @patch.object(BitComPerpetualUserStreamDataSource, "get_token")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    def test_listen_for_user_stream_iter_message_throws_exception(self, sleep_mock, mock_ws):
+    def test_listen_for_user_stream_iter_message_throws_exception(self, sleep_mock, mock_ws, get_token_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
+        get_token_mock.return_value = "be4ffcc9-2b2b-4c3e-9d47-68bf062cf651"
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.receive.side_effect = Exception("TEST ERROR")
         sleep_mock.side_effect = asyncio.CancelledError  # to finish the task execution
