@@ -112,7 +112,7 @@ class AdjustedMidPrice(ScriptStrategyBase):
 
     def adjusted_mid_price(self):
         """
-        Returns the  price of a hypothetical buy and sell or the base asset where the amout is {strategy.test_volume}
+        Returns the  price of a hypothetical buy and sell or the base asset where the amount is {strategy.test_volume}
         """
         ask_result = self.connector.get_quote_volume_for_base_amount(self.strategy["pair"], True, self.strategy["test_volume"])
         bid_result = self.connector.get_quote_volume_for_base_amount(self.strategy["pair"], False, self.strategy["test_volume"])

@@ -922,7 +922,8 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         self.assertEqual(result[:12], expected_client_order_id[:12])
 
-    def test_create_order(self):
+    @aioresponses()
+    def test_create_order(self, mock_api):
         self._simulate_trading_rules_initialized()
         _order = self.async_run_with_timeout(self.exchange._create_order(TradeType.BUY,
                                                                          '551100',

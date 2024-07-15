@@ -98,7 +98,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._network = network
         self._trading_pairs = trading_pairs
         self._tokens = set()
-        [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
+        [self._tokens.update(set(trading_pair.split("_")[0].split("-"))) for trading_pair in trading_pairs]
         self._wallet_address = address
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
@@ -260,7 +260,7 @@ class GatewayEVMAMM(ConnectorBase):
             self._chain_info = await self._get_gateway_instance().get_network_status(
                 chain=self.chain, network=self.network
             )
-            if type(self._chain_info) != list:
+            if type(self._chain_info) is not list:
                 self._native_currency = self._chain_info.get("nativeCurrency", "ETH")
         except asyncio.CancelledError:
             raise
@@ -425,7 +425,12 @@ class GatewayEVMAMM(ConnectorBase):
         :param ignore_shim: Ignore the price shim, and return the real price on the network
         :return: The quote price.
         """
+        pool_id = None
 
+        try:
+            trading_pair, pool_id = trading_pair.split("_")
+        except Exception:
+            pass
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
 
@@ -457,7 +462,7 @@ class GatewayEVMAMM(ConnectorBase):
         # Pull the price from gateway.
         try:
             resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
-                self.chain, self.network, self.connector_name, base, quote, amount, side
+                self.chain, self.network, self.connector_name, base, quote, amount, side, pool_id=pool_id
             )
             return self.parse_price_response(base, quote, amount, side, price_response=resp)
         except asyncio.CancelledError:
@@ -535,9 +540,14 @@ class GatewayEVMAMM(ConnectorBase):
         :param amount: The order amount (in base token value)
         :param price: The order price
         """
+        pool_id = None
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
+        try:
+            trading_pair, pool_id = trading_pair.split("_")
+        except Exception:
+            pass
         base, quote = trading_pair.split("-")
         self.start_tracking_order(order_id=order_id,
                                   trading_pair=trading_pair,
@@ -555,6 +565,7 @@ class GatewayEVMAMM(ConnectorBase):
                 trade_type,
                 amount,
                 price,
+                pool_id=pool_id,
                 **request_args
             )
             transaction_hash: Optional[str] = order_result.get("txHash")
@@ -834,7 +845,7 @@ class GatewayEVMAMM(ConnectorBase):
         return Decimal("1e-15")
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        base, quote = trading_pair.split("-")
+        base, quote = trading_pair.split("_")[0].split("-")
         return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
 
     @property
