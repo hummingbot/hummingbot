@@ -22,6 +22,7 @@ def start(self):
 
     try:
         order_amount = c_map.get("order_amount").value
+        quote_order_amount = c_map.get("quote_order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
         max_order_age = c_map.get("max_order_age").value
         bid_spread = c_map.get("bid_spread").value / Decimal('100')
@@ -31,11 +32,20 @@ def start(self):
         price_floor = c_map.get("price_floor").value
         ping_pong_enabled = c_map.get("ping_pong_enabled").value
         order_levels = c_map.get("order_levels").value
+        buy_levels = c_map.get("buy_levels").value
+        sell_levels = c_map.get("sell_levels").value
         order_level_amount = c_map.get("order_level_amount").value
+        buy_level_amount = c_map.get("buy_level_amount").value
+        sell_level_amount = c_map.get("sell_level_amount").value
         order_level_spread = c_map.get("order_level_spread").value / Decimal('100')
+        quote_order_level_amount = c_map.get("quote_order_level_amount").value
+        quote_buy_level_amount = c_map.get("quote_buy_level_amount").value
+        quote_sell_level_amount = c_map.get("quote_sell_level_amount").value
+        buy_level_spread = c_map.get("buy_level_spread").value / Decimal('100')
+        sell_level_spread = c_map.get("sell_level_spread").value / Decimal('100')
         exchange = c_map.get("exchange").value.lower()
         raw_trading_pair = c_map.get("market").value
-        inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
+        # inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
         inventory_target_base_pct = 0 if c_map.get("inventory_target_base_pct").value is None else \
             c_map.get("inventory_target_base_pct").value / Decimal('100')
         inventory_range_multiplier = c_map.get("inventory_range_multiplier").value
@@ -107,10 +117,20 @@ def start(self):
             bid_spread=bid_spread,
             ask_spread=ask_spread,
             order_levels=order_levels,
+            buy_levels=buy_levels,
+            sell_levels=sell_levels,
             order_amount=order_amount,
+            quote_order_amount=quote_order_amount,
             order_level_spread=order_level_spread,
+            buy_level_spread=buy_level_spread,
+            sell_level_spread=sell_level_spread,
             order_level_amount=order_level_amount,
-            inventory_skew_enabled=inventory_skew_enabled,
+            buy_level_amount=buy_level_amount,
+            sell_level_amount=sell_level_amount,
+            quote_order_level_amount=quote_order_level_amount,
+            quote_buy_level_amount=quote_buy_level_amount,
+            quote_sell_level_amount=quote_sell_level_amount,
+            inventory_skew_enabled=False,  # permanently disable inventory skew
             inventory_target_base_pct=inventory_target_base_pct,
             inventory_range_multiplier=inventory_range_multiplier,
             filled_order_delay=filled_order_delay,
