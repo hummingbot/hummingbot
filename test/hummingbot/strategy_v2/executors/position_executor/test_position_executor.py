@@ -553,11 +553,27 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
 
     @patch("hummingbot.strategy_v2.executors.position_executor.position_executor.PositionExecutor.get_price",
            return_value=Decimal("101"))
-    def test_position_executor_created_without_entry_price(self, price_mock):
+    def test_position_executor_created_without_entry_price(self, _):
         config = PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
                                         connector_name="binance",
                                         side=TradeType.BUY, amount=Decimal("1"),
                                         triple_barrier_config=TripleBarrierConfig(
+                                            stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                            take_profit_order_type=OrderType.LIMIT,
+                                            stop_loss_order_type=OrderType.MARKET))
+
+        executor = PositionExecutor(self.strategy, config)
+        self.assertEqual(executor.entry_price, Decimal("101"))
+
+    @patch("hummingbot.strategy_v2.executors.position_executor.position_executor.PositionExecutor.get_price",
+           return_value=Decimal("101"))
+    def test_position_executor_entry_price_updated_with_limit_maker(self, _):
+        config = PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
+                                        connector_name="binance",
+                                        side=TradeType.BUY, amount=Decimal("1"),
+                                        entry_price=Decimal("102"),
+                                        triple_barrier_config=TripleBarrierConfig(
+                                            open_order_type=OrderType.LIMIT_MAKER,
                                             stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                             take_profit_order_type=OrderType.LIMIT,
                                             stop_loss_order_type=OrderType.MARKET))
