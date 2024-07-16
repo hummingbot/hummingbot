@@ -109,6 +109,7 @@ def main():
         "websockets",
         "yarl",
         "pandas_ta==0.3.14b",
+        "xrpl-py",
     ]
 
     cython_kwargs = {
