@@ -1,9 +1,17 @@
 import asyncio
-
+from decimal import Decimal
 from typing import List, Optional, TYPE_CHECKING
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-
+from hummingbot.core.utils import async_ttl_cache
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.event.events import TradeType
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.tracking_nonce import NonceCreator
+from hummingbot.logger import HummingbotLogger
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
@@ -78,3 +86,39 @@ class GatewayErgoAMM(GatewayEVMAMM):
         This is intentionally left blank, because cancellation is not supported for tezos blockchain.
         """
         return []
+
+    @async_ttl_cache(ttl=5, maxsize=10)
+    async def get_quote_price(
+            self,
+            trading_pair: str,
+            is_buy: bool,
+            amount: Decimal,
+            ignore_shim: bool = False
+    ) -> Optional[Decimal]:
+        """
+        Retrieves a quote price.
+
+        :param trading_pair: The market trading pair
+        :param is_buy: True for an intention to buy, False for an intention to sell
+        :param amount: The amount required (in base token unit)
+        :param ignore_shim: Ignore the price shim, and return the real price on the network
+        :return: The quote price.
+        """
+
+        base, quote = trading_pair.split("-")
+        side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
+
+        # Pull the price from gateway.
+        try:
+            resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
+                self.chain, self.network, self.connector_name, base, quote, amount, side
+            )
+            return self.parse_price_response(base, quote, amount, side, price_response=resp, process_exception=False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error getting quote price for {trading_pair} {side} order for {amount} amount.",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )

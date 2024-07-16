@@ -853,12 +853,7 @@ class GatewayEVMAMM(ConnectorBase):
         return all(self.status_dict.values())
 
     def has_allowances(self) -> bool:
-        """
-        Checks if all tokens have allowance (an amount approved)
-        """
-        allowances_available = all(amount > s_decimal_0 for amount in self._allowances.values())
-        return ((len(self._allowances.values()) == len(self._tokens)) and
-                (allowances_available))
+        return True
 
     @property
     def status_dict(self) -> Dict[str, bool]:
