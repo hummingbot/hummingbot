@@ -189,13 +189,13 @@ class MexcExchange(ExchangePyBase):
             price_str = f"{price:f}"
             api_params["price"] = price_str
         else:
-            if trade_type.name.lower() == 'buy':
+            if trade_type == TradeType.BUY:
                 if price.is_nan():
                     price = self.get_price_for_volume(
                         trading_pair,
                         True,
                         amount
-                    )
+                    ).result_price
                 del api_params['quantity']
                 api_params.update({
                     "quoteOrderQty": f"{price * amount:f}",
