@@ -2246,7 +2246,14 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
-    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found(self):
+    @aioresponses()
+    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found(self, mock_api):
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt=")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url_fills, body=json.dumps({}))
+
         update_event = MagicMock()
         update_event.wait.side_effect = asyncio.TimeoutError
 
