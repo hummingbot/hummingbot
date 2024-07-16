@@ -312,7 +312,7 @@ class PositionExecutor(ExecutorBase):
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
             self._current_retries += 1
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(2.0)
 
     def evaluate_max_retries(self):
         """
