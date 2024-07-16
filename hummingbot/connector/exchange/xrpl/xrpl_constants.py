@@ -41,7 +41,7 @@ XRPL_ORDER_TYPE = {
 }
 
 # Market Order Max Slippage
-MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.009")
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.007")
 
 # Order Side
 SIDE_BUY = 0
