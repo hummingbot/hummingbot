@@ -35,9 +35,9 @@ ORDER_STATE = {
 
 # Order Types
 XRPL_ORDER_TYPE = {
-    OrderType.LIMIT: 524288,
-    OrderType.LIMIT_MAKER: 589824,
-    OrderType.MARKET: 786432,
+    OrderType.LIMIT: 0,
+    OrderType.LIMIT_MAKER: 65536,
+    OrderType.MARKET: 131072,
 }
 
 # Market Order Max Slippage

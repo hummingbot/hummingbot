@@ -232,6 +232,19 @@ class XrplExchange(ExchangePyBase):
                     await self._get_best_price(trading_pair, is_buy=True if trade_type is TradeType.BUY else False)
                 )
 
+            if order_type is OrderType.MARKET:
+                # TODO: find the price to meet the liquidity of the order
+                price = self.order_books.get(trading_pair).get_price_for_volume(
+                    is_buy=True if trade_type is TradeType.BUY else False, volume=float(amount)
+                )
+
+                # Increase price by MARKET_ORDER_MAX_SLIPPAGE if it is buy order
+                # Decrease price by MARKET_ORDER_MAX_SLIPPAGE if it is sell order
+                # if trade_type is TradeType.SELL:
+                #     amount_in_quote *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+                # else:
+                #     amount_in_quote *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
+
             base_currency, quote_currency = self.get_currencies_from_trading_pair(trading_pair)
             account = self._auth.get_account()
             trading_rule = self._trading_rules[trading_pair]
@@ -241,14 +254,6 @@ class XrplExchange(ExchangePyBase):
 
             amount_in_base = Decimal(amount.quantize(amount_in_base_quantum, rounding=ROUND_DOWN))
             amount_in_quote = Decimal((amount * price).quantize(amount_in_quote_quantum, rounding=ROUND_DOWN))
-
-            if order_type is OrderType.MARKET:
-                # Increase price by MARKET_ORDER_MAX_SLIPPAGE if it is buy order
-                # Decrease price by MARKET_ORDER_MAX_SLIPPAGE if it is sell order
-                if trade_type is TradeType.SELL:
-                    amount_in_quote *= Decimal("1") - CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
-                else:
-                    amount_in_quote *= Decimal("1") + CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
             # Count the digit in the base and quote amount
             # If the digit is more than 16, we need to round it to 16
