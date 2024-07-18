@@ -7,6 +7,7 @@ class Chain(Enum):
     ETHEREUM = ('ethereum', 'ETH')
     TEZOS = ('tezos', 'XTZ')
     AURA = ('aura', 'AURA')
+    AURAEVM = ('auraevm', 'AURA')
 
     def __init__(self, chain: str, native_currency: str):
         self.chain = chain

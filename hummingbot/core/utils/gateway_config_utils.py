@@ -18,7 +18,8 @@ native_tokens = {
     "tezos": "XTZ",
     "kujira": "KUJI",
     "euphoria": "EAURA",
-    "xstaxy": "AURA"
+    "xstaxy": "AURA",
+    "auraevm": "AURA",
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())

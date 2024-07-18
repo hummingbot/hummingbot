@@ -122,7 +122,11 @@ class GatewayConnectionSetting:
                     connector = 'halotrade'
                     network = chain
                     chain = 'aura'
-                else:    
+                elif chain in ['auraevm']:
+                    connector = 'halotradeevm'
+                    network = 'mainnet'
+                    chain = 'auraevm'
+                else:
                     connector, network = market_name.split(f"_{chain}_")
                 return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
         return None

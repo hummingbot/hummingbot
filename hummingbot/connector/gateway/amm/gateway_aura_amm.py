@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -8,8 +8,8 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
@@ -66,6 +66,7 @@ class GatewayAuraAMM(GatewayEVMAMM):
         if self._get_gas_estimate_task is not None:
             self._get_gas_estimate_task.cancel()
             self._get_chain_info_task = None
+
     @property
     def ready(self):
         return all(self.status_dict.values())
@@ -149,6 +150,7 @@ class GatewayAuraAMM(GatewayEVMAMM):
             #         return None
             return Decimal(str(price))
         return None
+
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)
         while True:
@@ -168,6 +170,8 @@ class GatewayAuraAMM(GatewayEVMAMM):
                 self.logger().error(str(e), exc_info=True)
 
     async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+        self.logger().error("SELFFFFFFF: ", self)
+        self.logger().error("tracked_orders: ", tracked_orders)
         """
         Calls REST API to get status update for each in-flight amm orders.
         """
@@ -213,7 +217,7 @@ class GatewayAuraAMM(GatewayEVMAMM):
                     new_state=OrderState.FILLED,
                 )
                 self._order_tracker.process_order_update(order_update)
-            else: 
+            else:
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,
                     trading_pair=tracked_order.trading_pair,

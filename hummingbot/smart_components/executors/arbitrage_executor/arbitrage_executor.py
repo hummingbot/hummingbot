@@ -40,6 +40,7 @@ class ArbitrageExecutor(SmartComponentBase):
     def _are_tokens_interchangeable(first_token: str, second_token: str):
         interchangeable_tokens = [
             {"WETH", "ETH"},
+            {"WAURA", "AURA"},
             {"WBTC", "BTC"},
             {"WBNB", "BNB"},
             {"WMATIC", "MATIC"},

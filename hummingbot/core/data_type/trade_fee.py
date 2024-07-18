@@ -230,6 +230,7 @@ class TradeFeeBase(ABC):
     def _are_tokens_interchangeable(self, first_token: str, second_token: str):
         interchangeable_tokens = [
             {"WETH", "ETH"},
+            {"WAURA", "AURA"},
             {"WBNB", "BNB"},
             {"WMATIC", "MATIC"},
             {"WAVAX", "AVAX"},
