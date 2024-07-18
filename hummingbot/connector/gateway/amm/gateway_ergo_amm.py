@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Any, Dict
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.utils import async_ttl_cache
@@ -15,7 +15,7 @@ from hummingbot.logger import HummingbotLogger
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
-
+from hummingbot.core.gateway import check_transaction_exceptions
 class GatewayErgoAMM(GatewayEVMAMM):
     """
     Defines basic functions common to connectors that interact with Gateway.
@@ -52,6 +52,7 @@ class GatewayErgoAMM(GatewayEVMAMM):
             trading_pairs=trading_pairs,
             additional_spenders=additional_spenders,
             trading_required=trading_required,
+            lost_order_count_limit=200
         )
 
     async def get_chain_info(self):
@@ -87,6 +88,59 @@ class GatewayErgoAMM(GatewayEVMAMM):
         """
         return []
 
+
+    def parse_price_response(
+            self,
+            base: str,
+            quote: str,
+            amount: Decimal,
+            side: TradeType,
+            price_response: Dict[str, Any],
+            process_exception: bool = True
+    ) -> Optional[Decimal]:
+        """
+        Parses price response
+        :param base: The base asset
+        :param quote: The quote asset
+        :param amount: amount
+        :param side: trade side
+        :param price_response: Price response from Gateway.
+        :param process_exception: Flag to trigger error on exception
+        """
+        required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
+        if any(item not in price_response.keys() for item in required_items):
+            if "info" in price_response.keys():
+                self.logger().info(f"Unable to get price. {price_response['info']}")
+            else:
+                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
+        else:
+            gas_price_token: str = price_response["gasPriceToken"]
+            gas_cost: Decimal = Decimal(price_response["gasCost"])
+            price: Decimal = Decimal(price_response["price"])
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            if process_exception is True:
+                gas_limit: int = int(price_response["gasLimit"])
+                exceptions: List[str] = check_transaction_exceptions(
+                    allowances=self._allowances,
+                    balances=self._account_balances,
+                    base_asset=base,
+                    quote_asset=quote,
+                    amount=amount,
+                    side=side,
+                    gas_limit=gas_limit,
+                    gas_cost=gas_cost,
+                    gas_asset=gas_price_token,
+                    swaps_count=len(price_response.get("swaps", [])),
+                    chain=self.chain
+                )
+                for index in range(len(exceptions)):
+                    self.logger().warning(
+                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
+                    )
+                if len(exceptions) > 0:
+                    return None
+            return Decimal(str(price))
+        return None
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
             self,
@@ -122,3 +176,64 @@ class GatewayErgoAMM(GatewayEVMAMM):
                 exc_info=True,
                 app_warning_msg=str(e)
             )
+
+    async def load_token_data(self):
+        tokens = await GatewayHttpClient.get_instance().get_tokens(network=self._network, chain=self.chain)
+        for t in tokens.get("assets", []):
+            self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
+
+    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+        """
+        Calls REST API to get status update for each in-flight amm orders.
+        {
+        "currentBlock": 28534865,
+        "txBlock": 28512623,
+        "txHash": "0xSCOCBDNHJVMA4I3VKETUHGFIM6HLTLAIALRPTL2LR6K66WPYEWUQ",
+        "fee": 1000
+        }
+        """
+        if len(tracked_orders) < 1:
+            return
+
+        # split canceled and non-canceled orders
+        tx_hash_list: List[str] = await safe_gather(
+            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
+        )
+        self.logger().debug(
+            "Polling for order status updates of %d orders.",
+            len(tracked_orders)
+        )
+        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            self._get_gateway_instance().get_transaction_status(
+                self.chain,
+                self.network,
+                tx_hash
+            )
+            for tx_hash in tx_hash_list
+        ], return_exceptions=True)
+        for tracked_order, tx_details in zip(tracked_orders, update_results):
+            if isinstance(tx_details, Exception):
+                self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}. Please wait at least 2 minutes!")
+                continue
+            if "txHash" not in tx_details:
+                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+                                    f"{tx_details}.")
+                continue
+            tx_block: int = tx_details["txBlock"]
+            if tx_block > 0:
+                fee: Decimal = tx_details["fee"]
+                self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
+
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.FILLED,
+                )
+                self._order_tracker.process_order_update(order_update)
+            else:
+                self.logger().network(
+                    f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}. Please wait at least 2 minutes!",
+                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}. Please wait at least 2 minutes!"
+                )
+                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
