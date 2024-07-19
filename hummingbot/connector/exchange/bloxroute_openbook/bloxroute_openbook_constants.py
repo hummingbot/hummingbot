@@ -1,0 +1,10 @@
+import bxsolana.provider.constants as constants
+
+EXCHANGE_NAME = "bloxroute_openbook"
+
+TESTNET_PROVIDER_ENDPOINT = constants.TESTNET_API_WS
+MAINNET_PROVIDER_ENDPOINT = constants.MAINNET_API_NY_WS
+
+CLIENT_ORDER_ID_MAX_LENGTH = 10
+ORDERBOOK_LIMIT = 5
+HUMMINGBOT_LOG_DECIMALS = 5
