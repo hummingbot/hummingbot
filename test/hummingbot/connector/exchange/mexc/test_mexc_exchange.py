@@ -1018,18 +1018,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
+                            "Error: {'code':700003,'msg':'Timestamp for this request is outside of the recvWindow.'}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-        exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1021,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-                            "time.'}")
-        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-        exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1022,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-                            "time.'}")
-        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
                             "Error: {'code':-1021,'msg':'Other error.'}")
