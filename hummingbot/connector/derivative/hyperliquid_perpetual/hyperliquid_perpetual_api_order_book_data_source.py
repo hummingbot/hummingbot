@@ -208,7 +208,6 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         pass
 
     async def _request_complete_funding_info(self, trading_pair: str):
-
         data = await self._connector._api_post(path_url=CONSTANTS.EXCHANGE_INFO_URL,
                                                data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         return data
