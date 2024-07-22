@@ -91,7 +91,7 @@ class BacktestingEngineBase:
         await self.initialize_backtesting_data_provider()
         await self.controller.update_processed_data()
         executors_info = self.simulate_execution(trade_cost=trade_cost)
-        results = self.summarize_results(executors_info)
+        results = self.summarize_results(executors_info, controller_config.total_amount_quote)
         return {
             "executors": executors_info,
             "results": results,
