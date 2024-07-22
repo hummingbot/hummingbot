@@ -35,13 +35,15 @@ ORDER_STATE = {
 
 # Order Types
 XRPL_ORDER_TYPE = {
-    OrderType.LIMIT: 0,
+    OrderType.LIMIT: 65536,
     OrderType.LIMIT_MAKER: 65536,
-    OrderType.MARKET: 131072,
+    OrderType.MARKET: 262144,
 }
 
+XRPL_SELL_FLAG = 524288
+
 # Market Order Max Slippage
-MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.007")
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.01")
 
 # Order Side
 SIDE_BUY = 0
@@ -68,7 +70,7 @@ PLACE_ORDER_MAX_RETRY = 3
 PLACE_ORDER_RETRY_INTERVAL = 3
 
 # Transaction fee multiplier
-FEE_MULTIPLIER = 2
+FEE_MULTIPLIER = 3
 
 # Cancel All Timeout
 CANCEL_ALL_TIMEOUT = 60.0
