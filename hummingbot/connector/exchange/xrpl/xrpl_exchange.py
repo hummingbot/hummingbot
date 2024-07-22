@@ -1093,20 +1093,16 @@ class XrplExchange(ExchangePyBase):
             if latest_status == "UNKNOWN":
                 current_state = tracked_order.current_state
                 if current_state is OrderState.PENDING_CREATE or current_state is OrderState.PENDING_CANCEL:
-                    # give order at least 60 seconds to be processed
-                    if time.time() - tracked_order.last_update_timestamp > 60:
+                    # give order at least 120 seconds to be processed
+                    if time.time() - tracked_order.last_update_timestamp > CONSTANTS.PENDING_ORDER_STATUS_CHECK_TIMEOUT:
                         new_order_state = OrderState.FAILED
                         self.logger().error(
                             f"Order status not found for order {tracked_order.client_order_id} ({sequence}), tx history: {transactions}"
                         )
                     else:
                         new_order_state = current_state
-                        update_timestamp = tracked_order.last_update_timestamp
                 else:
-                    new_order_state = OrderState.FAILED
-                    self.logger().error(
-                        f"Order status not found for order {tracked_order.client_order_id} ({sequence}), tx history: {transactions}"
-                    )
+                    new_order_state = current_state
             elif latest_status == "filled":
                 new_order_state = OrderState.FILLED
             elif latest_status == "partially-filled":
