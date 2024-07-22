@@ -55,7 +55,10 @@ FETCH_ORDER_BOOK_MAX_RETRY = 3
 FETCH_ORDER_BOOK_RETRY_INTERVAL = 1
 
 # Ledger offset for getting order status:
-LEDGER_OFFSET = _LEDGER_OFFSET * 2
+LEDGER_OFFSET = _LEDGER_OFFSET * 3
+
+# Timeout for pending order status check
+PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
 
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
