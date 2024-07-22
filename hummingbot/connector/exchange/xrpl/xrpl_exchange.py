@@ -233,7 +233,12 @@ class XrplExchange(ExchangePyBase):
                 )
 
             if order_type is OrderType.MARKET:
-                get_price_with_enough_liquidity = self.order_books.get(trading_pair).get_price_for_volume(
+                market = self.order_books.get(trading_pair)
+
+                if market is None:
+                    raise ValueError(f"Market {trading_pair} not found in markets list")
+
+                get_price_with_enough_liquidity = market.get_price_for_volume(
                     is_buy=True if trade_type is TradeType.BUY else False,
                     volume=float(amount),  # Make sure we have enough liquidity
                 )
