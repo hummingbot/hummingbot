@@ -18,8 +18,6 @@ from hummingbot.client.config.client_config_map import (
     DBSqliteMode,
     KillSwitchDisabledMode,
     KillSwitchEnabledMode,
-    PMMScriptDisabledMode,
-    PMMScriptEnabledMode,
     TelegramDisabledMode,
     TelegramEnabledMode,
 )
@@ -163,16 +161,6 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
             db_name=db_name,
         )
 
-    pmm_script_enabled = data.pop("pmm_script_enabled")
-    pmm_script_file_path = data.pop("pmm_script_file_path")
-    if pmm_script_enabled:
-        client_config_map.pmm_script_mode = PMMScriptEnabledMode(pmm_script_file_path=pmm_script_file_path)
-    else:
-        client_config_map.pmm_script_mode = PMMScriptDisabledMode()
-
-    _migrate_global_config_field(
-        client_config_map.gateway, data, "gateway_api_host"
-    )
     _migrate_global_config_field(
         client_config_map.gateway, data, "gateway_api_port"
     )

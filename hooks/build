@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-
-# Get the build time stamp
-BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-docker build --build-arg COMMIT=$GIT_TAG --build-arg BRANCH=$SOURCE_BRANCH --build-arg BUILD_DATE=$BUILD_DATE -t $IMAGE_NAME -f Dockerfile .
