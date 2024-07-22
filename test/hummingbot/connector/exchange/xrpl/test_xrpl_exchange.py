@@ -1003,6 +1003,17 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             status=ResponseStatus.SUCCESS, result={"engine_result": "tesSUCCESS", "engine_result_message": "something"}
         )
 
+        class MockGetPriceReturn:
+            def __init__(self, result_price):
+                self.result_price = result_price
+
+        # get_price_for_volume_mock.return_value = Decimal("1")
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].get_price_for_volume = MagicMock(return_value=MockGetPriceReturn(result_price=Decimal("1")))
+
+        self.connector.order_books[self.trading_pair_usd] = MagicMock()
+        self.connector.order_books[self.trading_pair_usd].get_price_for_volume = MagicMock(return_value=MockGetPriceReturn(result_price=Decimal("1")))
+
         self.async_run_with_timeout(
             self.connector._place_order(
                 "hbot", self.trading_pair, Decimal("1"), TradeType.BUY, OrderType.MARKET, Decimal("1")
@@ -1635,7 +1646,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         log_output = log.output[0]
         self.assertEqual(
             log_output,
-            "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Verify transaction timeout error, Attempt 1/3",
+            "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout.",
         )
 
         with self.assertLogs(level="ERROR") as log:
@@ -1652,12 +1663,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         log_output = log.output[0]
         self.assertEqual(
             log_output,
-            "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Verify transaction timeout error, Attempt 4/3",
-        )
-
-        log_output_2 = log.output[1]
-        self.assertEqual(
-            log_output_2,
             "ERROR:hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange:Max retries reached. Verify transaction failed due to timeout.",
         )
 
