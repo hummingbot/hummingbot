@@ -1802,3 +1802,8 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertEqual(expected_initial_dict, status_dict)
         self.assertFalse(self.exchange.ready)
+
+    def test_time_synchronizer_related_request_error_detection(self):
+        exception = IOError("HTTP status is 403. "
+                            "Error: {'label':'REQUEST_EXPIRED','message':'gap between request Timestamp and server time exceeds 60'}")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
