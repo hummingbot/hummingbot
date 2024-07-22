@@ -43,7 +43,6 @@ SCRIPT_STRATEGY_CONF_DIR_PATH = CONF_DIR_PATH / "scripts"
 CONTROLLERS_CONF_DIR_PATH = CONF_DIR_PATH / "controllers"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
-PMM_SCRIPTS_PATH = root_path() / "pmm_scripts"
 SCRIPT_STRATEGIES_MODULE = "scripts"
 SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
 CONTROLLERS_MODULE = "controllers"
@@ -113,7 +112,7 @@ class GatewayConnectionSetting:
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
         for chain in SUPPORTED_CHAINS:
-            if chain in market_name:
+            if f"_{chain}_" in market_name:
                 connector, network = market_name.split(f"_{chain}_")
                 return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
         return None
