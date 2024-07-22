@@ -210,8 +210,9 @@ class CandlesBase(NetworkBase):
         rest_assistant = await self._api_factory.get_rest_assistant()
         if end_time is None:
             end_time = start_time + self.interval_in_seconds * self.max_records
-        if start_time is None:
-            start_time = end_time - self.interval_in_seconds * self.max_records
+        # TODO: @drupman review this logic, binance spot wasn't working with this line.
+        # if start_time is None:
+        #     start_time = end_time - self.interval_in_seconds * self.max_records
         params = self._get_rest_candles_params(start_time, end_time)
         headers = self._get_rest_candles_headers()
         candles = await rest_assistant.execute_request(url=self.candles_url,

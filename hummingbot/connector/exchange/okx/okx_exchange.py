@@ -276,6 +276,7 @@ class OkxExchange(ExchangePyBase):
 
     async def _update_trading_rules(self):
         # This has to be reimplemented because the request requires an extra parameter
+        # TODO: Normalize the rest requests so they can be used standalone
         exchange_info = await self._api_get(
             path_url=self.trading_rules_request_path,
             params={"instType": "SPOT"},
