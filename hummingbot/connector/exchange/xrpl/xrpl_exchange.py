@@ -1185,7 +1185,7 @@ class XrplExchange(ExchangePyBase):
             if len(currency) > 3:
                 currency = hex_to_str(currency)
 
-            token = currency.strip("\x00")
+            token = currency.strip("\x00").upper()
             amount = balance.get("value")
             account_balances[token] = abs(Decimal(amount))
 
@@ -1200,7 +1200,7 @@ class XrplExchange(ExchangePyBase):
                 if isinstance(taker_gets_funded, dict):
                     token = taker_gets_funded.get("currency")
                     if len(token) > 3:
-                        token = hex_to_str(token).strip("\x00")
+                        token = hex_to_str(token).strip("\x00").upper()
                     amount = Decimal(taker_gets_funded.get("value"))
                 else:
                     amount = drops_to_xrp(taker_gets_funded)
@@ -1209,7 +1209,7 @@ class XrplExchange(ExchangePyBase):
                 if isinstance(taker_gets, dict):
                     token = taker_gets.get("currency")
                     if len(token) > 3:
-                        token = hex_to_str(token).strip("\x00")
+                        token = hex_to_str(token).strip("\x00").upper()
                     amount = Decimal(taker_gets.get("value"))
                 else:
                     amount = drops_to_xrp(taker_gets)
