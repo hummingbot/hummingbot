@@ -70,8 +70,8 @@ COPY --from=builder /opt/conda/ /opt/conda/
 COPY --from=builder /home/ /home/
 
 ######## resolve dydx&injective confilct ###############
-ENV SRC_TARGET_PATH=anaconda3/envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos
-ENV DEST_TARGET_PATH=anaconda3/envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos
+ENV SRC_TARGET_PATH=envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos
+ENV DEST_TARGET_PATH=envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos
 
 RUN apt-get update && apt-get install -y findutils
 
