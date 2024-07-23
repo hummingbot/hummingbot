@@ -469,7 +469,6 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         markets_info = exchange_info_dict["markets"]
         for market_name, market_info in markets_info.items():
             if web_utils.is_exchange_information_valid(market_info):
-            # for market_name in filter(web_utils.is_exchange_information_valid, exchange_info[0].get("universe", [])):
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market_name)
                 market = markets_info[market_name]
                 try:
