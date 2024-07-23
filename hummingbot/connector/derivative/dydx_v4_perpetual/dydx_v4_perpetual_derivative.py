@@ -467,33 +467,35 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         trading_rules = []
         markets_info = exchange_info_dict["markets"]
-        for market_name in markets_info:
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market_name)
-            market = markets_info[market_name]
-            try:
-                collateral_token = CONSTANTS.CURRENCY
-                trading_rules += [
-                    TradingRule(
-                        trading_pair=trading_pair,
-                        min_price_increment=Decimal(market["tickSize"]),
-                        min_base_amount_increment=Decimal(market["stepSize"]),
-                        supports_limit_orders=True,
-                        supports_market_orders=True,
-                        buy_order_collateral_token=collateral_token,
-                        sell_order_collateral_token=collateral_token,
-                    )
-                ]
-                self._margin_fractions[trading_pair] = {
-                    "initial": Decimal(market["initialMarginFraction"]),
-                    "maintenance": Decimal(market["maintenanceMarginFraction"]),
-                    "clob_pair_id": market["clobPairId"],
-                    "atomicResolution": market["atomicResolution"],
-                    "stepBaseQuantums": market["stepBaseQuantums"],
-                    "quantumConversionExponent": market["quantumConversionExponent"],
-                    "subticksPerTick": market["subticksPerTick"],
-                }
-            except Exception:
-                self.logger().exception("Error updating trading rules")
+        for market_name, market_info in markets_info.items():
+            if web_utils.is_exchange_information_valid(market_info):
+            # for market_name in filter(web_utils.is_exchange_information_valid, exchange_info[0].get("universe", [])):
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market_name)
+                market = markets_info[market_name]
+                try:
+                    collateral_token = CONSTANTS.CURRENCY
+                    trading_rules += [
+                        TradingRule(
+                            trading_pair=trading_pair,
+                            min_price_increment=Decimal(market["tickSize"]),
+                            min_base_amount_increment=Decimal(market["stepSize"]),
+                            supports_limit_orders=True,
+                            supports_market_orders=True,
+                            buy_order_collateral_token=collateral_token,
+                            sell_order_collateral_token=collateral_token,
+                        )
+                    ]
+                    self._margin_fractions[trading_pair] = {
+                        "initial": Decimal(market["initialMarginFraction"]),
+                        "maintenance": Decimal(market["maintenanceMarginFraction"]),
+                        "clob_pair_id": market["clobPairId"],
+                        "atomicResolution": market["atomicResolution"],
+                        "stepBaseQuantums": market["stepBaseQuantums"],
+                        "quantumConversionExponent": market["quantumConversionExponent"],
+                        "subticksPerTick": market["subticksPerTick"],
+                    }
+                except Exception:
+                    self.logger().exception("Error updating trading rules")
         return trading_rules
 
     async def _update_balances(self):
@@ -720,7 +722,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
         mapping = bidict()
         for key, val in markets.items():
-            if val["status"] == "ACTIVE":
+            if web_utils.is_exchange_information_valid(val):
                 exchange_symbol = val["ticker"]
                 base = exchange_symbol.split("-")[0]
                 quote = CONSTANTS.CURRENCY
