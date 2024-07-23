@@ -31,19 +31,11 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
         client_data=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
-
-    total_amount_quote: Decimal = Field(
-        default=100.0,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the amount of quote asset to use per executor (e.g., 100):"))
-
     max_executors_per_side: int = Field(
         default=2,
         client_data=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda mi: "Enter the maximum number of executors per side (e.g., 2):"))
-
     cooldown_time: int = Field(
         default=60 * 5, gt=0,
         client_data=ClientFieldData(
