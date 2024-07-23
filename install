@@ -44,3 +44,30 @@ if [ "$(uname)" = "Linux" ]; then
         sudo apt-get install -y build-essential
     fi
 fi
+######## resolve dydx&injective confilct ###############
+_SRC_TARGET_PATH="anaconda3/envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos"
+_DEST_TARGET_PATH="anaconda3/envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos"
+
+SRC_DIR=$(find / -type d -path "*/$_SRC_TARGET_PATH" 2>/dev/null)
+DEST_DIR=$(find / -type d -path "*/$_DEST_TARGET_PATH" 2>/dev/null)
+# Ensure source directory exists
+if [ ! -d "$SRC_DIR" ]; then
+  echo "Source directory $SRC_DIR does not exist."
+  exit 1
+fi
+
+# Ensure destination directory exists
+if [ ! -d "$DEST_DIR" ]; then
+  echo "Destination directory $DEST_DIR does not exist."
+  exit 1
+fi
+
+# Copy directories and files
+for dir in $(ls "$SRC_DIR"); do
+  if [ -d "$SRC_DIR/$dir" ]; then
+    echo "Copying directory $dir from $SRC_DIR to $DEST_DIR"
+    cp -r "$SRC_DIR/$dir"/* "$DEST_DIR/$dir"/
+  fi
+done
+
+echo "Copy complete."
