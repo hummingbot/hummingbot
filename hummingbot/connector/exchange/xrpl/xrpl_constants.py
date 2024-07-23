@@ -60,6 +60,9 @@ LEDGER_OFFSET = _LEDGER_OFFSET * 3
 # Timeout for pending order status check
 PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
 
+# Request Timeout
+REQUEST_TIMEOUT = 20
+
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
 RAW_REQUESTS = "RAW_REQUESTS"

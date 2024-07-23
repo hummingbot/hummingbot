@@ -1009,10 +1009,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         # get_price_for_volume_mock.return_value = Decimal("1")
         self.connector.order_books[self.trading_pair] = MagicMock()
-        self.connector.order_books[self.trading_pair].get_price_for_volume = MagicMock(return_value=MockGetPriceReturn(result_price=Decimal("1")))
+        self.connector.order_books[self.trading_pair].get_price_for_volume = MagicMock(
+            return_value=MockGetPriceReturn(result_price=Decimal("1"))
+        )
 
         self.connector.order_books[self.trading_pair_usd] = MagicMock()
-        self.connector.order_books[self.trading_pair_usd].get_price_for_volume = MagicMock(return_value=MockGetPriceReturn(result_price=Decimal("1")))
+        self.connector.order_books[self.trading_pair_usd].get_price_for_volume = MagicMock(
+            return_value=MockGetPriceReturn(result_price=Decimal("1"))
+        )
 
         self.async_run_with_timeout(
             self.connector._place_order(
@@ -1064,8 +1068,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(sign_mock.called)
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.autofill", new_callable=MagicMock)
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.submit", new_callable=MagicMock)
-    def test_place_order_exception_handling_not_found_market(self, submit_mock, autofill_mock):
+    # @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.submit", new_callable=MagicMock)
+    def test_place_order_exception_handling_not_found_market(self, autofill_mock):
         with self.assertRaises(Exception) as context:
             self.async_run_with_timeout(
                 self.connector._place_order(
@@ -1081,12 +1085,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         # Verify the exception was raised and contains the expected message
         self.assertTrue("Market NOT_FOUND not found in markets list" in str(context.exception))
 
-        # Ensure the submit method was not called due to the exception in autofill
-        submit_mock.assert_not_called()
-
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.autofill", new_callable=MagicMock)
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.submit", new_callable=MagicMock)
-    def test_place_order_exception_handling_autofill(self, submit_mock, autofill_mock):
+    # @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.submit", new_callable=MagicMock)
+    def test_place_order_exception_handling_autofill(self, autofill_mock):
         # Simulate an exception during the autofill operation
         autofill_mock.side_effect = Exception("Test exception during autofill")
 
@@ -1106,9 +1107,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             "Order None (test_order) creation failed: Test exception during autofill" in str(context.exception)
         )
-
-        # Ensure the submit method was not called due to the exception in autofill
-        submit_mock.assert_not_called()
 
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
@@ -1637,7 +1635,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(
                 self.connector._verify_transaction_result(
                     {
-                        "transaction": Transaction(account="r1234", transaction_type=TransactionType.ACCOUNT_SET), # noqa: mock
+                        "transaction": Transaction(
+                            account="r1234", transaction_type=TransactionType.ACCOUNT_SET
+                        ),  # noqa: mock
                         "prelim_result": "tesSUCCESS",
                     }
                 )
@@ -1653,10 +1653,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(
                 self.connector._verify_transaction_result(
                     {
-                        "transaction": Transaction(account="r1234", transaction_type=TransactionType.ACCOUNT_SET), # noqa: mock
+                        "transaction": Transaction(
+                            account="r1234", transaction_type=TransactionType.ACCOUNT_SET
+                        ),  # noqa: mock
                         "prelim_result": "tesSUCCESS",
                     },
-                    try_count=CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY
+                    try_count=CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY,
                 )
             )
 
@@ -2762,7 +2764,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(len(trade_fills), 1)
         self.assertEqual(
-            trade_fills[0].trade_id, "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41" # noqa: mock
+            trade_fills[0].trade_id, "1B74D0FE8F6CBAC807D3C7137D4C265F49CBC30B3EC2FEB8F94CD0EB39162F41"  # noqa: mock
         )
         self.assertEqual(
             trade_fills[0].client_order_id,

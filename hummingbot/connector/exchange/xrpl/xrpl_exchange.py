@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Uni
 from bidict import bidict
 
 # XRPL Imports
-from xrpl.asyncio.clients import AsyncWebsocketClient, Client
-from xrpl.asyncio.transaction import sign, submit
+from xrpl.asyncio.clients import AsyncWebsocketClient, Client, XRPLRequestFailureException
+from xrpl.asyncio.transaction import sign
+from xrpl.core.binarycodec import encode
 from xrpl.models import (
     XRP,
     AccountInfo,
@@ -19,6 +20,7 @@ from xrpl.models import (
     OfferCancel,
     OfferCreate,
     Request,
+    SubmitOnly,
     Transaction,
 )
 from xrpl.models.amounts import IssuedCurrencyAmount
@@ -495,6 +497,7 @@ class XrplExchange(ExchangePyBase):
         update_timestamp = self.current_timestamp
         if update_timestamp is None or math.isnan(update_timestamp):
             update_timestamp = self._time()
+
         order_update: OrderUpdate = OrderUpdate(
             client_order_id=order.client_order_id,
             trading_pair=order.trading_pair,
@@ -1469,7 +1472,15 @@ class XrplExchange(ExchangePyBase):
         *,
         fail_hard: bool = False,
     ) -> Response:
-        return await submit(transaction, client, fail_hard=fail_hard)
+
+        transaction_blob = encode(transaction.to_xrpl())
+        response = await client._request_impl(
+            SubmitOnly(tx_blob=transaction_blob, fail_hard=fail_hard), timeout=CONSTANTS.REQUEST_TIMEOUT
+        )
+        if response.is_successful():
+            return response
+
+        raise XRPLRequestFailureException(response.result)
 
     async def wait_for_final_transaction_outcome(self, transaction, prelim_result) -> Response:
         return await _wait_for_final_transaction_outcome(
