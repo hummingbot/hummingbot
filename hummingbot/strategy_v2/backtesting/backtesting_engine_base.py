@@ -47,9 +47,12 @@ class BacktestingEngineBase:
         return config_data
 
     @classmethod
-    def get_controller_config_instance_from_yml(cls, config_path: str) -> ControllerConfigBase:
-        config_data = cls.load_controller_config(config_path)
-        return cls.get_controller_config_instance_from_dict(config_data)
+    def get_controller_config_instance_from_yml(cls,
+                                                config_path: str,
+                                                controllers_conf_dir_path: str = settings.CONTROLLERS_CONF_DIR_PATH,
+                                                controllers_module: str = settings.CONTROLLERS_MODULE) -> ControllerConfigBase:
+        config_data = cls.load_controller_config(config_path, controllers_conf_dir_path)
+        return cls.get_controller_config_instance_from_dict(config_data, controllers_module)
 
     @classmethod
     def get_controller_config_instance_from_dict(cls,
@@ -88,7 +91,7 @@ class BacktestingEngineBase:
         await self.initialize_backtesting_data_provider()
         await self.controller.update_processed_data()
         executors_info = self.simulate_execution(trade_cost=trade_cost)
-        results = self.summarize_results(executors_info)
+        results = self.summarize_results(executors_info, controller_config.total_amount_quote)
         return {
             "executors": executors_info,
             "results": results,

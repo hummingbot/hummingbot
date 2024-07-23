@@ -15,7 +15,6 @@ omit =
         hummingbot/client/ui/parser.py
         hummingbot/connector/derivative/position.py
         hummingbot/connector/exchange/bitfinex*
-        hummingbot/connector/exchange/coinbase_pro*
         hummingbot/connector/exchange/foxbit*
         hummingbot/connector/exchange/hitbtc*
         hummingbot/connector/exchange/injective_v2/account_delegation_script.py
