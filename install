@@ -45,8 +45,8 @@ if [ "$(uname)" = "Linux" ]; then
     fi
 fi
 ######## resolve dydx&injective confilct ###############
-_SRC_TARGET_PATH="anaconda3/envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos"
-_DEST_TARGET_PATH="anaconda3/envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos"
+_SRC_TARGET_PATH="envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos"
+_DEST_TARGET_PATH="envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos"
 
 SRC_DIR=$(find / -type d -path "*/$_SRC_TARGET_PATH" 2>/dev/null)
 DEST_DIR=$(find / -type d -path "*/$_DEST_TARGET_PATH" 2>/dev/null)
