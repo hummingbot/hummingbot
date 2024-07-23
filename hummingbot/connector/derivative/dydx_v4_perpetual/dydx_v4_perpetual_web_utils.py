@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
@@ -71,3 +73,18 @@ async def get_current_server_time(throttler: AsyncThrottler, domain: str = CONST
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(throttler=throttler)
     return api_factory
+
+
+def is_exchange_information_valid(rule: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+
+    :param exchange_info: the exchange information for a trading pair
+
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    if rule["status"] == "ACTIVE":
+        valid = True
+    else:
+        valid = False
+    return valid
