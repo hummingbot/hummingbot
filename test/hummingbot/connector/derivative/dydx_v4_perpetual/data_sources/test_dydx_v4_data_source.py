@@ -1,4 +1,5 @@
 import asyncio
+import time
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
@@ -9,7 +10,6 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.dydx_v4_perpetual import dydx_v4_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source import DydxPerpetualV4Client
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivative import DydxV4PerpetualDerivative
-import time
 
 
 class DydxPerpetualV4ClientTests(TestCase):
