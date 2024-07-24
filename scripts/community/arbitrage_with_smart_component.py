@@ -37,7 +37,7 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
             if sell_arbitrage_executor:
                 self.active_sell_arbitrages.append(sell_arbitrage_executor)
 
-    def on_stop(self):
+    async def on_stop(self):
         for arbitrage in self.active_buy_arbitrages:
             arbitrage.stop()
         for arbitrage in self.active_sell_arbitrages:
@@ -45,10 +45,10 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
 
     def create_arbitrage_executor(self, buying_exchange_pair: ConnectorPair, selling_exchange_pair: ConnectorPair):
         try:
-            base_asset_for_selling_exchange = self.connectors[selling_exchange_pair.exchange].get_available_balance(
+            base_asset_for_selling_exchange = self.connectors[selling_exchange_pair.connector_name].get_available_balance(
                 selling_exchange_pair.trading_pair.split("-")[0])
             if self.order_amount > base_asset_for_selling_exchange:
-                self.logger().info(f"Insufficient balance in exchange {selling_exchange_pair.exchange} "
+                self.logger().info(f"Insufficient balance in exchange {selling_exchange_pair.connector_name} "
                                    f"to sell {selling_exchange_pair.trading_pair.split('-')[0]} "
                                    f"Actual: {base_asset_for_selling_exchange} --> Needed: {self.order_amount}")
                 return
@@ -56,10 +56,10 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
             # Harcoded for now since we don't have a price oracle for WMATIC (CoinMarketCap rate source is requested and coming)
             pair_conversion = selling_exchange_pair.trading_pair.replace("W", "")
             price = RateOracle.get_instance().get_pair_rate(pair_conversion)
-            quote_asset_for_buying_exchange = self.connectors[buying_exchange_pair.exchange].get_available_balance(
+            quote_asset_for_buying_exchange = self.connectors[buying_exchange_pair.connector_name].get_available_balance(
                 buying_exchange_pair.trading_pair.split("-")[1])
             if self.order_amount * price > quote_asset_for_buying_exchange:
-                self.logger().info(f"Insufficient balance in exchange {buying_exchange_pair.exchange} "
+                self.logger().info(f"Insufficient balance in exchange {buying_exchange_pair.connector_name} "
                                    f"to buy {buying_exchange_pair.trading_pair.split('-')[1]} "
                                    f"Actual: {quote_asset_for_buying_exchange} --> Needed: {self.order_amount * price}")
                 return
@@ -74,7 +74,7 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
                                                    config=arbitrage_config)
             return arbitrage_executor
         except Exception:
-            self.logger().error(f"Error creating executor to buy on {buying_exchange_pair.exchange} and sell on {selling_exchange_pair.exchange}")
+            self.logger().error(f"Error creating executor to buy on {buying_exchange_pair.connector_name} and sell on {selling_exchange_pair.connector_name}")
 
     def format_status(self) -> str:
         status = []
