@@ -65,7 +65,7 @@ class BacktestMM(ScriptStrategyBase):
             self.log_with_clock(logging.INFO, msg)
             self.notify_hb_app_with_timestamp(msg)
 
-    def on_stop(self):
+    async def on_stop(self):
         self.candle.stop()
 
     def get_trades_df(self, df):

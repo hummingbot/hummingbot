@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -302,16 +303,29 @@ class PositionExecutor(ExecutorBase):
                 self.cancel_open_orders()
                 self._current_retries += 1
         elif self._close_order:
+            self._current_retries += 1
             if self._current_retries < self._max_retries / 2:
+                connector = self.connectors[self.config.connector_name]
+                in_flight_order = self.get_in_flight_order(self.config.connector_name, self._close_order.order_id)
+                in_flight_order = in_flight_order or InFlightOrder(
+                    client_order_id=self._close_order.order_id,
+                    trading_pair=self.config.trading_pair,
+                    order_type=self.config.triple_barrier_config.take_profit_order_type,
+                    trade_type=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
+                    amount=self.open_filled_amount,
+                    creation_timestamp=self._strategy.current_timestamp,
+                )
+                self._close_order.order = in_flight_order
+                connector._update_orders_with_error_handler(
+                    orders=in_flight_order,
+                    error_handler=connector._handle_update_error_for_lost_order)
                 self.logger().info(f"Waiting for close order to be filled --> Filled amount: {self.close_filled_amount} | Open amount: {self.open_filled_amount}")
             else:
                 self.logger().info("No fill on close order, will be retried.")
                 self.cancel_close_order()
-                self._current_retries += 1
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
-            self._current_retries += 1
         await asyncio.sleep(2.0)
 
     def evaluate_max_retries(self):
@@ -487,7 +501,9 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-
+        trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
+        if self.open_filled_amount_quote < trading_rules.min_notional_size or self.open_filled_amount < trading_rules.min_order_size:
+            return
         order_id = self.place_order(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
@@ -584,6 +600,9 @@ class PositionExecutor(ExecutorBase):
         This method is responsible for processing the order completed event. Here we will check if the id is one of the
         tracked orders and update the state
         """
+        self._total_executed_amount_backup += event.base_asset_amount
+        self.update_tracked_orders_with_order_id(event.order_id)
+
         if self._close_order and self._close_order.order_id == event.order_id:
             self.close_timestamp = event.timestamp
         elif self._take_profit_limit_order and self._take_profit_limit_order.order_id == event.order_id:
@@ -599,7 +618,6 @@ class PositionExecutor(ExecutorBase):
         _total_executed_amount_backup, that can be used if the InFlightOrder
         is not available.
         """
-        self._total_executed_amount_backup += event.amount
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_canceled_event(self, _, market: ConnectorBase, event: OrderCancelledEvent):

@@ -21,7 +21,7 @@ class LiquidationsExample(ScriptStrategyBase):
         super().__init__(connectors)
         self.binance_liquidations_feed.start()
 
-    def on_stop(self):
+    async def on_stop(self):
         self.binance_liquidations_feed.stop()
 
     def on_tick(self):

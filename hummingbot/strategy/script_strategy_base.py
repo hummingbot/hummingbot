@@ -81,7 +81,7 @@ class ScriptStrategyBase(StrategyPyBase):
         """
         pass
 
-    def on_stop(self):
+    async def on_stop(self):
         pass
 
     def buy(self,
@@ -104,7 +104,7 @@ class ScriptStrategyBase(StrategyPyBase):
         :return: The client assigned id for the new order
         """
         market_pair = self._market_trading_pair_tuple(connector_name, trading_pair)
-        self.logger().info(f"Creating {trading_pair} buy order: price: {price} amount: {amount}.")
+        self.logger().debug(f"Creating {trading_pair} buy order: price: {price} amount: {amount}.")
         return self.buy_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
 
     def sell(self,
@@ -127,7 +127,7 @@ class ScriptStrategyBase(StrategyPyBase):
         :return: The client assigned id for the new order
         """
         market_pair = self._market_trading_pair_tuple(connector_name, trading_pair)
-        self.logger().info(f"Creating {trading_pair} sell order: price: {price} amount: {amount}.")
+        self.logger().debug(f"Creating {trading_pair} sell order: price: {price} amount: {amount}.")
         return self.sell_with_specific_market(market_pair, amount, order_type, price, position_action=position_action)
 
     def cancel(self,

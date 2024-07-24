@@ -52,7 +52,8 @@ class ExecutorOrchestrator:
             for executor in executors_list:
                 if not executor.is_closed:
                     executor.early_stop()
-        # then we store all executors
+
+    def store_all_executors(self):
         for controller_id, executors_list in self.executors.items():
             for executor in executors_list:
                 MarketsRecorder.get_instance().store_or_update_executor(executor)

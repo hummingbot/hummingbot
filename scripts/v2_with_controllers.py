@@ -58,7 +58,8 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         if self.mqtt_enabled:
             self._pub = ETopicPublisher("performance", use_bot_prefix=True)
 
-    def on_stop(self):
+    async def on_stop(self):
+        await super().on_stop()
         if self.mqtt_enabled:
             self._pub({controller_id: {} for controller_id in self.controllers.keys()})
             self._pub = None

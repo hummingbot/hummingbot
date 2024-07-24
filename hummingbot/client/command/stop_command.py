@@ -30,7 +30,7 @@ class StopCommand:
             appnope.nap()
 
         if isinstance(self.strategy, ScriptStrategyBase):
-            self.strategy.on_stop()
+            await self.strategy.on_stop()
 
         if self._trading_required and not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to

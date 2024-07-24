@@ -194,7 +194,7 @@ class OkxExchange(ExchangePyBase):
             "sz": str(amount),
         }
         if order_type.is_limit_type():
-            data["px"] = str(price)
+            data["px"] = f'{price:f}'
 
         exchange_order_id = await self._api_request(
             path_url=CONSTANTS.OKX_PLACE_ORDER_PATH,
