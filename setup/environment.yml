@@ -50,6 +50,7 @@ dependencies:
     - importlib-metadata==0.23
     - injective-py==1.5.*
     - jsonpickle==3.0.1
+    - metanode
     - mypy-extensions==0.4.3
     - msgpack
     - pandas_ta==0.3.14b
