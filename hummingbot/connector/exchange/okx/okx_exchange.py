@@ -393,7 +393,7 @@ class OkxExchange(ExchangePyBase):
 
                         if (fillable_order is not None
                                 and order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
-                                and trade_id is not None):
+                                and trade_id):
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=fillable_order.trade_type,

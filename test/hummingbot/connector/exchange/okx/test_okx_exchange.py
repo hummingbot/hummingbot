@@ -798,6 +798,66 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "posSide": "long",
                     "tdMode": "cross",
                     "tgtCcy": "",
+                    "fillSz": "",
+                    "fillPx": "",
+                    "tradeId": "",
+                    "accFillSz": "323",
+                    "fillNotionalUsd": "",
+                    "fillTime": "0",
+                    "fillFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fillFeeCcy": self.expected_fill_fee.flat_fees[0].token,
+                    "execType": "T",
+                    "state": "filled",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "0",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "20",
+                    "slTriggerPx": "0",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "20",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "source": "",
+                    "pnl": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085",
+                    "reqId": "",
+                    "amendResult": "",
+                    "code": "0",
+                    "msg": ""
+                }
+            ]
+        }
+
+    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return {
+            "arg": {
+                "channel": "orders",
+                "uid": "77982378738415879",
+                "instType": "SPOT",
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+            },
+            "data": [
+                {
+                    "instType": "SPOT",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "ccy": "BTC",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": "",
                     "fillSz": str(order.amount),
                     "fillPx": str(order.price),
                     "tradeId": self.expected_fill_trade_id,
@@ -833,9 +893,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 }
             ]
         }
-
-    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return {}
 
     @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
