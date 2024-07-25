@@ -72,6 +72,7 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
             )
             arbitrage_executor = ArbitrageExecutor(strategy=self,
                                                    config=arbitrage_config)
+            arbitrage_executor.start()
             return arbitrage_executor
         except Exception:
             self.logger().error(f"Error creating executor to buy on {buying_exchange_pair.connector_name} and sell on {selling_exchange_pair.connector_name}")
