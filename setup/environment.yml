@@ -48,7 +48,7 @@ dependencies:
     - gql
     - grpcio-tools
     - importlib-metadata==0.23
-    - injective-py==1.5.*
+    - injective-py==1.5.2
     - jsonpickle==3.0.1
     - mypy-extensions==0.4.3
     - msgpack
