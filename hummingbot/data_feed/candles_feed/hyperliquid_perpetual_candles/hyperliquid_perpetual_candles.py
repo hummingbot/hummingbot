@@ -19,9 +19,7 @@ class HyperliquidPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str,
-                 interval: str = "1m",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         self._tokens = None
         self._base_asset = trading_pair.split("-")[0]
         super().__init__(trading_pair, interval, max_records)
@@ -49,6 +47,10 @@ class HyperliquidPerpetualCandles(CandlesBase):
     @property
     def candles_endpoint(self):
         return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
 
     @property
     def rate_limits(self):
