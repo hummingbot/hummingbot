@@ -17,7 +17,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import OrderCancelledEvent, OrderType, TradeType
+from hummingbot.core.event.events import BuyOrderCreatedEvent, OrderCancelledEvent, OrderType, TradeType
 
 
 class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -480,8 +480,12 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(order.order_type.name.lower(), request_data["ordType"])
         self.assertEqual(Decimal("100"), Decimal(request_data["sz"]))
-        self.assertEqual(Decimal("10000"), Decimal(request_data["px"]))
         self.assertEqual(order.client_order_id, request_data["clOrdId"])
+        if request_data["ordType"] == "market":
+            self.assertNotIn("px", request_data)
+            self.assertEqual("base_ccy", request_data["tgtCcy"])
+        else:
+            self.assertEqual(Decimal("10000"), Decimal(request_data["px"]))
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
@@ -794,6 +798,66 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "posSide": "long",
                     "tdMode": "cross",
                     "tgtCcy": "",
+                    "fillSz": "",
+                    "fillPx": "",
+                    "tradeId": "",
+                    "accFillSz": "323",
+                    "fillNotionalUsd": "",
+                    "fillTime": "0",
+                    "fillFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fillFeeCcy": self.expected_fill_fee.flat_fees[0].token,
+                    "execType": "T",
+                    "state": "filled",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "0",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "20",
+                    "slTriggerPx": "0",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "20",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "source": "",
+                    "pnl": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085",
+                    "reqId": "",
+                    "amendResult": "",
+                    "code": "0",
+                    "msg": ""
+                }
+            ]
+        }
+
+    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return {
+            "arg": {
+                "channel": "orders",
+                "uid": "77982378738415879",
+                "instType": "SPOT",
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+            },
+            "data": [
+                {
+                    "instType": "SPOT",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "ccy": "BTC",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": "",
                     "fillSz": str(order.amount),
                     "fillPx": str(order.price),
                     "tradeId": self.expected_fill_trade_id,
@@ -829,9 +893,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 }
             ]
         }
-
-    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return {}
 
     @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
@@ -1182,3 +1243,44 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             else:
                 self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
                 self.assertTrue(order.is_pending_cancel_confirmation)
+
+    @aioresponses()
+    def test_create_buy_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id = self.place_buy_order(order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.MARKET.name} {TradeType.BUY.name} order {order_id} for "
+                f"{Decimal('100.000000')} {self.trading_pair}."
+            )
+        )
