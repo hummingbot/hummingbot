@@ -70,13 +70,19 @@ COPY --from=builder /opt/conda/ /opt/conda/
 COPY --from=builder /home/ /home/
 
 ######## resolve dydx&injective confilct ###############
-ENV SRC_TARGET_PATH=envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos
-ENV DEST_TARGET_PATH=envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos
-
 RUN apt-get update && apt-get install -y findutils
 
-RUN SRC_DIR=$(find / -type d -path "*/$SRC_TARGET_PATH" 2>/dev/null) \
-    && DEST_DIR=$(find / -type d -path "*/$DEST_TARGET_PATH" 2>/dev/null) \
+ENV SRC_TARGET_PATH="envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos"
+ENV DEST_TARGET_PATH="envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos"
+
+RUN SRC_DIR=$( (find /opt/conda/$SRC_TARGET_PATH || find ~/anaconda3/$SRC_TARGET_PATH || \
+	    find /usr/local/anaconda3/$SRC_TARGET_PATH || find ~/miniconda3/$SRC_TARGET_PATH  || \
+	    find /root/miniconda/$SRC_TARGET_PATH || find ~/Anaconda3/Scripts/conda || \
+	    find $CONDA/$SRC_TARGET_PATH) 2>/dev/null) \
+    && DEST_DIR=$( (find /opt/conda/$DEST_TARGET_PATH || find ~/anaconda3/$DEST_TARGET_PATH || \
+	    find /usr/local/anaconda3/$DEST_TARGET_PATH || find ~/miniconda3/$DEST_TARGET_PATH  || \
+	    find /root/miniconda/$DEST_TARGET_PATH || find ~/Anaconda3/Scripts/conda || \
+	    find $CONDA/$DEST_TARGET_PATH) 2>/dev/null) \
     && if [ ! -d "$SRC_DIR" ]; then \
          echo "Source directory $SRC_DIR does not exist." \
          && exit 1; \
@@ -92,6 +98,7 @@ RUN SRC_DIR=$(find / -type d -path "*/$SRC_TARGET_PATH" 2>/dev/null) \
            && cp -r "$SRC_DIR/$dir"/* "$DEST_DIR/$dir"/; \
          fi \
        done \
+    && echo "Copy complete."
 
 ######## resolve dydx&injective confilct END ###############
 
