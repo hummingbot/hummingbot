@@ -435,7 +435,6 @@ class PositionExecutor(ExecutorBase):
             self._close_order = TrackedOrder(order_id=order_id)
             self.logger().debug(f"Placing close order --> Filled amount: {self.open_filled_amount}")
         self.close_type = close_type
-        self.close_timestamp = self._strategy.current_timestamp
         self._status = RunnableStatus.SHUTTING_DOWN
 
     def cancel_open_orders(self):
@@ -575,12 +574,13 @@ class PositionExecutor(ExecutorBase):
         :param order_id: The order_id to be used as a reference.
         :return: None
         """
+        in_flight_order = self.get_in_flight_order(self.config.connector_name, order_id)
         if self._open_order and self._open_order.order_id == order_id:
-            self._open_order.order = self.get_in_flight_order(self.config.connector_name, order_id)
+            self._open_order.order = in_flight_order
         elif self._close_order and self._close_order.order_id == order_id:
-            self._close_order.order = self.get_in_flight_order(self.config.connector_name, order_id)
+            self._close_order.order = in_flight_order
         elif self._take_profit_limit_order and self._take_profit_limit_order.order_id == order_id:
-            self._take_profit_limit_order.order = self.get_in_flight_order(self.config.connector_name, order_id)
+            self._take_profit_limit_order.order = in_flight_order
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         """
@@ -597,13 +597,9 @@ class PositionExecutor(ExecutorBase):
         self._total_executed_amount_backup += event.base_asset_amount
         self.update_tracked_orders_with_order_id(event.order_id)
 
-        if self._close_order and self._close_order.order_id == event.order_id:
-            self.close_timestamp = event.timestamp
-        elif self._take_profit_limit_order and self._take_profit_limit_order.order_id == event.order_id:
+        if self._take_profit_limit_order and self._take_profit_limit_order.order_id == event.order_id:
             self.close_type = CloseType.TAKE_PROFIT
-            self.close_timestamp = event.timestamp
             self._close_order = self._take_profit_limit_order
-            self.cancel_open_orders()
             self._status = RunnableStatus.SHUTTING_DOWN
 
     def process_order_filled_event(self, _, market, event: OrderFilledEvent):
