@@ -160,6 +160,7 @@ class ExecutorBase(RunnableBase):
         """
         Stops the executor and unregisters the events.
         """
+        self.close_timestamp = self._strategy.current_timestamp
         super().stop()
         self.unregister_events()
 
