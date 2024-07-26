@@ -211,7 +211,9 @@ class CandlesBase(NetworkBase):
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None):
-        rest_assistant = await self._api_factory.get_rest_assistant()
+        if start_time is None and end_time is None:
+            raise ValueError("Either the start time or end time must be specified.")
+
         if end_time is None:
             end_time = start_time + self.interval_in_seconds * self.candles_max_result_per_rest_request
         if start_time is None:
@@ -220,6 +222,7 @@ class CandlesBase(NetworkBase):
 
         params = self._get_rest_candles_params(start_time, end_time)
         headers = self._get_rest_candles_headers()
+        rest_assistant = await self._api_factory.get_rest_assistant()
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=self.candles_endpoint,
                                                        params=params,
