@@ -26,12 +26,6 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         client_data=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
-    total_amount_quote: float = Field(
-        default=100,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
     buy_spreads: List[float] = Field(
         default="0.01,0.02",
         client_data=ClientFieldData(
