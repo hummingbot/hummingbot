@@ -23,10 +23,7 @@ class KucoinPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self,
-                 trading_pair: str,
-                 interval: str = "1min",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1min", max_records: int = 150):
         self.symbols_dict = {}
         self.hb_base_asset = trading_pair.split("-")[0]
         self.quote_asset = trading_pair.split("-")[1]
@@ -60,6 +57,10 @@ class KucoinPerpetualCandles(CandlesBase):
     @property
     def candles_endpoint(self):
         return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
 
     @property
     def symbols_url(self):

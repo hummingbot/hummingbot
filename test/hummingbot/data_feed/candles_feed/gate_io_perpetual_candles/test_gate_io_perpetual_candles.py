@@ -2,7 +2,7 @@ import asyncio
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles, constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 
 
 class TestGateioPerpetualCandles(TestCandlesBase):
@@ -18,7 +18,7 @@ class TestGateioPerpetualCandles(TestCandlesBase):
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + "_" + cls.quote_asset
-        cls.max_records = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        cls.max_records = 150
 
     def setUp(self) -> None:
         super().setUp()

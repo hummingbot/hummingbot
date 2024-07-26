@@ -47,6 +47,10 @@ class KrakenSpotCandles(CandlesBase):
         return CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
