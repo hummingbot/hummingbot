@@ -65,7 +65,7 @@ if TYPE_CHECKING:
 
 
 class XrplExchange(ExchangePyBase):
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    LONG_POLL_INTERVAL = 19.0
 
     web_utils = xrpl_web_utils
 
@@ -493,6 +493,19 @@ class XrplExchange(ExchangePyBase):
         verified = False
         resp = None
         submit_data = {}
+
+        # Check order fills
+        trade_updates = await self._all_trade_updates_for_order(order)
+        for trade_update in trade_updates:
+            self._order_tracker.process_trade_update(trade_update)
+
+        # Check order status
+        order_update = await self._request_order_status(order)
+        self.order_tracker.process_order_update(order_update)
+
+        # If filled, mark as filled and finish cancel
+        if order_update.new_state == OrderState.FILLED:
+            return True
 
         update_timestamp = self.current_timestamp
         if update_timestamp is None or math.isnan(update_timestamp):
@@ -1153,7 +1166,6 @@ class XrplExchange(ExchangePyBase):
     async def _update_balances(self):
         account_address = self._auth.get_account()
 
-        await self._make_network_check_request()
         account_info = await self.request_with_retry(
             self._xrpl_client, AccountInfo(account=account_address, ledger_index="validated")
         )
@@ -1491,6 +1503,9 @@ class XrplExchange(ExchangePyBase):
         self, client: AsyncWebsocketClient, request: Request, max_retries: int = 3
     ) -> Response:
         try:
+            if not client.is_open():
+                await client.open()
+
             return await client.request(request)
         except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
             self.logger().debug(f"Request {request} timeout error: {e}")
