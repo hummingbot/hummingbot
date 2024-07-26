@@ -77,19 +77,22 @@ ENV DEST_TARGET_PATH="envs/hummingbot/lib/python3.10/site-packages/pyinjective/p
 
 RUN SRC_DIR=$(find /opt/conda -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
           find ~/anaconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
+          find /opt/anaconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
           find /usr/local/anaconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
           find ~/miniconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
           find /root/miniconda -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
           find ~/Anaconda3/Scripts -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find $CONDA -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null)
-
-DEST_DIR=$(find /opt/conda -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
+          find $CONDA -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
+          find / -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null) \
+    && DEST_DIR=$(find /opt/conda -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
           find ~/anaconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
+          find /opt/anaconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
           find /usr/local/anaconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
           find ~/miniconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
           find /root/miniconda -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
           find ~/Anaconda3/Scripts -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find $CONDA -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null) \
+          find $CONDA -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
+          find / -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null) \
     && if [ ! -d "$SRC_DIR" ]; then \
          echo "Source directory $SRC_DIR does not exist." \
          && exit 1; \
