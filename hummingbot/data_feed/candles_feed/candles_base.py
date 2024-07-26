@@ -214,11 +214,12 @@ class CandlesBase(NetworkBase):
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
 
+        missing_records = self._candles.maxlen - len(self._candles)
+        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, missing_records)
         if end_time is None:
-            end_time = start_time + self.interval_in_seconds * self.candles_max_result_per_rest_request
+            end_time = start_time + self.interval_in_seconds * candles_to_fetch
         if start_time is None:
-            missing_records = self._candles.maxlen - len(self._candles)
-            start_time = end_time - self.interval_in_seconds * min(self.candles_max_result_per_rest_request - 1, missing_records)
+            start_time = end_time - self.interval_in_seconds * candles_to_fetch
 
         params = self._get_rest_candles_params(start_time, end_time)
         headers = self._get_rest_candles_headers()
