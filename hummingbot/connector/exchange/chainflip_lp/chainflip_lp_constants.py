@@ -1,0 +1,75 @@
+from hummingbot.core.data_type.in_flight_order import OrderState
+from hummingbot.core.api_throttler.data_types import RateLimit
+
+
+DEFAULT_DOMAIN = "chainflip_lp"
+EXCHANGE_NAME = "Chainflip"
+
+REST_RPC_URLS = {
+    "chainflip_lp":"https://mainnet-rpc.chainflip.io",
+    "chainflip_lp_testnet":"https://archive.perseverance.chainflip.io"
+    }
+WS_RPC_URLS = {
+    "chainflip_lp":"wss://mainnet-rpc.chainflip.io",
+    "chainflip_lp_testnet":"wss://archive.perseverance.chainflip.io"
+}
+WS_HEARTBEAT_TIME_INTERVAL = 30
+
+LISTENER_TIME_INTERVAL = 10
+
+MAX_REQUEST = 1000
+SECOND = 1
+MAX_ID_LEN = (2 ** 64) - 1
+
+
+# Public chainflip lp rpc methods
+ACTIVE_POOLS_METHOD = "cf_pool_environment"
+ASSET_BALANCE_METHOD = "lp_asset_balance"
+PING_METHOD = ""
+OPEN_ORDERS_METHOD = "cf_pool_order"
+PLACE_LIMIT_ORDER_METHOD = "lp_set_limit_order"
+CANCEL_LIMIT_ORDER = "lp_set_limit_order" # set
+MY_TRADES_METHOD = ""
+POOL_ORDERBOOK_METHOD = "cf_pool_orderbook"
+SUPPORTED_ASSETS_METHOD = "cf_supported_assets"
+FILLED_ORDER_METHOD = "lp_subscribe_order_fills"
+MARKET_PRICE_METHOD = "cf_pool_price"
+MARKET_PRICE_V2_METHOD = "cf_pool_price_v2"
+SCHEDULED_SWAPS = "cf_scheduled_swaps"
+
+# chainflip params
+SIDE_BUY = "buy"
+SIDE_SELL = "sell"
+
+#rate limit id
+GENERAL_LIMIT_ID = "General"
+
+
+ORDER_STATE = {
+    "PENDING": OrderState.PENDING_CREATE,
+    "NEW": OrderState.OPEN,
+    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
+    "FILLED": OrderState.FILLED,
+    "PENDING_CANCEL": OrderState.PENDING_CANCEL,
+    "CANCELED": OrderState.CANCELED,
+    "REJECTED": OrderState.FAILED,
+}
+
+
+RATE_LIMITS = [
+    RateLimit(GENERAL_LIMIT_ID,MAX_REQUEST, SECOND)
+]
+
+ASSET_PRECISIONS = {
+    "Ethereum": 10e18,
+    "Bitcoin": 10e8,
+    "Polkadot": 10e12,
+    "Solana": 10e9,
+    "Litecoin": 10e9,
+    "Stable":10e6
+}
+
+STABLE_ASSETS = ["USDC","USDT"]
+FRACTIONAL_BITS = 96
+LOWER_TICK_BOUND = -887272
+UPPER_TICK_BOUND = 887272
