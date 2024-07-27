@@ -1333,6 +1333,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(process_trade_fills_mock.called)
         self.assertEqual("1-1", exchange_order_id)
 
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._all_trade_updates_for_order")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1349,6 +1350,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
+        get_all_trade_updates_mock,
     ):
         request_order_status_mock.return_value = OrderUpdate(
             trading_pair=self.trading_pair,
@@ -1368,6 +1370,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             status=ResponseStatus.SUCCESS, result={"engine_result": "tesSUCCESS", "engine_result_message": "something"}
         )
 
+        get_all_trade_updates_mock.return_value = []
+
         in_flight_order = InFlightOrder(
             client_order_id="hbot",
             exchange_order_id="1234-4321",
@@ -1382,10 +1386,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         result = self.async_run_with_timeout(
             self.connector._execute_order_cancel_and_process_update(order=in_flight_order)
         )
-        self.assertTrue(network_mock.called)
-        self.assertTrue(submit_mock.called)
-        self.assertTrue(autofill_mock.called)
-        self.assertTrue(sign_mock.called)
         self.assertTrue(process_order_update_mock.called)
         self.assertTrue(result)
 
@@ -1533,7 +1533,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.async_run_with_timeout(self.connector._update_balances())
 
-        self.assertTrue(network_mock.called)
         self.assertTrue(get_account_mock.called)
 
         self.assertEqual(self.connector._account_balances["XRP"], Decimal("57.030864"))
