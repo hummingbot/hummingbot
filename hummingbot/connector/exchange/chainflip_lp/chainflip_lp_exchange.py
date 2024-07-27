@@ -175,7 +175,6 @@ class ChainflipLpExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         # Not used in chainflip lp
         raise NotImplementedError()  # pragma: no cover
-
     async def _initialize_trading_pair_symbol_map(self):
         exchange_info = None
         try:
@@ -265,7 +264,6 @@ class ChainflipLpExchange(ExchangePyBase):
         for token in all_balances:
             self._account_balances[token] = all_balances[token]
             self._account_available_balances[token] = all_balances[token]
-
     def _get_fee(
         self,
         base_currency: str,
@@ -287,7 +285,6 @@ class ChainflipLpExchange(ExchangePyBase):
             price=price,
         )
         return fee
-
     async def _place_order(
         self,
         order_id: str,

@@ -126,7 +126,6 @@ class ChainflipLpDataSource:
             timestamp=timestamp,
         )
         return snapshot_msg
-
     async def exchange_status(self):
         status = await self._rpc_executor.check_connection_status()
 
@@ -135,7 +134,6 @@ class ChainflipLpDataSource:
         else:
             result = NetworkStatus.NOT_CONNECTED
         return result
-
     async def symbols_map(self) -> Mapping[str, str]:
         symbols_map = bidict()
         all_markets = await self._rpc_executor.all_markets()
