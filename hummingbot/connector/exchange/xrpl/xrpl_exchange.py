@@ -501,7 +501,7 @@ class XrplExchange(ExchangePyBase):
 
         # Check order status
         order_update = await self._request_order_status(order)
-        self.order_tracker.process_order_update(order_update)
+        self._order_tracker.process_order_update(order_update)
 
         # If filled, mark as filled and finish cancel
         if order_update.new_state == OrderState.FILLED:
