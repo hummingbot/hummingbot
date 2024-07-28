@@ -48,7 +48,6 @@ dependencies:
     - gql
     - grpcio-tools
     - importlib-metadata==0.23
-    - injective-py==1.5.*
     - jsonpickle==3.0.1
     - mypy-extensions==0.4.3
     - msgpack
@@ -66,6 +65,7 @@ dependencies:
     - substrate-interface==1.6.2
     - solders==0.1.4
     - vega-python-sdk==0.1.3
+    - v4_proto
     - web3
     - websockets
     - yarl==1.*

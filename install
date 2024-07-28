@@ -17,7 +17,33 @@ if [ "${CONDA_EXE}_" == "_" ]; then
 fi
 
 CONDA_BIN=$(dirname ${CONDA_EXE})
-ENV_FILE=setup/environment.yml
+ENV_FILE_1="setup/environment.yml"
+ENV_FILE_2="setup/environment_dydx.yml"
+
+# The default is ENV_FILE_1
+ENV_FILE=$ENV_FILE_1
+
+# Parse command line arguments
+USE_DYDX=false
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --dydx)
+        USE_DYDX=true
+        shift
+        ;;
+        *)
+        # Handle other unidentified parameters
+        shift
+        ;;
+    esac
+done
+
+# If you use the --dydx flag, switch to ENV_FILE_2
+if [ "$USE_DYDX" = true ]; then
+    ENV_FILE=$ENV_FILE_2
+    echo "install dydx version."
+fi
 
 if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
     ${CONDA_EXE} env update -f $ENV_FILE
@@ -44,48 +70,3 @@ if [ "$(uname)" = "Linux" ]; then
         sudo apt-get install -y build-essential
     fi
 fi
-######## resolve dydx&injective confilct ###############
-_SRC_TARGET_PATH="envs/hummingbot/lib/python3.10/site-packages/v4_proto/cosmos"
-_DEST_TARGET_PATH="envs/hummingbot/lib/python3.10/site-packages/pyinjective/proto/cosmos"
-
-SRC_DIR=$(find /opt/conda -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find ~/anaconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find /opt/anaconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find /usr/local/anaconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find ~/miniconda3 -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find /root/miniconda -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find ~/Anaconda3/Scripts -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find $CONDA -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null || \
-          find / -type d -path "*/$_SRC_TARGET_PATH" -print -quit 2>/dev/null)
-DEST_DIR=$(find /opt/conda -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find ~/anaconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find /opt/anaconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find /usr/local/anaconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find ~/miniconda3 -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find /root/miniconda -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find ~/Anaconda3/Scripts -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find $CONDA -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null || \
-          find / -type d -path "*/$_DEST_TARGET_PATH" -print -quit 2>/dev/null)
-
-
-# Ensure source directory exists
-if [ ! -d "$SRC_DIR" ]; then
-  echo "Source directory $SRC_DIR does not exist."
-  exit 1
-fi
-
-# Ensure destination directory exists
-if [ ! -d "$DEST_DIR" ]; then
-  echo "Destination directory $DEST_DIR does not exist."
-  exit 1
-fi
-
-# Copy directories and files
-for dir in $(ls "$SRC_DIR"); do
-  if [ -d "$SRC_DIR/$dir" ]; then
-    echo "Copying directory $dir from $SRC_DIR to $DEST_DIR"
-    cp -r "$SRC_DIR/$dir"/* "$DEST_DIR/$dir"/
-  fi
-done
-
-echo "Copy complete."
