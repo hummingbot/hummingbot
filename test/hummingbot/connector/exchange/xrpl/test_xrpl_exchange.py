@@ -663,6 +663,79 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         return resp
 
+    def _client_response_account_lines(self):
+        resp = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
+                "ledger_hash": "6626B7AC7E184B86EE29D8B9459E0BC0A56E12C8DA30AE747051909CF16136D3", # noqa: mock
+                "ledger_index": 89692233,
+                "validated": True,
+                "limit": 200,
+                "lines": [
+                    {
+                        "account": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B", # noqa: mock
+                        "balance": "0.9957725256649131",
+                        "currency": "USD",
+                        "limit": "0",
+                        "limit_peer": "0",
+                        "quality_in": 0,
+                        "quality_out": 0,
+                        "no_ripple": True,
+                        "no_ripple_peer": False,
+                    },
+                    {
+                        "account": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu", # noqa: mock
+                        "balance": "2.981957518895808",
+                        "currency": "5553444300000000000000000000000000000000", # noqa: mock
+                        "limit": "0",
+                        "limit_peer": "0",
+                        "quality_in": 0,
+                        "quality_out": 0,
+                        "no_ripple": True,
+                        "no_ripple_peer": False,
+                    },
+                    {
+                        "account": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq", # noqa: mock
+                        "balance": "0.011094399237562",
+                        "currency": "USD",
+                        "limit": "0",
+                        "limit_peer": "0",
+                        "quality_in": 0,
+                        "quality_out": 0,
+                        "no_ripple": True,
+                        "no_ripple_peer": False,
+                    },
+                    {
+                        "account": "rpakCr61Q92abPXJnVboKENmpKssWyHpwu", # noqa: mock
+                        "balance": "104.9021857197376",
+                        "currency": "457175696C69627269756D000000000000000000", # noqa: mock
+                        "limit": "0",
+                        "limit_peer": "0",
+                        "quality_in": 0,
+                        "quality_out": 0,
+                        "no_ripple": True,
+                        "no_ripple_peer": False,
+                    },
+                    {
+                        "account": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                        "balance": "35.95165691730148",
+                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                        "limit": "1000000000",
+                        "limit_peer": "0",
+                        "quality_in": 0,
+                        "quality_out": 0,
+                        "no_ripple": True,
+                        "no_ripple_peer": False,
+                    },
+                ],
+            },  # noqa: mock
+            id="account_lines_144811",
+            type=ResponseType.RESPONSE,
+        )
+
+        return resp
+
     def _client_response_account_objects(self):
         resp = Response(
             status=ResponseStatus.SUCCESS,
@@ -1526,6 +1599,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 return self._client_response_account_info()
             elif arg.method == RequestMethod.ACCOUNT_OBJECTS:
                 return self._client_response_account_objects()
+            elif arg.method == RequestMethod.ACCOUNT_LINES:
+                return self._client_response_account_lines()
             else:
                 raise ValueError("Invalid method")
 
@@ -1537,11 +1612,11 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(self.connector._account_balances["XRP"], Decimal("57.030864"))
         self.assertEqual(self.connector._account_balances["USD"], Decimal("0.011094399237562"))
-        self.assertEqual(self.connector._account_balances["SOLO"], Decimal("47.21480375660969"))
+        self.assertEqual(self.connector._account_balances["SOLO"], Decimal("35.95165691730148"))
 
         self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("32.030868"))
         self.assertEqual(self.connector._account_available_balances["USD"], Decimal("0.011094399237562"))
-        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("42.601122687963971"))
+        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("31.337975848655761"))
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     def test_make_trading_rules_request(self, network_mock):
