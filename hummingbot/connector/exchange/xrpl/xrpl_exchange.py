@@ -57,7 +57,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -1160,14 +1160,30 @@ class XrplExchange(ExchangePyBase):
                 forward=is_forward,
             )
 
-            resp = await self.request_with_retry(self._xrpl_client, request)
+            default_client = AsyncWebsocketClient(CONSTANTS.DEFAULT_WSS_URL)
 
-            transactions = resp.result.get("transactions", [])
+            tasks = [
+                self.request_with_retry(self._xrpl_client, request),
+                self.request_with_retry(self._xrpl_place_order_client, request),
+                self.request_with_retry(default_client, request)
+            ]
+            task_results = await safe_gather(*tasks, return_exceptions=True)
+
+            return_transactions = []
+
+            for task_id, task_result in enumerate(task_results):
+                if not isinstance(task_result, Exception):
+                    resp = task_result
+                    transactions = resp.result.get("transactions", [])
+
+                    if len(transactions) > len(return_transactions):
+                        return_transactions = transactions
+
         except Exception as e:
             self.logger().error(f"Failed to fetch account transactions: {e}")
-            transactions = []
+            return_transactions = []
 
-        return transactions
+        return return_transactions
 
     async def _update_balances(self):
         account_address = self._auth.get_account()
