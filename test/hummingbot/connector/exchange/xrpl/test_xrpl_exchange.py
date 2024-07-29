@@ -5,7 +5,8 @@ from decimal import Decimal
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from xrpl.models import Request, Response, Transaction
+from xrpl.asyncio.clients import XRPLRequestFailureException
+from xrpl.models import OfferCancel, Request, Response, Transaction
 from xrpl.models.requests.request import RequestMethod
 from xrpl.models.response import ResponseStatus, ResponseType
 from xrpl.models.transactions.types import TransactionType
@@ -667,14 +668,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         resp = Response(
             status=ResponseStatus.SUCCESS,
             result={
-                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", # noqa: mock
-                "ledger_hash": "6626B7AC7E184B86EE29D8B9459E0BC0A56E12C8DA30AE747051909CF16136D3", # noqa: mock
+                "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",  # noqa: mock
+                "ledger_hash": "6626B7AC7E184B86EE29D8B9459E0BC0A56E12C8DA30AE747051909CF16136D3",  # noqa: mock
                 "ledger_index": 89692233,
                 "validated": True,
                 "limit": 200,
                 "lines": [
                     {
-                        "account": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B", # noqa: mock
+                        "account": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B",  # noqa: mock
                         "balance": "0.9957725256649131",
                         "currency": "USD",
                         "limit": "0",
@@ -685,9 +686,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         "no_ripple_peer": False,
                     },
                     {
-                        "account": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu", # noqa: mock
+                        "account": "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",  # noqa: mock
                         "balance": "2.981957518895808",
-                        "currency": "5553444300000000000000000000000000000000", # noqa: mock
+                        "currency": "5553444300000000000000000000000000000000",  # noqa: mock
                         "limit": "0",
                         "limit_peer": "0",
                         "quality_in": 0,
@@ -696,7 +697,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         "no_ripple_peer": False,
                     },
                     {
-                        "account": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq", # noqa: mock
+                        "account": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",  # noqa: mock
                         "balance": "0.011094399237562",
                         "currency": "USD",
                         "limit": "0",
@@ -707,9 +708,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         "no_ripple_peer": False,
                     },
                     {
-                        "account": "rpakCr61Q92abPXJnVboKENmpKssWyHpwu", # noqa: mock
+                        "account": "rpakCr61Q92abPXJnVboKENmpKssWyHpwu",  # noqa: mock
                         "balance": "104.9021857197376",
-                        "currency": "457175696C69627269756D000000000000000000", # noqa: mock
+                        "currency": "457175696C69627269756D000000000000000000",  # noqa: mock
                         "limit": "0",
                         "limit_peer": "0",
                         "quality_in": 0,
@@ -718,9 +719,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                         "no_ripple_peer": False,
                     },
                     {
-                        "account": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", # noqa: mock
+                        "account": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                         "balance": "35.95165691730148",
-                        "currency": "534F4C4F00000000000000000000000000000000", # noqa: mock
+                        "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
                         "limit": "1000000000",
                         "limit_peer": "0",
                         "quality_in": 0,
@@ -2316,6 +2317,20 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         order_update = self.async_run_with_timeout(self.connector._request_order_status(in_flight_order))
         self.assertEqual(order_update.new_state, OrderState.PENDING_CREATE)
 
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("0.217090"),
+            amount=Decimal("2.303184724670496"),
+            creation_timestamp=time.time(),
+        )
+
+        in_flight_order.current_state = OrderState.PENDING_CREATE
+        order_update = self.async_run_with_timeout(self.connector._request_order_status(in_flight_order))
+        self.assertEqual(order_update.new_state, OrderState.PENDING_CREATE)
+
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
@@ -2863,3 +2878,45 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(trade_fills[0].fill_price, Decimal("4.417734611892777801348826549"))
         self.assertEqual(trade_fills[0].fill_base_amount, Decimal("306.599028007179491"))
         self.assertEqual(trade_fills[0].fill_quote_amount, Decimal("1354.473138"))
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.request_with_retry")
+    def test_fetch_account_transactions(self, request_with_retry_mock, get_account_mock):
+
+        get_account_mock.return_value = "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"  # noqa: mock
+        request_with_retry_mock.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"transactions": ["something"]},
+            id="account_info_644216",
+            type=ResponseType.RESPONSE,
+        )
+
+        txs = self.async_run_with_timeout(self.connector._fetch_account_transactions(ledger_index=88824981))
+        self.assertEqual(len(txs), 1)
+
+    def test_tx_submit(self):
+        mock_client = AsyncMock()
+        mock_client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"transactions": ["something"]},
+            id="something_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        some_tx = OfferCancel(account="r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK", offer_sequence=88824981)
+
+        resp = self.async_run_with_timeout(self.connector.tx_submit(some_tx, mock_client))
+        self.assertEqual(resp.status, ResponseStatus.SUCCESS)
+
+        # check if there is exception if response status is not success
+        mock_client._request_impl.return_value = Response(
+            status=ResponseStatus.ERROR,
+            result={"error": "something"},
+            id="something_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        with self.assertRaises(XRPLRequestFailureException) as context:
+            self.async_run_with_timeout(self.connector.tx_submit(some_tx, mock_client))
+
+        self.assertTrue("something" in str(context.exception))
