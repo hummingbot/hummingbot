@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 
 class XrplExchange(ExchangePyBase):
-    LONG_POLL_INTERVAL = 19.0
+    LONG_POLL_INTERVAL = 30.0
 
     web_utils = xrpl_web_utils
 
