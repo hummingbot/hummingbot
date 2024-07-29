@@ -1462,6 +1462,19 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(process_order_update_mock.called)
         self.assertTrue(result)
 
+        request_order_status_mock.return_value = OrderUpdate(
+            trading_pair=self.trading_pair,
+            new_state=OrderState.OPEN,
+            update_timestamp=1,
+        )
+
+        result = self.async_run_with_timeout(
+            self.connector._execute_order_cancel_and_process_update(order=in_flight_order)
+        )
+        self.assertTrue(process_order_update_mock.called)
+        self.assertTrue(get_all_trade_updates_mock.called)
+        self.assertTrue(result)
+
     def test_format_trading_rules(self):
         trading_rules_info = {"XRP-USD": {"base_tick_size": 8, "quote_tick_size": 8, "minimum_order_size": 0.01}}
 
