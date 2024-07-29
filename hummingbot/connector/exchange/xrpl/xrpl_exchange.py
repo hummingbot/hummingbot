@@ -1160,12 +1160,9 @@ class XrplExchange(ExchangePyBase):
                 forward=is_forward,
             )
 
-            default_client = AsyncWebsocketClient(CONSTANTS.DEFAULT_WSS_URL)
-
             tasks = [
                 self.request_with_retry(self._xrpl_client, request),
                 self.request_with_retry(self._xrpl_place_order_client, request),
-                self.request_with_retry(default_client, request)
             ]
             task_results = await safe_gather(*tasks, return_exceptions=True)
 
