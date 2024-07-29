@@ -137,9 +137,22 @@ class XRPLMarket(BaseModel):
     quote: str
     base_issuer: str
     quote_issuer: str
+    trading_pair_symbol: Optional[str] = None
 
     def __repr__(self):
         return str(self.dict())
+
+    def get_token_symbol(self, code: str, issuer: str) -> Optional[str]:
+        if self.trading_pair_symbol is None:
+            return None
+
+        if code.upper() == self.base.upper() and issuer.upper() == self.base_issuer.upper():
+            return self.trading_pair_symbol.split("-")[0]
+
+        if code.upper() == self.quote.upper() and issuer.upper() == self.quote_issuer.upper():
+            return self.trading_pair_symbol.split("-")[1]
+
+        return None
 
 
 def represent_xrpl_market(dumper, data):

@@ -13,6 +13,7 @@ from xrpl.core.binarycodec import encode
 from xrpl.models import (
     XRP,
     AccountInfo,
+    AccountLines,
     AccountObjects,
     AccountTx,
     IssuedCurrency,
@@ -1178,11 +1179,15 @@ class XrplExchange(ExchangePyBase):
         )
 
         open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
-        balances = [
-            x.get("Balance")
-            for x in objects.result.get("account_objects", [])
-            if x.get("LedgerEntryType") == "RippleState"
-        ]
+
+        account_lines = await self.request_with_retry(
+            self._xrpl_client,
+            AccountLines(
+                account=account_address,
+            ),
+        )
+
+        balances = account_lines.result.get("lines", [])
 
         xrp_balance = account_info.result.get("account_data", {}).get("Balance", "0")
         total_xrp = drops_to_xrp(xrp_balance)
@@ -1201,8 +1206,15 @@ class XrplExchange(ExchangePyBase):
                 currency = hex_to_str(currency)
 
             token = currency.strip("\x00").upper()
-            amount = balance.get("value")
-            account_balances[token] = abs(Decimal(amount))
+            token_issuer = balance.get("account")
+            token_symbol = self.get_token_symbol_from_all_markets(token, token_issuer)
+
+            amount = balance.get("balance")
+
+            if token_symbol is None:
+                continue
+
+            account_balances[token_symbol] = abs(Decimal(amount))
 
         account_available_balances = account_balances.copy()
         account_available_balances["XRP"] = Decimal(available_xrp)
@@ -1214,23 +1226,30 @@ class XrplExchange(ExchangePyBase):
             if taker_gets_funded is not None:
                 if isinstance(taker_gets_funded, dict):
                     token = taker_gets_funded.get("currency")
+                    token_issuer = taker_gets_funded.get("issuer")
                     if len(token) > 3:
                         token = hex_to_str(token).strip("\x00").upper()
+                    token_symbol = self.get_token_symbol_from_all_markets(token, token_issuer)
                     amount = Decimal(taker_gets_funded.get("value"))
                 else:
                     amount = drops_to_xrp(taker_gets_funded)
-                    token = "XRP"
+                    token_symbol = "XRP"
             else:
                 if isinstance(taker_gets, dict):
                     token = taker_gets.get("currency")
+                    token_issuer = taker_gets.get("issuer")
                     if len(token) > 3:
                         token = hex_to_str(token).strip("\x00").upper()
+                    token_symbol = self.get_token_symbol_from_all_markets(token, token_issuer)
                     amount = Decimal(taker_gets.get("value"))
                 else:
                     amount = drops_to_xrp(taker_gets)
-                    token = "XRP"
+                    token_symbol = "XRP"
 
-            account_available_balances[token] -= amount
+            if token_symbol is None:
+                continue
+
+            account_available_balances[token_symbol] -= amount
 
         self._account_balances = account_balances
         self._account_available_balances = account_available_balances
@@ -1427,6 +1446,7 @@ class XrplExchange(ExchangePyBase):
                 base_issuer=v["base_issuer"],
                 quote=v["quote"],
                 quote_issuer=v["quote_issuer"],
+                trading_pair_symbol=k,
             )
 
         # Merge default markets with custom markets
@@ -1516,3 +1536,12 @@ class XrplExchange(ExchangePyBase):
                 self.logger().error(f"Max retries reached. Request {request} failed due to timeout.")
         except Exception as e:
             self.logger().error(f"Request {request} failed: {e}")
+
+    def get_token_symbol_from_all_markets(self, code: str, issuer: str) -> Optional[str]:
+        all_markets = self._make_trading_pairs_request()
+        for market in all_markets.values():
+            token_symbol = market.get_token_symbol(code, issuer)
+
+            if token_symbol is not None:
+                return token_symbol
+        return None
