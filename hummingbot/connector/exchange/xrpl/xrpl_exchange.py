@@ -528,7 +528,7 @@ class XrplExchange(ExchangePyBase):
                 retry = CONSTANTS.CANCEL_MAX_RETRY
             else:
                 retry += 1
-                self.logger().info(
+                self.logger().debug(
                     f"Order cancellation failed. Retrying in {CONSTANTS.CANCEL_RETRY_INTERVAL} seconds..."
                 )
                 await self._sleep(CONSTANTS.CANCEL_RETRY_INTERVAL)
@@ -558,6 +558,11 @@ class XrplExchange(ExchangePyBase):
                 status = "cancelled"
 
             if status == "cancelled":
+                # Check order fills
+                trade_updates = await self._all_trade_updates_for_order(order)
+                for trade_update in trade_updates:
+                    self._order_tracker.process_trade_update(trade_update)
+
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order.client_order_id,
                     trading_pair=order.trading_pair,
