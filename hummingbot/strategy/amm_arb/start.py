@@ -19,7 +19,7 @@ def start(self):
     market_1 = amm_arb_config_map.get("market_1").value
     connector_2 = amm_arb_config_map.get("connector_2").value.lower()
     market_2 = amm_arb_config_map.get("market_2").value
-    pool_id = "_" + amm_arb_config_map.get("pool_id").value
+    pool_id = "_" + amm_arb_config_map.get("pool_id").value if amm_arb_config_map.get("pool_id").value != "" else ""
     order_amount = amm_arb_config_map.get("order_amount").value
     min_profitability = amm_arb_config_map.get("min_profitability").value / Decimal("100")
     market_1_slippage_buffer = amm_arb_config_map.get("market_1_slippage_buffer").value / Decimal("100")
