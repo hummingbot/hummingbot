@@ -495,14 +495,14 @@ class XrplExchange(ExchangePyBase):
         resp = None
         submit_data = {}
 
+        # Check order status
+        order_update = await self._request_order_status(order)
+        self._order_tracker.process_order_update(order_update)
+
         # Check order fills
         trade_updates = await self._all_trade_updates_for_order(order)
         for trade_update in trade_updates:
             self._order_tracker.process_trade_update(trade_update)
-
-        # Check order status
-        order_update = await self._request_order_status(order)
-        self._order_tracker.process_order_update(order_update)
 
         # If filled, mark as filled and finish cancel
         if order_update.new_state == OrderState.FILLED:
