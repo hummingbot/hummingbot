@@ -123,12 +123,12 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 await self._request_order_book_snapshots(output=output)
-                await self._sleep(2.0)
+                await self._sleep(CONSTANTS.REQUEST_ORDERBOOK_INTERVAL)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public order book snapshots from exchange")
-                await self._sleep(2.0)
+                await self._sleep(CONSTANTS.REQUEST_ORDERBOOK_INTERVAL)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)

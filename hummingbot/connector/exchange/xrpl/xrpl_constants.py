@@ -95,6 +95,9 @@ AUTOFILL_TRANSACTION_MAX_RETRY = 5
 # Request retry interval
 REQUEST_RETRY_INTERVAL = 1
 
+# Request Orderbook Interval
+REQUEST_ORDERBOOK_INTERVAL = 3
+
 # Markets list
 MARKETS = {
     "XRP-USD": {
