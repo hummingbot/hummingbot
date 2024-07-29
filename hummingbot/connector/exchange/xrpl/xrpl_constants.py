@@ -13,8 +13,8 @@ HBOT_ORDER_ID_PREFIX = "hbot"
 MAX_ORDER_ID_LEN = 64
 
 # Base URL
-DEFAULT_JSON_RPC_URL = "https://s1.ripple.com:51234/"
-DEFAULT_WSS_URL = "wss://s1.ripple.com/"
+DEFAULT_JSON_RPC_URL = "https://xrplcluster.com/"
+DEFAULT_WSS_URL = "wss://xrplcluster.com/"
 
 # Websocket channels
 TRADE_EVENT_TYPE = "trades"
