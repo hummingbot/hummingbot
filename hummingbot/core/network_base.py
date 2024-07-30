@@ -1,9 +1,10 @@
 import asyncio
 import logging
 from typing import Optional
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils.async_utils import safe_ensure_future
+
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 NaN = float("nan")
 nb_logger = None
@@ -79,38 +80,27 @@ class NetworkBase:
     async def _check_network_loop(self):
         while True:
             last_status = self._network_status
-            has_unexpected_error = False
-
             try:
                 new_status = await asyncio.wait_for(self.check_network(), timeout=self._check_network_timeout)
-            except asyncio.CancelledError:
-                raise
-            except asyncio.TimeoutError:
-                self.logger().debug("Check network call has timed out. Network status is not connected.")
-                new_status = NetworkStatus.NOT_CONNECTED
-            except Exception:
-                self.logger().error("Unexpected error while checking for network status.", exc_info=True)
-                new_status = NetworkStatus.NOT_CONNECTED
-                has_unexpected_error = True
-
-            try:
-                self._network_status = new_status
                 if new_status != last_status:
-                    if new_status is NetworkStatus.CONNECTED:
+                    self._network_status = new_status
+                    if self._network_status is NetworkStatus.CONNECTED:
                         self.logger().info(f"Network status has changed to {new_status}. Starting networking...")
                         await self.start_network()
                     else:
                         self.logger().info(f"Network status has changed to {new_status}. Stopping networking...")
                         await self.stop_network()
-
-                if not has_unexpected_error:
-                    await asyncio.sleep(self._check_network_interval)
-                else:
-                    await asyncio.sleep(self._network_error_wait_time)
+                await self._sleep(self._check_network_interval)
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().error("Unexpected error starting or stopping network.", exc_info=True)
+            except asyncio.TimeoutError:
+                self.logger().debug("Check network call has timed out. Network status is not connected.")
+                self._network_status = NetworkStatus.NOT_CONNECTED
+                await self._sleep(self._check_network_interval)
+            except Exception as e:
+                self.logger().error(f"Unexpected error while checking for network status: {e}", exc_info=True)
+                self._network_status = NetworkStatus.NOT_CONNECTED
+                await self._sleep(self._network_error_wait_time)
 
     def start(self):
         self._check_network_task = safe_ensure_future(self._check_network_loop())
@@ -124,3 +114,6 @@ class NetworkBase:
         self._network_status = NetworkStatus.STOPPED
         safe_ensure_future(self.stop_network())
         self._started = False
+
+    async def _sleep(self, seconds: float):
+        await asyncio.sleep(seconds)

@@ -117,10 +117,9 @@ class MexcExchange(ExchangePyBase):
         return pairs_prices
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        error_description = str(request_exception)
-        is_time_synchronizer_related = ("-1021" in error_description
-                                        and "Timestamp for this request" in error_description)
-        return is_time_synchronizer_related
+        return str(CONSTANTS.TIMESTAMP_RELATED_ERROR_CODE) in str(
+            request_exception
+        ) and CONSTANTS.TIMESTAMP_RELATED_ERROR_MESSAGE in str(request_exception)
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
@@ -189,13 +188,13 @@ class MexcExchange(ExchangePyBase):
             price_str = f"{price:f}"
             api_params["price"] = price_str
         else:
-            if trade_type.name.lower() == 'buy':
+            if trade_type == TradeType.BUY:
                 if price.is_nan():
                     price = self.get_price_for_volume(
                         trading_pair,
                         True,
                         amount
-                    )
+                    ).result_price
                 del api_params['quantity']
                 api_params.update({
                     "quoteOrderQty": f"{price * amount:f}",
