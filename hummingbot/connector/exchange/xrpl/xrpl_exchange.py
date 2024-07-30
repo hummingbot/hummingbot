@@ -1203,12 +1203,13 @@ class XrplExchange(ExchangePyBase):
             return_transactions = []
 
             for task_id, task_result in enumerate(task_results):
-                if not isinstance(task_result, Exception):
-                    resp = task_result
-                    transactions = resp.result.get("transactions", [])
+                if isinstance(task_result, Response):
+                    result = task_result.result
+                    if result is not None:
+                        transactions = result.get("transactions", [])
 
-                    if len(transactions) > len(return_transactions):
-                        return_transactions = transactions
+                        if len(transactions) > len(return_transactions):
+                            return_transactions = transactions
 
         except Exception as e:
             self.logger().error(f"Failed to fetch account transactions: {e}")
@@ -1239,7 +1240,10 @@ class XrplExchange(ExchangePyBase):
             ),
         )
 
-        balances = account_lines.result.get("lines", [])
+        if account_lines is not None:
+            balances = account_lines.result.get("lines", [])
+        else:
+            balances = []
 
         xrp_balance = account_info.result.get("account_data", {}).get("Balance", "0")
         total_xrp = drops_to_xrp(xrp_balance)
