@@ -651,7 +651,14 @@ class XrplExchange(ExchangePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                transaction = event_message.get("transaction")
+                transaction = event_message.get("transaction", None)
+
+                if transaction is None:
+                    transaction = event_message.get("tx", None)
+
+                if transaction is None:
+                    transaction = event_message.get("tx_json", None)
+
                 meta = event_message.get("meta")
 
                 if transaction is None or meta is None:
@@ -787,6 +794,13 @@ class XrplExchange(ExchangePyBase):
 
         for transaction in transactions:
             tx = transaction.get("tx", None)
+
+            if tx is None:
+                tx = transaction.get("transaction", None)
+
+            if tx is None:
+                tx = transaction.get("tx_json", None)
+
             tx_type = tx.get("TransactionType", None)
 
             if tx_type is None or tx_type not in ["OfferCreate", "Payment"]:
@@ -806,15 +820,29 @@ class XrplExchange(ExchangePyBase):
         if "result" in data:
             data_result = data.get("result", {})
             meta = data_result.get("meta", {})
-            tx = data_result
+
+            if "tx_json" in data_result:
+                tx = data_result.get("tx_json")
+                tx["hash"] = data_result.get("hash")
+            elif "transaction" in data_result:
+                tx = data_result.get("transaction")
+                tx["hash"] = data_result.get("hash")
+            else:
+                tx = data_result
         else:
             meta = data.get("meta", {})
+            tx = {}
 
             # check if transaction has key "tx" or "transaction"?
             if "tx" in data:
                 tx = data.get("tx", None)
-            else:
+            elif "transaction" in data:
                 tx = data.get("transaction", None)
+            elif "tx_json" in data:
+                tx = data.get("tx_json", None)
+
+            if "hash" in data:
+                tx["hash"] = data.get("hash")
 
         if not isinstance(tx, dict):
             self.logger().error(
@@ -824,6 +852,11 @@ class XrplExchange(ExchangePyBase):
 
         if tx.get("TransactionType") not in ["OfferCreate", "Payment"]:
             return None
+
+        if tx["hash"] is None:
+            self.logger().error("Hash is None")
+            self.logger().error(f"Data: {data}")
+            self.logger().error(f"Tx: {tx}")
 
         offer_changes = get_order_book_changes(meta)
         balance_changes = get_balance_changes(meta)
@@ -1041,6 +1074,8 @@ class XrplExchange(ExchangePyBase):
                         tx = transaction.get("tx", None)
                     elif "transaction" in transaction:
                         tx = transaction.get("transaction", None)
+                    elif "tx_json" in transaction:
+                        tx = transaction.get("tx_json", None)
                     else:
                         tx = transaction
 
@@ -1155,7 +1190,6 @@ class XrplExchange(ExchangePyBase):
         try:
             request = AccountTx(
                 account=self._auth.get_account(),
-                ledger_index="validated",
                 ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
                 forward=is_forward,
             )
