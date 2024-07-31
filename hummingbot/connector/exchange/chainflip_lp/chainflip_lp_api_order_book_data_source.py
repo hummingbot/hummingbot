@@ -13,14 +13,14 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLPExchange
+    from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 
 
 class ChainflipLPAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: "ChainflipLPExchange",
+        connector: "ChainflipLpExchange",
         data_source: "ChainflipLPDataSource",
         api_factory: "WebAssistantsFactory",
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -56,7 +56,7 @@ class ChainflipLPAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
-        Subscribes to the scheduled swaps
+        Subscribes to the 
         """
         try:
             all_assets = self._data_source.assets_list()

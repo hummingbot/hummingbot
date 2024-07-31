@@ -5,6 +5,9 @@ import asyncio
 from functools import partial
 import sys
 import math
+import json
+import ssl
+import websockets
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
@@ -14,7 +17,7 @@ from hummingbot.logger import HummingbotLogger
 from substrateinterface import SubstrateInterface
 from substrateinterface.exceptions import SubstrateRequestException, ConfigurationError
 from requests.exceptions import ConnectionError
-import ssl
+
 
 
 
@@ -51,11 +54,6 @@ class BaseRPCExecutor(ABC):
     async def get_all_balances(self):
         raise NotImplementedError  # pragma: no cover
 
-    @abstractmethod
-    async def get_order_fills(
-        self, blockhash:str
-    ) -> Dict[str, Any]:
-        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     async def place_limit_order(
@@ -131,14 +129,17 @@ class RPCQueryExecutor(BaseRPCExecutor):
             throttler: AsyncThrottler,
             chainflip_lp_api_url: str,
             lp_account_address: str,
-            domain:str = CONSTANTS.DEFAULT_DOMAIN
+            domain:str = CONSTANTS.DEFAULT_DOMAIN,
+            chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG
             ) -> None:
         super().__init__()
         self._lp_account_address = lp_account_address
         self._rpc_url = self._get_current_rpc_url(domain)
+        self._domain = domain
         self._rpc_api_url = self.verify_lp_api_url(chainflip_lp_api_url)
         self._throttler = throttler
         self._rpc_instance = self._start_instance(self._rpc_api_url)
+        self._chain_config = chain_config
     async def check_connection_status(self):
         response = self._execute_rpc_request(
             CONSTANTS.SUPPORTED_ASSETS_METHOD
@@ -153,7 +154,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
         )
         if not response["status"]:
             return []
-        return DataFormatter.format_all_assets_response(response["data"])
+        return DataFormatter.format_all_assets_response(
+            response["data"], chain_config = self._chain_config
+        )
     async def all_market(self):
         response = await self._execute_rpc_request(
             CONSTANTS.ACTIVE_POOLS_METHOD
@@ -287,20 +290,12 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 sys.exit()
     async def listen_to_order_fills(self, event_handler:Callable):
         # will be run in a thread
-        while True:
-            try:
-                response = self._subscribe_to_api_event(CONSTANTS.FILLED_ORDER_METHOD)
-                formatted_response =  DataFormatter.format_order_fills_response(response)
-                event_handler(formatted_response)
-                asyncio.sleep(CONSTANTS.LISTENER_TIME_INTERVAL)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(
-                    f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}",
-                    exc_info=True
-                )
-                sys.exit()
+        def handler(data):
+            response = DataFormatter.format_order_fills_response(data)
+            event_handler(response)
+        await self._subscribe_to_api_event(CONSTANTS.FILLED_ORDER_METHOD, handler)
+    
+            
 
     def _start_instance(self, url):
         try:
@@ -406,12 +401,46 @@ class RPCQueryExecutor(BaseRPCExecutor):
     
                 
 
-    async def _subscribe_to_api_event(self, method_name, params = []):
+    async def _subscribe_to_api_event(self, method_name:str, handler:Callable, params = []):
         instance = SubstrateInterface(url = self._rpc_api_url)
-        response = instance.rpc_request(method_name, params) # if an error occurs.. raise
-        instance.close()
-        return response
+        while True:
+            try:
+                response = instance.rpc_request(method_name, params) # if an error occurs.. raise
+                handler(response)
+                asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(
+                    f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}",
+                    exc_info=True
+                )
+                instance.close()
+                sys.exit()
 
+    async def _subscribe_to_rpc_events(self, method_name:str, handler:Callable, params:List = [],):
+        url = self._get_current_rpc_ws_url(self._domain)
+        async with websockets.connect(url) as websocket:
+            request = json.dumps({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": method_name,
+                "params": params
+            })
+            await websocket.send(request)
+            while True:
+                try:
+                    response = await websocket.recv()
+                    data = json.loads(response)
+                    handler(data)
+                except asyncio.CancelledError as err:
+                    raise
+                except Exception as e:
+                    self.logger().error(
+                        f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}",
+                        exc_info=True
+                    )
+                    break
     async def _calculate_tick(self,price:float, base_asset:Dict[str,str], quote_asset:Dict[str,str]):
         """
         calculate ticks

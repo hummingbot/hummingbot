@@ -35,7 +35,9 @@ SUPPORTED_ASSETS_METHOD = "cf_supported_assets"
 FILLED_ORDER_METHOD = "lp_subscribe_order_fills"
 MARKET_PRICE_METHOD = "cf_pool_price"
 MARKET_PRICE_V2_METHOD = "cf_pool_price_v2"
-SCHEDULED_SWAPS = "cf_scheduled_swaps"
+SCHEDULED_SWAPS = "cf_subscribe_scheduled_swaps"
+
+CLIENT_ID_PREFIX = ""
 
 # chainflip params
 SIDE_BUY = "buy"
@@ -62,14 +64,21 @@ RATE_LIMITS = [
 
 ASSET_PRECISIONS = {
     "Ethereum": 10e18,
+    "Arbitrum": 10e18,
     "Bitcoin": 10e8,
     "Polkadot": 10e12,
     "Solana": 10e9,
-    "Litecoin": 10e9,
     "Stable":10e6
 }
 
 STABLE_ASSETS = ["USDC","USDT"]
-FRACTIONAL_BITS = 96
+FRACTIONAL_BITS = 128
+SQRT_PRICE_FRACTIONAL_BITS = 96
 LOWER_TICK_BOUND = -887272
 UPPER_TICK_BOUND = 887272
+
+SAME_CHAINS = ["Arbitrum","Ethereum"]
+DEFAULT_CHAIN_CONFIG = {
+    "ETH": "Ethereum",
+    "USDC":"Arbitrum"
+}

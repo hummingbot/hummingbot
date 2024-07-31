@@ -36,9 +36,13 @@ class DataFormatter:
         """
         base_precision = cls.format_asset_precision(base_asset)
         quote_precision = cls.format_asset_precision(quote_asset)
-        current_price = price /(2 ** CONSTANTS.FRACTIONAL_BITS)
+        
         if sqrt_price:
+            current_price = price /(2 ** CONSTANTS.SQRT_PRICE_FRACTIONAL_BITS)
             current_price = current_price ** 2
+        else:
+            current_price = price /(2 ** CONSTANTS.FRACTIONAL_BITS)
+
         formated_price = (current_price * base_precision)/quote_precision
         return formated_price
     
@@ -52,21 +56,24 @@ class DataFormatter:
         asks = []
         bids = []
         for order in limit_orders["asks"]:
-            price = cls.format_hex_balance(
-                order["original_sell_amount"],
-                base_asset
-            )
             tick = order["tick"]
+            price = cls.convert_tick_to_price(
+                tick,
+                base_asset,
+                quote_asset
+            )
+            
             asks.append({
                 "price": price,
                 "tick": tick
             })
         for order in limit_orders["bids"]:
-            price = cls.format_hex_balance(
-                order["original_sell_amount"],
+            tick = order["tick"]
+            price = cls.convert_tick_to_price(
+                tick,
+                base_asset,
                 quote_asset
             )
-            tick = order["tick"]
             asks.append({
                 "price": price,
                 "tick": tick
@@ -111,9 +118,17 @@ class DataFormatter:
                     continue
         return format_list
     @classmethod
-    def format_all_assets_response(cls,response:Dict):
+    def format_all_assets_response(cls,response:Dict, chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG):
+        def filter_method(value):
+            if value["asset"] in chain_config:
+                if value["chain"] != chain_config[value["asset"]]: # :)
+                    return False
+            return True
         result = response["result"]
-        return result
+        formatted_asset_list = list(filter(
+            filter_method, result
+        ))
+        return formatted_asset_list
     @classmethod
     def format_error_response(cls, response:Dict):
         # figure a better way to handle errors
@@ -266,16 +281,42 @@ class DataFormatter:
         base = base_asset["asset"]
         quote = quote_asset["asset"]
         return f'{base}-{quote}'
-    # @classmethod
-    # def convert_tick_to_price(
-    #     cls,  
-    #     tick: int,
-    #     base_asset:Dict[str, str],
-    #     quote_asset:Dict[str, str]
-    # ):
-    #     base_precision = cls.format_asset_precision(base_asset)
-    #     quote_precision = cls.format_asset_precision(quote_asset)
-    #     log_price = tick / math.log()
+    @classmethod
+    def format_order_fills_response(
+        cls,
+        response
+    ):
+        def format_single_order_fill(order):
+            data = {}
+
+        data = response["result"]
+        fills:Dict = data["fills"]
+        # filter the fills to return only limit orders
+        limit_orders_fills = list(filter(
+            lambda x: x[0] == "limit_order",
+            fills.items()
+        ))
+        if not limit_orders_fills:
+            return []
+        #get the values of the 
+        main_data =  list(map(
+            lambda x: x[1],
+            limit_orders_fills
+        ))
+
+        
+    @classmethod
+    def convert_tick_to_price(
+        cls,  
+        tick: int,
+        base_asset:Dict[str, str],
+        quote_asset:Dict[str, str]
+    ):
+        base_precision = cls.format_asset_precision(base_asset)
+        quote_precision = cls.format_asset_precision(quote_asset)
+        raw_price = 1.0001 ** tick
+        price = (raw_price * base_precision)/ quote_precision
+        return price
 
 
 

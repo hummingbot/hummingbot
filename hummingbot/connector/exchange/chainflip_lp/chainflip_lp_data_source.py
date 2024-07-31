@@ -4,11 +4,9 @@ import logging
 import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
-from urllib.parse import urlparse
 
 
 from bidict import bidict
-from substrateinterface import Keypair, KeypairType
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import RPCQueryExecutor
@@ -41,21 +39,19 @@ class ChainflipLPDataSource:
     def __init__(
         self,
         connector: "ExchangePyBase",
-        seed_phrase: str,
+        address: str,
         rpc_api_url: str,
         domain: Optional[str] = CONSTANTS.DEFAULT_DOMAIN,
         trading_required: bool = True,
         trading_pairs: list = [],
+        chain_config:Dict = CONSTANTS.DEFAULT_CHAIN_CONFIG
     ):
         self._connector = connector
         self._domain = domain
         self._trading_required = trading_required
-        self._seed_phrase = seed_phrase
+        self._address = address
         self._trading_pairs = trading_pairs
         self._lp_api_url = rpc_api_url
-        self._keypair = Keypair.create_from_mnemonic(
-            seed_phrase
-        )
         self._publisher = PubSub()
         self._last_received_message_time = 0
         # We create a throttler instance here just to have a fully valid instance from the first moment.
@@ -63,12 +59,14 @@ class ChainflipLPDataSource:
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self._events_listening_tasks = []
         self._assets_list: List[Dict[str, str]] = []
+        self._chain_config = chain_config
 
         self._rpc_executor = RPCQueryExecutor(
             throttler=self._throttler,
             chainflip_lp_api_url=self._lp_api_url,
-            lp_account_address=self._keypair.ss58_address,
-            domain=self._domain
+            lp_account_address=address,
+            domain=self._domain,
+            chain_config = self._chain_config
         )
     async def start(self):
         await self.assets_list()

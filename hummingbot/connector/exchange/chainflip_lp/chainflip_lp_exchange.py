@@ -28,14 +28,16 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter  # pragma: no cover
 
 
-class ChainflipLPExchange(ExchangePyBase):
+class ChainflipLpExchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(
         self,
         client_config_map: "ClientConfigAdapter",
         chainflip_lp_api_url: str,
-        chainflip_lp_seed_phrase: str,
+        chainflip_lp_address: str,
+        chainflip_eth_chain: str,
+        chainflip_usdc_chain: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -43,18 +45,21 @@ class ChainflipLPExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
+        self.chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG.copy()
+        self.chain_config["ETH"] = chainflip_eth_chain
+        self.chain_config["USDC"] = chainflip_usdc_chain
         self._data_source = ChainflipLPDataSource(
             connector=self, 
-            seed_phrase=chainflip_lp_seed_phrase, 
+            address=chainflip_lp_address, 
             rpc_api_url=chainflip_lp_api_url,
             domain=self._domain, 
             trading_pairs=trading_pairs,
-            trading_required=trading_required
+            trading_required=trading_required,
+            chain_config = self.chain_config
         )
         self._data_source.configure_throttler(throttler=self._throttler)
         super().__init__(client_config_map=client_config_map)
         self._forwarders = []
-        self._open_oder_fetching_timestamp = float(0)
         self._configure_event_forwarders()
 
     @property
