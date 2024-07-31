@@ -53,6 +53,7 @@ class DataFormatter:
         """
         base_precision = cls.format_asset_precision(base_asset)
         quote_precision = cls.format_asset_precision(quote_asset)
+<<<<<<< HEAD
         if isinstance(price, str):
             price = cls.hex_str_to_int(price)
         if sqrt_price:
@@ -62,6 +63,16 @@ class DataFormatter:
             current_price = price / (2**CONSTANTS.FRACTIONAL_BITS)
 
         formated_price = (current_price * base_precision) / quote_precision
+=======
+        
+        if sqrt_price:
+            current_price = price /(2 ** CONSTANTS.SQRT_PRICE_FRACTIONAL_BITS)
+            current_price = current_price ** 2
+        else:
+            current_price = price /(2 ** CONSTANTS.FRACTIONAL_BITS)
+
+        formated_price = (current_price * base_precision)/quote_precision
+>>>>>>> 730e68a15 ((refactor) update code and implement review changes)
         return formated_price
 
     @classmethod

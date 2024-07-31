@@ -6,6 +6,9 @@ from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, C
 from hummingbot.client.config.config_validators import validate_with_regex
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.client.config.config_validators import  validate_with_regex
+from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
+
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "FLIP-USDT"
