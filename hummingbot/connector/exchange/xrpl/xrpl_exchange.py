@@ -558,6 +558,9 @@ class XrplExchange(ExchangePyBase):
                 status = "cancelled"
 
             if status == "cancelled":
+                # Wait for 3 seconds to make sure the order is cancelled
+                await self._sleep(3)
+
                 # Check order fills
                 trade_updates = await self._all_trade_updates_for_order(order)
                 for trade_update in trade_updates:
