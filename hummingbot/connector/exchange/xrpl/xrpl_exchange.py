@@ -1,6 +1,7 @@
 import asyncio
 import math
 import time
+from asyncio import Lock
 from decimal import ROUND_DOWN, Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Union
 
@@ -66,7 +67,7 @@ if TYPE_CHECKING:
 
 
 class XrplExchange(ExchangePyBase):
-    LONG_POLL_INTERVAL = 30.0
+    LONG_POLL_INTERVAL = 60.0
 
     web_utils = xrpl_web_utils
 
@@ -76,6 +77,7 @@ class XrplExchange(ExchangePyBase):
         xrpl_secret_key: str,
         wss_node_url: str,
         wss_second_node_url: str,
+        wss_third_node_url: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         custom_markets: Dict[str, XRPLMarket] = None,
@@ -83,17 +85,22 @@ class XrplExchange(ExchangePyBase):
         self._xrpl_secret_key = xrpl_secret_key
         self._wss_node_url = wss_node_url
         self._wss_second_node_url = wss_second_node_url
-        self._xrpl_client = AsyncWebsocketClient(self._wss_node_url)
-        self._xrpl_place_order_client = AsyncWebsocketClient(self._wss_second_node_url)
+        self._wss_third_node_url = wss_third_node_url
+        # self._xrpl_place_order_client = AsyncWebsocketClient(self._wss_node_url)
+        self._xrpl_query_client = AsyncWebsocketClient(self._wss_second_node_url)
+        self._xrpl_order_book_data_client = AsyncWebsocketClient(self._wss_second_node_url)
+        self._xrpl_user_stream_client = AsyncWebsocketClient(self._wss_third_node_url)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._auth: XRPLAuth = self.authenticator
         self._trading_pair_symbol_map: Optional[Mapping[str, str]] = None
         self._trading_pair_fee_rules: Dict[str, Dict[str, Any]] = {}
-        self._xrpl_client_lock = asyncio.Lock()
+        self._xrpl_query_client_lock = asyncio.Lock()
         self._xrpl_place_order_client_lock = asyncio.Lock()
+        self._xrpl_fetch_trades_client_lock = asyncio.Lock()
         self._nonce_creator = NonceCreator.for_microseconds()
         self._custom_markets = custom_markets or {}
+        self._last_clients_refresh_time = 0
 
         super().__init__(client_config_map)
 
@@ -160,6 +167,18 @@ class XrplExchange(ExchangePyBase):
     @property
     def second_node_url(self) -> str:
         return self._wss_second_node_url
+
+    @property
+    def third_node_url(self) -> str:
+        return self._wss_third_node_url
+
+    @property
+    def user_stream_client(self) -> AsyncWebsocketClient:
+        return self._xrpl_user_stream_client
+
+    @property
+    def order_book_data_client(self) -> AsyncWebsocketClient:
+        return self._xrpl_order_book_data_client
 
     @property
     def auth(self) -> XRPLAuth:
@@ -333,16 +352,16 @@ class XrplExchange(ExchangePyBase):
             o_id = None
 
             while retry < CONSTANTS.PLACE_ORDER_MAX_RETRY:
-                await self._make_network_check_request()
                 async with self._xrpl_place_order_client_lock:
-                    filled_tx = await self.tx_autofill(request, self._xrpl_place_order_client)
-                    signed_tx = self.tx_sign(filled_tx, self._auth.get_wallet())
-                    o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
-                    submit_response = await self.tx_submit(signed_tx, self._xrpl_place_order_client)
-                    transact_time = time.time()
-                    prelim_result = submit_response.result["engine_result"]
+                    async with AsyncWebsocketClient(self._wss_node_url) as client:
+                        filled_tx = await self.tx_autofill(request, client)
+                        signed_tx = self.tx_sign(filled_tx, self._auth.get_wallet())
+                        o_id = f"{signed_tx.sequence}-{signed_tx.last_ledger_sequence}"
+                        submit_response = await self.tx_submit(signed_tx, client)
+                        transact_time = time.time()
+                        prelim_result = submit_response.result["engine_result"]
 
-                    submit_data = {"transaction": signed_tx, "prelim_result": prelim_result}
+                        submit_data = {"transaction": signed_tx, "prelim_result": prelim_result}
 
                     if prelim_result[0:3] != "tes" and prelim_result != "terQUEUED":
                         error_message = submit_response.result["engine_result_message"]
@@ -410,7 +429,7 @@ class XrplExchange(ExchangePyBase):
         )
 
         if order_update.new_state in [OrderState.FILLED, OrderState.PARTIALLY_FILLED]:
-            trade_update = self.process_trade_fills(order_creation_resp.to_dict(), order)
+            trade_update = await self.process_trade_fills(order_creation_resp.to_dict(), order)
             if trade_update is not None:
                 self._order_tracker.process_trade_update(trade_update)
             else:
@@ -437,7 +456,7 @@ class XrplExchange(ExchangePyBase):
             return False, None
 
         try:
-            await self._make_network_check_request()
+            # await self._make_network_check_request()
             resp = await self.wait_for_final_transaction_outcome(transaction, prelim_result)
             return True, resp
         except (TimeoutError, asyncio.exceptions.TimeoutError):
@@ -449,6 +468,7 @@ class XrplExchange(ExchangePyBase):
                 return await self._verify_transaction_result(submit_data, try_count + 1)
             else:
                 self.logger().error("Max retries reached. Verify transaction failed due to timeout.")
+                return False, None
         except Exception as e:
             self.logger().error(f"Submitted transaction failed: {e}")
 
@@ -456,57 +476,60 @@ class XrplExchange(ExchangePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         exchange_order_id = tracked_order.exchange_order_id
+        cancel_result = False
+        cancel_data = {}
 
         if exchange_order_id is None:
             self.logger().error(f"Unable to cancel order {order_id}, it does not yet have exchange order id")
             return False, {}
 
         try:
+            # await self._client_health_check()
             async with self._xrpl_place_order_client_lock:
-                await self._make_network_check_request()
+                async with AsyncWebsocketClient(self._wss_node_url) as client:
+                    sequence, _ = exchange_order_id.split("-")
+                    memo = Memo(
+                        memo_data=convert_string_to_hex(order_id, padding=False),
+                    )
+                    request = OfferCancel(account=self._auth.get_account(), offer_sequence=int(sequence), memos=[memo])
 
-                sequence, _ = exchange_order_id.split("-")
-                memo = Memo(
-                    memo_data=convert_string_to_hex(order_id, padding=False),
-                )
-                request = OfferCancel(account=self._auth.get_account(), offer_sequence=int(sequence), memos=[memo])
+                    filled_tx = await self.tx_autofill(request, client)
+                    signed_tx = self.tx_sign(filled_tx, self._auth.get_wallet())
 
-                filled_tx = await self.tx_autofill(request, self._xrpl_place_order_client)
-                signed_tx = self.tx_sign(filled_tx, self._auth.get_wallet())
+                    submit_response = await self.tx_submit(signed_tx, client)
+                    prelim_result = submit_response.result["engine_result"]
 
-                submit_response = await self.tx_submit(signed_tx, self._xrpl_place_order_client)
-                prelim_result = submit_response.result["engine_result"]
+                if prelim_result is None:
+                    raise Exception(
+                        f"prelim_result is None for {order_id} ({exchange_order_id}), data: {submit_response}"
+                    )
+
                 if prelim_result[0:3] != "tes":
                     error_message = submit_response.result["engine_result_message"]
-                    self.logger().error(f"{prelim_result}: {error_message}, data: {submit_response}")
-                    return False, {}
+                    raise Exception(f"{prelim_result}: {error_message}, data: {submit_response}")
+
+                cancel_result = True
+                cancel_data = {"transaction": signed_tx, "prelim_result": prelim_result}
                 await self._sleep(0.3)
 
         except Exception as e:
-            self.logger().error(f"Order cancellation failed: {e}, order_id: {exchange_order_id}")
-            return False, {}
+            self.logger().error(
+                f"Order cancellation failed: {e}, order_id: {exchange_order_id}, submit_response: {submit_response}"
+            )
+            cancel_result = False
+            cancel_data = {}
 
-        return True, {"transaction": signed_tx, "prelim_result": prelim_result}
+        return cancel_result, cancel_data
 
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
+        if not self.ready:
+            await self._sleep(3)
+
         retry = 0
         submitted = False
         verified = False
         resp = None
         submit_data = {}
-
-        # Check order status
-        order_update = await self._request_order_status(order)
-        self._order_tracker.process_order_update(order_update)
-
-        # Check order fills
-        trade_updates = await self._all_trade_updates_for_order(order)
-        for trade_update in trade_updates:
-            self._order_tracker.process_trade_update(trade_update)
-
-        # If filled, mark as filled and finish cancel
-        if order_update.new_state == OrderState.FILLED:
-            return True
 
         update_timestamp = self.current_timestamp
         if update_timestamp is None or math.isnan(update_timestamp):
@@ -558,9 +581,6 @@ class XrplExchange(ExchangePyBase):
                 status = "cancelled"
 
             if status == "cancelled":
-                # Wait for 3 seconds to make sure to get all trade fills
-                await self._sleep(3)
-
                 # Check order fills
                 trade_updates = await self._all_trade_updates_for_order(order)
                 for trade_update in trade_updates:
@@ -688,7 +708,7 @@ class XrplExchange(ExchangePyBase):
                         new_order_state = OrderState.FAILED
                     else:
                         new_order_state = OrderState.FILLED
-                        trade_update = self.process_trade_fills(event_message, tracked_order)
+                        trade_update = await self.process_trade_fills(event_message, tracked_order)
                         if trade_update is not None:
                             self._order_tracker.process_trade_update(trade_update)
                         else:
@@ -750,7 +770,7 @@ class XrplExchange(ExchangePyBase):
                                 new_order_state = OrderState.OPEN
 
                         if new_order_state == OrderState.FILLED or new_order_state == OrderState.PARTIALLY_FILLED:
-                            trade_update = self.process_trade_fills(event_message, tracked_order)
+                            trade_update = await self.process_trade_fills(event_message, tracked_order)
                             if trade_update is not None:
                                 self._order_tracker.process_trade_update(trade_update)
                             else:
@@ -784,8 +804,6 @@ class XrplExchange(ExchangePyBase):
                 await self._sleep(5.0)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        await self._make_network_check_request()
-
         if order.exchange_order_id is None:
             return []
 
@@ -809,16 +827,20 @@ class XrplExchange(ExchangePyBase):
             if tx_type is None or tx_type not in ["OfferCreate", "Payment"]:
                 continue
 
-            trade_update = self.process_trade_fills(transaction, order)
+            trade_update = await self.process_trade_fills(transaction, order)
             if trade_update is not None:
                 trade_fills.append(trade_update)
 
         return trade_fills
 
-    def process_trade_fills(self, data: Dict[str, Any], order: InFlightOrder) -> Optional[TradeUpdate]:
+    async def process_trade_fills(self, data: Dict[str, Any], order: InFlightOrder) -> Optional[TradeUpdate]:
         base_currency, quote_currency = self.get_currencies_from_trading_pair(order.trading_pair)
         sequence, ledger_index = order.exchange_order_id.split("-")
         fee_rules = self._trading_pair_fee_rules.get(order.trading_pair)
+
+        if fee_rules is None:
+            await self._update_trading_rules()
+            fee_rules = self._trading_pair_fee_rules.get(order.trading_pair)
 
         if "result" in data:
             data_result = data.get("result", {})
@@ -1043,7 +1065,7 @@ class XrplExchange(ExchangePyBase):
         return None
 
     async def _request_order_status(self, tracked_order: InFlightOrder, creation_tx_resp: Dict = None) -> OrderUpdate:
-        await self._make_network_check_request()
+        # await self._make_network_check_request()
         new_order_state = tracked_order.current_state
         latest_status = "UNKNOWN"
 
@@ -1191,28 +1213,32 @@ class XrplExchange(ExchangePyBase):
         :return: A list of transactions.
         """
         try:
-            request = AccountTx(
-                account=self._auth.get_account(),
-                ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
-                forward=is_forward,
-            )
+            async with self._xrpl_fetch_trades_client_lock:
+                request = AccountTx(
+                    account=self._auth.get_account(),
+                    ledger_index_min=int(ledger_index) - CONSTANTS.LEDGER_OFFSET,
+                    forward=is_forward,
+                )
 
-            tasks = [
-                self.request_with_retry(self._xrpl_client, request),
-                self.request_with_retry(self._xrpl_place_order_client, request),
-            ]
-            task_results = await safe_gather(*tasks, return_exceptions=True)
+                client_one = AsyncWebsocketClient(self._wss_node_url)
+                client_two = AsyncWebsocketClient(self._wss_second_node_url)
+                tasks = [
+                    self.request_with_retry(client_one, request, 5),
+                    self.request_with_retry(client_two, request, 5),
+                ]
+                task_results = await safe_gather(*tasks, return_exceptions=True)
 
-            return_transactions = []
+                return_transactions = []
 
-            for task_id, task_result in enumerate(task_results):
-                if isinstance(task_result, Response):
-                    result = task_result.result
-                    if result is not None:
-                        transactions = result.get("transactions", [])
+                for task_id, task_result in enumerate(task_results):
+                    if isinstance(task_result, Response):
+                        result = task_result.result
+                        if result is not None:
+                            transactions = result.get("transactions", [])
 
-                        if len(transactions) > len(return_transactions):
-                            return_transactions = transactions
+                            if len(transactions) > len(return_transactions):
+                                return_transactions = transactions
+                await self._sleep(3)
 
         except Exception as e:
             self.logger().error(f"Failed to fetch account transactions: {e}")
@@ -1221,26 +1247,37 @@ class XrplExchange(ExchangePyBase):
         return return_transactions
 
     async def _update_balances(self):
+        await self._client_health_check()
         account_address = self._auth.get_account()
 
         account_info = await self.request_with_retry(
-            self._xrpl_client, AccountInfo(account=account_address, ledger_index="validated")
+            self._xrpl_query_client,
+            AccountInfo(account=account_address, ledger_index="validated"),
+            5,
+            self._xrpl_query_client_lock,
+            0.3,
         )
 
         objects = await self.request_with_retry(
-            self._xrpl_client,
+            self._xrpl_query_client,
             AccountObjects(
                 account=account_address,
             ),
+            5,
+            self._xrpl_query_client_lock,
+            0.3,
         )
 
         open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
 
         account_lines = await self.request_with_retry(
-            self._xrpl_client,
+            self._xrpl_query_client,
             AccountLines(
                 account=account_address,
             ),
+            5,
+            self._xrpl_query_client_lock,
+            0.3,
         )
 
         if account_lines is not None:
@@ -1274,6 +1311,9 @@ class XrplExchange(ExchangePyBase):
                 continue
 
             account_balances[token_symbol] = abs(Decimal(amount))
+
+        if self._account_balances is not None and len(balances) == 0:
+            account_balances = self._account_balances.copy()
 
         account_available_balances = account_balances.copy()
         account_available_balances["XRP"] = Decimal(available_xrp)
@@ -1425,17 +1465,22 @@ class XrplExchange(ExchangePyBase):
             self.logger().exception(f"There was an error requesting exchange info: {e}")
 
     async def _make_network_check_request(self):
-        if not self._xrpl_client.is_open():
-            await self._xrpl_client.open()
+        await self._xrpl_query_client.open()
 
-        if not self._xrpl_place_order_client.is_open():
-            await self._xrpl_place_order_client.open()
+    async def _client_health_check(self):
+        # Clear client memory to prevent memory leak
+        if time.time() - self._last_clients_refresh_time > CONSTANTS.CLIENT_REFRESH_INTERVAL:
+            async with self._xrpl_query_client_lock:
+                await self._xrpl_query_client.close()
+
+            self._last_clients_refresh_time = time.time()
+
+        await self._xrpl_query_client.open()
 
     async def _make_trading_rules_request(self) -> Dict[str, Any]:
+        await self._client_health_check()
         zeroTransferRate = 1000000000
         trading_rules_info = {}
-
-        await self._make_network_check_request()
 
         for trading_pair in self._trading_pairs:
             base_currency, quote_currency = self.get_currencies_from_trading_pair(trading_pair)
@@ -1445,7 +1490,11 @@ class XrplExchange(ExchangePyBase):
                 baseTransferRate = 0
             else:
                 base_info = await self.request_with_retry(
-                    self._xrpl_client, AccountInfo(account=base_currency.issuer, ledger_index="validated")
+                    self._xrpl_query_client,
+                    AccountInfo(account=base_currency.issuer, ledger_index="validated"),
+                    3,
+                    self._xrpl_query_client_lock,
+                    1,
                 )
 
                 if base_info.status == ResponseStatus.ERROR:
@@ -1461,7 +1510,11 @@ class XrplExchange(ExchangePyBase):
                 quoteTransferRate = 0
             else:
                 quote_info = await self.request_with_retry(
-                    self._xrpl_client, AccountInfo(account=quote_currency.issuer, ledger_index="validated")
+                    self._xrpl_query_client,
+                    AccountInfo(account=quote_currency.issuer, ledger_index="validated"),
+                    3,
+                    self._xrpl_query_client_lock,
+                    1,
                 )
 
                 if quote_info.status == ResponseStatus.ERROR:
@@ -1574,23 +1627,38 @@ class XrplExchange(ExchangePyBase):
         raise XRPLRequestFailureException(response.result)
 
     async def wait_for_final_transaction_outcome(self, transaction, prelim_result) -> Response:
-        return await _wait_for_final_transaction_outcome(
-            transaction.get_hash(), self._xrpl_client, prelim_result, transaction.last_ledger_sequence
-        )
+        async with AsyncWebsocketClient(self._wss_node_url) as client:
+            resp = await _wait_for_final_transaction_outcome(
+                transaction.get_hash(), client, prelim_result, transaction.last_ledger_sequence
+            )
+        return resp
 
     async def request_with_retry(
-        self, client: AsyncWebsocketClient, request: Request, max_retries: int = 3
+        self,
+        client: AsyncWebsocketClient,
+        request: Request,
+        max_retries: int = 3,
+        lock: Lock = None,
+        delay_time: float = 0.0,
     ) -> Response:
         try:
-            if not client.is_open():
-                await client.open()
+            await client.open()
 
-            return await client.request(request)
+            if lock is not None:
+                async with lock:
+                    async with client:
+                        resp = await client.request(request)
+            else:
+                async with client:
+                    resp = await client.request(request)
+
+            await self._sleep(delay_time)
+            return resp
         except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
             self.logger().debug(f"Request {request} timeout error: {e}")
             if max_retries > 0:
                 await self._sleep(CONSTANTS.REQUEST_RETRY_INTERVAL)
-                return await self.request_with_retry(client, request, max_retries - 1)
+                return await self.request_with_retry(client, request, max_retries - 1, lock, delay_time)
             else:
                 self.logger().error(f"Max retries reached. Request {request} failed due to timeout.")
         except Exception as e:

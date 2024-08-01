@@ -31,7 +31,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = CONSTANTS.SNAPSHOT_EVENT_TYPE
-        self._xrpl_client = AsyncWebsocketClient(self._connector.node_url)
+        self._xrpl_client = self._connector.order_book_data_client
         self._open_client_lock = asyncio.Lock()
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
