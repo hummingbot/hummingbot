@@ -1,0 +1,16 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas allowed for a ref trade.
+gasLimitEstimate: 2000000
+
+# how long a trade is valid in seconds. After time passes ref will not
+# perform the trade, but the gas will still be spent.
+ttl: 300
+
+contractAddresses:
+  mainnet:
+    routerAddress: 'v2.ref-finance.near'
+  testnet:
+    routerAddress: 'ref-finance-101.testnet'

@@ -1,0 +1,46 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas used to estimate gasCost for a uniswap trade.
+gasLimitEstimate: 150688
+
+# how long a trade is valid in seconds. After time passes uniswap will not
+# perform the trade, but the gas will still be sent.
+ttl: 600
+
+# For each swap, the maximum number of hops to consider. 
+# Note: More hops will increase latency of the algorithm.
+maximumHops: 4
+
+# Use Uniswap Router or Quoter to quote prices.
+# true - use Smart Order Router
+# false - use QuoterV2 Contract
+useRouter: false
+
+# Fee tier to use for the Uniswap Quoter.
+# Required if `useRouter` is false.
+# Available options: 'LOWEST', 'LOW', 'MEDIUM', 'HIGH'.
+feeTier: 'MEDIUM'
+
+contractAddresses:
+  mainnet:
+    uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+    uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+    uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+  goerli:
+    uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+    uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+    uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+  arbitrum:
+    uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+    uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+    uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+  optimism:
+    uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+    uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+    uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+  mumbai:
+    uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+    uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+    uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
