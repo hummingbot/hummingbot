@@ -469,7 +469,20 @@ class XrplExchange(ExchangePyBase):
             else:
                 self.logger().error("Max retries reached. Verify transaction failed due to timeout.")
                 return False, None
+
         except Exception as e:
+            # If there is code 429, retry the request
+            if "429" in str(e):
+                self.logger().debug(
+                    f"Verify transaction failed with code 429, Attempt {try_count + 1}/{CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY}"
+                )
+                if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:
+                    await self._sleep(CONSTANTS.VERIFY_TRANSACTION_RETRY_INTERVAL)
+                    return await self._verify_transaction_result(submit_data, try_count + 1)
+                else:
+                    self.logger().error("Max retries reached. Verify transaction failed with code 429.")
+                    return False, None
+
             self.logger().error(f"Submitted transaction failed: {e}")
 
             return False, None
@@ -581,11 +594,6 @@ class XrplExchange(ExchangePyBase):
                 status = "cancelled"
 
             if status == "cancelled":
-                # Check order fills
-                trade_updates = await self._all_trade_updates_for_order(order)
-                for trade_update in trade_updates:
-                    self._order_tracker.process_trade_update(trade_update)
-
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order.client_order_id,
                     trading_pair=order.trading_pair,
