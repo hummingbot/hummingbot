@@ -17,6 +17,7 @@ from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
+from hummingbot.core.rate_oracle.sources.uniswap_rate_source import UniswapRateSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -31,6 +32,7 @@ RATE_ORACLE_SOURCES = {
     "gate_io": GateIoRateSource,
     "coinbase_advanced_trade": CoinbaseAdvancedTradeRateSource,
     "cube": CubeRateSource,
+    "uniswap": UniswapRateSource
 }
 
 
