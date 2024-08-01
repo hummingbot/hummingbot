@@ -118,7 +118,7 @@ class GatewayErgoAMM(GatewayEVMAMM):
             gas_price_token: str = price_response["gasPriceToken"]
             gas_cost: Decimal = Decimal(price_response["gasCost"])
             price: Decimal = Decimal(price_response["price"])
-            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            self._network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
             if process_exception is True:
                 gas_limit: int = int(price_response["gasLimit"])
                 exceptions: List[str] = check_transaction_exceptions(
