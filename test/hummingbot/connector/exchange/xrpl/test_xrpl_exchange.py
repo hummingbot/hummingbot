@@ -1444,7 +1444,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual("1-1", exchange_order_id)
 
     @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._all_trade_updates_for_order")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
@@ -1461,7 +1460,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
-        get_all_trade_updates_mock,
         mock_async_websocket_client,
     ):
         # Create a mock client to be returned by the context manager
@@ -1485,8 +1483,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         submit_mock.return_value = Response(
             status=ResponseStatus.SUCCESS, result={"engine_result": "tesSUCCESS", "engine_result_message": "something"}
         )
-
-        get_all_trade_updates_mock.return_value = []
 
         in_flight_order = InFlightOrder(
             client_order_id="hbot",
@@ -1515,7 +1511,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.connector._execute_order_cancel_and_process_update(order=in_flight_order)
         )
         self.assertTrue(process_order_update_mock.called)
-        self.assertTrue(get_all_trade_updates_mock.called)
         self.assertTrue(result)
 
     def test_format_trading_rules(self):

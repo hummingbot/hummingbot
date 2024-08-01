@@ -114,7 +114,11 @@ class XrplExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> XRPLAuth:
-        return XRPLAuth(xrpl_secret_key=self._xrpl_secret_key)
+        if self._trading_required:
+            return_auth = XRPLAuth(xrpl_secret_key=self._xrpl_secret_key)
+        else:
+            return_auth = XRPLAuth(xrpl_secret_key="")
+        return return_auth
 
     @property
     def name(self) -> str:
