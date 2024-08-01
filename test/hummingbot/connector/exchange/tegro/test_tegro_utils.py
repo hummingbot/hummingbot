@@ -1,5 +1,4 @@
 import unittest
-from datetime import datetime
 from decimal import Decimal
 
 from hummingbot.connector.exchange.tegro import tegro_utils as utils
@@ -15,14 +14,6 @@ class TegroeUtilTestCases(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.hb_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
-
-    def test_datetime_val_or_now(self):
-        self.assertIsNone(utils.datetime_val_or_now('NotValidDate', '', False))
-        self.assertLessEqual(datetime.now(), utils.datetime_val_or_now('NotValidDate', '', True))
-        self.assertLessEqual(datetime.now(), utils.datetime_val_or_now('NotValidDate', ''))
-        _now = '2023-04-19T18:53:17.981Z'
-        _fNow = datetime.strptime(_now, '%Y-%m-%dT%H:%M:%S.%fZ')
-        self.assertEqual(_fNow, utils.datetime_val_or_now(_now))
 
     def test_decimal_val_or_none(self):
         self.assertIsNone(utils.decimal_val_or_none('NotValidDecimal'))

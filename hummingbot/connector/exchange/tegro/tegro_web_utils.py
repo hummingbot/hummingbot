@@ -45,11 +45,6 @@ def build_api_factory(
     return api_factory
 
 
-def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(throttler=throttler)
-    return api_factory
-
-
 def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 

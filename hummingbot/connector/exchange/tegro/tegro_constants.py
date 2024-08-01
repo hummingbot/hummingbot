@@ -16,8 +16,7 @@ TESTNET_BASE_URL = "https://api.testnet.tegro.com/api/"
 TEGRO_WS_URL = "wss://api.tegro.com/api/v1/events/"
 TESTNET_WS_URL = "wss://api.testnet.tegro.com/api/v1/events/"
 
-CHAIN_ID = 8453
-
+DEFAULT_CHAIN = "base"
 PUBLIC_WS_ENDPOINT = "ws"
 
 # Public API endpoints or TegroClient function
@@ -55,13 +54,16 @@ SIDE_SELL = "sell"
 
 ORDER_STATE = {
     "open": OrderState.OPEN,
-    "closed": OrderState.FILLED,
-    "cancelled": OrderState.CANCELED,
+    "partial": OrderState.PARTIALLY_FILLED,
+    "pending": OrderState.PENDING_CANCEL,
+    "completed": OrderState.FILLED,
+    "canceled": OrderState.CANCELED,
+    "failed": OrderState.FAILED,
 }
 
 MAINNET_CHAIN_IDS = {
     # tegro is same as base in this case
-    "tegro": 8453,
+    "base": 8453,
 }
 
 ABI = {
@@ -110,7 +112,7 @@ ABI = {
 }
 
 Node_URLS = {
-    "tegro": "https://mainnet.base.org",
+    "base": "https://mainnet.base.org",
     "tegro_base_testnet": "https://sepolia.base.org",
     "tegro_polygon_testnet": "https://rpc-amoy.polygon.technology",
     "tegro_optimism_testnet": "https://sepolia.optimism.io"

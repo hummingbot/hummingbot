@@ -26,9 +26,9 @@ class TegroOrderBook(OrderBook):
         bids = []
         asks = []
 
-        if len(ask_res) > 0:
+        if ask_res is not None and len(ask_res) > 0:
             asks = [ensure_price_and_quantity(entry) for entry in msg.get("asks", [])]
-        if len(bid_res) > 0:
+        if bid_res is not None and len(bid_res) > 0:
             bids = [ensure_price_and_quantity(entry) for entry in msg.get("bids", [])]
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -63,9 +63,9 @@ class TegroOrderBook(OrderBook):
         bids = []
         asks = []
 
-        if len(ask_res) > 0:
+        if ask_res is not None and len(ask_res) > 0:
             asks = [ensure_price_and_quantity(entry) for entry in msg["data"].get("asks", [])]
-        if len(bid_res) > 0:
+        if bid_res is not None and len(bid_res) > 0:
             bids = [ensure_price_and_quantity(entry) for entry in msg["data"].get("bids", [])]
 
         return OrderBookMessage(OrderBookMessageType.DIFF, {

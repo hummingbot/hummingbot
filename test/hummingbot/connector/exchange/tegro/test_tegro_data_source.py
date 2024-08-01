@@ -46,15 +46,44 @@ class TestEIP712(unittest.TestCase):
         primary_type = get_primary_type(self.sample_types)
         self.assertEqual(primary_type, "Mail")
 
+        # Test with invalid types to raise ValueError
+        invalid_types = {
+            "Person": [
+                {"name": "name", "type": "string"},
+            ],
+            "Mail": [
+                {"name": "contents", "type": "string"},
+            ],
+        }
+        with self.assertRaises(ValueError):
+            get_primary_type(invalid_types)
+
     def test_encode_field(self):
         encoded = encode_field(self.sample_types, "name", "string", "Alice")
         self.assertEqual(encoded[0], "bytes32")
         self.assertEqual(encoded[1], keccak(b"Alice"))
 
+        # Test for None value for a custom type
+        encoded_none = encode_field(self.sample_types, "from", "Person", None)
+        self.assertEqual(encoded_none[0], "bytes32")
+        self.assertEqual(encoded_none[1], b"\x00" * 32)
+
+        # Test for bool type
+        encoded_bool = encode_field(self.sample_types, "isActive", "bool", True)
+        self.assertEqual(encoded_bool, ("bool", True))
+
+        # Test for array type
+        encoded_array = encode_field(self.sample_types, "scores", "uint256[]", [1, 2, 3])
+        self.assertEqual(encoded_array[0], "bytes32")
+
     def test_find_type_dependencies(self):
         dependencies = find_type_dependencies("Mail", self.sample_types)
         self.assertIn("Person", dependencies)
         self.assertIn("Mail", dependencies)
+
+        # Test with a type not in the sample_types
+        with self.assertRaises(ValueError):
+            find_type_dependencies("NonExistentType", self.sample_types)
 
     def test_encode_type(self):
         encoded_type = encode_type("Mail", self.sample_types)
@@ -67,6 +96,7 @@ class TestEIP712(unittest.TestCase):
         self.assertEqual(hashed_type, expected)
 
     def test_encode_data(self):
+        # Normal case
         encoded_data = encode_data("Mail", self.sample_types, self.sample_data)
         self.assertTrue(isinstance(encoded_data, bytes))
 
@@ -88,3 +118,10 @@ class TestEIP712(unittest.TestCase):
         }
         hashed_domain = hash_domain(domain_data)
         self.assertTrue(isinstance(hashed_domain, bytes))
+
+        # Test with invalid domain key
+        invalid_domain_data = {
+            "invalid_key": "Invalid",
+        }
+        with self.assertRaises(ValueError):
+            hash_domain(invalid_domain_data)
