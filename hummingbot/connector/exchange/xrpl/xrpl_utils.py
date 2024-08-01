@@ -307,7 +307,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
     )
 
     wss_node_url = Field(
-        default="wss://s1.ripple.com/",
+        default="wss://xrplcluster.com/",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your XRPL Websocket Node URL",
             is_secure=False,
@@ -320,6 +320,16 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         default="wss://s1.ripple.com/",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your second XRPL Websocket Node URL",
+            is_secure=False,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
+    wss_third_node_url = Field(
+        default="wss://s2.ripple.com/",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your third XRPL Websocket Node URL",
             is_secure=False,
             is_connect_key=True,
             prompt_on_new=True,

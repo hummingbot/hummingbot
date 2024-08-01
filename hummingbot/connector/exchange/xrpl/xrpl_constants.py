@@ -43,7 +43,7 @@ XRPL_ORDER_TYPE = {
 XRPL_SELL_FLAG = 524288
 
 # Market Order Max Slippage
-MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.01")
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.02")
 
 # Order Side
 SIDE_BUY = 0
@@ -55,13 +55,13 @@ FETCH_ORDER_BOOK_MAX_RETRY = 3
 FETCH_ORDER_BOOK_RETRY_INTERVAL = 1
 
 # Ledger offset for getting order status:
-LEDGER_OFFSET = _LEDGER_OFFSET * 3
+LEDGER_OFFSET = _LEDGER_OFFSET * 2
 
 # Timeout for pending order status check
 PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
 
 # Request Timeout
-REQUEST_TIMEOUT = 25
+REQUEST_TIMEOUT = 30
 
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
@@ -93,10 +93,13 @@ VERIFY_TRANSACTION_RETRY_INTERVAL = 2
 AUTOFILL_TRANSACTION_MAX_RETRY = 5
 
 # Request retry interval
-REQUEST_RETRY_INTERVAL = 1
+REQUEST_RETRY_INTERVAL = 2
 
 # Request Orderbook Interval
 REQUEST_ORDERBOOK_INTERVAL = 3
+
+# Client refresh interval
+CLIENT_REFRESH_INTERVAL = 60
 
 # Markets list
 MARKETS = {

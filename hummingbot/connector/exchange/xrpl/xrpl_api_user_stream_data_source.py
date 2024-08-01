@@ -22,7 +22,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._connector = connector
         self._auth = auth
-        self._xrpl_client = AsyncWebsocketClient(self._connector.node_url)
+        self._xrpl_client = self._connector.user_stream_client
         self._last_recv_time: float = 0
 
     @property

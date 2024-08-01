@@ -50,6 +50,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             xrpl_secret_key="",
             wss_node_url="wss://sample.com",
             wss_second_node_url="wss://sample.com",
+            wss_third_node_url="wss://sample.com",
             trading_pairs=[self.trading_pair, self.trading_pair_usd],
             trading_required=False,
         )
@@ -127,9 +128,9 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.connector._user_stream_tracker = UserStreamTracker(data_source=self.user_stream_source)
 
-        self.connector._xrpl_client = AsyncMock()
-        self.connector._xrpl_client.__aenter__.return_value = self.connector._xrpl_client
-        self.connector._xrpl_client.__aexit__.return_value = None
+        self.connector._xrpl_query_client = AsyncMock()
+        self.connector._xrpl_query_client.__aenter__.return_value = self.connector._xrpl_query_client
+        self.connector._xrpl_query_client.__aexit__.return_value = None
 
         self.connector._xrpl_place_order_client = AsyncMock()
         self.connector._xrpl_place_order_client.__aenter__.return_value = self.connector._xrpl_place_order_client
@@ -958,21 +959,25 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(0.22452700389932698, asks[0].price)
         self.assertEqual(91.846106, asks[0].amount)
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_submit")
     @patch("hummingbot.connector.client_order_tracker.ClientOrderTracker.process_order_update")
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     def test_place_limit_order(
         self,
-        network_mock,
         process_order_update_mock,
         submit_mock,
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
+        mock_async_websocket_client
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         autofill_mock.return_value = {}
         verify_transaction_result_mock.return_value = True, {}
         sign_mock.return_value = Transaction(
@@ -1045,28 +1050,31 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(order_id.split("-")[0], "hbot")
 
-        self.assertTrue(network_mock.called)
         self.assertTrue(process_order_update_mock.called)
         self.assertTrue(verify_transaction_result_mock.called)
         self.assertTrue(submit_mock.called)
         self.assertTrue(autofill_mock.called)
         self.assertTrue(sign_mock.called)
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_submit")
     @patch("hummingbot.connector.client_order_tracker.ClientOrderTracker.process_order_update")
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     def test_place_market_order(
         self,
-        network_mock,
         process_order_update_mock,
         submit_mock,
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
+        mock_async_websocket_client
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         autofill_mock.return_value = {}
         verify_transaction_result_mock.return_value = True, {}
         sign_mock.return_value = Transaction(
@@ -1134,7 +1142,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(order_id.split("-")[0], "hbot")
 
-        self.assertTrue(network_mock.called)
         self.assertTrue(process_order_update_mock.called)
         self.assertTrue(verify_transaction_result_mock.called)
         self.assertTrue(submit_mock.called)
@@ -1159,9 +1166,14 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         # Verify the exception was raised and contains the expected message
         self.assertTrue("Market NOT_FOUND not found in markets list" in str(context.exception))
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.autofill", new_callable=MagicMock)
     # @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.submit", new_callable=MagicMock)
-    def test_place_order_exception_handling_autofill(self, autofill_mock):
+    def test_place_order_exception_handling_autofill(self, autofill_mock, mock_async_websocket_client):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         # Simulate an exception during the autofill operation
         autofill_mock.side_effect = Exception("Test exception during autofill")
 
@@ -1182,6 +1194,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "Order None (test_order) creation failed: Test exception during autofill" in str(context.exception)
         )
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1198,7 +1211,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
+        mock_async_websocket_client
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         autofill_mock.return_value = {}
         verify_transaction_result_mock.return_value = False, {}
         sign_mock.return_value = Transaction(
@@ -1227,6 +1245,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             in str(context.exception)
         )
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1243,7 +1262,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
+        mock_async_websocket_client
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         autofill_mock.return_value = {}
         verify_transaction_result_mock.return_value = False, None
         sign_mock.return_value = Transaction(
@@ -1269,6 +1293,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         # # Verify the exception was raised and contains the expected message
         self.assertTrue("Order 1-1 (hbot) creation failed: Failed to place order hbot (1-1)" in str(context.exception))
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1285,7 +1310,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         autofill_mock,
         verify_transaction_result_mock,
         sleep_mock,
+        mock_async_websocket_client
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         autofill_mock.return_value = {}
         verify_transaction_result_mock.return_value = False, None
         sign_mock.return_value = Transaction(
@@ -1311,17 +1341,21 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         # # Verify the exception was raised and contains the expected message
         self.assertTrue("Order 1-1 (hbot) creation failed: Failed to place order hbot (1-1)" in str(context.exception))
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_submit")
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     def test_place_cancel(
         self,
-        network_mock,
         submit_mock,
         sign_mock,
         autofill_mock,
+        mock_async_websocket_client,
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         autofill_mock.return_value = {}
         sign_mock.return_value = Transaction(
             sequence=1, last_ledger_sequence=1, account="r1234", transaction_type=TransactionType.OFFER_CREATE
@@ -1342,17 +1376,16 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         )
 
         self.async_run_with_timeout(self.connector._place_cancel("hbot", tracked_order=in_flight_order))
-        self.assertTrue(network_mock.called)
         self.assertTrue(submit_mock.called)
         self.assertTrue(autofill_mock.called)
         self.assertTrue(sign_mock.called)
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_sign")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_submit")
     @patch("hummingbot.connector.client_order_tracker.ClientOrderTracker.process_order_update")
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     @patch("hummingbot.connector.client_order_tracker.ClientOrderTracker.process_trade_update")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.process_trade_fills")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._request_order_status")
@@ -1361,13 +1394,17 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         request_order_status_mock,
         process_trade_fills_mock,
         process_trade_update_mock,
-        network_mock,
         process_order_update_mock,
         submit_mock,
         sign_mock,
         autofill_mock,
         verify_transaction_result_mock,
+        mock_async_websocket_client,
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         request_order_status_mock.return_value = OrderUpdate(
             trading_pair=self.trading_pair,
             new_state=OrderState.FILLED,
@@ -1398,7 +1435,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         exchange_order_id = self.async_run_with_timeout(
             self.connector._place_order_and_process_update(order=in_flight_order)
         )
-        self.assertTrue(network_mock.called)
         self.assertTrue(submit_mock.called)
         self.assertTrue(autofill_mock.called)
         self.assertTrue(sign_mock.called)
@@ -1407,6 +1443,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(process_trade_fills_mock.called)
         self.assertEqual("1-1", exchange_order_id)
 
+    @patch('hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient')
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._all_trade_updates_for_order")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._verify_transaction_result")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.tx_autofill")
@@ -1425,7 +1462,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         autofill_mock,
         verify_transaction_result_mock,
         get_all_trade_updates_mock,
+        mock_async_websocket_client,
     ):
+        # Create a mock client to be returned by the context manager
+        mock_client = AsyncMock()
+        mock_async_websocket_client.return_value.__aenter__.return_value = mock_client
+
         request_order_status_mock.return_value = OrderUpdate(
             trading_pair=self.trading_pair,
             new_state=OrderState.FILLED,
@@ -1618,7 +1660,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             else:
                 raise ValueError("Invalid method")
 
-        self.connector._xrpl_client.request.side_effect = side_effect_function
+        self.connector._xrpl_query_client.request.side_effect = side_effect_function
 
         self.async_run_with_timeout(self.connector._update_balances())
 
@@ -1632,19 +1674,17 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(self.connector._account_available_balances["USD"], Decimal("0.011094399237562"))
         self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("31.337975848655761"))
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
-    def test_make_trading_rules_request(self, network_mock):
+    def test_make_trading_rules_request(self):
         def side_effect_function(arg: Request):
             if arg.method == RequestMethod.ACCOUNT_INFO:
                 return self._client_response_account_info_issuer()
             else:
                 raise ValueError("Invalid method")
 
-        self.connector._xrpl_client.request.side_effect = side_effect_function
+        self.connector._xrpl_query_client.request.side_effect = side_effect_function
 
         result = self.async_run_with_timeout(self.connector._make_trading_rules_request())
 
-        self.assertTrue(network_mock.called)
         self.assertEqual(
             result["SOLO-XRP"]["base_currency"].currency, "534F4C4F00000000000000000000000000000000"
         )  # noqa: mock
@@ -1662,7 +1702,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             Decimal("9.99999999999999954748111825886258685613938723690807819366455078125E-7"),  # noqa: mock
         )
 
-        self.assertTrue(network_mock.called)
         self.assertEqual(
             result["SOLO-USD"]["base_currency"].currency, "534F4C4F00000000000000000000000000000000"  # noqa: mock
         )
