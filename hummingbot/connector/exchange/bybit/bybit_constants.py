@@ -68,6 +68,7 @@ ORDER_PLACE_PATH_URL = "/v5/order/create"
 ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
 GET_ORDERS_PATH_URL = "/v5/order/realtime"
 TRADE_HISTORY_PATH_URL = "/v5/execution/list"
+EXCHANGE_FEE_RATE_PATH_URL = "/v5/account/fee-rate"
 
 
 # Order States
@@ -209,6 +210,14 @@ RATE_LIMITS = {
     ),
     RateLimit(
         limit_id=TRADE_HISTORY_PATH_URL,
+        limit=MAX_REQUEST_LIMIT_DEFAULT,
+        time_interval=ONE_SECOND,
+        linked_limits=[
+            LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
+        ]
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_FEE_RATE_PATH_URL,
         limit=MAX_REQUEST_LIMIT_DEFAULT,
         time_interval=ONE_SECOND,
         linked_limits=[

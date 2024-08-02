@@ -16,7 +16,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -147,7 +147,7 @@ class BybitExchange(ExchangePyBase):
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return BybitAPIOrderBookDataSource(
-            trading_pairs=self._trading_pairs,
+            trading_pairs=self.trading_pairs,
             connector=self,
             domain=self.domain,
             api_factory=self._web_assistants_factory,
@@ -172,17 +172,23 @@ class BybitExchange(ExchangePyBase):
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
-        trade_base_fee = build_trade_fee(
-            exchange=self.name,
-            is_maker=is_maker,
-            order_side=order_side,
-            order_type=order_type,
-            amount=amount,
-            price=price,
-            base_currency=base_currency,
-            quote_currency=quote_currency
-        )
-        return trade_base_fee
+        trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+        if trading_pair in self._trading_fees:
+            fees_data = self._trading_fees[trading_pair]
+            fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
+            fee = AddedToCostTradeFee(percent=fee_value)
+        else:
+            fee = build_trade_fee(
+                self.name,
+                is_maker,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                order_type=order_type,
+                order_side=order_side,
+                amount=amount,
+                price=price,
+            )
+        return fee
 
     async def _get_account_info(self):
         account_info = await self._api_get(
@@ -297,7 +303,11 @@ class BybitExchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        pass
+        # await self._update_exchange_fee_rates()
+        fee_rates = await self._get_exchange_fee_rates()
+        for tpfee in fee_rates:
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=tpfee["symbol"])
+            self._trading_fees[trading_pair] = tpfee
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
@@ -409,8 +419,25 @@ class BybitExchange(ExchangePyBase):
 
     def _parse_trade_update(self, trade_msg: Dict, tracked_order: InFlightOrder) -> TradeUpdate:
         trade_id: str = str(trade_msg["execId"])
-
-        fee_asset = tracked_order.quote_asset
+        is_maker: bool = trade_msg["isMaker"]
+        maker_fee_rate: Decimal = Decimal(self._trading_fees[tracked_order.trading_pair]["makerFeeRate"])
+        side: str = trade_msg["side"]
+        if maker_fee_rate > Decimal("0"):
+            if side == "Buy":
+                fee_asset = tracked_order.base_asset
+            else:
+                fee_asset = tracked_order.quote_asset
+        else:
+            if is_maker:
+                if side == "Buy":
+                    fee_asset = tracked_order.quote_asset
+                else:
+                    fee_asset = tracked_order.base_asset
+            else:
+                if side == "Buy":
+                    fee_asset = tracked_order.base_asset
+                else:
+                    fee_asset = tracked_order.quote_asset
         fee_amount = Decimal(trade_msg["execFee"])
         ptoken = tracked_order.trading_pair.split("-")[1]
 
@@ -441,59 +468,6 @@ class BybitExchange(ExchangePyBase):
             fee=fee,
         )
         return trade_update
-
-    # async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-    #     trade_updates = []
-    #     exchange_order_id = str(order.exchange_order_id)
-    #     client_order_id = str(order.client_order_id)
-    #     trading_pair = order.trading_pair
-    #     symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-    #     api_params = {
-    #         "category": self._category,
-    #         "symbol": symbol,
-    #         "execType": "Trade"
-    #     }
-    #     if exchange_order_id:
-    #         api_params["orderId"] = exchange_order_id
-    #     else:
-    #         api_params["orderLinkId"] = client_order_id
-    #     all_fills_response = await self._api_get(
-    #         path_url=CONSTANTS.TRADE_HISTORY_PATH_URL,
-    #         params=api_params,
-    #         is_auth_required=True,
-    #         limit_id=CONSTANTS.TRADE_HISTORY_PATH_URL
-    #     )
-    #     result = all_fills_response.get("result", [])
-    #     if result not in (None, {}):
-    #         if len(result["list"]) == 0:
-    #             return trade_updates
-    #         trade = result["list"][0]
-    #         ptoken = trading_pair.split("-")[1]
-    #         fee_amount = trade["execFee"] or "0"
-    #         fee = TradeFeeBase.new_spot_fee(
-    #             fee_schema=self.trade_fee_schema(),
-    #             trade_type=order.trade_type,
-    #             percent_token=ptoken,
-    #             flat_fees=[
-    #                 TokenAmount(
-    #                     amount=Decimal(fee_amount),
-    #                     token=ptoken
-    #                 )
-    #             ]
-    #         )
-    #         trade_update = TradeUpdate(
-    #             trade_id=str(trade["execId"]),
-    #             client_order_id=client_order_id,
-    #             exchange_order_id=exchange_order_id,
-    #             trading_pair=trading_pair,
-    #             fee=fee,
-    #             fill_base_amount=Decimal(trade["execQty"]),
-    #             fill_quote_amount=Decimal(trade["execPrice"]) * Decimal(trade["execQty"]),
-    #             fill_price=Decimal(trade["execPrice"]),
-    #             fill_timestamp=int(trade["execTime"]) * 1e-3,
-    #         )
-    #         trade_updates.append(trade_update)
-    #     return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         exchange_order_id = tracked_order.exchange_order_id
@@ -632,3 +606,28 @@ class BybitExchange(ExchangePyBase):
             }
         )
         return exchange_info
+
+    async def _get_trading_pair_fee_rate(self, trading_pair: str) -> Any:
+        api_params = {
+            "category": self._category,
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
+        fee_rates = await self._api_get(
+            path_url=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL,
+            params=api_params,
+            is_auth_required=True,
+            limit_id=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL
+        )
+        return fee_rates["result"]["list"][0]
+
+    async def _get_exchange_fee_rates(self) -> Any:
+        api_params = {
+            "category": self._category
+        }
+        fee_rates = await self._api_get(
+            path_url=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL,
+            params=api_params,
+            is_auth_required=True,
+            limit_id=CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL
+        )
+        return fee_rates["result"]["list"]
