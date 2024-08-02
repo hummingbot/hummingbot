@@ -18,7 +18,7 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        aiohttp_client_session = aiohttp.ClientSession()
+        aiohttp_client_session = aiohttp.ClientSession(self.local_event_loop)
         self.ws_connection = WSConnection(aiohttp_client_session)
         self.ws_assistant = WSAssistant(self.ws_connection)
         self.mocking_assistant = NetworkMockingAssistant()
