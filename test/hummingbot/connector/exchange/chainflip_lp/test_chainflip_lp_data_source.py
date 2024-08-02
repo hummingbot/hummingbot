@@ -1,4 +1,5 @@
 import asyncio
+<<<<<<< HEAD
 from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
 from typing import Awaitable
 from unittest import TestCase
@@ -10,6 +11,31 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+=======
+import json
+import re
+from decimal import Decimal
+
+from typing import Awaitable, Optional, Union
+from unittest import TestCase
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from bidict import bidict
+from substrateinterface import Keypair
+
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
+
+
+
+from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.data_type.common import TradeType
+>>>>>>> 483756138 ((feat) add chainflip lp connector tests)
 
 
 class ChainflipLpDataSourceTests(TestCase):
@@ -17,12 +43,21 @@ class ChainflipLpDataSourceTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+<<<<<<< HEAD
         cls.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
         cls.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
         cls.base_asset = "ETH"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+=======
+        cls.base_asset_dict = {"chain":"Ethereum", "asset":"ETH"}
+        cls.quote_asset_dict = {"chain": "Ethereum","asset":"USDC"}
+        cls.base_asset = "ETH"
+        cls.quote_asset = "USDC"
+        cls.trading_pair = f'{cls.base_asset}-{cls.quote_asset}'
+        cls.ex_trading_pair = f'{cls.base_asset}-{cls.quote_asset}'
+>>>>>>> 483756138 ((feat) add chainflip lp connector tests)
 
     def setUp(self) -> None:
         super().setUp()
@@ -31,23 +66,36 @@ class ChainflipLpDataSourceTests(TestCase):
         self.async_tasks = []
         asyncio.set_event_loop(self.async_loop)
         self.mocking_assistant = NetworkMockingAssistant()
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 483756138 ((feat) add chainflip lp connector tests)
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.address = Keypair.create_from_mnemonic(Keypair.generate_mnemonic()).ss58_address
         self.connector = ChainflipLpExchange(
             client_config_map=client_config_map,
             chainflip_lp_api_url="http://localhost:80",
+<<<<<<< HEAD
             chainflip_lp_address=self.address,
+=======
+            chainflip_lp_address= self.address,
+>>>>>>> 483756138 ((feat) add chainflip lp connector tests)
             chainflip_eth_chain="Ethereum",
             chainflip_usdc_chain="Ethereum",
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )
+<<<<<<< HEAD
         self.data_source = ChainflipLpDataSource(
+=======
+        self.data_source = ChainflipLPDataSource(
+>>>>>>> 483756138 ((feat) add chainflip lp connector tests)
             connector=self.connector,
             address=self.address,
             rpc_api_url="",
             trading_pairs=[self.trading_pair],
+<<<<<<< HEAD
             trading_required=False,
         )
         self.data_source._rpc_executor = MockRPCExecutor()
@@ -119,3 +167,11 @@ class ChainflipLpDataSourceTests(TestCase):
         self.async_run_with_timeout(self.data_source.start())
         self.assertEqual(len(self.data_source._events_listening_tasks), 1)
         self.assertGreater(len(self.data_source._assets_list), 1)
+=======
+            trading_required=False
+        )
+        self.data_source._rpc_executor = MockRPCExecutor()
+    
+
+
+>>>>>>> 483756138 ((feat) add chainflip lp connector tests)
