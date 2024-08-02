@@ -254,6 +254,7 @@ class DataFormatter:
         return formatted_data
 
     @classmethod
+<<<<<<< HEAD
     def format_assets_to_market_symbol(cls, base_asset: Dict[str, str] | str, quote_asset: Dict[str, str] | str):
         if isinstance(base_asset, str):
             base = base_asset
@@ -279,6 +280,40 @@ class DataFormatter:
                 "price": cls.convert_tick_to_price(order["tick"], asset["base_asset"], asset["quote_asset"]),
             }
             return data
+=======
+    def format_assets_to_market_symbol(
+        cls, 
+        base_asset:Dict[str, str] | str, 
+        quote_asset:Dict[str, str] | str
+    ):
+        if type(base_asset) == str:
+            base = base_asset
+        else:
+            base = base_asset["asset"]
+        if type(quote_asset) == str:
+            quote = quote_asset
+        else:
+            quote = quote_asset["asset"]
+        return f'{base}-{quote}'
+    @classmethod
+    def format_order_fills_response(
+        cls,
+        response,
+        address
+    ):
+        def format_single_order_fill(order):
+            trading_pair = cls.format_assets_to_market_symbol(
+                order["base_asset"],
+                order["quote_asset"]
+            )
+            data = {
+                "trading_pair": trading_pair,
+                "side": order["side"],
+                "id": order["id"]
+            }
+            return data
+
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
 
         data = response["result"]
         fills: Dict = data["fills"]
@@ -288,12 +323,26 @@ class DataFormatter:
             cls.logger().info("No Limit Order fills found")
             return []
         # filter the limit orders fill by the user address
+<<<<<<< HEAD
         user_orders = list(filter(lambda x: x[1]["lp"] == address, limit_orders_fills))
         if not user_orders:
             cls.logger().info("No order fill found for current address")
             return []
         # get the values of the
         main_data = list(map(lambda x: x[1], user_orders))
+=======
+        user_orders = list(filter(
+            lambda x: x[1]["lp"] == address,
+            limit_orders_fills
+        ))
+        if not user_orders:
+            return []
+        #get the values of the 
+        main_data =  list(map(
+            lambda x: x[1],
+            user_orders
+        ))
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
         formatted_data = list(map(format_single_order_fill, main_data))
         return formatted_data
 

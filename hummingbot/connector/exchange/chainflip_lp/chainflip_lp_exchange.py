@@ -118,7 +118,16 @@ class ChainflipLpExchange(ExchangePyBase):
 
     async def start_network(self):
         await super().start_network()
+<<<<<<< HEAD
         await self._data_source.start()
+=======
+
+        market_symbols = [
+            await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            for trading_pair in self._trading_pairs
+        ]
+        await self._data_source.start(market_symbols=market_symbols)
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
 
     async def stop_network(self):
         """

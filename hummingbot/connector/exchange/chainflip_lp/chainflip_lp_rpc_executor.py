@@ -257,6 +257,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     f"Unexpected error listening to Pool Price from Chainflip LP API. Error: {e}", exc_info=True
                 )
                 sys.exit()
+<<<<<<< HEAD
 
     async def listen_to_order_fills(self, event_handler: Callable):
         # will run in a thread
@@ -267,6 +268,12 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
         def handler(data):
             response = DataFormatter.format_order_fills_response(data, self._lp_account_address, all_assets)
+=======
+    async def listen_to_order_fills(self, event_handler:Callable):
+        # will run in a thread
+        def handler(data):
+            response = DataFormatter.format_order_fills_response(data, self._lp_account_address)
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
             event_handler(response)
 
         await self._subscribe_to_api_event(CONSTANTS.ORDER_FILLS_SUBSCRIPTION_METHOD, handler)

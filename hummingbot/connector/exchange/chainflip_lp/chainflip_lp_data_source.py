@@ -15,8 +15,14 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, TradeType
+<<<<<<< HEAD
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+=======
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.event.events import  MarketEvent
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
@@ -69,6 +75,7 @@ class ChainflipLpDataSource:
             domain=self._domain,
             chain_config=self._chain_config,
         )
+<<<<<<< HEAD
 
     async def start(self):
         await self._rpc_executor.start()
@@ -77,14 +84,28 @@ class ChainflipLpDataSource:
             asyncio.create_task(self._rpc_executor.listen_to_order_fills(self._process_recent_order_fills_event))
         )
 
+=======
+    async def start(self, market_symbols):
+        await self.assets_list()
+        self._events_listening_tasks.append(
+            asyncio.create_task(
+                self._rpc_executor.listen_to_order_fills(
+                    self._process_recent_order_fills_event
+                )
+            )
+        )
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
     async def stop(self):
         for task in self._events_listening_tasks:
             task.cancel()
         self._events_listening_tasks = []
 
+<<<<<<< HEAD
     def is_started(self):
         return len(self._assets_list) > 0
 
+=======
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
     def configure_throttler(self, throttler: AsyncThrottlerBase):
         self._throttler = throttler
 
@@ -187,6 +208,7 @@ class ChainflipLpDataSource:
         return status
 
     async def get_last_traded_price(self, trading_pair):
+<<<<<<< HEAD
         asset = DataFormatter.format_trading_pair(trading_pair, self._assets_list)
         price_response = await self._rpc_executor.get_market_price(
             base_asset=asset["base_asset"], quote_asset=asset["quote_asset"]
@@ -225,6 +247,14 @@ class ChainflipLpDataSource:
             trading_rules.append(TradingRule(trading_pair=trading_pair))
         return trading_rules
 
+=======
+        asset = DataFormatter.format_trading_pair(trading_pair,self._assets_list)
+        price = await self._rpc_executor.get_market_price(
+            base_asset=asset["base_asset"],
+            quote_asset= asset["quote_asset"]
+        )["price"]
+        return {trading_pair: price}
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
     async def _process_recent_order_fills_async(self, events: Dict[str, Any]):
         if not events:
             return
@@ -238,6 +268,10 @@ class ChainflipLpDataSource:
                 exchange_order_id=event["id"],
             )
             self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=update)
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
 
     def _process_recent_order_fills_event(self, event: Dict[str, Any]):
         safe_ensure_future(self._process_recent_order_fills_async(event=event))

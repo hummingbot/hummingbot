@@ -46,7 +46,16 @@ SIDE_SELL = "sell"
 GENERAL_LIMIT_ID = "General"
 
 
+<<<<<<< HEAD
 RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
+=======
+
+
+
+RATE_LIMITS = [
+    RateLimit(GENERAL_LIMIT_ID,MAX_REQUEST, SECOND)
+]
+>>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
 
 ASSET_PRECISIONS = {
     "Ethereum": {
