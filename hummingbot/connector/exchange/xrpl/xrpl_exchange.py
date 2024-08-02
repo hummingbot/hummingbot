@@ -495,6 +495,7 @@ class XrplExchange(ExchangePyBase):
         exchange_order_id = tracked_order.exchange_order_id
         cancel_result = False
         cancel_data = {}
+        submit_response = None
 
         if exchange_order_id is None:
             self.logger().error(f"Unable to cancel order {order_id}, it does not yet have exchange order id")
