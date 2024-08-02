@@ -1,5 +1,5 @@
 import asyncio
-from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+import unittest
 from typing import Awaitable
 from unittest.mock import AsyncMock, PropertyMock, patch
 
@@ -14,17 +14,22 @@ from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
 from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
-class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
+class WSAssistantTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
-        aiohttp_client_session = aiohttp.ClientSession(self.local_event_loop)
+        aiohttp_client_session = aiohttp.ClientSession(loop=self.ev_loop)
         self.ws_connection = WSConnection(aiohttp_client_session)
         self.ws_assistant = WSAssistant(self.ws_connection)
         self.mocking_assistant = NetworkMockingAssistant()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.connect")
