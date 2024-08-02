@@ -289,9 +289,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 )
                 sys.exit()
     async def listen_to_order_fills(self, event_handler:Callable):
-        # will be run in a thread
+        # will run in a thread
         def handler(data):
-            response = DataFormatter.format_order_fills_response(data)
+            response = DataFormatter.format_order_fills_response(data, self._lp_account_address)
             event_handler(response)
         await self._subscribe_to_api_event(CONSTANTS.FILLED_ORDER_METHOD, handler)
     

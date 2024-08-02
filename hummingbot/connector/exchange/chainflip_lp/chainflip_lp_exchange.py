@@ -121,7 +121,6 @@ class ChainflipLpExchange(ExchangePyBase):
             for trading_pair in self._trading_pairs
         ]
         await self._data_source.start(market_symbols=market_symbols)
-        await self._data_source.assets_list()
 
     async def stop_network(self):
         """

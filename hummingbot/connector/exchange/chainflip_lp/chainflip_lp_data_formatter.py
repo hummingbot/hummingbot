@@ -275,19 +275,36 @@ class DataFormatter:
     @classmethod
     def format_assets_to_market_symbol(
         cls, 
-        base_asset:Dict[str, str], 
-        quote_asset:Dict[str, str]
+        base_asset:Dict[str, str] | str, 
+        quote_asset:Dict[str, str] | str
     ):
-        base = base_asset["asset"]
-        quote = quote_asset["asset"]
+        if type(base_asset) == str:
+            base = base_asset
+        else:
+            base = base_asset["asset"]
+        if type(quote_asset) == str:
+            quote = quote_asset
+        else:
+            quote = quote_asset["asset"]
         return f'{base}-{quote}'
     @classmethod
     def format_order_fills_response(
         cls,
-        response
+        response,
+        address
     ):
         def format_single_order_fill(order):
-            data = {}
+            trading_pair = cls.format_assets_to_market_symbol(
+                order["base_asset"],
+                order["quote_asset"]
+            )
+            data = {
+                "trading_pair": trading_pair,
+                "side": order["side"],
+                "id": order["id"]
+            }
+            return data
+
 
         data = response["result"]
         fills:Dict = data["fills"]
@@ -298,11 +315,20 @@ class DataFormatter:
         ))
         if not limit_orders_fills:
             return []
+        # filter the limit orders fill by the user address
+        user_orders = list(filter(
+            lambda x: x[1]["lp"] == address,
+            limit_orders_fills
+        ))
+        if not user_orders:
+            return []
         #get the values of the 
         main_data =  list(map(
             lambda x: x[1],
-            limit_orders_fills
+            user_orders
         ))
+        formatted_data = list(map(format_single_order_fill, main_data))
+        return formatted_data
 
         
     @classmethod

@@ -15,8 +15,10 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.event.events import  MarketEvent
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import Enum, PubSub
@@ -68,8 +70,20 @@ class ChainflipLPDataSource:
             domain=self._domain,
             chain_config = self._chain_config
         )
-    async def start(self):
+    async def start(self, market_symbols):
         await self.assets_list()
+        self._events_listening_tasks.append(
+            asyncio.create_task(
+                self._rpc_executor.listen_to_order_fills(
+                    self._process_recent_order_fills_event
+                )
+            )
+        )
+    async def stop(self):
+        for task in self._events_listening_tasks:
+            task.cancel()
+        self._events_listening_tasks = []
+
     def configure_throttler(self, throttler: AsyncThrottlerBase):
         self._throttler = throttler
     async def assets_list(self) -> Dict[str, str]:
@@ -168,6 +182,24 @@ class ChainflipLPDataSource:
             quote_asset= asset["quote_asset"]
         )["price"]
         return {trading_pair: price}
+    async def _process_recent_order_fills_async(self, events: Dict[str, Any]):
+        if not events:
+            return
+        for event in events:
+            order_state = OrderState.PARTIALLY_FILLED
+            update = OrderUpdate(
+                trading_pair=event["trading_pair"],
+                update_timestamp=self._time(),
+                new_state=order_state,
+                client_order_id=event["id"],
+                exchange_order_id=event["id"],
+            )
+            self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=update)
+        
+
+    def _process_recent_order_fills_event(self, event: Dict[str, Any]):
+        safe_ensure_future(self._process_recent_order_fills_async(event=event))
+
     def add_listener(self, event_tag: Enum, listener: EventListener):
         self._publisher.add_listener(event_tag=event_tag, listener=listener)
     def _time(self):

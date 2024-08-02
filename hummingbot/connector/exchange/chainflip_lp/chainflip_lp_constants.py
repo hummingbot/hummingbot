@@ -47,15 +47,7 @@ SIDE_SELL = "sell"
 GENERAL_LIMIT_ID = "General"
 
 
-ORDER_STATE = {
-    "PENDING": OrderState.PENDING_CREATE,
-    "NEW": OrderState.OPEN,
-    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
-    "FILLED": OrderState.FILLED,
-    "PENDING_CANCEL": OrderState.PENDING_CANCEL,
-    "CANCELED": OrderState.CANCELED,
-    "REJECTED": OrderState.FAILED,
-}
+
 
 
 RATE_LIMITS = [
