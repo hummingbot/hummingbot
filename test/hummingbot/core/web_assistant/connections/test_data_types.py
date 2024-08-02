@@ -56,7 +56,7 @@ class DataTypesTest(unittest.TestCase):
         body_str = json.dumps(body)
         headers = {"content-type": "application/json"}
         mocked_api.get(url=url, body=body_str, headers=headers)
-        aiohttp_response = self.async_run_with_timeout(aiohttp.ClientSession().get(url))
+        aiohttp_response = self.async_run_with_timeout(aiohttp.ClientSession(loop=self.ev_loop).get(url))
 
         response = RESTResponse(aiohttp_response)
 
