@@ -39,7 +39,7 @@ class RPCQueryExecutorTests(TestCase):
             for record in self.log_records
         )
     
-    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._rpc_instance")
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._rpc_api_instance")
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._execute_api_request.response")
     def test_execute_api_request_successful(self, mock_response: MagicMock,mock_api_instance:MagicMock):
         return_data = [{"chain": "Ethereum", "asset":"ETH"}]
@@ -51,7 +51,7 @@ class RPCQueryExecutorTests(TestCase):
         self.assertTrue(response["status"])
         self.assertEqual(response["data"], return_data)
 
-    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._rpc_instance")
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._rpc_api_instance")
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._execute_api_request.response")
     def test_execute_api_query_handles_exceptions(self,mock_response: MagicMock,mock_api_instance:MagicMock):
         return_data = {"code":-23000,"detail":"Method not found"}
@@ -61,9 +61,17 @@ class RPCQueryExecutorTests(TestCase):
         response = self.async_run_with_timeout(rpc_executor._execute_api_request(MagicMock()))
         self.assertFalse(response["status"])
         self.assertEqual(response["data"], return_data)
-        
-    def test_execute_rpc_request(self):
-        pass
+    
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._rpc_instance")
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._execute_rpc_request.response")
+    def test_execute_rpc_request(self,mock_response: MagicMock,mock_api_instance:MagicMock):
+        return_data = [{"chain": "Ethereum", "asset":"ETH"}]
+        mock_response.return_value = return_data
+        mock_api_instance.return_value = MagicMock()
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        response = self.async_run_with_timeout(rpc_executor._execute_rpc_request(MagicMock()))
+        self.assertTrue(response["status"])
+        self.assertEqual(response["data"], return_data)
     def test_subscribe_to_api_event(self):
         pass
     def test_subscribe_to_rpc_events(self):
@@ -71,6 +79,4 @@ class RPCQueryExecutorTests(TestCase):
     def test_calculate_ticks(self):
         pass
     def test_listen_to_order_fills(self):
-        pass
-    def test_listen_to_market_price_updates(self):
         pass

@@ -104,7 +104,7 @@ class ChainflipLpExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return False
+        return True
 
     @property
     def is_trading_required(self) -> bool:
@@ -115,12 +115,7 @@ class ChainflipLpExchange(ExchangePyBase):
     
     async def start_network(self):
         await super().start_network()
-
-        market_symbols = [
-            await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-            for trading_pair in self._trading_pairs
-        ]
-        await self._data_source.start(market_symbols=market_symbols)
+        await self._data_source.start()
 
     async def stop_network(self):
         """
@@ -299,6 +294,20 @@ class ChainflipLpExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         return await self._data_source.place_cancel(order_id, symbol, tracked_order)
+    
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        try:
+            if len(orders) > 0:
+                trade_updates = await self._data_source.get_order_fills(
+                    orders
+                )
+                for trade_update in trade_updates:
+                    self._order_tracker.process_trade_update(trade_update=trade_update)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().warning(f"Error fetching trades updates. {e}")
     
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used

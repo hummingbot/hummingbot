@@ -64,6 +64,77 @@ class ChainflipLpDataSourceTests(TestCase):
             trading_required=False
         )
         self.data_source._rpc_executor = MockRPCExecutor()
+    @property
+    def order_fills_response(self):
+        return {
+            "result": {
+            "block_hash": "0xc65c18f81c4a9b1b5cd7e203f09eaa2288b44771e13d43791e1319a2695c72e9",
+            "block_number": 67,
+            "fills": [
+                {
+                    "range_order": {
+                        "lp": "cFPdef3hF5zEwbWUG6ZaCJ3X7mTvEeAog7HxZ8QyFcCgDVGDM",
+                        "base_asset": "FLIP",
+                        "quote_asset": "USDC",
+                        "id": "0x0",
+                        "range": {
+                            "start": -887272,
+                            "end": 887272
+                        },
+                        "fees": {
+                            "base": "0x13fbe85edc90000",
+                            "quote": "0x1e63a"
+                        },
+                        "liquidity": "0x7055df27b7e148"
+                    }
+                },
+                {
+                    "limit_orders": {
+                        "lp": self.address,
+                        "base_asset": "FLIP",
+                        "quote_asset": "USDC",
+                        # The side of the order that was filled
+                        "side": "buy",
+                        "id": "0x0",
+                        "tick": 0,
+                        # The amount of the order that was used, in the units of the asset that was sold (by the order)
+                        "sold": "0x1200",
+                        # The amount assets bought during this fill, in the units of the bought asset
+                        "bought": "0x1200",
+                        # The fees earned during this fill, in units of the bought asset (Which in the asset you actually earn the fees in)
+                        "fees": "0x100",
+                        # The remaining amount in the order after the fill. This is in units of the sold asset.
+                        "remaining": "0x100000",
+                    }
+                },
+            ]
+            }
+        }
+    @property
+    def all_asset_response(self):
+        response = {
+            'result': [
+                {'chain': 'Ethereum', 'asset': 'ETH'}, 
+                {'chain': 'Ethereum', 'asset': 'FLIP'}, 
+                {'chain': 'Ethereum', 'asset': 'USDC'}, 
+                {'chain': 'Ethereum', 'asset': 'USDT'}, 
+                {'chain': 'Polkadot', 'asset': 'DOT'}, 
+                {'chain': 'Bitcoin', 'asset': 'BTC'}, 
+                {'chain': 'Arbitrum', 'asset': 'ETH'}, 
+                {'chain': 'Arbitrum', 'asset': 'USDC'}
+            ]
+        }
+        return response
+    def test_start(self):
+        self.data_source._rpc_executor._all_assets_responses.put_nowait(self.all_asset_response)
+        self.data_source._rpc_executor._order_fills_responses.put_nowait(self.order_fills_response)
+        self.data_source.start()
+        self.assertEqual(len(self.data_source._events_listening_tasks),1)
+        self.assertGreater(len(self.data_source._assets_list), 1)
+    
+
+
+
     
 
 
