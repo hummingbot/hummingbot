@@ -71,4 +71,4 @@ dependencies:
     - yarl==1.*
     - git+https://github.com/CoinAlpha/python-signalr-client.git
     - git+https://github.com/konichuvak/dydx-v3-python.git@web3
-    - xrpl-py
+    - xrpl-py==3.0.0
