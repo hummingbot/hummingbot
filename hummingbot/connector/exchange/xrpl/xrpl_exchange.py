@@ -114,11 +114,7 @@ class XrplExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> XRPLAuth:
-        if self._trading_required:
-            return_auth = XRPLAuth(xrpl_secret_key=self._xrpl_secret_key)
-        else:
-            return_auth = XRPLAuth(xrpl_secret_key="")
-        return return_auth
+        return XRPLAuth(xrpl_secret_key=self._xrpl_secret_key)
 
     @property
     def name(self) -> str:
@@ -1683,5 +1679,5 @@ class XrplExchange(ExchangePyBase):
             token_symbol = market.get_token_symbol(code, issuer)
 
             if token_symbol is not None:
-                return token_symbol
+                return token_symbol.upper()
         return None

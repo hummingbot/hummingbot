@@ -380,5 +380,14 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
+    @validator("wss_third_node_url", pre=True)
+    def validate_wss_third_node_url(cls, v: str):
+        pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
+        error_message = "Invalid node url. Node url should be in websocket format."
+        ret = validate_with_regex(v, pattern, error_message)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
+
 
 KEYS = XRPLConfigMap.construct()
