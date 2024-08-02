@@ -1544,12 +1544,14 @@ class InjectiveDataSource(ABC):
             try:
                 min_price_tick_size = market.min_price_tick_size()
                 min_quantity_tick_size = market.min_quantity_tick_size()
+                min_notional = market.min_notional()
                 trading_rule = TradingRule(
                     trading_pair=market.trading_pair(),
                     min_order_size=min_quantity_tick_size,
                     min_price_increment=min_price_tick_size,
                     min_base_amount_increment=min_quantity_tick_size,
                     min_quote_amount_increment=min_price_tick_size,
+                    min_notional_size=min_notional
                 )
                 trading_rules.append(trading_rule)
             except asyncio.CancelledError:
