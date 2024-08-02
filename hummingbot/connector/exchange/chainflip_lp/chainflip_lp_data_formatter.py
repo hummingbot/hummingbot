@@ -224,7 +224,10 @@ class DataFormatter:
         returns a list of just the symbols e.g ["ETH","USDT","BTC"]
         """
         return list(set(map(lambda x: x["asset"], all_assets)))
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9979ea9b9 ((refactor) update code and tests)
     @classmethod
     def format_market_pairs(cls, all_market: List[Dict[str, Dict]]):
         """
@@ -298,18 +301,25 @@ class DataFormatter:
     @classmethod
     def format_order_fills_response(
         cls,
-        response,
-        address
+        response:Dict,
+        address:str,
+        all_assets: List[Dict[str, str]]
     ):
         def format_single_order_fill(order):
             trading_pair = cls.format_assets_to_market_symbol(
                 order["base_asset"],
                 order["quote_asset"]
             )
+            asset = cls.format_trading_pair(
+                trading_pair, all_assets
+            )
             data = {
                 "trading_pair": trading_pair,
                 "side": order["side"],
-                "id": order["id"]
+                "id": order["id"],
+                "base_amount": cls.format_hex_balance(order["bought"], asset["base_asset"]),
+                "quote_amount": cls.format_hex_balance(order["sell"], asset["quote_asset"]),
+                "price": cls.convert_tick_to_price(order["tick"], asset["base_asset"], asset["quote_asset"])
             }
             return data
 
@@ -346,6 +356,24 @@ class DataFormatter:
         formatted_data = list(map(format_single_order_fill, main_data))
         return formatted_data
 
+<<<<<<< HEAD
+=======
+    @classmethod
+    def format_place_order_response(
+        cls, response:Dict
+    ):
+        """
+        return data - order_id, tick
+        """
+        data = response["result"]
+        main_response = data["tx_details"]["response"]
+        return_data = {
+            "order_id": main_response["id"],
+            "tick": main_response["tick"]
+        }
+        return return_data
+
+>>>>>>> 9979ea9b9 ((refactor) update code and tests)
     @classmethod
     def format_place_order_response(cls, response: Dict):
         """

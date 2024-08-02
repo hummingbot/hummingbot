@@ -42,7 +42,12 @@ class MockRPCExecutor(BaseRPCExecutor):
         self._address = "" # look for an address in the response
         self._check_connection_response = asyncio.Queue()
 
+<<<<<<< HEAD
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+    async def start(self):
+        pass
+>>>>>>> 9979ea9b9 ((refactor) update code and tests)
 
     async def check_connection_status(self):
         response = await self._check_connection_response.get()
@@ -159,6 +164,11 @@ class MockRPCExecutor(BaseRPCExecutor):
         data = DataFormatter.format_balance_response(response)
         return data 
 
+    async def get_account_order_fills(self):
+        response = await self._order_fills_responses.get()
+        all_assets = await self.all_assets()
+        data = DataFormatter.format_order_fills_response(response,self._address, all_assets)
+        return data
 
 
     async def cancel_order(
@@ -180,9 +190,10 @@ class MockRPCExecutor(BaseRPCExecutor):
         data = DataFormatter.format_market_price(response)
         return data
     async def listen_to_order_fills(self, events_handler):
+        all_assets = await self.all_assets()
         while True:
             event = await self._order_fills_responses.get()
-            data = DataFormatter.format_order_fills_response(event,self._address)
+            data = DataFormatter.format_order_fills_response(event,self._address, all_assets)
             events_handler(data)
     async def listen_to_market_price_updates(
             self, 

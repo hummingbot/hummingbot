@@ -119,6 +119,7 @@ class ChainflipLpExchange(ExchangePyBase):
     async def start_network(self):
         await super().start_network()
 <<<<<<< HEAD
+<<<<<<< HEAD
         await self._data_source.start()
 =======
 
@@ -128,6 +129,9 @@ class ChainflipLpExchange(ExchangePyBase):
         ]
         await self._data_source.start(market_symbols=market_symbols)
 >>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
+=======
+        await self._data_source.start()
+>>>>>>> 9979ea9b9 ((refactor) update code and tests)
 
     async def stop_network(self):
         """
@@ -320,11 +324,21 @@ class ChainflipLpExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         return await self._data_source.place_cancel(order_id, symbol, tracked_order)
+<<<<<<< HEAD
 
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
         try:
             if len(orders) > 0:
                 trade_updates = await self._data_source.get_order_fills(orders)
+=======
+    
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        try:
+            if len(orders) > 0:
+                trade_updates = await self._data_source.get_order_fills(
+                    orders
+                )
+>>>>>>> 9979ea9b9 ((refactor) update code and tests)
                 for trade_update in trade_updates:
                     self._order_tracker.process_trade_update(trade_update=trade_update)
 
@@ -332,11 +346,15 @@ class ChainflipLpExchange(ExchangePyBase):
             raise
         except Exception as e:
             self.logger().warning(f"Error fetching trades updates. {e}")
+<<<<<<< HEAD
 
     async def _update_trading_rules(self):
         trading_rules_list = await self._data_source.all_trading_rules()
         self._trading_rules = {trading_rule.trading_pair: trading_rule for trading_rule in trading_rules_list}
 
+=======
+    
+>>>>>>> 9979ea9b9 ((refactor) update code and tests)
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used
         raise NotImplementedError
