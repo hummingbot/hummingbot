@@ -622,7 +622,8 @@ class TegroExchange(ExchangePyBase):
 
         # If a specific token is provided, use only that token
         if token:
-            token_list = [token]
+            base, quote = token.split("_")
+            token_list = [base, quote]
 
         # Setting up Web3
         w3 = Web3(Web3.HTTPProvider(CONSTANTS.Node_URLS[self.node_rpc]))
