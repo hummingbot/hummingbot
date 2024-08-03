@@ -596,8 +596,6 @@ class TegroExchange(ExchangePyBase):
                     self.logger().error(f"There was an error parsing a trading pair information ({exception})")
         self._set_trading_pair_symbol_map(mapping)
 
-    # === loops and sync related methods ===
-    #
     async def approve_allowance(self, token=None, fail_silently: bool = True):
         """
         Approves the allowance for a specific token on a decentralized exchange.
@@ -633,7 +631,9 @@ class TegroExchange(ExchangePyBase):
         # Fetching token and chain information
         tokens = await self.tokens_info()
         chain_data = await self.get_chain_list()
-        exchange_con_addr = [chain["exchange_contract"] for chain in chain_data if int(chain["id"]) == self.chain][0]
+        exchange_con_addr = [
+            Web3.to_checksum_address(chain["exchange_contract"])
+            for chain in chain_data if int(chain["id"]) == self.chain][0]
         receipts = []
         # Organizing token data
         for t in tokens:
