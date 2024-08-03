@@ -1,14 +1,9 @@
+import warnings
 from decimal import Decimal
 from typing import List, Optional
-import warnings
 
-from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
-from hummingbot.core.data_type.trade_fee import (
-    TradeFeeBase,
-    TokenAmount,
-    TradeFeeSchema
-)
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 
 
 def build_trade_fee(
@@ -27,6 +22,7 @@ def build_trade_fee(
 
     Uses the exchange's `TradeFeeSchema` to build a `TradeFee`, given the trade parameters.
     """
+    from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
     trade_fee_schema: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=exchange)
     fee_percent: Decimal = (
         trade_fee_schema.maker_percent_fee_decimal
@@ -66,6 +62,7 @@ def build_perpetual_trade_fee(
 
     Uses the exchange's `TradeFeeSchema` to build a `TradeFee`, given the trade parameters.
     """
+    from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
     trade_fee_schema = TradeFeeSchemaLoader.configured_schema_for_exchange(exchange_name=exchange)
     percent = trade_fee_schema.maker_percent_fee_decimal if is_maker else trade_fee_schema.taker_percent_fee_decimal
     fixed_fees = trade_fee_schema.maker_fixed_fees if is_maker else trade_fee_schema.taker_fixed_fees
