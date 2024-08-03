@@ -81,7 +81,8 @@ class GatewayEVMAMM(ConnectorBase):
                  address: str,
                  trading_pairs: List[str] = [],
                  additional_spenders: List[str] = [],  # not implemented
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 lost_order_count_limit = 10
                  ):
         """
         :param connector_name: name of connector on gateway
@@ -113,7 +114,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._poll_notifier = None
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
-        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
+        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=lost_order_count_limit)
         self._amount_quantum_dict = {}
         safe_ensure_future(self.load_token_data())
 

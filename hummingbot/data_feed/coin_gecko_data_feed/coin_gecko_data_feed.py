@@ -62,8 +62,11 @@ class CoinGeckoDataFeed(DataFeedBase):
     async def get_supported_vs_tokens(self) -> List[str]:
         rest_assistant = await self._api_factory.get_rest_assistant()
         supported_vs_tokens_url = f"{CONSTANTS.BASE_URL}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        params = {}
+        if CONSTANTS.API_KEY:
+            params["x_cg_pro_api_key"] = CONSTANTS.API_KEY
         vs_tokens = await rest_assistant.execute_request(
-            url=supported_vs_tokens_url, throttler_limit_id=CONSTANTS.REST_CALL_RATE_LIMIT_ID
+            url=supported_vs_tokens_url, throttler_limit_id=CONSTANTS.REST_CALL_RATE_LIMIT_ID, params=params
         )
         return vs_tokens
 
@@ -80,6 +83,8 @@ class CoinGeckoDataFeed(DataFeedBase):
             "page": page_no,
             "sparkline": "false",
         }
+        if CONSTANTS.API_KEY:
+            params["x_cg_pro_api_key"] = CONSTANTS.API_KEY
         if category is not None:
             params["category"] = category
         resp = await rest_assistant.execute_request(
@@ -95,6 +100,8 @@ class CoinGeckoDataFeed(DataFeedBase):
             "vs_currency": vs_currency,
             "ids": token_ids_str,
         }
+        if CONSTANTS.API_KEY:
+            params["x_cg_pro_api_key"] = CONSTANTS.API_KEY
         resp = await rest_assistant.execute_request(
             url=price_url, throttler_limit_id=CONSTANTS.REST_CALL_RATE_LIMIT_ID, params=params
         )
