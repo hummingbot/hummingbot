@@ -1,17 +1,15 @@
-from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.api_throttler.data_types import RateLimit
-
 
 DEFAULT_DOMAIN = "chainflip_lp"
 EXCHANGE_NAME = "Chainflip"
 
 REST_RPC_URLS = {
-    "chainflip_lp":"https://mainnet-rpc.chainflip.io",
-    "chainflip_lp_testnet":"https://archive.perseverance.chainflip.io"
-    }
+    "chainflip_lp": "https://mainnet-rpc.chainflip.io",
+    "chainflip_lp_testnet": "https://archive.perseverance.chainflip.io",
+}
 WS_RPC_URLS = {
-    "chainflip_lp":"wss://mainnet-rpc.chainflip.io",
-    "chainflip_lp_testnet":"wss://archive.perseverance.chainflip.io"
+    "chainflip_lp": "wss://mainnet-rpc.chainflip.io",
+    "chainflip_lp_testnet": "wss://archive.perseverance.chainflip.io",
 }
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
@@ -19,7 +17,7 @@ LISTENER_TIME_INTERVAL = 10
 
 MAX_REQUEST = 1000
 SECOND = 1
-MAX_ID_LEN = (2 ** 64) - 1
+MAX_ID_LEN = (2**64) - 1
 
 
 # Public chainflip lp rpc methods
@@ -28,7 +26,7 @@ ASSET_BALANCE_METHOD = "lp_asset_balance"
 PING_METHOD = ""
 OPEN_ORDERS_METHOD = "cf_pool_order"
 PLACE_LIMIT_ORDER_METHOD = "lp_set_limit_order"
-CANCEL_LIMIT_ORDER = "lp_set_limit_order" # set
+CANCEL_LIMIT_ORDER = "lp_set_limit_order"  # set
 MY_TRADES_METHOD = ""
 POOL_ORDERBOOK_METHOD = "cf_pool_orderbook"
 SUPPORTED_ASSETS_METHOD = "cf_supported_assets"
@@ -44,16 +42,11 @@ CLIENT_ID_PREFIX = ""
 SIDE_BUY = "buy"
 SIDE_SELL = "sell"
 
-#rate limit id
+# rate limit id
 GENERAL_LIMIT_ID = "General"
 
 
-
-
-
-RATE_LIMITS = [
-    RateLimit(GENERAL_LIMIT_ID,MAX_REQUEST, SECOND)
-]
+RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
 
 ASSET_PRECISIONS = {
     "Ethereum": 10e18,
@@ -61,17 +54,14 @@ ASSET_PRECISIONS = {
     "Bitcoin": 10e8,
     "Polkadot": 10e12,
     "Solana": 10e9,
-    "Stable":10e6
+    "Stable": 10e6,
 }
 
-STABLE_ASSETS = ["USDC","USDT"]
+STABLE_ASSETS = ["USDC", "USDT"]
 FRACTIONAL_BITS = 128
 SQRT_PRICE_FRACTIONAL_BITS = 96
 LOWER_TICK_BOUND = -887272
 UPPER_TICK_BOUND = 887272
 
-SAME_CHAINS = ["Arbitrum","Ethereum"]
-DEFAULT_CHAIN_CONFIG = {
-    "ETH": "Ethereum",
-    "USDC":"Arbitrum"
-}
+SAME_CHAINS = ["Arbitrum", "Ethereum"]
+DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Arbitrum"}

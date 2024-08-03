@@ -1,45 +1,34 @@
 import asyncio
 import json
-import re
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, patch
 from functools import partial
-
+from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
+from typing import Any, Callable, Dict, List, Optional, Tuple
+from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
-from substrateinterface import Keypair
 from bidict import bidict
-
-from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
+from substrateinterface import Keypair
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import  TradeFeeBase
-from hummingbot.core.event.events import MarketOrderFailureEvent, OrderFilledEvent
-
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.event.events import BuyOrderCreatedEvent
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-    SellOrderCreatedEvent,
-)
 
 
 class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     client_order_id_prefix = "0x"
     exchange_order_id_prefix = "0x"
+
     @property
     def all_symbols_url(self):
         raise NotImplementedError
@@ -63,7 +52,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @property
     def balance_url(self):
         raise NotImplementedError
-    
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -71,15 +60,14 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         cls._address = Keypair.create_from_mnemonic(
             "hollow crack grain grab equal rally ceiling manage goddess grass negative canal"  # noqa: mock
         ).ss58_address
-        cls._eth_chain = CONSTANTS.DEFAULT_CHAIN_CONFIG['ETH']
-        cls._usdc_chain = CONSTANTS.DEFAULT_CHAIN_CONFIG['USDC']
-        cls.base_asset_dict = {"chain":"Ethereum", "asset":"ETH"}
-        cls.quote_asset_dict = {"chain": "Ethereum","asset":"USDC"}
+        cls._eth_chain = CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"]
+        cls._usdc_chain = CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]
+        cls.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
+        cls.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
         cls.base_asset = "ETH"
         cls.quote_asset = "USDC"
-        cls.trading_pair = f'{cls.base_asset}-{cls.quote_asset}'
-        cls.ex_trading_pair = f'{cls.base_asset}-{cls.quote_asset}'
-
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
     def setUp(self):
         super().setUp()
@@ -90,7 +78,6 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._data_source.logger().setLevel(1)
         self.exchange._data_source.logger().addHandler(self)
         self.exchange._set_trading_pair_symbol_map(bidict({self.exchange_trading_pair: self.trading_pair}))
-
 
     def tearDown(self) -> None:
         super().tearDown()
@@ -118,6 +105,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             {"chain": "Ethereum", "asset": self.quote_asset},
             {"chain": "Ethereum", "asset": self.base_asset},
         ]
+
     @property
     def all_symbols_request_mock_response(self):
         response = {
@@ -145,32 +133,25 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                             },
                             "quote_asset": {"chain": "Ethereum", "asset": self.quote_asset},
                         },
-                        
                     }
-                }   
+                }
             }
         }
         return response
 
-
     @property
     def latest_prices_request_mock_response(self):
         response = {
-            'result': {
-                'base_asset': {
-                    'chain': 'Ethereum', 'asset': 'ETH'
-                }, 
-                'quote_asset': {
-                    'chain': 'Ethereum', 'asset': 'USDC'
-                }, 
-                'sell': '0x3bc9b4d35fc93990865a6', 
-                'buy': '0x3baddb29af3e837abc358', 
-                'range_order': '0x3bc9b4d35fc93990865a6'
-                }
+            "result": {
+                "base_asset": {"chain": "Ethereum", "asset": "ETH"},
+                "quote_asset": {"chain": "Ethereum", "asset": "USDC"},
+                "sell": "0x3bc9b4d35fc93990865a6",
+                "buy": "0x3baddb29af3e837abc358",
+                "range_order": "0x3bc9b4d35fc93990865a6",
+            }
         }
-        
+
         return response
-    
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
@@ -220,9 +201,8 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                             },
                             "quote_asset": {"chain": "Ethereum", "asset": "PAIR"},
                         },
-                        
                     }
-                }   
+                }
             }
         }
 
@@ -245,7 +225,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         response = {
             "result": {
                 "tx_details": {
-                    "tx_hash": "0x3cb78cdbbfc34634e33d556a94ee7438938b65a5b852ee523e4fc3c0ec3f8151",
+                    "tx_hash": "0x3cb78cdbbfc34634e33d556a94ee7438938b65a5b852ee523e4fc3c0ec3f8151", # noqa: mock
                     "response": [
                         {
                             "base_asset": self.base_asset,
@@ -256,11 +236,9 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                             "sell_amount_total": "0x100000",
                             "collected_fees": "0x0",
                             "bought_amount": "0x0",
-                            "sell_amount_change": {
-                                "increase": "0x100000"
-                            }
+                            "sell_amount_change": {"increase": "0x100000"},
                         }
-                    ]
+                    ],
                 }
             },
         }
@@ -271,14 +249,8 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         response = {
             "result": {
                 "Ethereum": [
-                    {
-                        "asset": self.base_asset,
-                        "balance": "0x2386f26fc0bda2"
-                    },
-                    {
-                        "asset": self.quote_asset,
-                        "balance": "0x8bb50bca00"
-                    }
+                    {"asset": self.base_asset, "balance": "0x2386f26fc0bda2"},
+                    {"asset": self.quote_asset, "balance": "0x8bb50bca00"},
                 ]
             },
         }
@@ -286,16 +258,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def balance_request_mock_response_only_base(self):
-        response = {
-            "result": {
-                "Ethereum": [
-                    {
-                        "asset": self.base_asset,
-                        "balance": "0x2386f26fc0bda2"
-                    }
-                ]
-            }
-        }
+        response = {"result": {"Ethereum": [{"asset": self.base_asset, "balance": "0x2386f26fc0bda2"}]}}
         return response
 
     @property
@@ -303,19 +266,12 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         response = {
             "result": {
                 "Ethereum": [
-                    {
-                        "asset": self.base_asset,
-                        "balance": "0x2386f26fc0bda2"
-                    },
-                    {
-                        "asset": self.quote_asset,
-                        "balance": "0x8bb50bca00"
-                    }
+                    {"asset": self.base_asset, "balance": "0x2386f26fc0bda2"},
+                    {"asset": self.quote_asset, "balance": "0x8bb50bca00"},
                 ]
             },
         }
         return response
-
 
     @property
     def expected_latest_price(self):
@@ -333,10 +289,6 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def expected_logged_error_for_erroneous_trading_rule(self):
         erroneous_rule = self.trading_rules_request_erroneous_mock_response["symbols"][0]
         return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
-
-    @property
-    def expected_exchange_order_id(self):
-        return hex(28)
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
@@ -361,25 +313,27 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @property
     def expected_fill_trade_id(self) -> str:
         return NotImplementedError
+
     @property
     def expected_exchange_order_id(self):
         return "0x1b99cba5555ad0ba890756fe16e499cb884b46a165b89bdce77ee8913b55ffff"  # noqa: mock
-    
+
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        exchange =  ChainflipLpExchange(
+        exchange = ChainflipLpExchange(
             client_config_map=client_config_map,
             chainflip_lp_api_url="",
-            chainflip_lp_address= self._address,
+            chainflip_lp_address=self._address,
             chainflip_eth_chain=self._eth_chain,
-            chainflip_usdc_chain= self._usdc_chain,
+            chainflip_usdc_chain=self._usdc_chain,
             trading_pairs=[self.trading_pair],
         )
         exchange._data_source._rpc_executor = MockRPCExecutor()
         return exchange
+
     def validate_auth_credentials_present(self, request_call: RequestCall):
         raise NotImplementedError
 
@@ -429,6 +383,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
         self.exchange._data_source._rpc_executor._place_order_responses = mock_queue
         return ""
+
     def configure_successful_cancelation_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
@@ -525,43 +480,6 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         return {"websocket_streams": {"data": json.dumps(data)}}
 
-    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        data = self.build_trade_event_websocket_update(
-            order=order,
-            filled_quantity=order.amount,
-            filled_price=order.price,
-        )
-        return data
-
-    def trade_event_for_partial_fill_websocket_update(self, order: InFlightOrder):
-        data = self.build_trade_event_websocket_update(
-            order=order,
-            filled_quantity=self.expected_partial_fill_amount,
-            filled_price=self.expected_partial_fill_price,
-        )
-        return data
-
-    def build_trade_event_websocket_update(
-        self,
-        order: InFlightOrder,
-        filled_quantity: Decimal,
-        filled_price: Decimal,
-    ) -> Dict[str, Any]:
-        data = {
-            "type": "TradeFormat",
-            "stid": 50133,
-            "p": str(filled_price),
-            "q": str(filled_quantity),
-            "m": self.exchange_trading_pair,
-            "t": str(self.exchange.current_timestamp),
-            "cid": str(order.client_order_id),
-            "order_id": str(order.exchange_order_id),
-            "s": "Bid" if order.trade_type == TradeType.BUY else "Ask",
-            "trade_id": self.expected_fill_trade_id,
-        }
-
-        return {"websocket_streams": {"data": json.dumps(data)}}
-
     @aioresponses()
     def test_check_network_success(self, mock_api):
         all_assets_mock_response = self.all_assets_mock_response
@@ -571,20 +489,8 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
-    
-
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return None
-
-    
-
-    @aioresponses()
-    def test_check_network_success(self, mock_api):
-        self.exchange._data_source._rpc_executor.__check_connection_response.put_nowait(True)
-
-        network_status = self.async_run_with_timeout(coroutine=self.exchange.check_network())
-
-        self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
     @aioresponses()
     def test_check_network_failure(self, mock_api):
@@ -637,12 +543,12 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertEqual(0, len(result))
 
-
     def test_is_exception_related_to_time_synchronizer_returns_false(self):
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(request_exception=None))
 
     def test_create_user_stream_tracker_task(self):
         self.assertIsNone(self.exchange._create_user_stream_tracker_task())
+
     @aioresponses()
     def test_update_trading_rues(self, mock_api):
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
@@ -656,10 +562,10 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         trading_rule_with_default_values = TradingRule(trading_pair=self.trading_pair)
 
         # The following element can't be left with the default value because that breaks quantization in Cython
-        self.assertNotEqual(trading_rule_with_default_values.min_base_amount_increment,
-                            trading_rule.min_base_amount_increment)
-        self.assertNotEqual(trading_rule_with_default_values.min_price_increment,
-                            trading_rule.min_price_increment)
+        self.assertNotEqual(
+            trading_rule_with_default_values.min_base_amount_increment, trading_rule.min_base_amount_increment
+        )
+        self.assertNotEqual(trading_rule_with_default_values.min_price_increment, trading_rule.min_price_increment)
 
     @aioresponses()
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
@@ -696,6 +602,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 f"{Decimal('100.000000')} {self.trading_pair}.",
             )
         )
+
     @aioresponses()
     def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         pass
@@ -780,6 +687,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @aioresponses()
     def test_update_order_status_when_order_has_not_changed(self, mock_api):
         pass
+
     @aioresponses()
     def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
         pass
@@ -787,18 +695,20 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @aioresponses()
     def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
         pass
+
     @aioresponses()
     def test_update_order_status_when_filled_correctly_processed_even_when_trade_fill_update_fails(self, mock_api):
         pass
 
     def test_user_stream_update_for_new_order(self):
         pass
+
     def test_user_stream_update_for_canceled_order(self):
         pass
 
     @aioresponses()
     def test_user_stream_update_for_order_full_fill(self, mock_api):
-       pass
+        pass
 
     def test_user_stream_balance_update(self):
         pass
@@ -808,17 +718,19 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def test_user_stream_logs_errors(self):
         pass
+
     @aioresponses()
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
         pass
 
     @aioresponses()
     def test_cancel_lost_order_successfully(self, mock_api):
-       pass
+        pass
 
     @aioresponses()
     def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
-        pass       
+        pass
+
     @aioresponses()
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
         pass
@@ -843,7 +755,6 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {"cancel_order": True}
-
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
         return [self._orders_status_response(order=order)]

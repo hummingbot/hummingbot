@@ -1,21 +1,24 @@
 import asyncio
-import math
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from _decimal import Decimal
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS, chainflip_lp_web_utils as web_utils
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import ChainflipLPAPIOrderBookDataSource
+from hummingbot.connector.exchange.chainflip_lp import (
+    chainflip_lp_constants as CONSTANTS,
+    chainflip_lp_web_utils as web_utils,
+)
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import (
+    ChainflipLPAPIOrderBookDataSource,
+)
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
@@ -49,16 +52,16 @@ class ChainflipLpExchange(ExchangePyBase):
         self.chain_config["ETH"] = chainflip_eth_chain
         self.chain_config["USDC"] = chainflip_usdc_chain
         self._data_source = ChainflipLPDataSource(
-            connector=self, 
-            address=chainflip_lp_address, 
+            connector=self,
+            address=chainflip_lp_address,
             rpc_api_url=chainflip_lp_api_url,
-            domain=self._domain, 
+            domain=self._domain,
             trading_pairs=trading_pairs,
             trading_required=trading_required,
-            chain_config = self.chain_config
+            chain_config=self.chain_config,
         )
-        self._data_source.configure_throttler(throttler=self._throttler)
         super().__init__(client_config_map=client_config_map)
+        self._data_source.configure_throttler(throttler=self._throttler)
         self._forwarders = []
         self._configure_event_forwarders()
 
@@ -109,10 +112,10 @@ class ChainflipLpExchange(ExchangePyBase):
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
-    
+
     def supported_order_types(self):
         return [OrderType.LIMIT]
-    
+
     async def start_network(self):
         await super().start_network()
         await self._data_source.start()
@@ -136,28 +139,31 @@ class ChainflipLpExchange(ExchangePyBase):
         except Exception:
             status = NetworkStatus.NOT_CONNECTED
         return status
-    
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return WebAssistantsFactory(throttler=self._throttler)
+
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         # Not used in Chainflip LP
         raise NotImplementedError  # pragma: no cover
+
     async def _update_trading_fees(self):
         """
         Update fees information from the exchange
         """
         pass
+
     def _is_user_stream_initialized(self):
         return self._data_source.is_started()
+
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]):
         raise NotImplementedError
+
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return ChainflipLPAPIOrderBookDataSource(
-            trading_pairs=self._trading_pairs,
-            connector=self,
-            data_source=self._data_source,
-            api_factory=self._web_assistants_factory,
-            domain=self.domain)
+            trading_pairs=self._trading_pairs, connector=self, data_source=self._data_source, domain=self.domain
+        )
+
     def _create_user_stream_tracker(self):
         # not used in chainflip LP
         return None
@@ -169,6 +175,7 @@ class ChainflipLpExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         # Not used in chainflip lp
         raise NotImplementedError()  # pragma: no cover
+
     async def _initialize_trading_pair_symbol_map(self):
         exchange_info = None
         try:
@@ -177,12 +184,10 @@ class ChainflipLpExchange(ExchangePyBase):
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
         return exchange_info
-    def buy(self,
-            trading_pair: str,
-            amount: Decimal,
-            order_type=OrderType.LIMIT,
-            price: Decimal = s_decimal_NaN,
-            **kwargs) -> str:
+
+    def buy(
+        self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
+    ) -> str:
         """
         Creates a promise to create a buy order using the parameters
 
@@ -197,24 +202,30 @@ class ChainflipLpExchange(ExchangePyBase):
             is_buy=True,
             trading_pair=trading_pair,
             hbot_order_id_prefix=self.client_order_id_prefix,
-            max_id_len=self.client_order_id_max_length
+            max_id_len=self.client_order_id_max_length,
         )
         hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=hex_order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price,
-            **kwargs))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=hex_order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
         return hex_order_id
-    def sell(self,
-             trading_pair: str,
-             amount: Decimal,
-             order_type: OrderType = OrderType.LIMIT,
-             price: Decimal = s_decimal_NaN,
-             **kwargs) -> str:
+
+    def sell(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
         """
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
@@ -227,18 +238,22 @@ class ChainflipLpExchange(ExchangePyBase):
             is_buy=False,
             trading_pair=trading_pair,
             hbot_order_id_prefix=self.client_order_id_prefix,
-            max_id_len=self.client_order_id_max_length
+            max_id_len=self.client_order_id_max_length,
         )
         hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=hex_order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price,
-            **kwargs))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=hex_order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
         return hex_order_id
+
     async def _update_balances(self):
         all_balances = await self._data_source.all_balances()
 
@@ -248,6 +263,7 @@ class ChainflipLpExchange(ExchangePyBase):
         for token in all_balances:
             self._account_balances[token] = all_balances[token]
             self._account_available_balances[token] = all_balances[token]
+
     def _get_fee(
         self,
         base_currency: str,
@@ -269,6 +285,7 @@ class ChainflipLpExchange(ExchangePyBase):
             price=price,
         )
         return fee
+
     async def _place_order(
         self,
         order_id: str,
@@ -286,21 +303,20 @@ class ChainflipLpExchange(ExchangePyBase):
             trading_pair=symbol,
             amount=amount,
             trade_type=trade_type,
-            order_type = order_type,
-            price=price
+            order_type=order_type,
+            price=price,
         )
 
         return result
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         return await self._data_source.place_cancel(order_id, symbol, tracked_order)
-    
+
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
         try:
             if len(orders) > 0:
-                trade_updates = await self._data_source.get_order_fills(
-                    orders
-                )
+                trade_updates = await self._data_source.get_order_fills(orders)
                 for trade_update in trade_updates:
                     self._order_tracker.process_trade_update(trade_update=trade_update)
 
@@ -308,9 +324,24 @@ class ChainflipLpExchange(ExchangePyBase):
             raise
         except Exception as e:
             self.logger().warning(f"Error fetching trades updates. {e}")
-    
+
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used
+        raise NotImplementedError
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
+        raise NotImplementedError
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        raise NotImplementedError
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        raise NotImplementedError
+
+    async def _user_stream_event_listener(self):
+        raise NotImplementedError
+
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         raise NotImplementedError
 
     def _configure_event_forwarders(self):
@@ -340,10 +371,11 @@ class ChainflipLpExchange(ExchangePyBase):
                 exchange_order_id=order_update.exchange_order_id,
             )
             self._order_tracker.process_order_update(order_update=order_update_to_process)
-    async def get_last_traded_prices(self, trading_pairs:List[str]):
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]):
         price_list = []
         for pair in trading_pairs:
-            symbol =  await self.exchange_symbol_associated_to_pair(trading_pair=pair)
+            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
             price_map = await self._data_source.get_last_traded_price(symbol)
             price_list.append(price_map)
         return price_list
