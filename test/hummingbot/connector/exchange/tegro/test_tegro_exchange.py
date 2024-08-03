@@ -1017,7 +1017,7 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "quoteCurrency": self.quote_asset,
                 "quoteDecimals": 6,
                 "side": order.trade_type.name.lower(),
-                "status": "canceled",
+                "status": "cancelled",
                 "cancel": {
                     "reason": "user_cancel",
                     "code": 611
@@ -1533,8 +1533,8 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             {"status": "open", "quantity_filled": "-1", "timestamp": 1622471123, "order_id": "12346"},
             {"status": "open", "quantity_filled": "1", "timestamp": 1622471123, "order_id": "12347"},
             {"status": "closed", "quantity_pending": "1", "timestamp": 1622471123, "order_id": "12348"},
-            {"status": "canceled", "cancel": {"code": 611}, "timestamp": 1622471123, "order_id": "12349"},
-            {"status": "canceled", "cancel": {"code": 712}, "timestamp": 1622471123, "order_id": "12350"},
+            {"status": "cancelled", "cancel": {"code": 611}, "timestamp": 1622471123, "order_id": "12349"},
+            {"status": "cancelled", "cancel": {"code": 712}, "timestamp": 1622471123, "order_id": "12350"},
         ]
 
         expected_states = [
@@ -2448,7 +2448,7 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "volume_precision": "3999900000000000000",
             "total": "13959.651",
             "fee": "0",
-            "status": "canceled",
+            "status": "cancelled",
             "cancel": {
                 "reason": "user_cancel",
                 "code": 611
@@ -2474,7 +2474,7 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "volume_precision": "3999900000000000000",
             "total": "13959.651",
             "fee": "0",
-            "status": "canceled",
+            "status": "cancelled",
             "cancel": {
                 "reason": "user_cancel",
                 "code": 711
