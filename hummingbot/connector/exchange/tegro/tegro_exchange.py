@@ -458,9 +458,9 @@ class TegroExchange(ExchangePyBase):
             new_states = "partial"
         elif state == "closed" and Decimal(order_status["quantity_pending"]) > Decimal("0"):
             new_states = "pending"
-        elif state == "canceled" and order_status["cancel"]["code"] == 611:
-            new_states = "canceled"
-        elif state == "canceled" and order_status["cancel"]["code"] != 611:
+        elif state == "cancelled" and order_status["cancel"]["code"] == 611:
+            new_states = "cancelled"
+        elif state == "cancelled" and order_status["cancel"]["code"] != 611:
             new_states = "failed"
         else:
             new_states = order_status["status"]
@@ -545,9 +545,9 @@ class TegroExchange(ExchangePyBase):
             new_states = "partial"
         elif state == "closed" and Decimal(updated_order_data[0]["quantity_pending"]) > Decimal("0"):
             new_states = "pending"
-        elif state == "canceled" and updated_order_data[0]["cancel"]["code"] == 611:
-            new_states = "canceled"
-        elif state == "canceled" and updated_order_data[0]["cancel"]["code"] != 611:
+        elif state == "cancelled" and updated_order_data[0]["cancel"]["code"] == 611:
+            new_states = "cancelled"
+        elif state == "cancelled" and updated_order_data[0]["cancel"]["code"] != 611:
             new_states = "failed"
         else:
             new_states = updated_order_data[0]["status"]
