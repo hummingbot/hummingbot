@@ -80,10 +80,6 @@ class TegroExchange(ExchangePyBase):
         return CONSTANTS.RATE_LIMITS
 
     @property
-    def wallet(self):
-        return eth_account.Account.from_key(self.secret_key)
-
-    @property
     def domain(self):
         return self._domain
 
@@ -147,8 +143,7 @@ class TegroExchange(ExchangePyBase):
             method=RESTMethod.GET,
             path_url=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL.format(self.chain),
             limit_id=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL,
-            is_auth_required=False,
-        )
+            is_auth_required=False)
 
         pairs_prices = data
         for pair_price_data in pairs_prices:
@@ -269,8 +264,7 @@ class TegroExchange(ExchangePyBase):
                 method = RESTMethod.POST,
                 data = api_params,
                 is_auth_required = False,
-                limit_id = CONSTANTS.ORDER_PATH_URL,
-            )
+                limit_id = CONSTANTS.ORDER_PATH_URL)
         except IOError as e:
             error_description = str(e)
             insufficient_allowance = ("insufficient allowance" in error_description)
@@ -309,8 +303,7 @@ class TegroExchange(ExchangePyBase):
                 method = RESTMethod.POST,
                 data = params,
                 is_auth_required = False,
-                limit_id = CONSTANTS.GENERATE_SIGN_URL,
-            )
+                limit_id = CONSTANTS.GENERATE_SIGN_URL)
         except IOError as e:
             raise IOError(f"Error submitting order {e}")
 
@@ -343,11 +336,9 @@ class TegroExchange(ExchangePyBase):
         domain_data = data["sign_data"]["domain"]
         message_data = data["sign_data"]["message"]
         message_types = {message: data["sign_data"]["types"][message]}
-
         # encode and sign
         structured_data = encode_typed_data(domain_data, message_types, message_data)
-        signed = self.wallet.sign_message(structured_data)
-        return signed.signature.hex()
+        return eth_account.Account.from_key(self.secret_key).sign_message(structured_data).signature.hex()
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         ids = []
@@ -480,11 +471,9 @@ class TegroExchange(ExchangePyBase):
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
-
         if fetch_trades:
             # process trade fill
             await self._all_trade_updates_for_order(order=tracked_order)
-
         order_update = self._create_order_update_with_order_status_data(order_status=raw_msg, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
 
@@ -508,7 +497,6 @@ class TegroExchange(ExchangePyBase):
                     percent_token = symbol,
                     # flat_fees = [TokenAmount(amount=Decimal("0"), token=symbol)]
                 )
-
                 trade_update = TradeUpdate(
                     trade_id=trade["id"],
                     client_order_id=order.client_order_id,
@@ -518,8 +506,7 @@ class TegroExchange(ExchangePyBase):
                     fill_base_amount=Decimal(trade["amount"]),
                     fill_quote_amount=Decimal(trade["amount"]) * Decimal(trade["price"]),
                     fill_price=Decimal(trade["price"]),
-                    fill_timestamp=timestamp * 1e-3,
-                )
+                    fill_timestamp=timestamp * 1e-3)
                 self._order_tracker.process_trade_update(trade_update)
                 trade_updates.append(trade_update)
 
@@ -557,9 +544,7 @@ class TegroExchange(ExchangePyBase):
             exchange_order_id=tracked_order.exchange_order_id,
             trading_pair=tracked_order.trading_pair,
             update_timestamp=updated_order_data[0]["timestamp"] * 1e-3,
-            new_state=confirmed_state,
-        )
-
+            new_state=confirmed_state)
         return order_update
 
     async def _update_balances(self):
@@ -579,7 +564,6 @@ class TegroExchange(ExchangePyBase):
             self._account_available_balances[asset_name] = balance
             self._account_balances[asset_name] = balance
             remote_asset_names.add(asset_name)
-
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset in asset_names_to_remove:
             del self._account_available_balances[asset]
@@ -639,6 +623,7 @@ class TegroExchange(ExchangePyBase):
         for t in tokens:
             data[t["symbol"]] = {"address": t["address"]}
         # Loop through each token and approve allowance
+
         for token in token_list:
             con_addr = Web3.to_checksum_address(data[token]["address"])
             addr = Web3.to_checksum_address(self.api_key)
@@ -646,9 +631,7 @@ class TegroExchange(ExchangePyBase):
             # Get nonce
             nonce = w3.eth.get_transaction_count(addr)
             # Prepare transaction parameters
-            tx_params = {
-                "from": addr, "nonce": nonce, "gasPrice": w3.eth.gas_price,
-            }
+            tx_params = {"from": addr, "nonce": nonce, "gasPrice": w3.eth.gas_price}
             try:
                 # Estimate gas for the approval transaction
                 gas_estimate = contract.functions.approve(exchange_con_addr, MAX_UINT256).estimate_gas({
@@ -675,8 +658,7 @@ class TegroExchange(ExchangePyBase):
             params={"page": 1, "sort_order": "desc", "sort_by": "volume", "page_size": 20, "verified": "true"},
             path_url = CONSTANTS.MARKET_LIST_PATH_URL.format(self.chain),
             is_auth_required = False,
-            limit_id = CONSTANTS.MARKET_LIST_PATH_URL,
-        )
+            limit_id = CONSTANTS.MARKET_LIST_PATH_URL)
 
     async def initialize_verified_market(self):
         data = await self.initialize_market_list()
@@ -690,8 +672,7 @@ class TegroExchange(ExchangePyBase):
             path_url = CONSTANTS.EXCHANGE_INFO_PATH_URL.format(self.chain, id[0]["id"]),
             method=RESTMethod.GET,
             is_auth_required = False,
-            limit_id = CONSTANTS.EXCHANGE_INFO_PATH_URL,
-        )
+            limit_id = CONSTANTS.EXCHANGE_INFO_PATH_URL)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -706,28 +687,19 @@ class TegroExchange(ExchangePyBase):
             return Decimal(resp_json["ticker"]["price"])
 
     async def _make_network_check_request(self):
-        status = await self._api_request(
+        return await self._api_request(
             path_url = self.check_network_request_path,
             method=RESTMethod.GET,
             is_auth_required = False,
-            limit_id = CONSTANTS.PING_PATH_URL
-        )
-        return status
+            limit_id = CONSTANTS.PING_PATH_URL)
 
     async def _make_trading_rules_request(self) -> Any:
         data: list[dict[str, Any]] = await self._api_request(
             path_url = self.trading_pairs_request_path.format(self.chain),
             method=RESTMethod.GET,
-            params={
-                "page": 1,
-                "sort_order": "desc",
-                "sort_by": "volume",
-                "page_size": 20,
-                "verified": "true"
-            },
+            params={"page": 1, "sort_order": "desc", "sort_by": "volume", "page_size": 20, "verified": "true"},
             is_auth_required = False,
-            limit_id = CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL
-        )
+            limit_id = CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL)
         return data
 
     async def _make_trading_pairs_request(self) -> Any:
@@ -742,9 +714,8 @@ class TegroExchange(ExchangePyBase):
                 "verified": "true"
             },
             is_auth_required = False,
-            limit_id = CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL
-        ),
-        return resp[0]
+            limit_id = CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL)
+        return resp
 
     async def tokens_info(self):
         account_info = await self._api_request(
