@@ -7,10 +7,16 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 
 class HashkeyOrderBook(OrderBook):
     @classmethod
+<<<<<<< HEAD:hummingbot/connector/exchange/hashkey/hashkey_order_book.py
     def snapshot_message_from_exchange_websocket(cls,
                                                  msg: Dict[str, any],
                                                  timestamp: float,
                                                  metadata: Optional[Dict] = None) -> OrderBookMessage:
+=======
+    def snapshot_message_from_exchange(
+        cls, msg: Dict[str, any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors):hummingbot/connector/exchange/chainflip_lp/chainflip_lp_order_book.py
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -20,6 +26,7 @@ class HashkeyOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
+<<<<<<< HEAD:hummingbot/connector/exchange/hashkey/hashkey_order_book.py
         ts = msg["t"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
@@ -33,6 +40,23 @@ class HashkeyOrderBook(OrderBook):
                                             msg: Dict[str, any],
                                             timestamp: float,
                                             metadata: Optional[Dict] = None) -> OrderBookMessage:
+=======
+        return OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": msg["trading_pair"],
+                "update_id": msg["lastUpdateId"],
+                "bids": msg["bids"],
+                "asks": msg["asks"],
+            },
+            timestamp=timestamp,
+        )
+
+    @classmethod
+    def diff_message_from_exchange(
+        cls, msg: Dict[str, any], timestamp: Optional[float] = None, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors):hummingbot/connector/exchange/chainflip_lp/chainflip_lp_order_book.py
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -42,6 +66,7 @@ class HashkeyOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
+<<<<<<< HEAD:hummingbot/connector/exchange/hashkey/hashkey_order_book.py
         ts = msg["t"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
@@ -49,6 +74,19 @@ class HashkeyOrderBook(OrderBook):
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
+=======
+        return OrderBookMessage(
+            OrderBookMessageType.DIFF,
+            {
+                "trading_pair": msg["trading_pair"],
+                "first_update_id": msg["U"],
+                "update_id": msg["u"],
+                "bids": msg["b"],
+                "asks": msg["a"],
+            },
+            timestamp=timestamp,
+        )
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors):hummingbot/connector/exchange/chainflip_lp/chainflip_lp_order_book.py
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
@@ -60,6 +98,7 @@ class HashkeyOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
+<<<<<<< HEAD:hummingbot/connector/exchange/hashkey/hashkey_order_book.py
         ts = msg["t"]
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
@@ -69,3 +108,18 @@ class HashkeyOrderBook(OrderBook):
             "price": msg["p"],
             "amount": msg["q"]
         }, timestamp=ts * 1e-3)
+=======
+        ts = msg["E"]
+        return OrderBookMessage(
+            OrderBookMessageType.TRADE,
+            {
+                "trading_pair": msg["trading_pair"],
+                "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
+                "trade_id": msg["t"],
+                "update_id": ts,
+                "price": msg["p"],
+                "amount": msg["q"],
+            },
+            timestamp=ts * 1e-3,
+        )
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors):hummingbot/connector/exchange/chainflip_lp/chainflip_lp_order_book.py

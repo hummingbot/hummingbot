@@ -4,11 +4,14 @@ from pydantic import Field, SecretStr, validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import validate_with_regex
+<<<<<<< HEAD
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.client.config.config_validators import  validate_with_regex
+=======
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
-
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "FLIP-USDT"
@@ -18,8 +21,14 @@ DEFAULT_FEES = TradeFeeSchema(
 )
 
 
+<<<<<<< HEAD
 def chains_as_str(asset: str):
     return ",".join(CONSTANTS.SAME_CHAINS[asset])
+
+=======
+def chains_as_str():
+    return ",".join(CONSTANTS.SAME_CHAINS)
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
 
 class ChainflipLpConfigMap(BaseConnectorConfigMap):
@@ -37,11 +46,24 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Chainflip LP Address",
+<<<<<<< HEAD
+=======
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    chainflip_eth_chain: str = Field(
+        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
+        client_data=ClientFieldData(
+            prompt=lambda cm: f'Enter the ETH chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"]}',
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             is_secure=False,
             is_connect_key=True,
             prompt_on_new=True,
         ),
     )
+<<<<<<< HEAD
     chainflip_eth_chain: str = Field(
         default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
         client_data=ClientFieldData(
@@ -54,6 +76,11 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
     chainflip_usdc_chain: str = Field(
         default=CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"],
         client_data=ClientFieldData(
+=======
+    chainflip_usdc_chain: str = Field(
+        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
+        client_data=ClientFieldData(
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             prompt=lambda cm: f'Enter the USDC chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]}',
             is_secure=False,
             is_connect_key=True,
@@ -82,8 +109,13 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
 
     @validator("chainflip_usdc_chain", pre=True)
     def validate_chainflip_usdc_chain(cls, v: str):
+<<<<<<< HEAD
         error_message = f"valid options are: {chains_as_str('USDC')}"
         if v not in CONSTANTS.SAME_CHAINS["USDC"]:
+=======
+        error_message = f"valid options are: {chains_as_str()}"
+        if v not in CONSTANTS.SAME_CHAINS:
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             raise ValueError(error_message)
         return v
 
@@ -126,7 +158,11 @@ class ChainflipLpTestnetConfigMap(BaseConnectorConfigMap):
         ),
     )
     chainflip_usdc_chain: str = Field(
+<<<<<<< HEAD
         default=CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"],
+=======
+        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         client_data=ClientFieldData(
             prompt=lambda cm: f'Enter the USDC chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]}',
             is_secure=False,
@@ -156,8 +192,13 @@ class ChainflipLpTestnetConfigMap(BaseConnectorConfigMap):
 
     @validator("chainflip_usdc_chain", pre=True)
     def validate_chainflip_usdc_chain(cls, v: str):
+<<<<<<< HEAD
         error_message = f"valid options are: {chains_as_str('USDC')}"
         if v not in CONSTANTS.SAME_CHAINS["USDC"]:
+=======
+        error_message = f"valid options are: {chains_as_str()}"
+        if v not in CONSTANTS.SAME_CHAINS:
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             raise ValueError(error_message)
         return v
 

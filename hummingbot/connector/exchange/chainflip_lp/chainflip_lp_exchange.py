@@ -9,9 +9,15 @@ from hummingbot.connector.exchange.chainflip_lp import (
     chainflip_lp_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import (
+<<<<<<< HEAD
     ChainflipLpAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
+=======
+    ChainflipLPAPIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
@@ -51,7 +57,11 @@ class ChainflipLpExchange(ExchangePyBase):
         self.chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG.copy()
         self.chain_config["ETH"] = chainflip_eth_chain
         self.chain_config["USDC"] = chainflip_usdc_chain
+<<<<<<< HEAD
         self._data_source = ChainflipLpDataSource(
+=======
+        self._data_source = ChainflipLPDataSource(
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             connector=self,
             address=chainflip_lp_address,
             rpc_api_url=chainflip_lp_api_url,
@@ -173,7 +183,11 @@ class ChainflipLpExchange(ExchangePyBase):
         raise NotImplementedError
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+<<<<<<< HEAD
         return ChainflipLpAPIOrderBookDataSource(
+=======
+        return ChainflipLPAPIOrderBookDataSource(
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             trading_pairs=self._trading_pairs, connector=self, data_source=self._data_source, domain=self.domain
         )
 
@@ -188,6 +202,7 @@ class ChainflipLpExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         # Not used in chainflip lp
         raise NotImplementedError()  # pragma: no cover
+
     async def _initialize_trading_pair_symbol_map(self):
         exchange_info = None
         try:
@@ -277,6 +292,7 @@ class ChainflipLpExchange(ExchangePyBase):
         for token in all_balances:
             self._account_balances[token] = all_balances[token]
             self._account_available_balances[token] = all_balances[token]
+
     def _get_fee(
         self,
         base_currency: str,
@@ -298,6 +314,7 @@ class ChainflipLpExchange(ExchangePyBase):
             price=price,
         )
         return fee
+
     async def _place_order(
         self,
         order_id: str,
@@ -325,6 +342,7 @@ class ChainflipLpExchange(ExchangePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         return await self._data_source.place_cancel(order_id, symbol, tracked_order)
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
         try:
@@ -339,6 +357,13 @@ class ChainflipLpExchange(ExchangePyBase):
                     orders
                 )
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
+=======
+
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        try:
+            if len(orders) > 0:
+                trade_updates = await self._data_source.get_order_fills(orders)
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
                 for trade_update in trade_updates:
                     self._order_tracker.process_trade_update(trade_update=trade_update)
 
@@ -346,6 +371,7 @@ class ChainflipLpExchange(ExchangePyBase):
             raise
         except Exception as e:
             self.logger().warning(f"Error fetching trades updates. {e}")
+<<<<<<< HEAD
 <<<<<<< HEAD
 
     async def _update_trading_rules(self):
@@ -355,11 +381,15 @@ class ChainflipLpExchange(ExchangePyBase):
 =======
     
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
+=======
+
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used
         raise NotImplementedError
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
+<<<<<<< HEAD
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -374,6 +404,20 @@ class ChainflipLpExchange(ExchangePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         # not used in chainflip LP
+=======
+        raise NotImplementedError
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        raise NotImplementedError
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        raise NotImplementedError
+
+    async def _user_stream_event_listener(self):
+        raise NotImplementedError
+
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         raise NotImplementedError
 
     def _configure_event_forwarders(self):
@@ -405,9 +449,18 @@ class ChainflipLpExchange(ExchangePyBase):
             self._order_tracker.process_order_update(order_update=order_update_to_process)
 
     async def get_last_traded_prices(self, trading_pairs: List[str]):
+<<<<<<< HEAD
         price_dict = {}
         for pair in trading_pairs:
             symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
             price = await self._data_source.get_last_traded_price(symbol)
             price_dict[pair] = price
         return price_dict
+=======
+        price_list = []
+        for pair in trading_pairs:
+            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
+            price_map = await self._data_source.get_last_traded_price(symbol)
+            price_list.append(price_map)
+        return price_list
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)

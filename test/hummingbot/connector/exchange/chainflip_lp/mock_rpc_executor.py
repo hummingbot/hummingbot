@@ -1,5 +1,6 @@
 import asyncio
 <<<<<<< HEAD
+<<<<<<< HEAD
 from typing import Any, Callable, Dict, Literal
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
@@ -7,11 +8,17 @@ from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter impo
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import BaseRPCExecutor
 =======
 from typing import Any, Callable, Dict, List, Literal
+=======
+from typing import Any, Callable, Dict, Literal
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import BaseRPCExecutor
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
+<<<<<<< HEAD
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import BaseRPCExecutor
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
 
 class MockRPCExecutor(BaseRPCExecutor):
@@ -25,6 +32,7 @@ class MockRPCExecutor(BaseRPCExecutor):
         self._cancel_order_responses = asyncio.Queue()
         self._order_fills_responses = asyncio.Queue()
 <<<<<<< HEAD
+<<<<<<< HEAD
         self._get_market_price_responses = asyncio.Queue()
 
         self._listen_to_market_price_responses = asyncio.Queue()
@@ -36,10 +44,13 @@ class MockRPCExecutor(BaseRPCExecutor):
         pass
 =======
         self._get_market_price_responses = asyncio.Queue() 
+=======
+        self._get_market_price_responses = asyncio.Queue()
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
         self._listen_to_market_price_responses = asyncio.Queue()
         self._chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG
-        self._address = "" # look for an address in the response
+        self._address = ""  # look for an address in the response
         self._check_connection_response = asyncio.Queue()
 
 <<<<<<< HEAD
@@ -56,12 +67,16 @@ class MockRPCExecutor(BaseRPCExecutor):
     async def all_assets(self):
         response = await self._all_assets_responses.get()
 <<<<<<< HEAD
+<<<<<<< HEAD
         data = DataFormatter.format_all_assets_response(response, chain_config=self._chain_config)
 =======
         data = DataFormatter.format_all_assets_response(
             response, chain_config = self._chain_config
         )
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+        data = DataFormatter.format_all_assets_response(response, chain_config=self._chain_config)
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         return data
 
     async def all_markets(self):
@@ -76,15 +91,22 @@ class MockRPCExecutor(BaseRPCExecutor):
 =======
         return response
 
+<<<<<<< HEAD
     async def get_orderbook(self, 
         base_asset: Dict[str,str],
         quote_asset: Dict[str,str],
         orders:int = 20    ) -> Dict[str, Any]:
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+    async def get_orderbook(
+        self, base_asset: Dict[str, str], quote_asset: Dict[str, str], orders: int = 20
+    ) -> Dict[str, Any]:
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         snapshot = await self._order_book_snapshots.get()
         data = DataFormatter.format_orderbook_response(snapshot, base_asset, quote_asset)
         return data
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     async def get_open_orders(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]) -> str:
         response = self._get_open_orders_responses.get()
@@ -143,17 +165,15 @@ class MockRPCExecutor(BaseRPCExecutor):
         base_asset: Dict[str,str],
         quote_asset: Dict[str,str]) -> str:
         response =  self._get_open_orders_responses.get()
+=======
+    async def get_open_orders(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]) -> str:
+        response = self._get_open_orders_responses.get()
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         data = DataFormatter.format_order_response(response, base_asset, quote_asset)
         return data
 
-    
     async def place_limit_order(
-        self, 
-        base_asset:str,
-        quote_asset:str,
-        order_id:str,
-        side: Literal["buy","sell"],
-        sell_amount: int
+        self, base_asset: str, quote_asset: str, order_id: str, side: Literal["buy", "sell"], sell_amount: int
     ):
         response = await self._place_order_responses.get()
         data = DataFormatter.format_order_response(response, base_asset, quote_asset)
@@ -162,51 +182,56 @@ class MockRPCExecutor(BaseRPCExecutor):
     async def get_all_balances(self, main_account: str) -> Dict[str, Any]:
         response = await self._balances_responses.get()
         data = DataFormatter.format_balance_response(response)
-        return data 
+        return data
 
     async def get_account_order_fills(self):
         response = await self._order_fills_responses.get()
         all_assets = await self.all_assets()
-        data = DataFormatter.format_order_fills_response(response,self._address, all_assets)
+        data = DataFormatter.format_order_fills_response(response, self._address, all_assets)
         return data
-
 
     async def cancel_order(
         self,
-        base_asset:str,
-        quote_asset:str,
-        order_id:str,
-        side: Literal["buy","sell"],
-        
+        base_asset: str,
+        quote_asset: str,
+        order_id: str,
+        side: Literal["buy", "sell"],
     ):
         response = await self._cancel_order_responses.get()
         data = DataFormatter.format_order_response(response, base_asset, quote_asset)
         return data
-    async def get_market_price(
-        self, base_asset:Dict[str, str],
-        quote_asset:Dict[str,str]
-    ):
+
+    async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         response = await self._get_market_price_responses.get()
         data = DataFormatter.format_market_price(response)
         return data
+
     async def listen_to_order_fills(self, events_handler):
         all_assets = await self.all_assets()
         while True:
             event = await self._order_fills_responses.get()
-            data = DataFormatter.format_order_fills_response(event,self._address, all_assets)
+            data = DataFormatter.format_order_fills_response(event, self._address, all_assets)
             events_handler(data)
+<<<<<<< HEAD
     async def listen_to_market_price_updates(
             self, 
             events_handler: Callable, 
             market_symbol: str
         ):
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+
+    async def listen_to_market_price_updates(self, events_handler: Callable, market_symbol: str):
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         while True:
             event = await self._listen_to_market_price_responses.get()
             data = DataFormatter.format_market_price(event)
             events_handler(data)
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)

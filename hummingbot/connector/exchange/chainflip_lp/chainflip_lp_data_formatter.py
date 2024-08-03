@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 import logging
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.logger import HummingbotLogger
+=======
+from typing import Any, Dict, List
+
+from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
 
 class DataFormatter:
@@ -22,18 +29,25 @@ class DataFormatter:
 
     @classmethod
     def format_hex_balance(cls, balance: str, asset: Dict[str, str]):
+<<<<<<< HEAD
         cls.logger().info(f"Converting {balance} as {asset}")
 
+=======
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         int_balance = cls.hex_str_to_int(balance)
         cls.logger().info(f"Balance for {balance} as {int_balance}")
 
         precision = cls.format_asset_precision(asset)
+<<<<<<< HEAD
         cls.logger().info(f"Precision for {balance} is {precision}")
 
         value = int_balance / precision
         cls.logger().info(f"Converted value is {value}")
 
         return value
+=======
+        return int_balance / precision
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
     @classmethod
     def format_amount(cls, amount: float | int, asset: Dict[str, str]):
@@ -45,7 +59,7 @@ class DataFormatter:
     def format_price(cls, price: int | str, base_asset: Dict[str, str], quote_asset: Dict[str, str], sqrt_price=True):
         """
         for example: to get the price of the ETH/USDC pair from the sqrt_price
-        where the provided price is 4512835869581138250956800
+        where the provided price is 4512835869581138250956800 or '0x3303803'
         We Calculate:
         current_price = 4512835869581138250956800 / 2**96
         current_price = current_price ** 2 (provided the price is a square-root price)
@@ -53,6 +67,7 @@ class DataFormatter:
         """
         base_precision = cls.format_asset_precision(base_asset)
         quote_precision = cls.format_asset_precision(quote_asset)
+<<<<<<< HEAD
 <<<<<<< HEAD
         if isinstance(price, str):
             price = cls.hex_str_to_int(price)
@@ -65,14 +80,22 @@ class DataFormatter:
         formated_price = (current_price * base_precision) / quote_precision
 =======
         
+=======
+        if isinstance(price, str):
+            price = cls.hex_str_to_int(price)
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         if sqrt_price:
-            current_price = price /(2 ** CONSTANTS.SQRT_PRICE_FRACTIONAL_BITS)
-            current_price = current_price ** 2
+            current_price = price / (2**CONSTANTS.SQRT_PRICE_FRACTIONAL_BITS)
+            current_price = current_price**2
         else:
-            current_price = price /(2 ** CONSTANTS.FRACTIONAL_BITS)
+            current_price = price / (2**CONSTANTS.FRACTIONAL_BITS)
 
+<<<<<<< HEAD
         formated_price = (current_price * base_precision)/quote_precision
 >>>>>>> 730e68a15 ((refactor) update code and implement review changes)
+=======
+        formated_price = (current_price * base_precision) / quote_precision
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         return formated_price
 
     @classmethod
@@ -88,6 +111,10 @@ class DataFormatter:
         for order in limit_orders["asks"]:
             tick = order["tick"]
             price = cls.convert_tick_to_price(tick, base_asset, quote_asset)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             asks.append({"price": price, "tick": tick})
         for order in limit_orders["bids"]:
             tick = order["tick"]
@@ -103,6 +130,7 @@ class DataFormatter:
         chains = data.keys()
 
         balance_map = {}
+<<<<<<< HEAD
         for chain in chains:
             assets = data[chain].keys()
 
@@ -111,6 +139,11 @@ class DataFormatter:
                 cls.logger().info("Mapping " + token)
 
                 balance_map[token] = cls.format_hex_balance(data[chain][asset], {"chain": chain, "asset": asset})
+=======
+        for key in keys:
+            for asset in data[key]:
+                balance_map[asset["asset"]] = cls.format_hex_balance(asset["balance"], {"chain": key, "asset": asset})
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         return balance_map
 
     @classmethod
@@ -153,7 +186,18 @@ class DataFormatter:
 
     @classmethod
     def format_asset_precision(cls, asset: Dict[str, str]):
+<<<<<<< HEAD
         return CONSTANTS.ASSET_PRECISIONS[asset["chain"]][asset["asset"]]
+=======
+        precisions = CONSTANTS.ASSET_PRECISIONS
+        if asset["chain"] in precisions.keys():
+            asset_precision = precisions[asset["chain"]]
+        else:
+            asset_precision = precisions["Ethereum"]
+        if asset["asset"] in CONSTANTS.STABLE_ASSETS:
+            asset_precision = precisions["Stable"]
+        return asset_precision
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
     @classmethod
     def format_orderbook_response(cls, response: Dict, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
@@ -225,9 +269,13 @@ class DataFormatter:
         """
         return list(set(map(lambda x: x["asset"], all_assets)))
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
+=======
+
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
     @classmethod
     def format_market_pairs(cls, all_market: List[Dict[str, Dict]]):
         """
@@ -257,6 +305,7 @@ class DataFormatter:
         return formatted_data
 
     @classmethod
+<<<<<<< HEAD
 <<<<<<< HEAD
     def format_assets_to_market_symbol(cls, base_asset: Dict[str, str] | str, quote_asset: Dict[str, str] | str):
         if isinstance(base_asset, str):
@@ -290,49 +339,52 @@ class DataFormatter:
         quote_asset:Dict[str, str] | str
     ):
         if type(base_asset) == str:
+=======
+    def format_assets_to_market_symbol(cls, base_asset: Dict[str, str] | str, quote_asset: Dict[str, str] | str):
+        if isinstance(base_asset, str):
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             base = base_asset
         else:
             base = base_asset["asset"]
-        if type(quote_asset) == str:
+        if isinstance(quote_asset, str):
             quote = quote_asset
         else:
             quote = quote_asset["asset"]
-        return f'{base}-{quote}'
+        return f"{base}-{quote}"
+
     @classmethod
-    def format_order_fills_response(
-        cls,
-        response:Dict,
-        address:str,
-        all_assets: List[Dict[str, str]]
-    ):
+    def format_order_fills_response(cls, response: Dict, address: str, all_assets: List[Dict[str, str]]):
         def format_single_order_fill(order):
-            trading_pair = cls.format_assets_to_market_symbol(
-                order["base_asset"],
-                order["quote_asset"]
-            )
-            asset = cls.format_trading_pair(
-                trading_pair, all_assets
-            )
+            trading_pair = cls.format_assets_to_market_symbol(order["base_asset"], order["quote_asset"])
+            asset = cls.format_trading_pair(trading_pair, all_assets)
             data = {
                 "trading_pair": trading_pair,
                 "side": order["side"],
                 "id": order["id"],
                 "base_amount": cls.format_hex_balance(order["bought"], asset["base_asset"]),
                 "quote_amount": cls.format_hex_balance(order["sell"], asset["quote_asset"]),
-                "price": cls.convert_tick_to_price(order["tick"], asset["base_asset"], asset["quote_asset"])
+                "price": cls.convert_tick_to_price(order["tick"], asset["base_asset"], asset["quote_asset"]),
             }
             return data
 
+<<<<<<< HEAD
 >>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
 
         data = response["result"]
         fills: Dict = data["fills"]
         # filter the fills to return only limit orders
         limit_orders_fills = list(filter(lambda x: x[0] == "limit_orders", fills.items()))
+=======
+        data = response["result"]
+        fills: Dict = data["fills"]
+        # filter the fills to return only limit orders
+        limit_orders_fills = list(filter(lambda x: x[0] == "limit_order", fills.items()))
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         if not limit_orders_fills:
             cls.logger().info("No Limit Order fills found")
             return []
         # filter the limit orders fill by the user address
+<<<<<<< HEAD
 <<<<<<< HEAD
         user_orders = list(filter(lambda x: x[1]["lp"] == address, limit_orders_fills))
         if not user_orders:
@@ -353,28 +405,31 @@ class DataFormatter:
             user_orders
         ))
 >>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
+=======
+        user_orders = list(filter(lambda x: x[1]["lp"] == address, limit_orders_fills))
+        if not user_orders:
+            return []
+        # get the values of the
+        main_data = list(map(lambda x: x[1], user_orders))
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         formatted_data = list(map(format_single_order_fill, main_data))
         return formatted_data
 
 <<<<<<< HEAD
 =======
     @classmethod
-    def format_place_order_response(
-        cls, response:Dict
-    ):
+    def format_place_order_response(cls, response: Dict):
         """
         return data - order_id, tick
         """
         data = response["result"]
         main_response = data["tx_details"]["response"]
-        return_data = {
-            "order_id": main_response["id"],
-            "tick": main_response["tick"]
-        }
+        return_data = {"order_id": main_response["id"], "tick": main_response["tick"]}
         return return_data
 
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
     @classmethod
+<<<<<<< HEAD
     def format_place_order_response(cls, response: Dict):
         """
         return data - order_id, tick
@@ -385,6 +440,8 @@ class DataFormatter:
         return return_data
 
     @classmethod
+=======
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
     def convert_tick_to_price(cls, tick: int, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         base_precision = cls.format_asset_precision(base_asset)
         quote_precision = cls.format_asset_precision(quote_asset)

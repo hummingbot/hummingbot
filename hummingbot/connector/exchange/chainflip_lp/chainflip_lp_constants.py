@@ -47,6 +47,7 @@ GENERAL_LIMIT_ID = "General"
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
 =======
 
@@ -70,10 +71,29 @@ ASSET_PRECISIONS = {
     "Solana": {"SOL": 10e9},
 }
 
+=======
+RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
+
+ASSET_PRECISIONS = {
+    "Ethereum": 10e18,
+    "Arbitrum": 10e18,
+    "Bitcoin": 10e8,
+    "Polkadot": 10e12,
+    "Solana": 10e9,
+    "Stable": 10e6,
+}
+
+STABLE_ASSETS = ["USDC", "USDT"]
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 FRACTIONAL_BITS = 128
 SQRT_PRICE_FRACTIONAL_BITS = 96
 LOWER_TICK_BOUND = -887272
 UPPER_TICK_BOUND = 887272
 
+<<<<<<< HEAD
 SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum"]}
 DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}
+=======
+SAME_CHAINS = ["Arbitrum", "Ethereum"]
+DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Arbitrum"}
+>>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
