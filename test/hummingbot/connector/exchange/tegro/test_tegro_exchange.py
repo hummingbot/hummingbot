@@ -1530,8 +1530,8 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         order_statuses = [
             {"status": "closed", "quantity_pending": "0", "timestamp": 1622471123, "order_id": "12345"},
-            {"status": "open", "quantity_filled": "-1", "timestamp": 1622471123, "order_id": "12346"},
-            {"status": "open", "quantity_filled": "1", "timestamp": 1622471123, "order_id": "12347"},
+            {"status": "open", "quantity_filled": "0", "timestamp": 1622471123, "order_id": "12346"},
+            {"status": "open", "quantity_filled": "0.5", "timestamp": 1622471123, "order_id": "12347"},
             {"status": "closed", "quantity_pending": "1", "timestamp": 1622471123, "order_id": "12348"},
             {"status": "cancelled", "cancel": {"code": 611}, "timestamp": 1622471123, "order_id": "12349"},
             {"status": "cancelled", "cancel": {"code": 712}, "timestamp": 1622471123, "order_id": "12350"},
