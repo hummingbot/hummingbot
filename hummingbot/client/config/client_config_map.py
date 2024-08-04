@@ -661,6 +661,14 @@ class CommandsTimeoutConfigMap(BaseClientModel):
             ),
         )
     )
+    use_graphene: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Use longer timeout during balance check for Graphene exchanges (Yes/No)"
+            ),
+        )
+    )
 
     class Config:
         title = "commands_timeout"
@@ -674,6 +682,15 @@ class CommandsTimeoutConfigMap(BaseClientModel):
     def validate_decimals(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         return super().validate_decimal(v, field)
+
+    @validator("use_graphene", pre=True)
+    def validate_bool(cls, v: str):
+        """Used for client-friendly error output."""
+        if isinstance(v, str):
+            ret = validate_bool(v)
+            if ret is not None:
+                raise ValueError(ret)
+        return v
 
 
 class AnonymizedMetricsMode(BaseClientModel, ABC):
