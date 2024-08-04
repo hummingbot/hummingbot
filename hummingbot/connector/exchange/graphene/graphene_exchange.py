@@ -447,6 +447,8 @@ class GrapheneExchange(ExchangeBase):
                 msg = f"Metanode Connected, latency {latency:.2f}"
                 self.dev_log(msg)
                 status = NetworkStatus.CONNECTED
+            elif not self._username or not self._wif:
+                self.dev_log("Username/WIF not entered.  Not starting Metanode Server.")
             # otherwise attempt to restart the metanode; eg. on startup
             else:
                 self.dev_log("Deploying Metanode Server Process, please wait...")
