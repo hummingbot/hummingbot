@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20240531"
+    version = "20240703"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -82,7 +82,7 @@ def main():
         "msgpack",
         "nose",
         "nose-exclude",
-        "numpy",
+        "numpy==1.26.4",
         "pandas",
         "pip",
         "pre-commit",
@@ -110,6 +110,7 @@ def main():
         "websockets",
         "yarl",
         "pandas_ta==0.3.14b",
+        "xrpl-py==3.0.0",
     ]
 
     cython_kwargs = {

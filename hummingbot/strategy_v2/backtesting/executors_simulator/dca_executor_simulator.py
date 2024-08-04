@@ -45,7 +45,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 break
             returns_df = df_filtered[df_filtered['timestamp'] >= entry_timestamp]
             returns = returns_df['close'].pct_change().fillna(0)
-            cumulative_returns = ((1 + returns).cumprod() - 1) * side_multiplier
+            cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
             take_profit_timestamp = None
             stop_loss_timestamp = None
             next_order_timestamp = None

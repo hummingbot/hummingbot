@@ -57,7 +57,7 @@ dependencies:
     - pre-commit==2.18.1
     - psutil==5.7.2
     - ptpython==3.0.20
-    - pyjwt==1.7.1
+    - pyjwt==2.8.0
     - pyperclip==1.7.0
     - python-telegram-bot==12.8
     - requests==2.*
@@ -72,4 +72,4 @@ dependencies:
     - yarl==1.*
     - git+https://github.com/CoinAlpha/python-signalr-client.git
     - git+https://github.com/konichuvak/dydx-v3-python.git@web3
-    - xrpl-py
+    - xrpl-py==3.0.0

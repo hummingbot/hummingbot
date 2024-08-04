@@ -30,9 +30,9 @@ cdef class Clock:
         """
         self._clock_mode = clock_mode
         self._tick_size = tick_size
-        self._start_time = start_time
+        self._start_time = start_time if clock_mode is ClockMode.BACKTEST else (time.time() // tick_size) * tick_size
         self._end_time = end_time
-        self._current_tick = start_time if clock_mode is ClockMode.BACKTEST else (time.time() // tick_size) * tick_size
+        self._current_tick = self._start_time
         self._child_iterators = []
         self._current_context = None
         self._started = False
