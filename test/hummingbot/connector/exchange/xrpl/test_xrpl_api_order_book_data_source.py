@@ -37,6 +37,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             xrpl_secret_key="",
             wss_node_url="wss://sample.com",
             wss_second_node_url="wss://sample.com",
+            wss_third_node_url="wss://sample.com",
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )
@@ -261,6 +262,12 @@ class XRPLAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(self.data_source._request_order_book_snapshot("SOLO-XRP"))
 
         self.assertTrue("Error fetching order book snapshot" in str(context.exception))
+
+    def test_fetch_order_book_side_exception(self):
+        self.data_source._xrpl_client.request.side_effect = TimeoutError
+
+        with self.assertRaises(TimeoutError):
+            self.async_run_with_timeout(self.data_source.fetch_order_book_side(self.data_source._xrpl_client, 12345, {}, {}, 50))
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.XRPLAPIOrderBookDataSource._get_client")
     def test_process_websocket_messages_for_pair(self, mock_get_client):
