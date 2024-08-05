@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -361,10 +363,25 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        # This is the algorithm used by Coinbase Advanced Trade
+        private_key = ec.generate_private_key(
+            ec.SECP256R1(),  # This is equivalent to ES256
+        )
+
+        # Serialize the private key to PEM format
+        pem_private_key = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        # Convert the PEM private key to string
+        pem_private_key_str = pem_private_key.decode('utf-8')
+
         return CoinbaseAdvancedTradeExchange(
             client_config_map=client_config_map,
             coinbase_advanced_trade_api_key="testAPIKey",
-            coinbase_advanced_trade_api_secret="testSecret",
+            coinbase_advanced_trade_api_secret=pem_private_key_str,
             trading_pairs=[self.trading_pair],
         )
 
@@ -1611,8 +1628,13 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         # self.assertIn("timestamp", params)
         # self.assertIn("signature", params)
         request_headers = request_call_tuple.kwargs["headers"]
-        self.assertIn("CB-ACCESS-KEY", request_headers)
-        self.assertEqual("testAPIKey", request_headers["CB-ACCESS-KEY"])
+        self.assertIn("Authorization", request_headers)
+        self.assertIn("Content-Type", request_headers)
+        self.assertIn("content-type", request_headers)
+        self.assertIn("User-Agent", request_headers)
+        # token = request_headers["Authorization"].split(" ")[1]
+        # self.assertTrue(
+        #     CoinbaseAdvancedTradeAuth.is_token_valid(token, self.cdp_auth.secret_key))
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         test_substitute = {
