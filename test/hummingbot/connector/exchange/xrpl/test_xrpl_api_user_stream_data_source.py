@@ -36,6 +36,7 @@ class XRPLUserStreamDataSourceUnitTests(unittest.TestCase):
             xrpl_secret_key="",
             wss_node_url="wss://sample.com",
             wss_second_node_url="wss://sample.com",
+            wss_third_node_url="wss://sample.com",
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )
