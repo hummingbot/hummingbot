@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-import aiohttp
 import eth_account
 from bidict import bidict
 from web3 import Web3
@@ -56,7 +55,6 @@ class TegroExchange(ExchangePyBase):
         self.secret_key = tegro_api_secret
         self._api_factory = WebAssistantsFactory
         self._domain = domain
-        self._shared_client = aiohttp.ClientSession()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_tegro_timestamp = 1.0
