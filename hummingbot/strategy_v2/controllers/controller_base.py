@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import inspect
+from decimal import Decimal
 from typing import Callable, Dict, List, Set
 
 from pydantic import Field, validator
@@ -36,7 +37,7 @@ class ControllerConfigBase(BaseClientModel):
         ))
     controller_name: str
     controller_type: str = "generic"
-    total_amount_quote: float = Field(
+    total_amount_quote: Decimal = Field(
         default=100,
         client_data=ClientFieldData(
             is_updatable=True,
