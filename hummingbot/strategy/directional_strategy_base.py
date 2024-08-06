@@ -33,7 +33,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         stored_executors (List[PositionExecutor]): List of closed position executors that have been stored.
         stop_loss (float): The stop loss percentage.
         take_profit (float): The take profit percentage.
-        time_limit (int): The time limit for the position.
+        time_limit (int): The time limit for the position in seconds.
         open_order_type (OrderType): The order type for opening the position.
         open_order_slippage_buffer (float): The slippage buffer for the opening order.
         take_profit_order_type (OrderType): The order type for the take profit order.
