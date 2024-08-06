@@ -9,9 +9,9 @@ from hummingbot.connector.exchange.chainflip_lp import (
     chainflip_lp_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import (
-    ChainflipLPAPIOrderBookDataSource,
+    ChainflipLpAPIOrderBookDataSource,
 )
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
@@ -51,7 +51,7 @@ class ChainflipLpExchange(ExchangePyBase):
         self.chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG.copy()
         self.chain_config["ETH"] = chainflip_eth_chain
         self.chain_config["USDC"] = chainflip_usdc_chain
-        self._data_source = ChainflipLPDataSource(
+        self._data_source = ChainflipLpDataSource(
             connector=self,
             address=chainflip_lp_address,
             rpc_api_url=chainflip_lp_api_url,
@@ -160,7 +160,7 @@ class ChainflipLpExchange(ExchangePyBase):
         raise NotImplementedError
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return ChainflipLPAPIOrderBookDataSource(
+        return ChainflipLpAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs, connector=self, data_source=self._data_source, domain=self.domain
         )
 

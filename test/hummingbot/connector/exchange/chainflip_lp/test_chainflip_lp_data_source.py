@@ -7,7 +7,7 @@ from substrateinterface import Keypair
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
@@ -43,7 +43,7 @@ class ChainflipLpDataSourceTests(TestCase):
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )
-        self.data_source = ChainflipLPDataSource(
+        self.data_source = ChainflipLpDataSource(
             connector=self.connector,
             address=self.address,
             rpc_api_url="",

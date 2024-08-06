@@ -2,23 +2,21 @@ import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 
 
-class ChainflipLPAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class ChainflipLpAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
         connector: "ChainflipLpExchange",
-        data_source: "ChainflipLPDataSource",
+        data_source: "ChainflipLpDataSource",
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs=trading_pairs)
@@ -49,31 +47,10 @@ class ChainflipLPAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
-        Subscribes to the
+        Subscribe to the trades and order diffs
         """
-        try:
-            all_assets = self._data_source.assets_list()
-            for trading_pair in self._trading_pairs:
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                asset = DataFormatter.format_trading_pair(symbol, all_assets)
-                payload = {
-                    "id": 1,
-                    "jsonrpc": "2.0",
-                    "method": CONSTANTS.SCHEDULED_SWAPS,
-                    "params": {"base_asset": asset["base_asset"], "quote_asset": asset["quote_asset"]},
-                }
-                subscribe_scheduled_swaps: WSJSONRequest = WSJSONRequest(payload=payload)
-                await ws.send(subscribe_scheduled_swaps)
-
-                self.logger().info(f"Subscribed to scheduled for {trading_pair}")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
-            )
-            raise
+        # subscriptions to trades and order diffs does not exist in chainflip lp
+        pass
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        #
         return ""

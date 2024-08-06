@@ -72,7 +72,9 @@ class DataFormatter:
         balance_map = {}
         for key in keys:
             for asset in data[key]:
-                balance_map[asset["asset"]] = cls.format_hex_balance(asset["balance"], {"chain": key, "asset": asset})
+                balance_map[asset["asset"]] = cls.format_hex_balance(
+                    asset["balance"], {"chain": key, "asset": asset["asset"]}
+                )
         return balance_map
 
     @classmethod
@@ -117,11 +119,10 @@ class DataFormatter:
     def format_asset_precision(cls, asset: Dict[str, str]):
         precisions = CONSTANTS.ASSET_PRECISIONS
         if asset["chain"] in precisions.keys():
-            asset_precision = precisions[asset["chain"]]
+            chain_precisions = precisions[asset["chain"]]
+            asset_precision = chain_precisions.get(asset["asset"], chain_precisions["Default"])
         else:
-            asset_precision = precisions["Ethereum"]
-        if asset["asset"] in CONSTANTS.STABLE_ASSETS:
-            asset_precision = precisions["Stable"]
+            asset_precision = precisions["Ethereum"]["Default"]
         return asset_precision
 
     @classmethod

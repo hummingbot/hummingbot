@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from hummingbot.connector.exchange_py_base import ExchangePyBase
 
 
-class ChainflipLPDataSource:
+class ChainflipLpDataSource:
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod

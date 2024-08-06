@@ -34,7 +34,7 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Chainflip LP Address",
-            is_secure=True,
+            is_secure=False,
             is_connect_key=True,
             prompt_on_new=True,
         ),
@@ -49,7 +49,7 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
         ),
     )
     chainflip_usdc_chain: str = Field(
-        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
+        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"],
         client_data=ClientFieldData(
             prompt=lambda cm: f'Enter the USDC chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]}',
             is_secure=False,
@@ -123,7 +123,7 @@ class ChainflipLpTestnetConfigMap(BaseConnectorConfigMap):
         ),
     )
     chainflip_usdc_chain: str = Field(
-        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
+        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"],
         client_data=ClientFieldData(
             prompt=lambda cm: f'Enter the USDC chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]}',
             is_secure=False,

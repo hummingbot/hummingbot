@@ -10,7 +10,7 @@ from substrateinterface import Keypair
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import (
-    ChainflipLPAPIOrderBookDataSource,
+    ChainflipLpAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
@@ -50,7 +50,7 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
         )
         self.connector._data_source._rpc_executor = MockRPCExecutor()
 
-        self.data_source = ChainflipLPAPIOrderBookDataSource(
+        self.data_source = ChainflipLpAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             data_source=self.connector._data_source,
