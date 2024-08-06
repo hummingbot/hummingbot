@@ -178,7 +178,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "markets": {
                 self.trading_pair: {
                     "ticker": self.trading_pair,
-                    "status": "ONLINE",
+                    "status": "ACTIVE",
                 }
             }
         }

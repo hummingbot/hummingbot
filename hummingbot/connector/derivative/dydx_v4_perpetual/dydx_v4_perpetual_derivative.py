@@ -845,7 +845,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _execute_set_leverage(self, trading_pair: str, leverage: int):
         try:
-            await self._set_trading_pair_leverage(trading_pair, leverage)
+            success, msg = await self._set_trading_pair_leverage(trading_pair, leverage)
+            if not success:
+                self.logger().network(f"Error setting leverage {leverage} for {trading_pair}: {msg}")
         except Exception:
             self.logger().network(f"Error setting leverage {leverage} for {trading_pair}")
 
