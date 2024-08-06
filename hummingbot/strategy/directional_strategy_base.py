@@ -46,6 +46,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         leverage (float): The leverage to be used.
         order_amount_usd (Decimal): The order amount in USD.
         markets (Dict[str, Set[str]]): Dictionary mapping exchanges to trading pairs.
+        cooldown_after_execution (int): Cooldown between position executions, in seconds.
     """
     directional_strategy_name: str
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
