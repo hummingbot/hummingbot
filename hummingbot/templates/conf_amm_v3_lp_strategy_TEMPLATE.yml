@@ -17,8 +17,15 @@ fee_tier: null
 # The spread between lower price to the upper price
 price_spread: null
 
+# The buffer to keep position active when price is moving out of range
+buffer_spread: null
+
 # The amount of token (liquidity) provided to the pool
-amount: null
+max_amount: null
+min_amount: null
 
 # The minimum profit required before positions can be adjusted
 min_profitability: null
+
+# How often should the bot get market updates from gateway?
+status_report_interval: null

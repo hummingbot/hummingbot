@@ -21,7 +21,8 @@ class AmmV3LpStartTest(unittest.TestCase):
         amm_v3_lp_config_map.get("market").value = "ETH-USDT"
         amm_v3_lp_config_map.get("fee_tier").value = "LOW"
         amm_v3_lp_config_map.get("price_spread").value = Decimal("1")
-        amm_v3_lp_config_map.get("amount").value = Decimal("1")
+        amm_v3_lp_config_map.get("max_amount").value = Decimal("10")
+        amm_v3_lp_config_map.get("min_amount").value = Decimal("1")
         amm_v3_lp_config_map.get("min_profitability").value = Decimal("10")
 
     def _initialize_market_assets(self, market, trading_pairs):
@@ -42,5 +43,6 @@ class AmmV3LpStartTest(unittest.TestCase):
     @unittest.mock.patch('hummingbot.strategy.amm_v3_lp.amm_v3_lp.AmmV3LpStrategy.add_markets')
     def test_amm_v3_lp_strategy_creation(self, mock):
         amm_v3_lp_start.start(self)
-        self.assertEqual(self.strategy._amount, Decimal(1))
+        self.assertEqual(self.strategy._max_amount, Decimal(10))
+        self.assertEqual(self.strategy._min_amount, Decimal(1))
         self.assertEqual(self.strategy._min_profitability, Decimal("10"))
