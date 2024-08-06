@@ -142,8 +142,14 @@ class DataFormatter:
 =======
         for key in keys:
             for asset in data[key]:
+<<<<<<< HEAD
                 balance_map[asset["asset"]] = cls.format_hex_balance(asset["balance"], {"chain": key, "asset": asset})
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+                balance_map[asset["asset"]] = cls.format_hex_balance(
+                    asset["balance"], {"chain": key, "asset": asset["asset"]}
+                )
+>>>>>>> cb0a3d276 ((refactor) implement review changes)
         return balance_map
 
     @classmethod
@@ -191,11 +197,10 @@ class DataFormatter:
 =======
         precisions = CONSTANTS.ASSET_PRECISIONS
         if asset["chain"] in precisions.keys():
-            asset_precision = precisions[asset["chain"]]
+            chain_precisions = precisions[asset["chain"]]
+            asset_precision = chain_precisions.get(asset["asset"], chain_precisions["Default"])
         else:
-            asset_precision = precisions["Ethereum"]
-        if asset["asset"] in CONSTANTS.STABLE_ASSETS:
-            asset_precision = precisions["Stable"]
+            asset_precision = precisions["Ethereum"]["Default"]
         return asset_precision
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 

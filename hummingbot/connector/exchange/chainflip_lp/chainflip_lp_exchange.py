@@ -10,6 +10,7 @@ from hummingbot.connector.exchange.chainflip_lp import (
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import (
 <<<<<<< HEAD
+<<<<<<< HEAD
     ChainflipLpAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
@@ -18,6 +19,11 @@ from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import 
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+    ChainflipLpAPIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
+>>>>>>> cb0a3d276 ((refactor) implement review changes)
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
@@ -58,10 +64,14 @@ class ChainflipLpExchange(ExchangePyBase):
         self.chain_config["ETH"] = chainflip_eth_chain
         self.chain_config["USDC"] = chainflip_usdc_chain
 <<<<<<< HEAD
+<<<<<<< HEAD
         self._data_source = ChainflipLpDataSource(
 =======
         self._data_source = ChainflipLPDataSource(
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        self._data_source = ChainflipLpDataSource(
+>>>>>>> cb0a3d276 ((refactor) implement review changes)
             connector=self,
             address=chainflip_lp_address,
             rpc_api_url=chainflip_lp_api_url,
@@ -184,10 +194,14 @@ class ChainflipLpExchange(ExchangePyBase):
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
 <<<<<<< HEAD
+<<<<<<< HEAD
         return ChainflipLpAPIOrderBookDataSource(
 =======
         return ChainflipLPAPIOrderBookDataSource(
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        return ChainflipLpAPIOrderBookDataSource(
+>>>>>>> cb0a3d276 ((refactor) implement review changes)
             trading_pairs=self._trading_pairs, connector=self, data_source=self._data_source, domain=self.domain
         )
 

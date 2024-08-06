@@ -42,7 +42,7 @@ from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import Mo
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import (
-    ChainflipLPAPIOrderBookDataSource,
+    ChainflipLpAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
@@ -113,10 +113,14 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
         self.connector._data_source._rpc_executor = MockRPCExecutor()
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.data_source = ChainflipLpAPIOrderBookDataSource(
 =======
         self.data_source = ChainflipLPAPIOrderBookDataSource(
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+        self.data_source = ChainflipLpAPIOrderBookDataSource(
+>>>>>>> cb0a3d276 ((refactor) implement review changes)
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             data_source=self.connector._data_source,

@@ -44,10 +44,14 @@ if TYPE_CHECKING:
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 class ChainflipLpDataSource:
 =======
 class ChainflipLPDataSource:
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+class ChainflipLpDataSource:
+>>>>>>> cb0a3d276 ((refactor) implement review changes)
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
