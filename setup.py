@@ -107,7 +107,6 @@ def main():
         "tabulate",
         "tzlocal",
         "ujson",
-        "v4_proto",
         "web3",
         "websockets",
         "yarl",
