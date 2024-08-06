@@ -33,7 +33,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         stored_executors (List[PositionExecutor]): List of closed position executors that have been stored.
         stop_loss (float): The stop loss percentage.
         take_profit (float): The take profit percentage.
-        time_limit (int): The time limit for the position.
+        time_limit (int): The time limit for the position in seconds.
         open_order_type (OrderType): The order type for opening the position.
         open_order_slippage_buffer (float): The slippage buffer for the opening order.
         take_profit_order_type (OrderType): The order type for the take profit order.
@@ -46,6 +46,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         leverage (float): The leverage to be used.
         order_amount_usd (Decimal): The order amount in USD.
         markets (Dict[str, Set[str]]): Dictionary mapping exchanges to trading pairs.
+        cooldown_after_execution (int): Cooldown between position executions, in seconds.
     """
     directional_strategy_name: str
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
