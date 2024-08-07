@@ -166,9 +166,9 @@ class CandlesBase(NetworkBase):
             all_candles = []
             current_end_time = config.end_time + self.interval_in_seconds
             current_start_time = config.start_time - self.interval_in_seconds
-            self.max_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
             while current_end_time >= current_start_time:
-                fetched_candles = await self.fetch_candles(end_time=current_end_time)
+                missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
+                fetched_candles = await self.fetch_candles(end_time=current_end_time, missing_records=missing_records)
                 if fetched_candles.size <= 1:
                     break
                 all_candles.append(fetched_candles)
@@ -210,11 +210,13 @@ class CandlesBase(NetworkBase):
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
-                            end_time: Optional[int] = None):
+                            end_time: Optional[int] = None,
+                            missing_records: Optional[int] = None):
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
+        if missing_records is None:
+            missing_records = self.candles_max_result_per_rest_request - 1
 
-        missing_records = self._candles.maxlen - len(self._candles)
         candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, missing_records)
         if end_time is None:
             end_time = start_time + self.interval_in_seconds * candles_to_fetch
@@ -270,8 +272,8 @@ class CandlesBase(NetworkBase):
             await self._ws_candle_available.wait()
             try:
                 end_timestamp = int(self._candles[0][0])
-                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp)
                 missing_records = self._candles.maxlen - len(self._candles)
+                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp, missing_records=missing_records)
                 records_to_add = min(missing_records, len(candles))
                 self._candles.extendleft(candles[-records_to_add:][::-1])
             except asyncio.CancelledError:

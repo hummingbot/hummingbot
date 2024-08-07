@@ -71,23 +71,27 @@ class HyperliquidPerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
-    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None) -> List[List[float]]:
-        limit = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
-        rest_assistant = await self._api_factory.get_rest_assistant()
+    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
+                            missing_records: Optional[int] = None) -> List[List[float]]:
+        if missing_records is None:
+            missing_records = self.candles_max_result_per_rest_request
+
+        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, missing_records)
         reqs = {
             "interval": CONSTANTS.INTERVALS[self.interval],
             "coin": self._base_asset,
         }
         if start_time is not None or end_time is not None:
-            reqs["startTime"] = start_time if start_time is not None else end_time - limit * self.interval_in_seconds
+            reqs["startTime"] = start_time if start_time is not None else end_time - candles_to_fetch * self.interval_in_seconds
             reqs["startTime"] = reqs["startTime"] * 1000
-            reqs["endTime"] = end_time if end_time is not None else start_time + limit * self.interval_in_seconds
+            reqs["endTime"] = end_time if end_time is not None else start_time + candles_to_fetch * self.interval_in_seconds
             reqs["endTime"] = reqs["endTime"] * 1000
         payload = {
             "type": "candleSnapshot",
             "req": reqs
         }
         headers = self._get_rest_candles_headers()
+        rest_assistant = await self._api_factory.get_rest_assistant()
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=self.rest_url,
                                                        data=payload,
