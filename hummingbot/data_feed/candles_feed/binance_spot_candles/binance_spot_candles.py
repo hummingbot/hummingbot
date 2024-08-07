@@ -73,8 +73,6 @@ class BinanceSpotCandles(CandlesBase):
             "interval": self.interval,
             "limit": limit
         }
-        if start_time:
-            params["startTime"] = start_time * 1000
         if end_time:
             params["endTime"] = end_time * 1000
         return params
