@@ -74,7 +74,7 @@ class HyperliquidPerpetualCandles(CandlesBase):
     async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
                             missing_records: Optional[int] = None) -> List[List[float]]:
         if missing_records is None:
-            missing_records = self.candles_max_result_per_rest_request
+            missing_records = self.candles_max_result_per_rest_request - 1
 
         candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, missing_records)
         reqs = {
