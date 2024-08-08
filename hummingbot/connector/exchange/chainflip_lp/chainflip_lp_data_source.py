@@ -203,11 +203,15 @@ class ChainflipLpDataSource:
 
     async def all_balances(self) -> List[Dict[str, Any]]:
 <<<<<<< HEAD
+<<<<<<< HEAD
         return await self._rpc_executor.get_all_balances()
 =======
         balances = await self._rpc_executor.get_all_balances()
         return balances
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        return await self._rpc_executor.get_all_balances()
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
     async def place_order(
         self,

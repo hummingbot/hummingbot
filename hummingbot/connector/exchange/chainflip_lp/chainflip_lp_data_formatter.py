@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -6,6 +7,9 @@ from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.logger import HummingbotLogger
 =======
+=======
+from decimal import Decimal
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 from typing import Any, Dict, List
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
@@ -28,6 +32,7 @@ class DataFormatter:
         return int(data, 16)
 
     @classmethod
+<<<<<<< HEAD
     def format_hex_balance(cls, balance: str, asset: Dict[str, str]):
 <<<<<<< HEAD
         cls.logger().info(f"Converting {balance} as {asset}")
@@ -48,6 +53,21 @@ class DataFormatter:
 =======
         return int_balance / precision
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+    def format_hex_balance(cls, logger, balance: str, asset: Dict[str, str]):
+        logger.info("Converting " + str(balance) + " as " + str(asset))
+
+        int_balance = cls.hex_str_to_int(balance)
+        logger.info("Balance for " + str(balance) + " as " + str(int_balance))
+
+        precision = cls.format_asset_precision(asset)
+        logger.info("Precision for " + str(balance) + " is " + str(precision))
+
+        value = int_balance / precision
+        logger.info("Converted " + str(balance) + " to " + str(int_balance) + " with precision " + str(precision) + " = " + str(value))
+
+        return Decimal(value)
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
     @classmethod
     def format_amount(cls, amount: float | int, asset: Dict[str, str]):
@@ -123,18 +143,26 @@ class DataFormatter:
         return {"asks": asks, "bids": bids}
 
     @classmethod
-    def format_balance_response(cls, response):
+    def format_balance_response(cls, logger, response):
         data = response["result"]
+<<<<<<< HEAD
         cls.logger().info(f"Mapping {data} as balance")
+=======
+        logger.info("Mapping " + str(data) + " as balance")
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
         chains = data.keys()
 
         balance_map = {}
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         for chain in chains:
             assets = data[chain].keys()
 
             for asset in assets:
+<<<<<<< HEAD
                 token = f"{asset}-{chain}"
                 cls.logger().info("Mapping " + token)
 
@@ -150,6 +178,17 @@ class DataFormatter:
                     asset["balance"], {"chain": key, "asset": asset["asset"]}
                 )
 >>>>>>> cb0a3d276 ((refactor) implement review changes)
+=======
+                token = str(asset) + "/" + str(chain)
+                logger.info("Mapping " + token)
+
+                balance_map[token] = cls.format_hex_balance(
+                    logger,
+                    data[chain][asset],
+                    {"chain": chain, "asset": asset}
+                )
+
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         return balance_map
 
     @classmethod
@@ -193,6 +232,7 @@ class DataFormatter:
     @classmethod
     def format_asset_precision(cls, asset: Dict[str, str]):
 <<<<<<< HEAD
+<<<<<<< HEAD
         return CONSTANTS.ASSET_PRECISIONS[asset["chain"]][asset["asset"]]
 =======
         precisions = CONSTANTS.ASSET_PRECISIONS
@@ -203,6 +243,9 @@ class DataFormatter:
             asset_precision = precisions["Ethereum"]["Default"]
         return asset_precision
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        return CONSTANTS.ASSET_PRECISIONS[asset["chain"]][asset["asset"]]
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
     @classmethod
     def format_orderbook_response(cls, response: Dict, base_asset: Dict[str, str], quote_asset: Dict[str, str]):

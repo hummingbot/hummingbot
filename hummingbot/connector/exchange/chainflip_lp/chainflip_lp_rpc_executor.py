@@ -17,8 +17,12 @@ from websockets import connect as websockets_connect
 import websockets
 from requests.exceptions import ConnectionError
 from substrateinterface import SubstrateInterface
+<<<<<<< HEAD
 from substrateinterface.exceptions import ConfigurationError, SubstrateRequestException
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+from substrateinterface.exceptions import SubstrateRequestException
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
@@ -90,6 +94,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
     @classmethod
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     async def run_in_thread(cls, func: Callable, *args, **kwargs):
         """
         Run a synchronous function in a seperate thread
@@ -129,6 +134,11 @@ class RPCQueryExecutor(BaseRPCExecutor):
 =======
         Run a synchoronous function in a seperate thread
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+    async def run_in_thread(cls, func: Callable, *args, **kwargs):
+        """
+        Run a synchronous function in a seperate thread
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, partial(func, *args, **kwargs))
@@ -145,6 +155,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         self._lp_account_address = lp_account_address
         self._rpc_url = self._get_current_rpc_url(domain)
         self._domain = domain
+<<<<<<< HEAD
 <<<<<<< HEAD
         self._lp_api_url = chainflip_lp_api_url
         self._throttler = throttler
@@ -167,20 +178,27 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
 =======
         self._rpc_api_url = chainflip_lp_api_url
+=======
+        self._lp_api_url = chainflip_lp_api_url
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         self._throttler = throttler
         self._rpc_instance = None
-        self._rpc_api_instance = None
+        self._lp_api_instance = None
         self._chain_config = chain_config
 
     async def start(self):
-        self._rpc_api_instance = await self.verify_lp_api_url(self._rpc_api_url)
+        self.logger().info("Starting up! API URL: " + self._lp_api_url + " RPC URL: " + self._rpc_url)
+        self._lp_api_instance = await self._start_instance(self._lp_api_url)
         self._rpc_instance = await self._start_instance(self._rpc_url)
 
     async def check_connection_status(self):
+        self.logger().info("Checking connection status")
         response = await self._execute_rpc_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
         api_response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
+
         if not response["status"] or not api_response["status"]:
             self.logger().error("Could not connect with RPC or API server")
+<<<<<<< HEAD
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
         return response["status"] and api_response["status"]
 
@@ -202,16 +220,31 @@ class RPCQueryExecutor(BaseRPCExecutor):
             return []
 
 =======
+=======
+
+        return response["status"] and api_response["status"]
+
+    async def all_assets(self):
+        self.logger().info("Fetching all_assets")
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         response = await self._execute_api_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
+
         if not response["status"]:
             return []
+
         return DataFormatter.format_all_assets_response(response["data"], chain_config=self._chain_config)
 
     async def all_markets(self):
+        self.logger().info("Fetching all_markets")
         response = await self._execute_rpc_request(CONSTANTS.ACTIVE_POOLS_METHOD)
+
         if not response["status"]:
             return []
+<<<<<<< HEAD
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         return DataFormatter.format_all_market_response(response["data"])
 
     async def get_orderbook(
@@ -224,25 +257,37 @@ class RPCQueryExecutor(BaseRPCExecutor):
         }
         """
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         self.logger().info("Fetching get_orderbook")
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "orders": orders}
         response = await self._execute_rpc_request(CONSTANTS.POOL_ORDERBOOK_METHOD, params)
 
+<<<<<<< HEAD
 =======
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "orders": orders}
         response = await self._execute_rpc_request(CONSTANTS.POOL_ORDERBOOK_METHOD, params)
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         if not response["status"]:
             return None
+=======
+        if not response["status"]:
+            return []
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
         return DataFormatter.format_orderbook_response(response["data"])
 
     async def get_open_orders(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         self.logger().info("Fetching get_open_orders")
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "lp": self._lp_account_address}
         response = await self._execute_rpc_request(CONSTANTS.OPEN_ORDERS_METHOD, params)
 
+<<<<<<< HEAD
 =======
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "lp": self._lp_account_address}
         response = await self._execute_rpc_request(CONSTANTS.OPEN_ORDERS_METHOD, params)
@@ -250,6 +295,10 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not response["status"]:
             return []
 <<<<<<< HEAD
+=======
+        if not response["status"]:
+            return []
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
         return DataFormatter.format_order_response(response["data"])
 
@@ -263,7 +312,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
 =======
     async def get_all_balances(self):
+        self.logger().info("Fetching get_all_balances")
         response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
+<<<<<<< HEAD
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
         if not response["status"]:
             return []
@@ -281,11 +332,26 @@ class RPCQueryExecutor(BaseRPCExecutor):
             return None
 
 =======
+=======
+
+        if not response["status"]:
+            return []
+
+        return DataFormatter.format_balance_response(self.logger(), response["data"])
+
+    async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+        self.logger().info("Fetching get_market_price")
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         params = {"base_asset": base_asset, "quote_asset": quote_asset}
         response = await self._execute_rpc_request(CONSTANTS.MARKET_PRICE_V2_METHOD, params)
+
         if not response["status"]:
             return DataFormatter.format_error_response(response["data"])
+<<<<<<< HEAD
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         return DataFormatter.format_market_price(response["data"])
 
     async def place_limit_order(
@@ -369,6 +435,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not all_assets:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             self.logger().error("Unexpected error getting assets from Chainflip LP API.")
 =======
             self.logger().error(
@@ -378,6 +445,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
 =======
             self.logger().error("Unexpected error getting assets from chainflip rpc.")
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+            self.logger().error("Unexpected error getting assets from Chainflip LP API.")
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
             sys.exit()
         while True:
             try:
@@ -388,6 +458,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 raise
             except Exception as e:
                 self.logger().error(
+<<<<<<< HEAD
 <<<<<<< HEAD
                     f"Unexpected error listening to Pool Price from Chainflip LP API. Error: {e}", exc_info=True
                 )
@@ -407,6 +478,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
     async def listen_to_order_fills(self, event_handler:Callable):
 =======
                     f"Unexpected error listening to Pool Price from chainflip rpc. Error: {e}", exc_info=True
+=======
+                    f"Unexpected error listening to Pool Price from Chainflip LP API. Error: {e}", exc_info=True
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
                 )
                 sys.exit()
 
@@ -415,7 +489,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         # will run in a thread
         all_assets = await self.all_assets()
         if not all_assets:
-            self.logger().error("Unexpected error getting assets from chainflip rpc.")
+            self.logger().error("Unexpected error getting assets from Chainflip LP API.")
             sys.exit()
 
         def handler(data):
@@ -438,10 +512,18 @@ class RPCQueryExecutor(BaseRPCExecutor):
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
     def _start_instance(self, url):
+<<<<<<< HEAD
         self.logger().info(f"Start instance {url}")
 
         try:
             instance = SubstrateInterface(url=url, auto_discover=False)
+=======
+        self.logger().info("Start instance " + url)
+
+        try:
+            instance = SubstrateInterface(url=url, auto_discover = False)
+
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         except ConnectionError as err:
             self.logger().error(str(err))
             raise err
@@ -460,22 +542,32 @@ class RPCQueryExecutor(BaseRPCExecutor):
     def _reinitialize_api_instance(self):
         self.logger().info("Reinitializing LP API Instance")
 <<<<<<< HEAD
+<<<<<<< HEAD
         self._lp_api_instance.close()
         self._lp_api_instance = self._start_instance(self._lp_api_url)
 =======
         self._rpc_api_instance.close()
         self._rpc_api_instance = self._start_instance(self._rpc_api_url)
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        self._lp_api_instance.close()
+        self._lp_api_instance = self._start_instance(self._lp_api_url)
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
     async def _execute_api_request(
         self, request_method: str, params: List | Dict = [], throttler_limit_id: str = CONSTANTS.GENERAL_LIMIT_ID
     ):
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.logger().info(f"Making {request_method} API call")
+=======
+        self.logger().info("Making " + request_method + " API call")
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
         if not self._lp_api_instance:
             self._lp_api_instance = self._start_instance(self._lp_api_url)
 
+<<<<<<< HEAD
         async with self._throttler.execute_task(throttler_limit_id):
             response_data = {"status": True, "data": {}}
             response = None  # for testing purposes
@@ -488,14 +580,22 @@ class RPCQueryExecutor(BaseRPCExecutor):
 =======
         if not self._rpc_api_instance:
             self._rpc_api_instance = await self.verify_lp_api_url(self._rpc_api_url)
+=======
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         async with self._throttler.execute_task(throttler_limit_id):
             response_data = {"status": True, "data": {}}
             response = None  # for testing purposes
+
             while True:
                 try:
+                    self.logger().info("Calling " + request_method)
                     response = await self.run_in_thread(
+<<<<<<< HEAD
                         self._rpc_api_instance.rpc_request, method=request_method, params=params
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+                        self._lp_api_instance.rpc_request, method=request_method, params=params
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
                     )
                     response_data["data"] = response
                     break
@@ -522,6 +622,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         self, request_method: str, params: List | Dict = [], throttler_limit_id: str = CONSTANTS.GENERAL_LIMIT_ID
     ):
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.logger().info(f"Making {request_method} RPC call")
 
         if not self._rpc_instance:
@@ -533,14 +634,24 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 try:
                     self.logger().info("Calling " + request_method)
 =======
+=======
+        self.logger().info("Making " + request_method + " RPC call")
+
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         if not self._rpc_instance:
             self._rpc_instance = self._start_instance(self._rpc_url)
+
         async with self._throttler.execute_task(throttler_limit_id):
             response_data = {"status": True, "data": {}}
             response = None  # for testing purposes
+
             while True:
                 try:
+<<<<<<< HEAD
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+                    self.logger().info("Calling " + request_method)
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
                     response = await self.run_in_thread(
                         self._rpc_instance.rpc_request, method=request_method, params=params
                     )
@@ -561,9 +672,12 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     response_data["status"] = False
                     response_data["data"] = {"code": 0, "message": "An Error Occurred"}
                     break
+
+            self.logger().info(request_method + " RPC call response:" + str(response_data["data"]))
             return response_data
 
     async def _subscribe_to_api_event(self, method_name: str, handler: Callable, params=[]):
+<<<<<<< HEAD
 <<<<<<< HEAD
         instance = SubstrateInterface(url=self._lp_api_url)
         while True:
@@ -573,6 +687,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 )  # if an error occurs.. raise
 =======
         instance = SubstrateInterface(url=self._rpc_api_url)
+=======
+        instance = SubstrateInterface(url=self._lp_api_url)
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         while True:
             try:
                 response = instance.rpc_request(method_name, params)  # if an error occurs.. raise
@@ -584,10 +701,14 @@ class RPCQueryExecutor(BaseRPCExecutor):
             except Exception as e:
                 self.logger().error(
 <<<<<<< HEAD
+<<<<<<< HEAD
                     f"Unexpected error listening to subscription event from Chainflip LP API. Error: {e}", exc_info=True
 =======
                     f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}", exc_info=True
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+                    f"Unexpected error listening to order fill update from Chainflip LP. Error: {e}", exc_info=True
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
                 )
                 instance.close()
                 sys.exit()
@@ -620,6 +741,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 except Exception as e:
                     self.logger().error(
 <<<<<<< HEAD
+<<<<<<< HEAD
                         f"Unexpected error listening to subscription event from Chainflip LP RPC. Error: {e}",
                         exc_info=True,
                     )
@@ -628,6 +750,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
     def _calculate_tick(self, price: float, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
 =======
                         f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}", exc_info=True
+=======
+                        f"Unexpected error listening to order fill update from Chainflip LP. Error: {e}", exc_info=True
+>>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
                     )
                     break
 
