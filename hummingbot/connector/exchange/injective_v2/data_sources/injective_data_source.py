@@ -415,7 +415,7 @@ class InjectiveDataSource(ABC):
 
             try:
                 result = await self._send_in_transaction(messages=order_creation_messages)
-                if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
+                if result["code"] != 0 or result["txhash"] in [None, ""]:
                     raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
                 else:
                     transaction_hash = result["txhash"]
@@ -472,7 +472,7 @@ class InjectiveDataSource(ABC):
 
                 try:
                     result = await self._send_in_transaction(messages=[delegated_message])
-                    if result["rawLog"] != "[]":
+                    if result["code"] != 0:
                         raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
                     else:
                         cancel_transaction_hash = result.get("txhash", "")
@@ -511,7 +511,7 @@ class InjectiveDataSource(ABC):
         )
 
         result = await self._send_in_transaction(messages=[delegated_message])
-        if result["rawLog"] != "[]":
+        if result["code"] != 0:
             raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
 
     async def spot_trade_updates(self, market_ids: List[str], start_time: float) -> List[TradeUpdate]:
