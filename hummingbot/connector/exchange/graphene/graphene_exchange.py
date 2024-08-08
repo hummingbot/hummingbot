@@ -79,8 +79,11 @@ def dinput(data):
 def kill_metanode():
     for domain in ["bitshares", "bitshares_testnet", "peerplays", "peerplays_testnet"]:
         constants = GrapheneConstants(domain)
-        with open(constants.DATABASE_FOLDER + "metanode_flags.json", "w+") as handle:
-            handle.write(json.dumps({**json.loads(handle.read() or "{}"), domain.replace("_", " "): False}))
+        try:
+            with open(constants.DATABASE_FOLDER + "metanode_flags.json", "w+") as handle:
+                handle.write(json.dumps({**json.loads(handle.read() or "{}"), domain.replace("_", " "): False}))
+        except FileNotFoundError:
+            pass
 
 
 class GrapheneClientOrderTracker(ClientOrderTracker):
@@ -168,6 +171,8 @@ class GrapheneExchange(ExchangeBase):
 
         # initialize Graphene class objects
         self.constants = GrapheneConstants(domain)
+
+        os.makedirs(self.constants.DATABASE_FOLDER, exist_ok=True)
 
         with open(self.constants.DATABASE_FOLDER + domain + "_pairs.txt", "w+") as handle:
             # if there are new pairs, then change the file and signal to restart the metanode
@@ -337,7 +342,7 @@ class GrapheneExchange(ExchangeBase):
         return [OrderType.LIMIT]
 
     async def _initialize_trading_pair_symbol_map(self):
-        rpc = RemoteProcedureCall(self.constants, self.metanode.whitelist)
+        rpc = RemoteProcedureCall(self.constants, self.constants.chain.NODES)
         rpc.printing = False
 
         whitelisted_bases = self.constants.chain.BASES
