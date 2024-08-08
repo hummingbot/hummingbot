@@ -126,8 +126,8 @@ class GateioSpotCandles(CandlesBase):
             candles_row_dict["high"] = data["result"]["h"]
             candles_row_dict["low"] = data["result"]["l"]
             candles_row_dict["close"] = data["result"]["c"]
-            candles_row_dict["volume"] = data["result"]["v"]
-            candles_row_dict["quote_asset_volume"] = data["result"]["a"]
+            candles_row_dict["volume"] = data["result"]["a"]
+            candles_row_dict["quote_asset_volume"] = data["result"]["v"]
             candles_row_dict["n_trades"] = 0
             candles_row_dict["taker_buy_base_volume"] = 0
             candles_row_dict["taker_buy_quote_volume"] = 0
