@@ -110,8 +110,6 @@ class KucoinPerpetualCandles(CandlesBase):
             "symbol": self.symbols_dict[f"{self.kucoin_base_asset}-{self.quote_asset}"],
             "granularity": CONSTANTS.GRANULARITIES[self.interval],
         }
-        if start_time:
-            params["from"] = start_time * 1000
         if end_time:
             params["to"] = end_time * 1000
         return params
