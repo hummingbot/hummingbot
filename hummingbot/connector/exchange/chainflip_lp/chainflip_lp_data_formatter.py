@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any, Dict, List
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
@@ -10,10 +11,19 @@ class DataFormatter:
         return int(data, 16)
 
     @classmethod
-    def format_hex_balance(cls, balance: str, asset: Dict[str, str]):
+    def format_hex_balance(cls, logger, balance: str, asset: Dict[str, str]):
+        logger.info("Converting " + str(balance) + " as " + str(asset))
+
         int_balance = cls.hex_str_to_int(balance)
+        logger.info("Balance for " + str(balance) + " as " + str(int_balance))
+
         precision = cls.format_asset_precision(asset)
-        return int_balance / precision
+        logger.info("Precision for " + str(balance) + " is " + str(precision))
+
+        value = int_balance / precision
+        logger.info("Converted " + str(balance) + " to " + str(int_balance) + " with precision " + str(precision) + " = " + str(value))
+
+        return Decimal(value)
 
     @classmethod
     def format_amount(cls, amount: float | int, asset: Dict[str, str]):
@@ -66,15 +76,26 @@ class DataFormatter:
         return {"asks": asks, "bids": bids}
 
     @classmethod
-    def format_balance_response(cls, response):
+    def format_balance_response(cls, logger, response):
         data = response["result"]
-        keys = data.keys()
+        logger.info("Mapping " + str(data) + " as balance")
+
+        chains = data.keys()
+
         balance_map = {}
-        for key in keys:
-            for asset in data[key]:
-                balance_map[asset["asset"]] = cls.format_hex_balance(
-                    asset["balance"], {"chain": key, "asset": asset["asset"]}
+        for chain in chains:
+            assets = data[chain].keys()
+
+            for asset in assets:
+                token = str(asset) + "/" + str(chain)
+                logger.info("Mapping " + token)
+
+                balance_map[token] = cls.format_hex_balance(
+                    logger,
+                    data[chain][asset],
+                    {"chain": chain, "asset": asset}
                 )
+
         return balance_map
 
     @classmethod
@@ -117,13 +138,7 @@ class DataFormatter:
 
     @classmethod
     def format_asset_precision(cls, asset: Dict[str, str]):
-        precisions = CONSTANTS.ASSET_PRECISIONS
-        if asset["chain"] in precisions.keys():
-            chain_precisions = precisions[asset["chain"]]
-            asset_precision = chain_precisions.get(asset["asset"], chain_precisions["Default"])
-        else:
-            asset_precision = precisions["Ethereum"]["Default"]
-        return asset_precision
+        return CONSTANTS.ASSET_PRECISIONS[asset["chain"]][asset["asset"]]
 
     @classmethod
     def format_orderbook_response(cls, response: Dict, base_asset: Dict[str, str], quote_asset: Dict[str, str]):

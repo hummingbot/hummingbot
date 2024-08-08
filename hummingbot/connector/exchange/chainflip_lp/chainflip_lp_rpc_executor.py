@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional
 import websockets
 from requests.exceptions import ConnectionError
 from substrateinterface import SubstrateInterface
-from substrateinterface.exceptions import ConfigurationError, SubstrateRequestException
+from substrateinterface.exceptions import SubstrateRequestException
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
@@ -77,36 +77,13 @@ class RPCQueryExecutor(BaseRPCExecutor):
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:
             cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
+
         return cls._logger
-
-    @classmethod
-    async def verify_lp_api_url(cls, url: str):
-        """
-        We verify this lp api url by first trying a substrate instance
-        with the url and then check if an rpc_method is supported by the instance
-        instance. if no error, we return the instance, else we raise the error.
-        """
-        try:
-            instance = SubstrateInterface(url=url)
-            checker = await cls.run_in_thread(instance.supports_rpc_method, CONSTANTS.ASSET_BALANCE_METHOD)
-            if not checker:
-                raise ConfigurationError("RPC url is not Chainflip LP API URL")
-
-        except ConnectionError as err:  # raise proper http error
-            cls.logger().error(str(err))
-            raise
-        except ConfigurationError as err:
-            cls.logger().error(str(err))
-            raise
-        except Exception as err:
-            cls.logger().error(str(err), exc_info=True)
-            raise
-        return instance
 
     @classmethod
     async def run_in_thread(cls, func: Callable, *args, **kwargs):
         """
-        Run a synchoronous function in a seperate thread
+        Run a synchronous function in a seperate thread
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, partial(func, *args, **kwargs))
@@ -123,33 +100,43 @@ class RPCQueryExecutor(BaseRPCExecutor):
         self._lp_account_address = lp_account_address
         self._rpc_url = self._get_current_rpc_url(domain)
         self._domain = domain
-        self._rpc_api_url = chainflip_lp_api_url
+        self._lp_api_url = chainflip_lp_api_url
         self._throttler = throttler
         self._rpc_instance = None
-        self._rpc_api_instance = None
+        self._lp_api_instance = None
         self._chain_config = chain_config
 
     async def start(self):
-        self._rpc_api_instance = await self.verify_lp_api_url(self._rpc_api_url)
+        self.logger().info("Starting up! API URL: " + self._lp_api_url + " RPC URL: " + self._rpc_url)
+        self._lp_api_instance = await self._start_instance(self._lp_api_url)
         self._rpc_instance = await self._start_instance(self._rpc_url)
 
     async def check_connection_status(self):
+        self.logger().info("Checking connection status")
         response = await self._execute_rpc_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
         api_response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
+
         if not response["status"] or not api_response["status"]:
             self.logger().error("Could not connect with RPC or API server")
+
         return response["status"] and api_response["status"]
 
     async def all_assets(self):
+        self.logger().info("Fetching all_assets")
         response = await self._execute_api_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
+
         if not response["status"]:
             return []
+
         return DataFormatter.format_all_assets_response(response["data"], chain_config=self._chain_config)
 
     async def all_markets(self):
+        self.logger().info("Fetching all_markets")
         response = await self._execute_rpc_request(CONSTANTS.ACTIVE_POOLS_METHOD)
+
         if not response["status"]:
             return []
+
         return DataFormatter.format_all_market_response(response["data"])
 
     async def get_orderbook(
@@ -161,30 +148,42 @@ class RPCQueryExecutor(BaseRPCExecutor):
             "asset":str
         }
         """
+        self.logger().info("Fetching get_orderbook")
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "orders": orders}
         response = await self._execute_rpc_request(CONSTANTS.POOL_ORDERBOOK_METHOD, params)
+
         if not response["status"]:
             return []
+
         return DataFormatter.format_orderbook_response(response["data"])
 
     async def get_open_orders(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+        self.logger().info("Fetching get_open_orders")
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "lp": self._lp_account_address}
         response = await self._execute_rpc_request(CONSTANTS.OPEN_ORDERS_METHOD, params)
+
         if not response["status"]:
             return []
+
         return DataFormatter.format_order_response(response["data"])
 
     async def get_all_balances(self):
+        self.logger().info("Fetching get_all_balances")
         response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
+
         if not response["status"]:
             return []
-        return DataFormatter.format_balance_response(response["data"])
+
+        return DataFormatter.format_balance_response(self.logger(), response["data"])
 
     async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+        self.logger().info("Fetching get_market_price")
         params = {"base_asset": base_asset, "quote_asset": quote_asset}
         response = await self._execute_rpc_request(CONSTANTS.MARKET_PRICE_V2_METHOD, params)
+
         if not response["status"]:
             return DataFormatter.format_error_response(response["data"])
+
         return DataFormatter.format_market_price(response["data"])
 
     async def place_limit_order(
@@ -243,7 +242,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
     async def listen_to_market_price_updates(self, events_handler: Callable, market_symbol: str):
         all_assets = await self.all_assets()
         if not all_assets:
-            self.logger().error("Unexpected error getting assets from chainflip rpc.")
+            self.logger().error("Unexpected error getting assets from Chainflip LP API.")
             sys.exit()
         while True:
             try:
@@ -254,7 +253,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Unexpected error listening to Pool Price from chainflip rpc. Error: {e}", exc_info=True
+                    f"Unexpected error listening to Pool Price from Chainflip LP API. Error: {e}", exc_info=True
                 )
                 sys.exit()
 
@@ -262,7 +261,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         # will run in a thread
         all_assets = await self.all_assets()
         if not all_assets:
-            self.logger().error("Unexpected error getting assets from chainflip rpc.")
+            self.logger().error("Unexpected error getting assets from Chainflip LP API.")
             sys.exit()
 
         def handler(data):
@@ -272,87 +271,111 @@ class RPCQueryExecutor(BaseRPCExecutor):
         await self._subscribe_to_api_event(CONSTANTS.ORDER_FILLS_SUBSCRIPTION_METHOD, handler)
 
     def _start_instance(self, url):
+        self.logger().info("Start instance " + url)
+
         try:
-            instance = SubstrateInterface(url=url)
-            instance.session
+            instance = SubstrateInterface(url=url, auto_discover = False)
+
         except ConnectionError as err:
             self.logger().error(str(err))
             raise err
+
         except Exception as err:
             self.logger().error(str(err))
             raise err
+
         return instance
 
     def _reinitialize_rpc_instance(self):
-        self.logger().info("Reinitializing LP RPC Instance")
+        self.logger().info("Reinitializing RPC Instance")
         self._rpc_instance.close()
         self._rpc_instance = self._start_instance(self._rpc_url)
 
     def _reinitialize_api_instance(self):
         self.logger().info("Reinitializing LP API Instance")
-        self._rpc_api_instance.close()
-        self._rpc_api_instance = self._start_instance(self._rpc_api_url)
+        self._lp_api_instance.close()
+        self._lp_api_instance = self._start_instance(self._lp_api_url)
 
     async def _execute_api_request(
         self, request_method: str, params: List | Dict = [], throttler_limit_id: str = CONSTANTS.GENERAL_LIMIT_ID
     ):
-        if not self._rpc_api_instance:
-            self._rpc_api_instance = await self.verify_lp_api_url(self._rpc_api_url)
+        self.logger().info("Making " + request_method + " API call")
+
+        if not self._lp_api_instance:
+            self._lp_api_instance = self._start_instance(self._lp_api_url)
+
         async with self._throttler.execute_task(throttler_limit_id):
             response_data = {"status": True, "data": {}}
             response = None  # for testing purposes
+
             while True:
                 try:
+                    self.logger().info("Calling " + request_method)
                     response = await self.run_in_thread(
-                        self._rpc_api_instance.rpc_request, method=request_method, params=params
+                        self._lp_api_instance.rpc_request, method=request_method, params=params
                     )
                     response_data["data"] = response
                     break
+
                 except ssl.SSLEOFError:
                     self._reinitialize_api_instance()
+
                 except SubstrateRequestException as err:
                     self.logger().error(err)
                     response_data["status"] = False
                     response_data["data"] = err.args[0]
                     break
+
                 except Exception as err:
                     self.logger().error(err)
                     response_data["status"] = False
                     response_data["data"] = {"code": 0, "message": "An Error Occurred"}
                     break
+
+            self.logger().info(request_method + " API call response:" + str(response_data["data"]))
             return response_data
 
     async def _execute_rpc_request(
         self, request_method: str, params: List | Dict = [], throttler_limit_id: str = CONSTANTS.GENERAL_LIMIT_ID
     ):
+        self.logger().info("Making " + request_method + " RPC call")
+
         if not self._rpc_instance:
             self._rpc_instance = self._start_instance(self._rpc_url)
+
         async with self._throttler.execute_task(throttler_limit_id):
             response_data = {"status": True, "data": {}}
             response = None  # for testing purposes
+
             while True:
                 try:
+                    self.logger().info("Calling " + request_method)
                     response = await self.run_in_thread(
                         self._rpc_instance.rpc_request, method=request_method, params=params
                     )
                     response_data["data"] = response
                     break
+
                 except ssl.SSLEOFError:
                     self._reinitialize_rpc_instance()
+
                 except SubstrateRequestException as err:
                     self.logger().error(err)
                     response_data["status"] = False
                     response_data["data"] = err.args[0]
                     break
+
                 except Exception as err:
                     self.logger().error(err)
                     response_data["status"] = False
                     response_data["data"] = {"code": 0, "message": "An Error Occurred"}
                     break
+
+            self.logger().info(request_method + " RPC call response:" + str(response_data["data"]))
             return response_data
 
     async def _subscribe_to_api_event(self, method_name: str, handler: Callable, params=[]):
-        instance = SubstrateInterface(url=self._rpc_api_url)
+        instance = SubstrateInterface(url=self._lp_api_url)
         while True:
             try:
                 response = instance.rpc_request(method_name, params)  # if an error occurs.. raise
@@ -362,7 +385,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}", exc_info=True
+                    f"Unexpected error listening to order fill update from Chainflip LP. Error: {e}", exc_info=True
                 )
                 instance.close()
                 sys.exit()
@@ -386,7 +409,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     raise
                 except Exception as e:
                     self.logger().error(
-                        f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}", exc_info=True
+                        f"Unexpected error listening to order fill update from Chainflip LP. Error: {e}", exc_info=True
                     )
                     break
 

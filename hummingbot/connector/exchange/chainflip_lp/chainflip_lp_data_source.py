@@ -141,8 +141,7 @@ class ChainflipLpDataSource:
         return symbols_map
 
     async def all_balances(self) -> List[Dict[str, Any]]:
-        balances = await self._rpc_executor.get_all_balances()
-        return balances
+        return await self._rpc_executor.get_all_balances()
 
     async def place_order(
         self,
