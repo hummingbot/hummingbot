@@ -256,6 +256,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("100"),
             min_quantity_tick_size=Decimal("0.0001"),
+            min_notional=Decimal("1000000"),
         )
 
         return ("INVALID_MARKET", response)
@@ -296,6 +297,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=None,
             min_quantity_tick_size=None,
+            min_notional=None,
         )
 
         return {native_market.id: native_market}
@@ -303,7 +305,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def order_creation_request_successful_mock_response(self):
         return {"txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
-                "rawLog": "[]"}  # noqa: mock
+                "rawLog": "[]",
+                "code": 0}  # noqa: mock
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
@@ -409,12 +412,14 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         min_price_tick_size = (market.min_price_tick_size
                                * Decimal(f"1e{-market.quote_token.decimals}"))
         min_quantity_tick_size = market.min_quantity_tick_size
+        min_notional = market.min_notional * Decimal(f"1e{-market.quote_token.decimals}")
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=min_quantity_tick_size,
             min_price_increment=min_price_tick_size,
             min_base_amount_increment=min_quantity_tick_size,
             min_quote_amount_increment=min_price_tick_size,
+            min_notional_size=min_notional,
         )
 
         return trading_rule
@@ -486,6 +491,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("0.000000000000001"),
             min_quantity_tick_size=Decimal("1000000000000000"),
+            min_notional=Decimal("1000000"),
         )
 
         return {native_market.id: native_market}
@@ -518,6 +524,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("100"),
             min_quantity_tick_size=Decimal("0.0001"),
+            min_notional=Decimal("1000000"),
         )
 
         return {native_market.id: native_market}
@@ -1284,7 +1291,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
             transaction_simulation_response)
 
-        response = {"txhash": "", "rawLog": "Error"}
+        response = {"txhash": "", "rawLog": "Error", "code": 11}
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
@@ -1327,7 +1334,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
             transaction_simulation_response)
 
-        response = {"txhash": "", "rawLog": "Error"}
+        response = {"txhash": "", "rawLog": "Error", "code": 11}
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response,
@@ -2320,6 +2327,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "cumulativePrice": "1.432536051546776736",
                         "lastTimestamp": "1689423842"
                     },
+                    "minNotional": "1000000",
                 }
             }
         )
@@ -2444,6 +2452,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                         "cumulativePrice": "1.432536051546776736",
                         "lastTimestamp": "1689423842"
                     },
+                    "minNotional": "1000000",
                 }
             }
         )
@@ -3223,11 +3232,13 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
         return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
-                "rawLog": "[]"}
+                "rawLog": "[]",
+                "code": 0}
 
     def _order_cancelation_request_erroneous_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
         return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
-                "rawLog": "Error"}
+                "rawLog": "Error",
+                "code": 11}
 
     def _order_status_request_open_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
         return {

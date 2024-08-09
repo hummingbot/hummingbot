@@ -47,27 +47,28 @@ class InjectiveConfigMapTests(TestCase):
 
     def test_custom_network_config_creation(self):
         network_config = InjectiveCustomNetworkMode(
-            lcd_endpoint='https://devnet.lcd.injective.dev',
-            tm_websocket_endpoint='wss://devnet.tm.injective.dev/websocket',
-            grpc_endpoint='devnet.injective.dev:9900',
-            grpc_exchange_endpoint='devnet.injective.dev:9910',
-            grpc_explorer_endpoint='devnet.injective.dev:9911',
-            chain_stream_endpoint='devnet.injective.dev:9999',
-            chain_id='injective-777',
-            env='devnet',
+            lcd_endpoint="https://devnet.lcd.injective.dev",
+            tm_websocket_endpoint="wss://devnet.tm.injective.dev/websocket",
+            grpc_endpoint="devnet.injective.dev:9900",
+            grpc_exchange_endpoint="devnet.injective.dev:9910",
+            grpc_explorer_endpoint="devnet.injective.dev:9911",
+            chain_stream_endpoint="devnet.injective.dev:9999",
+            chain_id="injective-777",
+            env="devnet",
             secure_connection=False,
         )
 
         network = network_config.network()
         expected_network = Network.custom(
-            lcd_endpoint='https://devnet.lcd.injective.dev',
-            tm_websocket_endpoint='wss://devnet.tm.injective.dev/websocket',
-            grpc_endpoint='devnet.injective.dev:9900',
-            grpc_exchange_endpoint='devnet.injective.dev:9910',
-            grpc_explorer_endpoint='devnet.injective.dev:9911',
-            chain_stream_endpoint='devnet.injective.dev:9999',
-            chain_id='injective-777',
-            env='devnet'
+            lcd_endpoint="https://devnet.lcd.injective.dev",
+            tm_websocket_endpoint="wss://devnet.tm.injective.dev/websocket",
+            grpc_endpoint="devnet.injective.dev:9900",
+            grpc_exchange_endpoint="devnet.injective.dev:9910",
+            grpc_explorer_endpoint="devnet.injective.dev:9911",
+            chain_stream_endpoint="devnet.injective.dev:9999",
+            chain_id="injective-777",
+            env="devnet",
+            official_tokens_list_url="",
         )
 
         self.assertEqual(expected_network.string(), network.string())

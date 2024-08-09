@@ -55,6 +55,7 @@ class InjectiveSpotMarketTests(TestCase):
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("0.000000000000001"),
             min_quantity_tick_size=Decimal("1000000000000000"),
+            min_notional=Decimal("1000000"),
         )
         self._inj_usdt_market = InjectiveSpotMarket(
             market_id="0xa508cb32923323679f29a032c70342c147c17d0145625922b0ef22e955c844c0",  # noqa: mock
@@ -109,6 +110,12 @@ class InjectiveSpotMarketTests(TestCase):
 
         self.assertEqual(expected_value, market.min_quantity_tick_size())
 
+    def test_min_notional(self):
+        market = self._inj_usdt_market
+        expected_value = market.native_market.min_notional / Decimal(f"1e{self._usdt_token.decimals}")
+
+        self.assertEqual(expected_value, market.min_notional())
+
 
 class InjectiveDerivativeMarketTests(TestCase):
 
@@ -145,6 +152,7 @@ class InjectiveDerivativeMarketTests(TestCase):
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("100"),
             min_quantity_tick_size=Decimal("0.0001"),
+            min_notional=Decimal("1000000"),
         )
         self._inj_usdt_derivative_market = InjectiveDerivativeMarket(
             market_id="0x17ef48032cb24375ba7c2e39f384e56433bcab20cbee9a7357e4cba2eb00abe6",  # noqa: mock
@@ -204,6 +212,12 @@ class InjectiveDerivativeMarketTests(TestCase):
         self.assertEqual(market.native_market.oracle_base, market.oracle_base())
         self.assertEqual(market.native_market.oracle_quote, market.oracle_quote())
         self.assertEqual(market.native_market.oracle_type, market.oracle_type())
+
+    def test_min_notional(self):
+        market = self._inj_usdt_derivative_market
+        expected_value = market.native_market.min_notional / Decimal(f"1e{self._usdt_token.decimals}")
+
+        self.assertEqual(expected_value, market.min_notional())
 
 
 class InjectiveTokenTests(TestCase):

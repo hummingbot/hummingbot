@@ -190,6 +190,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("0.0001"),
             min_quantity_tick_size=Decimal("100"),
+            min_notional=Decimal("1000000"),
         )
 
         return native_market
@@ -225,6 +226,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("0.000000000000001"),
             min_quantity_tick_size=Decimal("1000000000000000"),
+            min_notional=Decimal("1000000"),
         )
 
         return native_market
@@ -471,6 +473,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             service_provider_fee=Decimal("0.4"),
             min_price_tick_size=Decimal("0.000000000000001"),
             min_quantity_tick_size=Decimal("1000000000000000"),
+            min_notional=Decimal("1000000"),
         )
 
         return native_market
