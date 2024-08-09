@@ -1,0 +1,17 @@
+# list the Polygon networks available to gateway
+networks:
+  mainnet:
+    chainID: 137
+    nodeURL: https://rpc.ankr.com/polygon
+    tokenListType: 'FILE'
+    tokenListSource: '/home/gateway/conf/lists/polygon_tokens_mainnet.json'
+    nativeCurrencySymbol: 'MATIC'  
+  mumbai:
+    chainID: 80001
+    nodeURL: https://rpc.ankr.com/polygon_mumbai
+    tokenListType: 'FILE'
+    tokenListSource: '/home/gateway/conf/lists/polygon_tokens_mumbai.json'
+    nativeCurrencySymbol: 'MATIC'
+
+manualGasPrice: 400
+gasLimitTransaction: 3000000

@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "marketId": "SOLO-XRP",
+    "baseIssuer": "rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN",
+    "baseCode": "534F4C4F00000000000000000000000000000000",
+    "quoteIssuer": "",
+    "quoteCode": "XRP",
+    "baseTokenID": 3,
+    "quoteTokenID": 0
+  },
+  {
+    "id": 2,
+    "marketId": "SOLO-USD",
+    "baseIssuer": "rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN",
+    "baseCode": "534F4C4F00000000000000000000000000000000",
+    "quoteIssuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+    "quoteCode": "USD",
+    "baseTokenID": 3,
+    "quoteTokenID": 2
+  },
+  {
+    "id": 3,
+    "marketId": "USD-XRP",
+    "baseIssuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+    "baseCode": "USD",
+    "quoteIssuer": "",
+    "quoteCode": "XRP",
+    "baseTokenID": 2,
+    "quoteTokenID": 0
+  },
+  {
+    "id": 4,
+    "marketId": "USD-VND",
+    "baseIssuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+    "baseCode": "USD",
+    "quoteIssuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+    "quoteCode": "VND",
+    "baseTokenID": 2,
+    "quoteTokenID": 1
+  }
+]

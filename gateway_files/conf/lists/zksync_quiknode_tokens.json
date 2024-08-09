@@ -1,0 +1,238 @@
+{
+  "jsonrpc": "2.0",
+  "tokens": [
+    {
+      "chainId": 324,
+      "l1Address": "0x111111111117dc0aa78b770fa6a738034120c302",
+      "address": "0x3f0b8b206a7fbdb3ecfc08c9407ca83f5ab1ce59",
+      "name": "1INCH Token",
+      "symbol": "1INCH",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xba100000625a3754423978a60c9317c58a424e3d",
+      "address": "0xaff169fca5086940c890c8a04c6db4b1db6e0dd6",
+      "name": "Balancer",
+      "symbol": "BAL",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x4fabb145d64652a948d72533023f6e7a623c7c53",
+      "address": "0x9a455d1a2b4630ffdb9a2307f2e875400d28b3c5",
+      "name": "Binance USD",
+      "symbol": "BUSD",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xffffffff2ba8f66d4e51811c5190992176930278",
+      "address": "0xc2b13bb90e33f1e191b8aa8f44ce11534d5698e3",
+      "name": "Furucombo",
+      "symbol": "COMBO",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xa487bf43cf3b10dffc97a9a744cbb7036965d3b9",
+      "address": "0x140d5bc5b62d6cb492b1a475127f50d531023803",
+      "name": "Deri",
+      "symbol": "DERI",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0",
+      "address": "0x9929bcac4417a21d7e6fc86f6dae1cc7f27a2e41",
+      "name": "DEXTF Token",
+      "symbol": "DEXTF",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xdddddd4301a082e62e84e43f474f044423921918",
+      "address": "0xbbd1ba24d589c319c86519646817f2f153c9b716",
+      "name": "DeversiFi Token",
+      "symbol": "DVF",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xcf0c122c6b73ff809c693db761e7baebe62b6a2e",
+      "address": "0xaa610193768223438866ad9e1973447d76e4cf4a",
+      "name": "FLOKI",
+      "symbol": "FLOKI",
+      "decimals": 9
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xeeaa40b28a2d1b0b08f6f97bb1dd4b75316c6107",
+      "address": "0xd63ef5e9c628c8a0e8984cdfb7444aee44b09044",
+      "name": "GOVI",
+      "symbol": "GOVI",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xdefa4e8a7bcba345f687a2f1456f5edd9ce97202",
+      "address": "0x6ee46cb7cd2f15ee1ec9534cf29a5b51c83283e6",
+      "name": "Kyber Network Crystal v2",
+      "symbol": "KNC",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x6dea81c8171d0ba574754ef6f8b412f2ed88c54d",
+      "address": "0xf755cf4f0887279a8bcbe5e39ee062a5b7188401",
+      "name": "LQTY",
+      "symbol": "LQTY",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x5f98805a4e8be255a32880fdec7f6728c6568ba0",
+      "address": "0x503234f203fc7eb888eec8513210612a43cf6115",
+      "name": "LUSD Stablecoin",
+      "symbol": "LUSD",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xa49d7499271ae71cd8ab9ac515e6694c755d400c",
+      "address": "0x0e97c7a0f8b2c9885c8ac9fc6136e829cbc21d42",
+      "name": "Mute.io",
+      "symbol": "MUTE",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
+      "address": "0xfd282f16a64c6d304ac05d1a58da15bed0467c71",
+      "name": "Pepe",
+      "symbol": "PEPE",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xbc396689893d065f41bc2c6ecbee5e0085233447",
+      "address": "0x42c1c56be243c250ab24d2ecdcc77f9ccaa59601",
+      "name": "Perpetual",
+      "symbol": "PERP",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xd33526068d116ce69f19a9ee46f0bd304f21a51f",
+      "address": "0x1cf8553da5a75c20cdc33532cb19ef7e3bfff5bc",
+      "name": "Rocket Pool Protocol",
+      "symbol": "RPL",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+      "address": "0x5b09802d62d213c4503b4b1ef5f727ef62c9f4ef",
+      "name": "SHIBA INU",
+      "symbol": "SHIB",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xd38bb40815d2b0c2d2c866e0c72c5728ffc76dd9",
+      "address": "0xdd9f72afed3631a6c85b5369d84875e6c42f1827",
+      "name": "Symbiosis",
+      "symbol": "SIS",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x95b3497bbcccc46a8f45f5cf54b0878b39f8d96c",
+      "address": "0xee1e88eb20becdebe1e88f50c9f8b1d72478f2d0",
+      "name": "UniDex",
+      "symbol": "UNIDX",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "address": "0x3355df6d4c9c3035724fd0e3914de96a5a83aaf4",
+      "name": "USD Coin",
+      "symbol": "USDC",
+      "decimals": 6
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "address": "0x493257fd37edb34451f62edf8d2a0c418852ba4c",
+      "name": "Tether USD",
+      "symbol": "USDT",
+      "decimals": 6
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "address": "0xbbeb516fb02a01611cbbe0453fe3c580d7281011",
+      "name": "Wrapped BTC",
+      "symbol": "WBTC",
+      "decimals": 8
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "address": "0xf00dad97284d0c6f06dc4db3c32454d4292c6813",
+      "name": "Wrapped Ether",
+      "symbol": "WETH",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0x4691937a7508860f876c9c0a2a617e7d9e945d4b",
+      "address": "0x9e22d758629761fc5708c171d06c2fabb60b5159",
+      "name": "Wootrade Network",
+      "symbol": "WOO",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xe4815ae53b124e7263f08dcdbbb757d41ed658c6",
+      "address": "0xa51710195cdc29c43d3beeeb6b255cfd97b3dd88",
+      "name": "Zks",
+      "symbol": "ZKS",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xc91a71a1ffa3d8b22ba615ba1b9c01b2bbbf55ad",
+      "address": "0x1ab721f531cab4c87d536be8b985eafce17f0184",
+      "name": "ZigZag",
+      "symbol": "ZZ",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xbe9895146f7af43049ca1c1ae358b0541ea49704",
+      "address": "0x75af292c1c9a37b3ea2e6041168b4e48875b9ed5",
+      "name": "Coinbase Wrapped Staked ETH",
+      "symbol": "cbETH",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e",
+      "address": "0x43cd37cc4b9ec54833c8ac362dd55e58bfd62b86",
+      "name": "Curve.Fi USD Stablecoin",
+      "symbol": "crvUSD",
+      "decimals": 18
+    },
+    {
+      "chainId": 324,
+      "l1Address": "0xae78736cd615f374d3085123a210448e74fc6393",
+      "address": "0x32fd44bb869620c0ef993754c8a00be67c464806",
+      "name": "Rocket Pool ETH",
+      "symbol": "rETH",
+      "decimals": 18
+    }
+  ],
+  "id": 1
+}

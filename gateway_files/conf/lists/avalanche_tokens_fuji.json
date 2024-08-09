@@ -1,0 +1,37 @@
+{
+  "name": "Fuji Token List",
+  "logoURI": "https://i.imgur.com/tt0vG2N.png",
+  "version": {
+    "major": 0,
+    "minor": 2,
+    "patch": 0
+  },
+  "keywords": [],
+  "timestamp": "2022-02-21T00:00:00+00:00",
+  "tokens": [
+    {
+      "address": "0x2058ec2791dD28b6f67DB836ddf87534F4Bbdf22",
+      "chainId": 43113,
+      "name": "The Fuji stablecoin",
+      "symbol": "FUJISTABLE",
+      "decimals": 6,
+      "logoURI": "https://i.imgur.com/LPZDXoT.png"
+    },
+    {
+      "address": "0x97132C109c6816525F7f338DCb7435E1412A7668",
+      "chainId": 43113,
+      "name": "To the Moon",
+      "symbol": "FUJIMOON",
+      "decimals": 9,
+      "logoURI": "https://i.imgur.com/jNTqyQA.png"
+    },
+    {
+      "address": "0xF561800EdedF4CE146ED427Cacf1Fb8aB3B2D452",
+      "chainId": 43113,
+      "name": "Wrapped WAGMI",
+      "symbol": "WWAGMI",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/antiyro/WagmiTokenList/master/wagmi.png"
+    }
+  ]
+}

@@ -1,0 +1,508 @@
+{
+    "chain_name": "osmosistestnet5",
+    "assets": [
+      {
+        "description": "The native token of Osmosis",
+        "denom_units": [
+          {
+            "denom": "uosmo",
+            "exponent": 0,
+            "aliases": []
+          },
+          {
+            "denom": "osmo",
+            "exponent": 6,
+            "aliases": []
+          }
+        ],
+        "base": "uosmo",
+        "name": "Osmosis",
+        "display": "osmo",
+        "symbol": "OSMO",
+        "traces": [],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.svg"
+        },
+        "coingecko_id": "osmosis",
+        "keywords": [
+          "dex",
+          "staking",
+          "osmosis-info",
+          "osmosis-price:ibc/6F34E1BD664C36CE49ACC28E60D62559A5F96C4F9A6CCE4FC5A67B2852E24CFE:5"
+        ]
+      },
+      {
+        "denom_units": [
+          {
+            "denom": "uion",
+            "exponent": 0
+          },
+          {
+            "denom": "ion",
+            "exponent": 6
+          }
+        ],
+        "base": "uion",
+        "name": "Ion",
+        "display": "ion",
+        "symbol": "ION",
+        "traces": [],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/ion.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/ion.svg"
+        },
+        "coingecko_id": "ion",
+        "keywords": [
+          "memecoin",
+          "osmosis-info",
+          "osmosis-price:uosmo:1"
+        ]
+      },
+      {
+        "description": "The native staking and governance token of the Theta testnet version of the Cosmos Hub.",
+        "denom_units": [
+          {
+            "denom": "ibc/A8C2D23A1E6F95DA4E48BA349667E322BD7A6C996D8A4AAE8BA72E190F3D1477",
+            "exponent": 0,
+            "aliases": [
+              "uatom"
+            ]
+          },
+          {
+            "denom": "atom",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/A8C2D23A1E6F95DA4E48BA349667E322BD7A6C996D8A4AAE8BA72E190F3D1477",
+        "name": "Cosmos",
+        "display": "atom",
+        "symbol": "ATOM",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "cosmoshubtestnet",
+              "base_denom": "uatom",
+              "channel_id": "channel-2500"
+            },
+            "chain": {
+              "channel_id": "channel-12",
+              "path": "transfer/channel-12/uatom"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg"
+        },
+        "keywords": [
+          "osmosis-info",
+          "osmosis-price:uosmo:12"
+        ]
+      },
+      {
+        "description": "Circle's stablecoin on Axelar",
+        "denom_units": [
+          {
+            "denom": "ibc/6F34E1BD664C36CE49ACC28E60D62559A5F96C4F9A6CCE4FC5A67B2852E24CFE",
+            "exponent": 0,
+            "aliases": [
+              "uausdc"
+            ]
+          },
+          {
+            "denom": "ausdc",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/6F34E1BD664C36CE49ACC28E60D62559A5F96C4F9A6CCE4FC5A67B2852E24CFE",
+        "name": "USD Coin",
+        "display": "ausdc",
+        "symbol": "aUSDC",
+        "traces": [
+          {
+            "type": "synthetic",
+            "counterparty": {
+              "chain_name": "forex",
+              "base_denom": "USD"
+            },
+            "provider": "Circle"
+          },
+          {
+            "type": "bridge",
+            "counterparty": {
+              "chain_name": "ethereumtestnet",
+              "base_denom": "0x254d06f33bDc5b8ee05b2ea472107E300226659A"
+            },
+            "provider": "Axelar"
+          },
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "axelartestnet",
+              "base_denom": "uausdc",
+              "channel_id": "channel-227"
+            },
+            "chain": {
+              "channel_id": "channel-3",
+              "path": "transfer/channel-3/uausdc"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/axelar/images/usdc.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/axelar/images/usdc.svg"
+        },
+        "coingecko_id": "usd-coin",
+        "keywords": [
+          "osmosis-info"
+        ]
+      },
+      {
+        "description": "The native token of JUNO Chain",
+        "denom_units": [
+          {
+            "denom": "ibc/8E2FEFCBD754FA3C97411F0126B9EC76191BAA1B3959CB73CECF396A4037BBF0",
+            "exponent": 0,
+            "aliases": [
+              "ujunox"
+            ]
+          },
+          {
+            "denom": "junox",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/8E2FEFCBD754FA3C97411F0126B9EC76191BAA1B3959CB73CECF396A4037BBF0",
+        "name": "Juno Testnet",
+        "display": "junox",
+        "symbol": "JUNOX",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "junotestnet",
+              "base_denom": "ujunox",
+              "channel_id": "channel-190"
+            },
+            "chain": {
+              "channel_id": "channel-1",
+              "path": "transfer/channel-1/ujunox"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/junotestnet/images/juno.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/junotestnet/images/juno.svg"
+        },
+        "coingecko_id": "juno-network",
+        "keywords": [
+          "osmosis-info",
+          "osmosis-price:uosmo:3"
+        ]
+      },
+      {
+        "description": "The native token of Mars Protocol",
+        "denom_units": [
+          {
+            "denom": "ibc/2E7368A14AC9AB7870F32CFEA687551C5064FA861868EDF7437BC877358A81F9",
+            "exponent": 0,
+            "aliases": [
+              "umars"
+            ]
+          },
+          {
+            "denom": "mars",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/2E7368A14AC9AB7870F32CFEA687551C5064FA861868EDF7437BC877358A81F9",
+        "name": "Mars",
+        "display": "mars",
+        "symbol": "MARS",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "marstestnet",
+              "base_denom": "umars",
+              "channel_id": "channel-14"
+            },
+            "chain": {
+              "channel_id": "channel-24",
+              "path": "transfer/channel-24/umars"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/mars/images/mars-token.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/mars/images/mars-token.svg"
+        },
+        "keywords": [
+          "osmosis-info",
+          "osmosis-price:uosmo:10"
+        ]
+      },
+      {
+        "description": "USD Coin",
+        "denom_units": [
+          {
+            "denom": "ibc/40F1B2458AEDA66431F9D44F48413240B8D28C072463E2BF53655728683583E3",
+            "exponent": 0,
+            "aliases": [
+              "microusdc",
+              "uusdc"
+            ]
+          },
+          {
+            "denom": "usdc",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/40F1B2458AEDA66431F9D44F48413240B8D28C072463E2BF53655728683583E3",
+        "name": "USD Coin",
+        "display": "usdc",
+        "symbol": "USDC",
+        "traces": [
+          {
+            "type": "synthetic",
+            "counterparty": {
+              "chain_name": "forex",
+              "base_denom": "USD"
+            },
+            "provider": "Circle"
+          },
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "nobletestnet",
+              "base_denom": "uusdc",
+              "channel_id": "channel-10"
+            },
+            "chain": {
+              "channel_id": "channel-123",
+              "path": "transfer/channel-123/uusdc"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/_non-cosmos/ethereum/images/usdc.svg"
+        },
+        "keywords": [
+          "osmosis-info",
+          "osmosis-price:ibc/6F34E1BD664C36CE49ACC28E60D62559A5F96C4F9A6CCE4FC5A67B2852E24CFE:46"
+        ]
+      },
+      {
+        "description": "Akash Token (AKT) is the Akash Network's native utility token, used as the primary means to govern, secure the blockchain, incentivize participants, and provide a default mechanism to store and exchange value.",
+        "denom_units": [
+          {
+            "denom": "ibc/33C17B7D6A37726CA8DD4A4036198916F79A3A4D661B054AA2E8C92809907C58",
+            "exponent": 0,
+            "aliases": [
+              "uakt"
+            ]
+          },
+          {
+            "denom": "akt",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/33C17B7D6A37726CA8DD4A4036198916F79A3A4D661B054AA2E8C92809907C58",
+        "name": "Akash Network",
+        "display": "akt",
+        "symbol": "AKT",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "akashtestnet",
+              "base_denom": "uakt",
+              "channel_id": "channel-0"
+            },
+            "chain": {
+              "channel_id": "channel-899",
+              "path": "transfer/channel-899/uakt"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/akash/images/akt.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/akash/images/akt.svg"
+        }
+      },
+      {
+        "description": "The native utility token of the Kaon testnet version of KYVE.",
+        "denom_units": [
+          {
+            "denom": "ibc/AB8AF05799E299FB5C5C80781DA35887F53E029745D20E5641233DB4E6B28515",
+            "exponent": 0,
+            "aliases": [
+              "tkyve"
+            ]
+          },
+          {
+            "denom": "kyve",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/AB8AF05799E299FB5C5C80781DA35887F53E029745D20E5641233DB4E6B28515",
+        "name": "KYVE",
+        "display": "kyve",
+        "symbol": "KYVE",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "kyvetestnet",
+              "base_denom": "tkyve",
+              "channel_id": "channel-2"
+            },
+            "chain": {
+              "channel_id": "channel-10",
+              "path": "transfer/channel-10/tkyve"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/kyvetestnet/images/kyve.svg"
+        },
+        "keywords": [
+          "osmosis-price:uosmo:4"
+        ]
+      },
+      {
+        "description": "QCK - native token of Quicksilver",
+        "denom_units": [
+          {
+            "denom": "ibc/F37CF69589DE12342758382F8770C0852CD8D2E4519F55166EBDAF472AD667C9",
+            "exponent": 0,
+            "aliases": [
+              "uqck"
+            ]
+          },
+          {
+            "denom": "qck",
+            "exponent": 6,
+            "aliases": []
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/F37CF69589DE12342758382F8770C0852CD8D2E4519F55166EBDAF472AD667C9",
+        "name": "Quicksilver",
+        "display": "qck",
+        "symbol": "QCK",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "quicksilvertestnet",
+              "base_denom": "uqck",
+              "channel_id": "channel-20"
+            },
+            "chain": {
+              "channel_id": "channel-13",
+              "path": "transfer/channel-13/uqck"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/quicksilver/images/qck.png"
+        },
+        "coingecko_id": "quicksilver",
+        "keywords": [
+          "osmosis-info",
+          "osmosis-price:uosmo:34"
+        ]
+      },
+      {
+        "description": "The native token of Chain4Energy",
+        "denom_units": [
+          {
+            "denom": "ibc/E3D323CB6F427C49E56F913C853A416F6B71BAA9B0164625AD0203266F92B3ED",
+            "exponent": 0,
+            "aliases": [
+              "uc4e"
+            ]
+          },
+          {
+            "denom": "c4e",
+            "exponent": 6
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/E3D323CB6F427C49E56F913C853A416F6B71BAA9B0164625AD0203266F92B3ED",
+        "name": "Chain4Energy",
+        "display": "c4e",
+        "symbol": "C4E",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "chain4energytestnet",
+              "base_denom": "uc4e",
+              "channel_id": "channel-0"
+            },
+            "chain": {
+              "channel_id": "channel-111",
+              "path": "transfer/channel-111/uc4e"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/chain4energytestnet/images/c4e.png"
+        },
+        "keywords": [
+          "osmosis-info",
+          "osmosis-price:ibc/6F34E1BD664C36CE49ACC28E60D62559A5F96C4F9A6CCE4FC5A67B2852E24CFE:40"
+        ]
+      },
+      {
+        "description": "The native staking and governance token of the Composable testnet.",
+        "denom_units": [
+          {
+            "denom": "ibc/27689601842A99059DFD79EB0A34A089FC2F7337491B5555C176400A8FA7F2A4",
+            "exponent": 0,
+            "aliases": [
+              "ppica"
+            ]
+          },
+          {
+            "denom": "pica",
+            "exponent": 12
+          }
+        ],
+        "type_asset": "ics20",
+        "base": "ibc/27689601842A99059DFD79EB0A34A089FC2F7337491B5555C176400A8FA7F2A4",
+        "name": "Pica",
+        "display": "pica",
+        "symbol": "PICA",
+        "traces": [
+          {
+            "type": "ibc",
+            "counterparty": {
+              "chain_name": "composabletestnet",
+              "base_denom": "ppica",
+              "channel_id": "channel-11"
+            },
+            "chain": {
+              "channel_id": "channel-329",
+              "path": "transfer/channel-329/ppica"
+            }
+          }
+        ],
+        "logo_URIs": {
+          "png": "https://raw.githubusercontent.com/cosmos/chain-registry/master/composable/images/composable.png",
+          "svg": "https://raw.githubusercontent.com/cosmos/chain-registry/master/composable/images/composable.svg"
+        }
+      }
+    ]
+  }

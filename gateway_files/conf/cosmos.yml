@@ -1,0 +1,13 @@
+networks:
+  mainnet:
+    rpcURL: https://cosmos-mainnet-rpc.allthatnode.com:26657
+    tokenListType: URL
+    tokenListSource: >-
+      https://cosmos-chain-registry-list.vercel.app/list.json
+  testnet:
+    rpcURL: https://cosmos-testnet-rpc.allthatnode.com:26657
+    tokenListType: URL
+    tokenListSource: https://cosmos-chain-registry-list.vercel.app/list.json
+network: mainnet
+nativeCurrencySymbol: ATOM
+manualGasPrice: 110

@@ -1,0 +1,39 @@
+networks:
+  mainnet:
+    nodeURL: wss://xrplcluster.com/
+    tokenListType: "FILE"
+    tokenListSource: "/home/gateway/conf/lists/xrpl_tokens.json"
+    marketListType: "FILE"
+    marketListSource: "/home/gateway/conf/lists/xrpl_markets.json"
+    nativeCurrencySymbol: "XRP"
+  testnet:
+    nodeURL: wss://s.altnet.rippletest.net:51233/
+    tokenListType: "FILE"
+    tokenListSource: "/home/gateway/conf/lists/xrpl_tokens_testnet.json"
+    marketListType: "FILE"
+    marketListSource: "/home/gateway/conf/lists/xrpl_markets_testnet.json"
+    nativeCurrencySymbol: "XRP"
+  devnet:
+    nodeURL: wss://s.devnet.rippletest.net:51233/
+    tokenListType: "FILE"
+    tokenListSource: "/home/gateway/conf/lists/xrpl_tokens_devnet.json"
+    marketListType: "FILE"
+    marketListSource: "/home/gateway/conf/lists/xrpl_markets_devnet.json"
+    nativeCurrencySymbol: "XRP"
+network: "xrpl"
+requestTimeout: 10000
+connectionTimeout: 10000
+feeCushion: 1.2
+maxFeeXRP: "2"
+orderDbPath: "db/xrpl.level"
+maxLRUCacheInstances: 10
+retry:
+  all:
+    maxNumberOfRetries: 3 # 0 means no retries
+    delayBetweenRetries: 1 # in milliseconds, 0 means no delay
+timeout:
+  all: 0 # in milliseconds, 0 means no timeout.
+parallel:
+  all:
+    batchSize: 1 # 0 means no batching, group all
+    delayBetweenBatches: 1 # in milliseconds, 0 means no delay

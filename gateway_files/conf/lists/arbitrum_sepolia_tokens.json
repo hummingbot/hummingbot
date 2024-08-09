@@ -1,0 +1,31 @@
+{
+   "name": "ArbSepolia",
+   "timestamp": "2022-03-01T22:29:12.223Z",
+   "tokens": [
+      {
+         "name": "USDC Stablecoin",
+         "symbol": "USDC",
+         "chainId": 421614,
+         "address": "0xd28301B86800bBCF1f09a55642ee3E115Edb1f67",
+         "decimals": 18,
+         "extensions": {
+            "quote": true
+         }
+      },
+      {
+         "name": "Test Token",
+         "symbol": "TEST",
+         "chainId": 421614,
+         "address": "0x2fc8011B01c988249ace25ec2c624079ac146e04",
+         "decimals": 18
+      },
+      {
+         "name": "Wrapped Ethereum",
+         "symbol": "WETH",
+         "chainId": 421614,
+         "address": "0xc556bAe1e86B2aE9c22eA5E036b07E55E7596074",
+         "decimals": 18
+      }
+   ]
+ }
+ 
