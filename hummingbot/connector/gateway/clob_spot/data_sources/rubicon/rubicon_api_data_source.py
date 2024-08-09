@@ -9,10 +9,8 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
     GatewayCLOBAPIDataSourceBase,
 )
-from hummingbot.connector.gateway.clob_spot.data_sources.rubicon_ethereum.rubicon_constants import CONNECTOR_NAME
-from hummingbot.connector.gateway.clob_spot.data_sources.rubicon_ethereum.rubicon_types import (
-    OrderStatus as RubiconOrderStatus,
-)
+from hummingbot.connector.gateway.clob_spot.data_sources.rubicon.rubicon_constants import CONNECTOR_NAME
+from hummingbot.connector.gateway.clob_spot.data_sources.rubicon.rubicon_types import OrderStatus as RubiconOrderStatus
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
