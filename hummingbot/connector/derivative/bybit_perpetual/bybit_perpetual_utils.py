@@ -44,10 +44,17 @@ def get_linear_non_linear_split(trading_pairs: List[str]) -> Tuple[List[str], Li
 
 def is_linear_perpetual(trading_pair: str) -> bool:
     """
-    Returns True if trading_pair is in USDT(Linear) Perpetual
+    Returns True if trading_pair is in USDT/USDC(Linear) Perpetual
     """
     _, quote_asset = split_hb_trading_pair(trading_pair)
-    return quote_asset == "USDT"
+    return quote_asset in ("USDT", "USDC")
+
+
+def get_trading_pair_category(trading_pair):
+    if is_linear_perpetual(trading_pair):
+        return "linear"
+    else:
+        return "inverse"
 
 
 def get_next_funding_timestamp(current_timestamp: float) -> float:
