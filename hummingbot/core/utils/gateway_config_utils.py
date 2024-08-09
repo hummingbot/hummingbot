@@ -20,7 +20,8 @@ native_tokens = {
     "tezos": "XTZ",
     "xrpl": "XRP",
     "kujira": "KUJI",
-    "telos": "TLOS"
+    "telos": "TLOS",
+    "ethereum-classic": "ETC"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
