@@ -23,7 +23,7 @@ class TestGateioSpotCandles(TestCandlesBase):
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + "_" + cls.quote_asset
-        cls.max_records = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        cls.max_records = 150
 
     def setUp(self) -> None:
         super().setUp()

@@ -1,7 +1,6 @@
 import asyncio
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
-import hummingbot.data_feed.candles_feed.mexc_perpetual_candles.constants as CONSTANTS
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.mexc_perpetual_candles import MexcPerpetualCandles
 
@@ -19,7 +18,7 @@ class TestMexcPerpetualCandles(TestCandlesBase):
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
-        cls.max_records = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        cls.max_records = 150
 
     def setUp(self) -> None:
         super().setUp()

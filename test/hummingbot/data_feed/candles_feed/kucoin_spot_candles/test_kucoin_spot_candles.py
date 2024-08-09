@@ -3,7 +3,7 @@ from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandles
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.data_feed.candles_feed.kucoin_spot_candles import KucoinSpotCandles, constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.kucoin_spot_candles import KucoinSpotCandles
 
 
 class TestKucoinSpotCandles(TestCandlesBase):
@@ -19,7 +19,7 @@ class TestKucoinSpotCandles(TestCandlesBase):
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.max_records = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        cls.max_records = 150
 
     def setUp(self) -> None:
         super().setUp()

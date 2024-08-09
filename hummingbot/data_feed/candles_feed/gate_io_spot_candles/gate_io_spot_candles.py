@@ -17,8 +17,7 @@ class GateioSpotCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -44,6 +43,10 @@ class GateioSpotCandles(CandlesBase):
     @property
     def candles_endpoint(self):
         return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
 
     @property
     def rate_limits(self):
@@ -123,8 +126,8 @@ class GateioSpotCandles(CandlesBase):
             candles_row_dict["high"] = data["result"]["h"]
             candles_row_dict["low"] = data["result"]["l"]
             candles_row_dict["close"] = data["result"]["c"]
-            candles_row_dict["volume"] = data["result"]["v"]
-            candles_row_dict["quote_asset_volume"] = data["result"]["a"]
+            candles_row_dict["volume"] = data["result"]["a"]
+            candles_row_dict["quote_asset_volume"] = data["result"]["v"]
             candles_row_dict["n_trades"] = 0
             candles_row_dict["taker_buy_base_volume"] = 0
             candles_row_dict["taker_buy_quote_volume"] = 0
