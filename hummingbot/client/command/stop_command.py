@@ -29,9 +29,6 @@ class StopCommand:
             import appnope
             appnope.nap()
 
-        if self._pmm_script_iterator is not None:
-            self._pmm_script_iterator.stop(self.clock)
-
         if isinstance(self.strategy, ScriptStrategyBase):
             self.strategy.on_stop()
 

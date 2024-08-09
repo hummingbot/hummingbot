@@ -255,15 +255,6 @@ class StartCommand(GatewayChainApiManager):
                         await market.cancel_all(10.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
-            try:
-                self._pmm_script_iterator = self.client_config_map.pmm_script_mode.get_iterator(
-                    self.strategy_name, list(self.markets.values()), self.strategy
-                )
-            except ValueError as e:
-                self.notify(f"Error: {e}")
-            if self._pmm_script_iterator is not None:
-                self.clock.add_iterator(self._pmm_script_iterator)
-                self.notify(f"PMM script ({self.client_config_map.pmm_script_mode.pmm_script_file_path}) started.")
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self.notify(f"\n'{self.strategy_name}' strategy started.\n"
                         f"Run `status` command to query the progress.")
