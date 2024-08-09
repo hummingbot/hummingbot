@@ -25,7 +25,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -60,6 +60,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._last_trade_history_timestamp = None
         self._contract_sizes = {}
+        self._exchange_position_mode = None
+        self.tickers = {}
+        self.account_config = {}
 
         super().__init__(client_config_map)
 
@@ -92,15 +95,15 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def trading_rules_request_path(self) -> str:
-        return CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
+        return CONSTANTS.REST_GET_INSTRUMENTS
 
     @property
     def trading_pairs_request_path(self) -> str:
-        return CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
+        return CONSTANTS.REST_GET_INSTRUMENTS
 
     @property
     def check_network_request_path(self) -> str:
-        return CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]
+        return CONSTANTS.REST_SERVER_TIME
 
     @property
     def trading_pairs(self):
@@ -118,6 +121,10 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     def funding_fee_poll_interval(self) -> int:
         return 120
 
+    @property
+    def position_mode(self) -> PositionMode:
+        return PositionMode.HEDGE
+
     def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
         return amount / self._contract_sizes[trading_pair]
 
@@ -128,7 +135,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         """
         :return a list of OrderType supported by this connector
         """
-        # TODO: Check if it's market or limit_maker
         return [OrderType.LIMIT, OrderType.MARKET]
 
     def supported_position_modes(self) -> List[PositionMode]:
@@ -192,6 +198,53 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         super().start(clock, timestamp)
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
+
+    def set_position_mode(self, mode: PositionMode):
+        """
+        Sets position mode for perpetual trading, a child class might need to override this to set position mode on
+        the exchange
+        :param mode: the position mode
+        """
+        if mode in self.supported_position_modes():
+            safe_ensure_future(self._get_and_process_account_position_mode(mode))
+        else:
+            self.logger().error(f"Position mode {mode} is not supported. Mode not set.")
+
+    async def _get_and_process_account_position_mode(self, mode: PositionMode):
+        try:
+            await self._get_account_config()
+            position_mode_api = self.account_config["posMode"]
+            reverse_position_mode_map = {v: k for k, v in CONSTANTS.POSITION_MODE_MAP.items()}
+            self._exchange_position_mode = reverse_position_mode_map.get(position_mode_api)
+            if self._exchange_position_mode != mode:
+                safe_ensure_future(self._execute_set_position_mode(mode))
+            else:
+                self.logger().debug(f"Position mode already set to {self._perpetual_trading.position_mode}. No action required.")
+        except IOError as e:
+            self.logger().error(f"Error fetching account position mode. {e}")
+            return None
+
+    async def _get_account_config(self) -> Dict[str, Any]:
+        try:
+            response = await self._api_get(path_url=CONSTANTS.REST_GET_ACCOUNT_CONFIG,
+                                           is_auth_required=True)
+            account_config = response.get("data")
+            if account_config is not None:
+                self.account_config = account_config[0]
+        except Exception as e:
+            self.logger().error(f"Error fetching account info. {e}")
+            return None
+
+    async def _get_tickers_info(self) -> float:
+        params = {"instType": "SWAP"}
+
+        resp_json = await self._api_get(
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
+            params=params,
+        )
+
+        self.tickers = resp_json["data"]
+        return self.tickers
 
     def _get_fee(self,
                  base_currency: str,
@@ -262,7 +315,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             data["posSide"] = "net"
 
         exchange_order_id = await self._api_post(
-            path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER,
             data=data,
             is_auth_required=True,
             trading_pair=ex_trading_pair,
@@ -282,18 +335,18 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if tracked_order.client_order_id:
             data["clOrdId"] = tracked_order.client_order_id
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_CANCEL_ACTIVE_ORDER,
             data=data,
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
         )
         data = cancel_result["data"][0]
-        ret_code_ok = data["sCode"] == CONSTANTS.RET_CODE_OK
-        ret_code_order_not_exists = data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILED_BECAUSE_ORDER_NOT_EXISTS
-        ret_code_already_canceled = data["sCode"] == CONSTANTS.RET_CODE_ORDER_ALREADY_CANCELLED
-        if ret_code_ok or ret_code_order_not_exists or ret_code_already_canceled:
-            final_result = True
-        else:
+        final_result = data["sCode"] == CONSTANTS.RET_CODE_OK
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_ORDER_DOES_NOT_EXIST
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_ORDER_ALREADY_CANCELED
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_ORDER_ALREADY_COMPLETED
+        final_result |= data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILS_UNSUPPORTED_ORDER_TYPE
+        if not final_result:
             raise IOError(f"Error cancelling order {order_id}: {cancel_result}")
         return final_result
 
@@ -301,7 +354,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         params = {"uly": trading_pair, "instType": "SWAP"}
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
             params=params,
         )
 
@@ -312,7 +365,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         params = {"instType": "SWAP"}
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION,
             params=params,
         )
 
@@ -324,7 +377,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         Calls REST API to update total and available balances
         """
         wallet_balance: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_GET_WALLET_BALANCE,
             is_auth_required=True,
             params={"ccy": "USDT,USDC"},
         )
@@ -412,7 +465,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "instId": exchange_symbol,
         }
         res = await self._api_get(
-            path_url=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_USER_TRADE_RECORDS,
             params=body_params,
             is_auth_required=True,
             trading_pair=order.trading_pair,
@@ -483,7 +536,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_request(
             method=RESTMethod.GET,
-            path_url=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_QUERY_ACTIVE_ORDER,
             params={
                 "instId": await self.exchange_symbol_associated_to_pair(order.trading_pair),
                 "clOrdId": order.client_order_id},
@@ -546,7 +599,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
             trade_history_tasks.append(
                 asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
+                    path_url=CONSTANTS.REST_USER_TRADE_RECORDS,
                     params=body_params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
@@ -585,7 +638,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             body_params = {"instId": ex_trading_pair}
             position_tasks.append(
                 asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT],
+                    path_url=CONSTANTS.REST_GET_POSITIONS,
                     params=body_params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
@@ -765,7 +818,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         data = {"posMode": api_mode}
 
         response = await self._api_post(
-            path_url=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_SET_POSITION_MODE,
             data=data,
             is_auth_required=True,
         )
@@ -790,7 +843,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "mgnMode": "cross"
         }
         resp: Dict[str, Any] = await self._api_post(
-            path_url=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_SET_LEVERAGE,
             data=data,
             is_auth_required=True,
             trading_pair=trading_pair,
@@ -826,7 +879,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "type": 8
         }
         raw_response: Dict[str, Any] = await self._api_get(
-            path_url=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT],
+            path_url=CONSTANTS.REST_BILLS_DETAILS,
             params=params,
             is_auth_required=True,
             trading_pair=trading_pair,
@@ -858,11 +911,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                            **kwargs) -> Dict[str, Any]:
 
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        if limit_id is None:
-            limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
-                method=method.value,
-                endpoint=path_url,
-            )
         url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, domain=self._domain)
 
         resp = await rest_assistant.execute_request(

@@ -107,7 +107,7 @@ class OkxPerpetualAuth(AuthBase):
         timestamp = int(time.time())
         _access_sign = self.generate_ws_signature_from_payload(timestamp=timestamp,
                                                                method=RESTMethod.GET,
-                                                               request_path=CONSTANTS.REST_WS_LOGIN_PATH["ENDPOINT"])
+                                                               request_path=CONSTANTS.REST_WS_LOGIN_PATH)
         return [
             {
                 "apiKey": self._api_key,

@@ -43,24 +43,12 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
         url = web_utils.wss_linear_public_url("okx_perpetual")
         self.assertEqual(CONSTANTS.WSS_PUBLIC_URLS.get("okx_perpetual"), url)
 
-        url = web_utils.wss_linear_public_url("okx_perpetual_aws")
-        self.assertEqual(CONSTANTS.WSS_PUBLIC_URLS.get("okx_perpetual_aws"), url)
-
-        url = web_utils.wss_linear_public_url("okx_perpetual_demo")
-        self.assertEqual(CONSTANTS.WSS_PUBLIC_URLS.get("okx_perpetual_demo"), url)
-
     def test_wss_linear_private_url(self):
         url = web_utils.wss_linear_private_url(None)
         self.assertEqual(CONSTANTS.WSS_PRIVATE_URLS.get("okx_perpetual"), url)
 
         url = web_utils.wss_linear_private_url("okx_perpetual")
         self.assertEqual(CONSTANTS.WSS_PRIVATE_URLS.get("okx_perpetual"), url)
-
-        url = web_utils.wss_linear_private_url("okx_perpetual_aws")
-        self.assertEqual(CONSTANTS.WSS_PRIVATE_URLS.get("okx_perpetual_aws"), url)
-
-        url = web_utils.wss_linear_private_url("okx_perpetual_demo")
-        self.assertEqual(CONSTANTS.WSS_PRIVATE_URLS.get("okx_perpetual_demo"), url)
 
     def test_rest_private_pair_specific_rate_limits(self):
         trading_pairs = ["COINALPHA-HBOT"]
@@ -180,9 +168,8 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
                 }
             ]
         }
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SERVER_TIME,
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         mock_api.get(regex_url, body=json.dumps(response))
 
