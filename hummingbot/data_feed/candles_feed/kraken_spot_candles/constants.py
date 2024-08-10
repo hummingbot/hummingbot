@@ -23,6 +23,7 @@ INTERVALS = bidict({
     "1d": "1440",
     "1w": "10080",
 })
+MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = MAX_CANDLES_AGO = 720
 PUBLIC_ENDPOINT_LIMIT_ID = "PublicPoints"
 RATE_LIMITS = [
     RateLimit(

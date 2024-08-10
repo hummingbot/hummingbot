@@ -48,7 +48,7 @@ class RESTAssistantTest(unittest.TestCase):
 
         pre_processors = [PreProcessor()]
         post_processors = [PostProcessor()]
-        connection = RESTConnection(aiohttp.ClientSession())
+        connection = RESTConnection(aiohttp.ClientSession(loop=self.ev_loop))
         assistant = RESTAssistant(
             connection=connection,
             throttler=AsyncThrottler(rate_limits=[]),
@@ -85,7 +85,7 @@ class RESTAssistantTest(unittest.TestCase):
             async def ws_authenticate(self, request: WSRequest) -> WSRequest:
                 pass
 
-        connection = RESTConnection(aiohttp.ClientSession())
+        connection = RESTConnection(aiohttp.ClientSession(loop=self.ev_loop))
         assistant = RESTAssistant(connection, throttler=AsyncThrottler(rate_limits=[]), auth=AuthDummy())
         req = RESTRequest(method=RESTMethod.GET, url=url)
         auth_req = RESTRequest(method=RESTMethod.GET, url=url, is_auth_required=True)
