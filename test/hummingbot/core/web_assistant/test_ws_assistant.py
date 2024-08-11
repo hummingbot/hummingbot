@@ -15,18 +15,15 @@ from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
 class WSAssistantTest(unittest.TestCase):
-    ev_loop: asyncio.AbstractEventLoop
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        for task in asyncio.all_tasks(cls.ev_loop):
-            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()
-        aiohttp_client_session = aiohttp.ClientSession()
+        aiohttp_client_session = aiohttp.ClientSession(loop=self.ev_loop)
         self.ws_connection = WSConnection(aiohttp_client_session)
         self.ws_assistant = WSAssistant(self.ws_connection)
         self.mocking_assistant = NetworkMockingAssistant()
