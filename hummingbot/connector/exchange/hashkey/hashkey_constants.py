@@ -28,7 +28,6 @@ WSS_PRIVATE_URL = {"hashkey_global": "wss://stream-glb.hashkey.com/api/v1/ws/{li
                    "hashkey_hk_testnet": "wss://stream.sim.obibiz.com/api/v1/ws/{listenKey}"}
 
 # Websocket event types
-DIFF_EVENT_TYPE = "diffDepth"
 TRADE_EVENT_TYPE = "trade"
 SNAPSHOT_EVENT_TYPE = "depth"
 

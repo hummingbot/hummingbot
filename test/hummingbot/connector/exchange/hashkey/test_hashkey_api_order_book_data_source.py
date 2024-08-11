@@ -474,135 +474,6 @@ class TestHashkeyAPIOrderBookDataSource(unittest.TestCase):
 
         self.assertTrue(trade_event["data"][0]["t"], msg.trade_id)
 
-    def test_listen_for_order_book_diffs_cancelled(self):
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = asyncio.CancelledError()
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
-
-    def test_listen_for_order_book_diffs_logs_exception(self):
-        incomplete_resp = {
-            "symbol": self.ex_trading_pair,
-            "symbolName": self.ex_trading_pair,
-            "topic": "diffDepth",
-            "params": {
-                "realtimeInterval": "24h",
-                "binary": "false"
-            },
-            "data": [{
-                "e": 301,
-                "s": self.ex_trading_pair,
-                "t": 1565600357643,
-                "v": "112801745_18",
-                "b": [
-                    ["11371.49", "0.0014"],
-                    ["11371.12", "0.2"],
-                    ["11369.97", "0.3523"],
-                    ["11369.96", "0.5"],
-                    ["11369.95", "0.0934"],
-                    ["11369.94", "1.6809"],
-                    ["11369.6", "0.0047"],
-                    ["11369.17", "0.3"],
-                    ["11369.16", "0.2"],
-                    ["11369.04", "1.3203"]],
-                "a": [
-                    ["11375.41", "0.0053"],
-                    ["11375.42", "0.0043"],
-                    ["11375.48", "0.0052"],
-                    ["11375.58", "0.0541"],
-                    ["11375.7", "0.0386"],
-                    ["11375.71", "2"],
-                    ["11377", "2.0691"],
-                    ["11377.01", "0.0167"],
-                    ["11377.12", "1.5"],
-                    ["11377.61", "0.3"]
-                ],
-                "o": 0
-            }],
-            "f": False,
-            "sendTime": 1626253839401,
-            "shared": False
-        }
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
-
-    def test_listen_for_order_book_diffs_successful(self):
-        mock_queue = AsyncMock()
-        diff_event = {
-            "symbol": self.ex_trading_pair,
-            "symbolName": self.ex_trading_pair,
-            "topic": "diffDepth",
-            "params": {
-                "realtimeInterval": "24h",
-                "binary": "false"
-            },
-            "data": [{
-                "e": 301,
-                "s": self.ex_trading_pair,
-                "t": 1565600357643,
-                "v": "112801745_18",
-                "b": [
-                    ["11371.49", "0.0014"],
-                    ["11371.12", "0.2"],
-                    ["11369.97", "0.3523"],
-                    ["11369.96", "0.5"],
-                    ["11369.95", "0.0934"],
-                    ["11369.94", "1.6809"],
-                    ["11369.6", "0.0047"],
-                    ["11369.17", "0.3"],
-                    ["11369.16", "0.2"],
-                    ["11369.04", "1.3203"]],
-                "a": [
-                    ["11375.41", "0.0053"],
-                    ["11375.42", "0.0043"],
-                    ["11375.48", "0.0052"],
-                    ["11375.58", "0.0541"],
-                    ["11375.7", "0.0386"],
-                    ["11375.71", "2"],
-                    ["11377", "2.0691"],
-                    ["11377.01", "0.0167"],
-                    ["11377.12", "1.5"],
-                    ["11377.61", "0.3"]
-                ],
-                "o": 0
-            }],
-            "f": False,
-            "sendTime": 1626253839401,
-            "shared": False
-        }
-        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        try:
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-            )
-        except asyncio.CancelledError:
-            pass
-
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
-
-        self.assertTrue(diff_event["data"][0]["t"], msg.update_id)
-
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
@@ -656,7 +527,7 @@ class TestHashkeyAPIOrderBookDataSource(unittest.TestCase):
         snapshot_event = {
             "symbol": self.ex_trading_pair,
             "symbolName": self.ex_trading_pair,
-            "topic": "diffDepth",
+            "topic": "depth",
             "params": {
                 "realtimeInterval": "24h",
                 "binary": "false"
@@ -696,13 +567,13 @@ class TestHashkeyAPIOrderBookDataSource(unittest.TestCase):
             "shared": False
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
-        self.ob_data_source._message_queue[CONSTANTS.DIFF_EVENT_TYPE] = mock_queue
+        self.ob_data_source._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         try:
             self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+                self.ob_data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
             )
         except asyncio.CancelledError:
             pass
