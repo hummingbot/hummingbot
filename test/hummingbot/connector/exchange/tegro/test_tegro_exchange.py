@@ -21,7 +21,7 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
@@ -693,8 +693,8 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token=self.quote_asset,)
-        # flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0"))])
+            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
+        )
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -862,7 +862,9 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "tx_hash": "0x4e240028f16196f421ab266b7ea95acaee4b7fc648e97c19a0f93b3c8f0bb32d",  # noqa: mock
                 "timestamp": 1499865549590,
                 "fee": 0,
-                "taker_type": order.order_type.name.lower(),
+                "taker_fee": "0.03",
+                "maker_fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "is_buyer_maker": True,
                 "taker": "0x1870f03410fdb205076718337e9763a91f029280",  # noqa: mock
                 "maker": "0x1870f03410fdb205076718337e9763a91f029280"  # noqa: mock
             }
@@ -1791,7 +1793,9 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "tx_hash": "0x4e240028f16196f421ab266b7ea95acaee4b7fc648e97c19a0f93b3c8f0bb32d",  # noqa: mock
                 "timestamp": 1499865549590,
                 "fee": 0,
-                "taker_type": order.order_type.name.lower(),
+                "taker_fee": "0.03",
+                "maker_fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "is_buyer_maker": True,
                 "taker": "0x1870f03410fdb205076718337e9763a91f029280",  # noqa: mock
                 "maker": "0x1870f03410fdb205076718337e9763a91f029280"  # noqa: mock
             }
@@ -2549,7 +2553,9 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "tx_hash": "0x4e240028f16196f421ab266b7ea95acaee4b7fc648e97c19a0f93b3c8f0bb32d",  # noqa: mock
                 "timestamp": 1499865549590,
                 "fee": 0,
-                "taker_type": order.order_type.name.lower(),
+                "taker_fee": "0.03",
+                "maker_fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "is_buyer_maker": True,
                 "taker": "0x1870f03410fdb205076718337e9763a91f029280",  # noqa: mock
                 "maker": "0x1870f03410fdb205076718337e9763a91f029280"  # noqa: mock
             }
@@ -2569,7 +2575,9 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "tx_hash": "0x4e240028f16196f421ab266b7ea95acaee4b7fc648e97c19a0f93b3c8f0bb32d",  # noqa: mock
                 "timestamp": 1499865549590,
                 "fee": 0,
-                "taker_type": order.order_type.name.lower(),
+                "taker_fee": "0.03",
+                "maker_fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "is_buyer_maker": True,
                 "taker": "0x1870f03410fdb205076718337e9763a91f029280",  # noqa: mock
                 "maker": "0x1870f03410fdb205076718337e9763a91f029280"  # noqa: mock
             }

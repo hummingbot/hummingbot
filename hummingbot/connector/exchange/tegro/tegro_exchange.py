@@ -20,10 +20,9 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -191,26 +190,18 @@ class TegroExchange(ExchangePyBase):
             api_factory=self._web_assistants_factory,
         )
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = is_maker or False
-        fee = build_trade_fee(
-            self.name,
-            is_maker,
-            base_currency=base_currency,
-            quote_currency=quote_currency,
-            order_type=order_type,
-            order_side=order_side,
-            amount=amount,
-            price=price,
-        )
-        return fee
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
+        is_maker = True if is_maker is None else is_maker
+        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def start_network(self):
         await super().start_network()
@@ -472,27 +463,33 @@ class TegroExchange(ExchangePyBase):
                 is_auth_required=False,
                 limit_id=CONSTANTS.TRADES_FOR_ORDER_PATH_URL)
 
-            for trade in all_fills_response:
-                timestamp = trade["timestamp"]
-                symbol = trade["symbol"].split('_')[1]
-                fee = TradeFeeBase.new_spot_fee(
-                    fee_schema = self.trade_fee_schema(),
-                    trade_type = order.trade_type,
-                    percent_token = symbol,
-                    # flat_fees = [TokenAmount(amount=Decimal("0"), token=symbol)]
-                )
-                trade_update = TradeUpdate(
-                    trade_id=trade["id"],
-                    client_order_id=order.client_order_id,
-                    exchange_order_id=order.exchange_order_id,
-                    trading_pair=trading_pair,
-                    fee=fee,
-                    fill_base_amount=Decimal(trade["amount"]),
-                    fill_quote_amount=Decimal(trade["amount"]) * Decimal(trade["price"]),
-                    fill_price=Decimal(trade["price"]),
-                    fill_timestamp=timestamp * 1e-3)
-                self._order_tracker.process_trade_update(trade_update)
-                trade_updates.append(trade_update)
+            if len(all_fills_response) > 0:
+                for trade in all_fills_response:
+                    timestamp = trade["timestamp"]
+                    symbol = trade["symbol"].split('_')[1]
+                    fees = "0"
+                    if order.trade_type == TradeType.BUY:
+                        fees = trade["maker_fee"] if trade["is_buyer_maker"] else trade["taker_fee"]
+                    if order.trade_type == TradeType.SELL:
+                        fees = trade["taker_fee"] if trade["is_buyer_maker"] else trade["maker_fee"]
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema = self.trade_fee_schema(),
+                        trade_type = order.trade_type,
+                        percent_token = symbol,
+                        flat_fees = [TokenAmount(amount=Decimal(fees), token=symbol)]
+                    )
+                    trade_update = TradeUpdate(
+                        trade_id=trade["id"],
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=order.exchange_order_id,
+                        trading_pair=trading_pair,
+                        fee=fee,
+                        fill_base_amount=Decimal(trade["amount"]),
+                        fill_quote_amount=Decimal(trade["amount"]) * Decimal(trade["price"]),
+                        fill_price=Decimal(trade["price"]),
+                        fill_timestamp=timestamp * 1e-3)
+                    self._order_tracker.process_trade_update(trade_update)
+                    trade_updates.append(trade_update)
 
         return trade_updates
 
