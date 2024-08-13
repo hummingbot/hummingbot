@@ -168,7 +168,7 @@ class CandlesBase(NetworkBase):
             current_start_time = config.start_time - self.interval_in_seconds
             while current_end_time >= current_start_time:
                 missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
-                fetched_candles = await self.fetch_candles(end_time=current_end_time, missing_records=missing_records)
+                fetched_candles = await self.fetch_candles(end_time=current_end_time, limit=missing_records)
                 if fetched_candles.size <= 1:
                     break
                 all_candles.append(fetched_candles)
@@ -211,13 +211,13 @@ class CandlesBase(NetworkBase):
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None,
-                            missing_records: Optional[int] = None):
+                            limit: Optional[int] = None):
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
-        if missing_records is None:
-            missing_records = self.candles_max_result_per_rest_request - 1
+        if limit is None:
+            limit = self.candles_max_result_per_rest_request - 1
 
-        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, missing_records)
+        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, limit)
         if end_time is None:
             end_time = start_time + self.interval_in_seconds * candles_to_fetch
         if start_time is None:
@@ -273,7 +273,7 @@ class CandlesBase(NetworkBase):
             try:
                 end_timestamp = int(self._candles[0][0])
                 missing_records = self._candles.maxlen - len(self._candles)
-                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp, missing_records=missing_records)
+                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp, limit=missing_records)
                 records_to_add = min(missing_records, len(candles))
                 self._candles.extendleft(candles[-records_to_add:][::-1])
             except asyncio.CancelledError:

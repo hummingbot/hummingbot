@@ -72,11 +72,11 @@ class HyperliquidPerpetualCandles(CandlesBase):
         return trading_pair.replace("-", "")
 
     async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
-                            missing_records: Optional[int] = None) -> List[List[float]]:
-        if missing_records is None:
-            missing_records = self.candles_max_result_per_rest_request - 1
+                            limit: Optional[int] = None) -> List[List[float]]:
+        if limit is None:
+            limit = self.candles_max_result_per_rest_request - 1
 
-        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, missing_records)
+        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, limit)
         reqs = {
             "interval": CONSTANTS.INTERVALS[self.interval],
             "coin": self._base_asset,
