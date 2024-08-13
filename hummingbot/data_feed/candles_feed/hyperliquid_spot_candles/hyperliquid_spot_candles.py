@@ -75,13 +75,13 @@ class HyperliquidSpotCandles(CandlesBase):
         return trading_pair.replace("-", "")
 
     async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
-                            missing_records: Optional[int] = None) -> List[List[float]]:
+                            limit: Optional[int] = None) -> List[List[float]]:
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
 
-        if missing_records is None:
-            missing_records = self.candles_max_result_per_rest_request - 1
-        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, missing_records)
+        if limit is None:
+            limit = self.candles_max_result_per_rest_request - 1
+        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, limit)
 
         reqs = {
             "interval": CONSTANTS.INTERVALS[self.interval],
