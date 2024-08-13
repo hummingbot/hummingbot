@@ -50,21 +50,15 @@ class HashkeyGlobalConfigMap(BaseConnectorConfigMap):
 
 KEYS = HashkeyGlobalConfigMap.construct()
 
-OTHER_DOMAINS = ["hashkey_global_testnet", "hashkey_hk", "hashkey_hk_testnet"]
+OTHER_DOMAINS = ["hashkey_global_testnet"]
 OTHER_DOMAINS_PARAMETER = {
     "hashkey_global_testnet": "hashkey_global_testnet",
-    "hashkey_hk": "hashkey_hk",
-    "hashkey_hk_testnet": "hashkey_hk_testnet",
 }
 OTHER_DOMAINS_EXAMPLE_PAIR = {
     "hashkey_global_testnet": "BTC-USDT",
-    "hashkey_hk": "BTC-USD",
-    "hashkey_hk_testnet": "BTC-USDT",
 }
 OTHER_DOMAINS_DEFAULT_FEES = {
     "hashkey_global_testnet": DEFAULT_FEES,
-    "hashkey_hk": DEFAULT_FEES,
-    "hashkey_hk_testnet": DEFAULT_FEES,
 }
 
 
@@ -93,58 +87,6 @@ class HashkeyGlobalTestnetConfigMap(BaseConnectorConfigMap):
         title = "hashkey_global_testnet"
 
 
-class HashkeyHKConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hashkey_hk", const=True, client_data=None)
-    hashkey_api_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Hashkey HK API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
-    hashkey_api_secret: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Hashkey HK API secret",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
-
-    class Config:
-        title = "hashkey_hk"
-
-
-class HashkeyHKTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hashkey_hk_testnet", const=True, client_data=None)
-    hashkey_api_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Hashkey Testnet API Key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
-    hashkey_api_secret: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Hashkey Testnet API secret",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
-    )
-
-    class Config:
-        title = "hashkey_hk_testnet"
-
-
 OTHER_DOMAINS_KEYS = {
     "hashkey_global_testnet": HashkeyGlobalTestnetConfigMap.construct(),
-    "hashkey_hk": HashkeyHKConfigMap.construct(),
-    "hashkey_hk_testnet": HashkeyHKTestnetConfigMap.construct(),
 }

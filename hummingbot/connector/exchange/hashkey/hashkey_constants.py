@@ -13,19 +13,13 @@ SIDE_SELL = "SELL"
 TIME_IN_FORCE_GTC = "GTC"
 # Base URL
 REST_URLS = {"hashkey_global": "https://api-glb.hashkey.com",
-             "hashkey_global_testnet": "https://api.sim.bmuxdc.com",
-             "hashkey_hk": "https://api-pro.hashkey.com",
-             "hashkey_hk_testnet": "https://api.sim.obibiz.com"}
+             "hashkey_global_testnet": "https://api.sim.bmuxdc.com"}
 
 WSS_PUBLIC_URL = {"hashkey_global": "wss://stream-glb.hashkey.com/quote/ws/v1",
-                  "hashkey_global_testnet": "wss://stream.sim.bmuxdc.com/quote/ws/v1",
-                  "hashkey_hk": "wss://stream-pro.hashkey.com/quote/ws/v1",
-                  "hashkey_hk_testnet": "wss://stream.sim.obibiz.com/quote/ws/v1"}
+                  "hashkey_global_testnet": "wss://stream.sim.bmuxdc.com/quote/ws/v1"}
 
 WSS_PRIVATE_URL = {"hashkey_global": "wss://stream-glb.hashkey.com/api/v1/ws/{listenKey}",
-                   "hashkey_global_testnet": "wss://stream.sim.bmuxdc.com/api/v1/ws/{listenKey}",
-                   "hashkey_hk": "wss://stream-pro.hashkey.com/api/v1/ws/{listenKey}",
-                   "hashkey_hk_testnet": "wss://stream.sim.obibiz.com/api/v1/ws/{listenKey}"}
+                   "hashkey_global_testnet": "wss://stream.sim.bmuxdc.com/api/v1/ws/{listenKey}"}
 
 # Websocket event types
 TRADE_EVENT_TYPE = "trade"
