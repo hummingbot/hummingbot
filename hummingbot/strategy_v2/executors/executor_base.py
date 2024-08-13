@@ -235,9 +235,7 @@ class ExecutorBase(RunnableBase):
         :param order_id: The ID of the order.
         :return: The in-flight order.
         """
-        connector = self.connectors[connector_name]
-        order = connector._order_tracker.fetch_order(client_order_id=order_id)
-        return order
+        return self.connectors[connector_name]._order_tracker.fetch_order(client_order_id=order_id)
 
     def register_events(self):
         """
