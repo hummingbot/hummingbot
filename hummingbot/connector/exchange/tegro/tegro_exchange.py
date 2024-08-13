@@ -135,17 +135,18 @@ class TegroExchange(ExchangePyBase):
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
-    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+    async def _get_all_pairs_prices(self) -> Dict[str, Any]:
         results = {}
-        data = await self._api_request(
-            method=RESTMethod.GET,
+        pairs_prices = await self._api_get(
             path_url=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL.format(self.chain),
-            limit_id=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL,
-            is_auth_required=False)
-
-        pairs_prices = data
+            params={"page": 1, "sort_order": "desc", "sort_by": "volume", "page_size": 20, "verified": "true"},
+            limit_id=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL
+        )
         for pair_price_data in pairs_prices:
-            results[pair_price_data["symbol"]] = pair_price_data["ticker"]["price"]
+            results[pair_price_data["symbol"]] = {
+                "best_bid": pair_price_data["ticker"]["price"],
+                "best_ask": pair_price_data["ticker"]["price"],
+            }
         return results
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -497,24 +498,27 @@ class TegroExchange(ExchangePyBase):
 
     def get_state(self, updated_order_data):
         new_states = ""
+        data = {}
         if isinstance(updated_order_data, list):
             state = updated_order_data[0]["status"]
+            data = updated_order_data[0]
         else:
             state = updated_order_data["status"]
-        if state == "closed" and Decimal(updated_order_data["quantity_pending"]) == Decimal("0"):
+            data = updated_order_data
+        if state == "closed" and Decimal(data["quantity_pending"]) == Decimal("0"):
             new_states = "completed"
-        elif state == "open" and Decimal(updated_order_data["quantity_filled"]) < Decimal("0"):
+        elif state == "open" and Decimal(data["quantity_filled"]) < Decimal("0"):
             new_states = "open"
-        elif state == "open" and Decimal(updated_order_data["quantity_filled"]) > Decimal("0"):
+        elif state == "open" and Decimal(data["quantity_filled"]) > Decimal("0"):
             new_states = "partial"
-        elif state == "closed" and Decimal(updated_order_data["quantity_pending"]) > Decimal("0"):
+        elif state == "closed" and Decimal(data["quantity_pending"]) > Decimal("0"):
             new_states = "pending"
-        elif state == "cancelled" and updated_order_data["cancel"]["code"] == 611:
+        elif state == "cancelled" and data["cancel"]["code"] == 611:
             new_states = "cancelled"
-        elif state == "cancelled" and updated_order_data["cancel"]["code"] != 611:
+        elif state == "cancelled" and data["cancel"]["code"] != 611:
             new_states = "failed"
         else:
-            new_states = updated_order_data["status"]
+            new_states = data["status"]
         return new_states
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
@@ -666,8 +670,8 @@ class TegroExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        data = await self.initialize_verified_market()
         if symbol is not None:
+            data = await self.initialize_verified_market()
             resp_json = await self._api_request(
                 method=RESTMethod.GET,
                 path_url = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL.format(self.chain, data["id"]),
