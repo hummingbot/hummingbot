@@ -8,10 +8,10 @@ from abc import ABC, abstractmethod
 from functools import partial
 from typing import Any, Callable, Dict, List, Literal, Optional
 
-import websockets
 from requests.exceptions import ConnectionError
 from substrateinterface import SubstrateInterface
 from substrateinterface.exceptions import SubstrateRequestException
+from websockets import connect as websockets_connect
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
@@ -107,7 +107,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         self._chain_config = chain_config
 
     async def start(self):
-        self.logger().info("Starting up! API URL: " + self._lp_api_url + " RPC URL: " + self._rpc_url)
+        self.logger().info(f"Starting up! API URL: {self._lp_api_url} RPC URL: {self._rpc_url}")
         self._lp_api_instance = await self._start_instance(self._lp_api_url)
         self._rpc_instance = await self._start_instance(self._rpc_url)
 
@@ -174,7 +174,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not response["status"]:
             return []
 
-        return DataFormatter.format_balance_response(self.logger(), response["data"])
+        return DataFormatter.format_balance_response(response["data"])
 
     async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         self.logger().info("Fetching get_market_price")
@@ -191,7 +191,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         base_asset: Dict[str, str],
         quote_asset: Dict[str, str],
         order_id: str,
-        order_price: int,
+        order_price: float,
         side: Literal["buy"] | Literal["sell"],
         sell_amount: int,
     ):
@@ -210,7 +210,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         }
         response = await self._execute_api_request(CONSTANTS.PLACE_LIMIT_ORDER_METHOD, params)
         if not response["status"]:
-            return DataFormatter.format_error_response(response["data"])
+            return False
         return DataFormatter.format_place_order_response(response["data"])
 
     async def cancel_order(
@@ -271,11 +271,10 @@ class RPCQueryExecutor(BaseRPCExecutor):
         await self._subscribe_to_api_event(CONSTANTS.ORDER_FILLS_SUBSCRIPTION_METHOD, handler)
 
     def _start_instance(self, url):
-        self.logger().info("Start instance " + url)
+        self.logger().info(f"Start instance {url}")
 
         try:
-            instance = SubstrateInterface(url=url, auto_discover = False)
-
+            instance = SubstrateInterface(url=url, auto_discover=False)
         except ConnectionError as err:
             self.logger().error(str(err))
             raise err
@@ -299,7 +298,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
     async def _execute_api_request(
         self, request_method: str, params: List | Dict = [], throttler_limit_id: str = CONSTANTS.GENERAL_LIMIT_ID
     ):
-        self.logger().info("Making " + request_method + " API call")
+        self.logger().info(f"Making {request_method} API call")
 
         if not self._lp_api_instance:
             self._lp_api_instance = self._start_instance(self._lp_api_url)
@@ -338,15 +337,13 @@ class RPCQueryExecutor(BaseRPCExecutor):
     async def _execute_rpc_request(
         self, request_method: str, params: List | Dict = [], throttler_limit_id: str = CONSTANTS.GENERAL_LIMIT_ID
     ):
-        self.logger().info("Making " + request_method + " RPC call")
+        self.logger().info(f"Making {request_method} RPC call")
 
         if not self._rpc_instance:
             self._rpc_instance = self._start_instance(self._rpc_url)
-
+        response_data = {"status": True, "data": {}}
+        response = None  # for testing purposes
         async with self._throttler.execute_task(throttler_limit_id):
-            response_data = {"status": True, "data": {}}
-            response = None  # for testing purposes
-
             while True:
                 try:
                     self.logger().info("Calling " + request_method)
@@ -370,34 +367,34 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     response_data["status"] = False
                     response_data["data"] = {"code": 0, "message": "An Error Occurred"}
                     break
-
-            self.logger().info(request_method + " RPC call response:" + str(response_data["data"]))
             return response_data
 
     async def _subscribe_to_api_event(self, method_name: str, handler: Callable, params=[]):
         instance = SubstrateInterface(url=self._lp_api_url)
         while True:
             try:
-                response = instance.rpc_request(method_name, params)  # if an error occurs.. raise
+                response = await self.run_in_thread(
+                    instance.rpc_request, method_name, params
+                )  # if an error occurs.. raise
                 handler(response)
                 asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Unexpected error listening to order fill update from Chainflip LP. Error: {e}", exc_info=True
+                    f"Unexpected error listening to subscription event from Chainflip LP API. Error: {e}", exc_info=True
                 )
                 instance.close()
                 sys.exit()
 
-    async def _subscribe_to_rpc_events(
+    async def _subscribe_to_rpc_event(
         self,
         method_name: str,
         handler: Callable,
         params: List = [],
     ):
         url = self._get_current_rpc_ws_url(self._domain)
-        async with websockets.connect(url) as websocket:
+        async with websockets_connect(url) as websocket:
             request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method_name, "params": params})
             await websocket.send(request)
             while True:
@@ -409,11 +406,12 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     raise
                 except Exception as e:
                     self.logger().error(
-                        f"Unexpected error listening to order fill update from Chainflip LP. Error: {e}", exc_info=True
+                        f"Unexpected error listening to subscription event from Chainflip LP RPC. Error: {e}",
+                        exc_info=True,
                     )
                     break
 
-    async def _calculate_tick(self, price: float, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+    def _calculate_tick(self, price: float, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         """
         calculate ticks
         """

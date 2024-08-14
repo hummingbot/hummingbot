@@ -15,8 +15,8 @@ DEFAULT_FEES = TradeFeeSchema(
 )
 
 
-def chains_as_str():
-    return ",".join(CONSTANTS.SAME_CHAINS)
+def chains_as_str(asset: str):
+    return ",".join(CONSTANTS.SAME_CHAINS[asset])
 
 
 class ChainflipLpConfigMap(BaseConnectorConfigMap):
@@ -72,15 +72,15 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
 
     @validator("chainflip_eth_chain", pre=True)
     def validate_chainflip_eth_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str()}"
-        if v not in CONSTANTS.SAME_CHAINS:
+        error_message = f"valid options are: {chains_as_str('ETH')}"
+        if v not in CONSTANTS.SAME_CHAINS["ETH"]:
             raise ValueError(error_message)
         return v
 
     @validator("chainflip_usdc_chain", pre=True)
     def validate_chainflip_usdc_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str()}"
-        if v not in CONSTANTS.SAME_CHAINS:
+        error_message = f"valid options are: {chains_as_str('USDC')}"
+        if v not in CONSTANTS.SAME_CHAINS["USDC"]:
             raise ValueError(error_message)
         return v
 
@@ -146,15 +146,15 @@ class ChainflipLpTestnetConfigMap(BaseConnectorConfigMap):
 
     @validator("chainflip_eth_chain", pre=True)
     def validate_chainflip_eth_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str()}"
-        if v not in CONSTANTS.SAME_CHAINS:
+        error_message = f"valid options are: {chains_as_str('ETH')}"
+        if v not in CONSTANTS.SAME_CHAINS["ETH"]:
             raise ValueError(error_message)
         return v
 
     @validator("chainflip_usdc_chain", pre=True)
     def validate_chainflip_usdc_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str()}"
-        if v not in CONSTANTS.SAME_CHAINS:
+        error_message = f"valid options are: {chains_as_str('USDC')}"
+        if v not in CONSTANTS.SAME_CHAINS["USDC"]:
             raise ValueError(error_message)
         return v
 

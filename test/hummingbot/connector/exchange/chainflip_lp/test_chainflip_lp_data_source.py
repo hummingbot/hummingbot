@@ -68,10 +68,10 @@ class ChainflipLpDataSourceTests(TestCase):
                             "lp": "cFPdef3hF5zEwbWUG6ZaCJ3X7mTvEeAog7HxZ8QyFcCgDVGDM",  # noqa: mock
                             "base_asset": "FLIP",
                             "quote_asset": "USDC",
-                            "id": "0x0",
+                            "id": "0x0",  # noqa: mock
                             "range": {"start": -887272, "end": 887272},
-                            "fees": {"base": "0x13fbe85edc90000", "quote": "0x1e63a"},
-                            "liquidity": "0x7055df27b7e148",
+                            "fees": {"base": "0x13fbe85edc90000", "quote": "0x1e63a"},  # noqa: mock
+                            "liquidity": "0x7055df27b7e148",  # noqa: mock
                         }
                     },
                     {
@@ -81,16 +81,16 @@ class ChainflipLpDataSourceTests(TestCase):
                             "quote_asset": "USDC",
                             # The side of the order that was filled
                             "side": "buy",
-                            "id": "0x0",
+                            "id": "0x0",  # noqa: mock
                             "tick": 0,
                             # The amount of the order that was used, in the units of the asset that was sold (by the order)
-                            "sold": "0x1200",
+                            "sold": "0x1200",  # noqa: mock
                             # The amount assets bought during this fill, in the units of the bought asset
-                            "bought": "0x1200",
+                            "bought": "0x1200",  # noqa: mock
                             # The fees earned during this fill, in units of the bought asset (Which in the asset you actually earn the fees in)
-                            "fees": "0x100",
+                            "fees": "0x100",  # noqa: mock
                             # The remaining amount in the order after the fill. This is in units of the sold asset.
-                            "remaining": "0x100000",
+                            "remaining": "0x100000",  # noqa: mock
                         }
                     },
                 ],

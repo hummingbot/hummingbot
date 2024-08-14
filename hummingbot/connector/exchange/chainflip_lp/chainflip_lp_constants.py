@@ -61,11 +61,10 @@ ASSET_PRECISIONS = {
     "Solana": {"SOL": 10e9},
 }
 
-STABLE_ASSETS = ["USDC", "USDT"]
 FRACTIONAL_BITS = 128
 SQRT_PRICE_FRACTIONAL_BITS = 96
 LOWER_TICK_BOUND = -887272
 UPPER_TICK_BOUND = 887272
 
-SAME_CHAINS = ["Arbitrum", "Ethereum"]
-DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Arbitrum"}
+SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum"]}
+DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}

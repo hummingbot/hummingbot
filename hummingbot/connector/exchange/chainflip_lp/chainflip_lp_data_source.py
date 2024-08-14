@@ -10,6 +10,7 @@ from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import RPCQueryExecutor
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_utils import DEFAULT_FEES
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
@@ -81,10 +82,14 @@ class ChainflipLpDataSource:
             task.cancel()
         self._events_listening_tasks = []
 
+    def is_started(self):
+        return len(self._assets_list) > 0
+
     def configure_throttler(self, throttler: AsyncThrottlerBase):
         self._throttler = throttler
 
     async def assets_list(self) -> Dict[str, str]:
+
         all_assets = await self._rpc_executor.all_assets()
         self._assets_list = all_assets
         return self._assets_list
@@ -151,7 +156,7 @@ class ChainflipLpDataSource:
         trade_type: TradeType,
         order_type: OrderType,
         price: Decimal,
-        *kwargs
+        *kwargs,
     ) -> Tuple[str, float]:
         asset_list = await self.assets_list()
         asset = DataFormatter.format_trading_pair(trading_pair, asset_list)
@@ -164,26 +169,30 @@ class ChainflipLpDataSource:
             sell_amount=amount,
         )
         timestamp = self._time()
+        if not place_order_response:
+            raise ValueError(f"Error placing order {order_id} in Chainflip LP")
         return place_order_response["order_id"], timestamp
 
     async def place_cancel(self, order_id: str, trading_pair: str, tracked_order: InFlightOrder):
         asset_list = await self.assets_list()
         asset = DataFormatter.format_trading_pair(trading_pair, asset_list)
-        status = self._rpc_executor.cancel_order(
+        self.logger().info("Canceling Order in Chainflip LP")
+        self.logger().info(f"Canceling Order with id {order_id}")
+        status = await self._rpc_executor.cancel_order(
             base_asset=asset["base_asset"],
             quote_asset=asset["quote_asset"],
             order_id=order_id,
             side=CONSTANTS.SIDE_BUY if tracked_order.trade_type == TradeType.BUY else CONSTANTS.SIDE_SELL,
         )
-        state = OrderState.CANCELED if status else tracked_order.current_state
-        return state
+        return status
 
     async def get_last_traded_price(self, trading_pair):
         asset = DataFormatter.format_trading_pair(trading_pair, self._assets_list)
-        price = await self._rpc_executor.get_market_price(
+        price_response = await self._rpc_executor.get_market_price(
             base_asset=asset["base_asset"], quote_asset=asset["quote_asset"]
-        )["price"]
-        return {trading_pair: price}
+        )
+        price = price_response["price"]
+        return price
 
     async def get_order_fills(self, orders: List[InFlightOrder]):
         order_fills = await self._rpc_executor.get_account_order_fills()
@@ -205,6 +214,16 @@ class ChainflipLpDataSource:
                 )
                 trade_updates.append(update)
         return trade_updates
+
+    async def all_trading_rules(self):
+        # chainflip lp does not have implementation for trading rules
+        # so we are going to set some arbituary values
+        markets = await self._rpc_executor.all_markets()
+        trading_rules = []
+        for market in markets:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=market["symbol"])
+            trading_rules.append(TradingRule(trading_pair=trading_pair))
+        return trading_rules
 
     async def _process_recent_order_fills_async(self, events: Dict[str, Any]):
         if not events:

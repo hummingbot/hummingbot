@@ -327,23 +327,29 @@ class ChainflipLpExchange(ExchangePyBase):
         except Exception as e:
             self.logger().warning(f"Error fetching trades updates. {e}")
 
+    async def _update_trading_rules(self):
+        trading_rules_list = await self._data_source.all_trading_rules()
+        self._trading_rules = {trading_rule.trading_pair: trading_rule for trading_rule in trading_rules_list}
+
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used
         raise NotImplementedError
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
-        raise NotImplementedError
+        return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        raise NotImplementedError
+        return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        raise NotImplementedError
+        return False
 
     async def _user_stream_event_listener(self):
+        # no user stream in chainflip lp
         raise NotImplementedError
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        # not used in chainflip LP
         raise NotImplementedError
 
     def _configure_event_forwarders(self):
@@ -375,9 +381,9 @@ class ChainflipLpExchange(ExchangePyBase):
             self._order_tracker.process_order_update(order_update=order_update_to_process)
 
     async def get_last_traded_prices(self, trading_pairs: List[str]):
-        price_list = []
+        price_dict = {}
         for pair in trading_pairs:
             symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
-            price_map = await self._data_source.get_last_traded_price(symbol)
-            price_list.append(price_map)
-        return price_list
+            price = await self._data_source.get_last_traded_price(symbol)
+            price_dict[pair] = price
+        return price_dict

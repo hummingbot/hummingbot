@@ -37,7 +37,8 @@ class MockRPCExecutor(BaseRPCExecutor):
 
     async def all_markets(self):
         response = await self._all_markets_responses.get()
-        return response
+        data = DataFormatter.format_all_market_response(response)
+        return data
 
     async def get_orderbook(
         self, base_asset: Dict[str, str], quote_asset: Dict[str, str], orders: int = 20
@@ -52,13 +53,19 @@ class MockRPCExecutor(BaseRPCExecutor):
         return data
 
     async def place_limit_order(
-        self, base_asset: str, quote_asset: str, order_id: str, side: Literal["buy", "sell"], sell_amount: int
+        self,
+        base_asset: str,
+        quote_asset: str,
+        order_id: str,
+        order_price: float,
+        side: Literal["buy", "sell"],
+        sell_amount: int,
     ):
         response = await self._place_order_responses.get()
-        data = DataFormatter.format_order_response(response, base_asset, quote_asset)
+        data = DataFormatter.format_place_order_response(response)
         return data
 
-    async def get_all_balances(self, main_account: str) -> Dict[str, Any]:
+    async def get_all_balances(self) -> Dict[str, Any]:
         response = await self._balances_responses.get()
         data = DataFormatter.format_balance_response(response)
         return data
@@ -77,8 +84,7 @@ class MockRPCExecutor(BaseRPCExecutor):
         side: Literal["buy", "sell"],
     ):
         response = await self._cancel_order_responses.get()
-        data = DataFormatter.format_order_response(response, base_asset, quote_asset)
-        return data
+        return response
 
     async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         response = await self._get_market_price_responses.get()

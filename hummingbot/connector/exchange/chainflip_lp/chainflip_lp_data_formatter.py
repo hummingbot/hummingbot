@@ -1,29 +1,39 @@
-from decimal import Decimal
-from typing import Any, Dict, List
+import logging
+from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.logger import HummingbotLogger
 
 
 class DataFormatter:
+    _logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
+
+        return cls._logger
+
     @classmethod
     def hex_str_to_int(cls, data: str):
         return int(data, 16)
 
     @classmethod
-    def format_hex_balance(cls, logger, balance: str, asset: Dict[str, str]):
-        logger.info("Converting " + str(balance) + " as " + str(asset))
+    def format_hex_balance(cls, balance: str, asset: Dict[str, str]):
+        cls.logger().info(f"Converting {balance} as {asset}")
 
         int_balance = cls.hex_str_to_int(balance)
-        logger.info("Balance for " + str(balance) + " as " + str(int_balance))
+        cls.logger().info(f"Balance for {balance} as {int_balance}")
 
         precision = cls.format_asset_precision(asset)
-        logger.info("Precision for " + str(balance) + " is " + str(precision))
+        cls.logger().info(f"Precision for {balance} is {precision}")
 
         value = int_balance / precision
-        logger.info("Converted " + str(balance) + " to " + str(int_balance) + " with precision " + str(precision) + " = " + str(value))
+        cls.logger().info(f"Converted value is {value}")
 
-        return Decimal(value)
+        return value
 
     @classmethod
     def format_amount(cls, amount: float | int, asset: Dict[str, str]):
@@ -35,7 +45,7 @@ class DataFormatter:
     def format_price(cls, price: int | str, base_asset: Dict[str, str], quote_asset: Dict[str, str], sqrt_price=True):
         """
         for example: to get the price of the ETH/USDC pair from the sqrt_price
-        where the provided price is 4512835869581138250956800 or '0x3303803'
+        where the provided price is 4512835869581138250956800
         We Calculate:
         current_price = 4512835869581138250956800 / 2**96
         current_price = current_price ** 2 (provided the price is a square-root price)
@@ -67,7 +77,6 @@ class DataFormatter:
         for order in limit_orders["asks"]:
             tick = order["tick"]
             price = cls.convert_tick_to_price(tick, base_asset, quote_asset)
-
             asks.append({"price": price, "tick": tick})
         for order in limit_orders["bids"]:
             tick = order["tick"]
@@ -76,9 +85,9 @@ class DataFormatter:
         return {"asks": asks, "bids": bids}
 
     @classmethod
-    def format_balance_response(cls, logger, response):
+    def format_balance_response(cls, response):
         data = response["result"]
-        logger.info("Mapping " + str(data) + " as balance")
+        cls.logger().info(f"Mapping {data} as balance")
 
         chains = data.keys()
 
@@ -87,15 +96,10 @@ class DataFormatter:
             assets = data[chain].keys()
 
             for asset in assets:
-                token = str(asset) + "/" + str(chain)
-                logger.info("Mapping " + token)
+                token = f"{asset}-{chain}"
+                cls.logger().info("Mapping " + token)
 
-                balance_map[token] = cls.format_hex_balance(
-                    logger,
-                    data[chain][asset],
-                    {"chain": chain, "asset": asset}
-                )
-
+                balance_map[token] = cls.format_hex_balance(data[chain][asset], {"chain": chain, "asset": asset})
         return balance_map
 
     @classmethod
@@ -260,7 +264,7 @@ class DataFormatter:
                 "side": order["side"],
                 "id": order["id"],
                 "base_amount": cls.format_hex_balance(order["bought"], asset["base_asset"]),
-                "quote_amount": cls.format_hex_balance(order["sell"], asset["quote_asset"]),
+                "quote_amount": cls.format_hex_balance(order["sold"], asset["quote_asset"]),
                 "price": cls.convert_tick_to_price(order["tick"], asset["base_asset"], asset["quote_asset"]),
             }
             return data
@@ -268,12 +272,14 @@ class DataFormatter:
         data = response["result"]
         fills: Dict = data["fills"]
         # filter the fills to return only limit orders
-        limit_orders_fills = list(filter(lambda x: x[0] == "limit_order", fills.items()))
+        limit_orders_fills = list(filter(lambda x: x[0] == "limit_orders", fills.items()))
         if not limit_orders_fills:
+            cls.logger().info("No Limit Order fills found")
             return []
         # filter the limit orders fill by the user address
         user_orders = list(filter(lambda x: x[1]["lp"] == address, limit_orders_fills))
         if not user_orders:
+            cls.logger().info("No order fill found for current address")
             return []
         # get the values of the
         main_data = list(map(lambda x: x[1], user_orders))
@@ -286,7 +292,7 @@ class DataFormatter:
         return data - order_id, tick
         """
         data = response["result"]
-        main_response = data["tx_details"]["response"]
+        main_response = data["tx_details"]["response"][-1]  # get the last elements in the order response
         return_data = {"order_id": main_response["id"], "tick": main_response["tick"]}
         return return_data
 
