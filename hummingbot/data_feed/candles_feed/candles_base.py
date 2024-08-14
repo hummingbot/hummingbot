@@ -115,6 +115,10 @@ class CandlesBase(NetworkBase):
         raise NotImplementedError
 
     @property
+    def candles_max_result_per_rest_request(self):
+        raise NotImplementedError
+
+    @property
     def wss_url(self):
         raise NotImplementedError
 
@@ -162,9 +166,9 @@ class CandlesBase(NetworkBase):
             all_candles = []
             current_end_time = config.end_time + self.interval_in_seconds
             current_start_time = config.start_time - self.interval_in_seconds
-            self.max_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
             while current_end_time >= current_start_time:
-                fetched_candles = await self.fetch_candles(end_time=current_end_time)
+                missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
+                fetched_candles = await self.fetch_candles(end_time=current_end_time, limit=missing_records)
                 if fetched_candles.size <= 1:
                     break
                 all_candles.append(fetched_candles)
@@ -206,15 +210,22 @@ class CandlesBase(NetworkBase):
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
-                            end_time: Optional[int] = None):
-        rest_assistant = await self._api_factory.get_rest_assistant()
+                            end_time: Optional[int] = None,
+                            limit: Optional[int] = None):
+        if start_time is None and end_time is None:
+            raise ValueError("Either the start time or end time must be specified.")
+        if limit is None:
+            limit = self.candles_max_result_per_rest_request - 1
+
+        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, limit)
         if end_time is None:
-            end_time = start_time + self.interval_in_seconds * self.max_records
-        # TODO: @drupman review this logic, binance spot wasn't working with this line.
-        # if start_time is None:
-        #     start_time = end_time - self.interval_in_seconds * self.max_records
+            end_time = start_time + self.interval_in_seconds * candles_to_fetch
+        if start_time is None:
+            start_time = end_time - self.interval_in_seconds * candles_to_fetch
+
         params = self._get_rest_candles_params(start_time, end_time)
         headers = self._get_rest_candles_headers()
+        rest_assistant = await self._api_factory.get_rest_assistant()
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=self.candles_endpoint,
                                                        params=params,
@@ -261,8 +272,8 @@ class CandlesBase(NetworkBase):
             await self._ws_candle_available.wait()
             try:
                 end_timestamp = int(self._candles[0][0])
-                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp)
                 missing_records = self._candles.maxlen - len(self._candles)
+                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp, limit=missing_records)
                 records_to_add = min(missing_records, len(candles))
                 self._candles.extendleft(candles[-records_to_add:][::-1])
             except asyncio.CancelledError:
