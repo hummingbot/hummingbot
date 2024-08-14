@@ -100,9 +100,13 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor._status = RunnableStatus.RUNNING
         return position_executor
 
+    @patch.object(PositionExecutor, "get_trading_rules")
     @patch.object(PositionExecutor, "get_price")
-    async def test_control_position_create_open_order(self, mock_price):
+    async def test_control_position_create_open_order(self, mock_price, trading_rules_mock):
         mock_price.return_value = Decimal("100")
+        trading_rules = MagicMock(spec=TradingRule)
+        trading_rules.min_order_size = Decimal("0.1")
+        trading_rules_mock.return_value = trading_rules
         position_config = self.get_position_config_market_short()
         position_executor = self.get_position_executor_running_from_config(position_config)
         await position_executor.control_task()
@@ -126,11 +130,12 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
 
     @patch.object(PositionExecutor, "get_trading_rules")
     async def test_control_open_order_expiration(self, trading_rules_mock):
-        position_config = self.get_position_config_market_short()
-        position_executor = self.get_position_executor_running_from_config(position_config)
         trading_rules = MagicMock(spec=TradingRule)
         trading_rules.min_order_size = Decimal("0.1")
+        trading_rules.min_notional_size = Decimal("1")
         trading_rules_mock.return_value = trading_rules
+        position_config = self.get_position_config_market_short()
+        position_executor = self.get_position_executor_running_from_config(position_config)
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890 + 61)
         position_executor._open_order = TrackedOrder(order_id="OID-SELL-1")
         position_executor._open_order.order = InFlightOrder(
@@ -151,7 +156,12 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             order_id="OID-SELL-1")
         self.assertEqual(position_executor.trade_pnl_pct, Decimal("0"))
 
-    async def test_control_position_order_placed_not_cancel_open_order(self):
+    @patch.object(PositionExecutor, "get_trading_rules")
+    async def test_control_position_order_placed_not_cancel_open_order(self, trading_rules_mock):
+        trading_rules = MagicMock(spec=TradingRule)
+        trading_rules.min_order_size = Decimal("0.1")
+        trading_rules.min_notional_size = Decimal("1")
+        trading_rules_mock.return_value = trading_rules
         position_config = self.get_position_config_market_short()
         position_executor = self.get_position_executor_running_from_config(position_config)
         position_executor._open_order = TrackedOrder(order_id="OID-SELL-1")
