@@ -53,6 +53,7 @@ class PositionExecutor(ExecutorBase):
             open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
             config.entry_price = self.get_price(config.connector_name, config.trading_pair, price_type=open_order_price_type)
         self.config: PositionExecutorConfig = config
+        self.trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
 
         # Order tracking
         self._open_order: Optional[TrackedOrder] = None
@@ -404,9 +405,11 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        self.control_stop_loss()
-        self.control_trailing_stop()
-        self.control_take_profit()
+        if self.open_filled_amount >= self.trading_rules.min_order_size \
+                and self.open_filled_amount_quote >= self.trading_rules.min_notional_size:
+            self.control_stop_loss()
+            self.control_trailing_stop()
+            self.control_take_profit()
         self.control_time_limit()
 
     def place_close_order_and_cancel_open_orders(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
@@ -419,10 +422,9 @@ class PositionExecutor(ExecutorBase):
         :param price: The price to be used in the close order.
         :return: None
         """
-        delta_amount_to_close = self.open_filled_amount - self.close_filled_amount
-        trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
         self.cancel_open_orders()
-        if delta_amount_to_close > trading_rules.min_order_size:
+        delta_amount_to_close = self.open_filled_amount - self.close_filled_amount
+        if delta_amount_to_close > self.trading_rules.min_order_size:
             order_id = self.place_order(
                 connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
@@ -468,7 +470,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if self.open_filled_amount > Decimal("0") and self.config.triple_barrier_config.take_profit:
+        if self.config.triple_barrier_config.take_profit:
             if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
                 if not self._take_profit_limit_order:
                     self.place_take_profit_limit_order()
@@ -494,9 +496,6 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
-        if self.open_filled_amount_quote < trading_rules.min_notional_size or self.open_filled_amount < trading_rules.min_order_size:
-            return
         order_id = self.place_order(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
