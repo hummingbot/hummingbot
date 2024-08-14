@@ -274,25 +274,25 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
 =======
             "result": {
                 "bids": [
-                    {"amount": "0x107c356adb931da34b3", "sqrt_price": "0xfbb120541b407b9868d9"},
-                    {"amount": "0x1f479f986214e02339a6", "sqrt_price": "0x564256ea016eba867e1"},
-                    {"amount": "0x3e3545abc51ed0a2e83c5", "sqrt_price": "0x2b5f8cda448aebe9f1"},
-                    {"amount": "0x7bb79b1c4a08649e8741d7", "sqrt_price": "0x15cf243b1f8d7d6d8"},
-                    {"amount": "0xf60b58771d06b50676d43f1", "sqrt_price": "0xaf75764f8561157"},
-                    {"amount": "0x1e952f50cd75553eb44b821e6", "sqrt_price": "0x5838f60e3b0677"},
-                    {"amount": "0x3cd26661993d3d1e2a3c518494", "sqrt_price": "0x2c55cea9a4bb6"},
-                    {"amount": "0x78f5d94d8865e2f510e6bdaf204", "sqrt_price": "0x15c5f126b383"},
+                    {"amount": "0x107c356adb931da34b3", "sqrt_price": "0xfbb120541b407b9868d9"},  # noqa: mock
+                    {"amount": "0x1f479f986214e02339a6", "sqrt_price": "0x564256ea016eba867e1"},  # noqa: mock
+                    {"amount": "0x3e3545abc51ed0a2e83c5", "sqrt_price": "0x2b5f8cda448aebe9f1"},  # noqa: mock
+                    {"amount": "0x7bb79b1c4a08649e8741d7", "sqrt_price": "0x15cf243b1f8d7d6d8"},  # noqa: mock
+                    {"amount": "0xf60b58771d06b50676d43f1", "sqrt_price": "0xaf75764f8561157"},  # noqa: mock
+                    {"amount": "0x1e952f50cd75553eb44b821e6", "sqrt_price": "0x5838f60e3b0677"},  # noqa: mock
+                    {"amount": "0x3cd26661993d3d1e2a3c518494", "sqrt_price": "0x2c55cea9a4bb6"},  # noqa: mock
+                    {"amount": "0x78f5d94d8865e2f510e6bdaf204", "sqrt_price": "0x15c5f126b383"},  # noqa: mock
                 ],
                 "asks": [
-                    {"amount": "0xb0b90b96b1f7b7704", "sqrt_price": "0x3095e05a90eb0c51432071"},
-                    {"amount": "0x949634d34d54ee4", "sqrt_price": "0x31891e0493daf1ccf23d9ea4"},
-                    {"amount": "0xa9b606d4ea48f", "sqrt_price": "0x2b5eabdc67a5d950f4f76ee5c9"},
-                    {"amount": "0xc1d6aaaba38", "sqrt_price": "0x25f8b2adc2eca75997729789aec4"},
-                    {"amount": "0xdd656d902", "sqrt_price": "0x213ebde612ea193310132c046f0af3"},
-                    {"amount": "0xfcdf26c", "sqrt_price": "0x1d1b64375e15ea2dd31f9260ec843d78"},
-                    {"amount": "0x120d26", "sqrt_price": "0x197be72c022b9bfbc519350b01526176b0"},
-                    {"amount": "0x149e", "sqrt_price": "0x164feda37568c4847e63597bcec4061b3ca3"},
-                    {"amount": "0x17", "sqrt_price": "0x13c435b327440aa87b5c9954de7934f9180b06"},
+                    {"amount": "0xb0b90b96b1f7b7704", "sqrt_price": "0x3095e05a90eb0c51432071"},  # noqa: mock
+                    {"amount": "0x949634d34d54ee4", "sqrt_price": "0x31891e0493daf1ccf23d9ea4"},  # noqa: mock
+                    {"amount": "0xa9b606d4ea48f", "sqrt_price": "0x2b5eabdc67a5d950f4f76ee5c9"},  # noqa: mock
+                    {"amount": "0xc1d6aaaba38", "sqrt_price": "0x25f8b2adc2eca75997729789aec4"},  # noqa: mock
+                    {"amount": "0xdd656d902", "sqrt_price": "0x213ebde612ea193310132c046f0af3"},  # noqa: mock
+                    {"amount": "0xfcdf26c", "sqrt_price": "0x1d1b64375e15ea2dd31f9260ec843d78"},  # noqa: mock
+                    {"amount": "0x120d26", "sqrt_price": "0x197be72c022b9bfbc519350b01526176b0"},  # noqa: mock
+                    {"amount": "0x149e", "sqrt_price": "0x164feda37568c4847e63597bcec4061b3ca3"},  # noqa: mock
+                    {"amount": "0x17", "sqrt_price": "0x13c435b327440aa87b5c9954de7934f9180b06"},  # noqa: mock
                 ],
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
             }

@@ -392,17 +392,21 @@ class ChainflipLpExchange(ExchangePyBase):
         trading_rules_list = await self._data_source.all_trading_rules()
         self._trading_rules = {trading_rule.trading_pair: trading_rule for trading_rule in trading_rules_list}
 
+<<<<<<< HEAD
 =======
     
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
 =======
 
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used
         raise NotImplementedError
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
+<<<<<<< HEAD
 <<<<<<< HEAD
         return False
 
@@ -420,18 +424,26 @@ class ChainflipLpExchange(ExchangePyBase):
         # not used in chainflip LP
 =======
         raise NotImplementedError
+=======
+        return False
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        raise NotImplementedError
+        return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        raise NotImplementedError
+        return False
 
     async def _user_stream_event_listener(self):
+        # no user stream in chainflip lp
         raise NotImplementedError
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+<<<<<<< HEAD
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        # not used in chainflip LP
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         raise NotImplementedError
 
     def _configure_event_forwarders(self):
@@ -464,6 +476,7 @@ class ChainflipLpExchange(ExchangePyBase):
 
     async def get_last_traded_prices(self, trading_pairs: List[str]):
 <<<<<<< HEAD
+<<<<<<< HEAD
         price_dict = {}
         for pair in trading_pairs:
             symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
@@ -478,3 +491,11 @@ class ChainflipLpExchange(ExchangePyBase):
             price_list.append(price_map)
         return price_list
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        price_dict = {}
+        for pair in trading_pairs:
+            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
+            price = await self._data_source.get_last_traded_price(symbol)
+            price_dict[pair] = price
+        return price_dict
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)

@@ -87,13 +87,17 @@ ASSET_PRECISIONS = {
     "Solana": {"SOL": 10e9},
 }
 
+<<<<<<< HEAD
 STABLE_ASSETS = ["USDC", "USDT"]
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 FRACTIONAL_BITS = 128
 SQRT_PRICE_FRACTIONAL_BITS = 96
 LOWER_TICK_BOUND = -887272
 UPPER_TICK_BOUND = 887272
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum"]}
 DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}
@@ -101,3 +105,7 @@ DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}
 SAME_CHAINS = ["Arbitrum", "Ethereum"]
 DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Arbitrum"}
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum"]}
+DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)

@@ -82,6 +82,9 @@ class MockRPCExecutor(BaseRPCExecutor):
     async def all_markets(self):
         response = await self._all_markets_responses.get()
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         data = DataFormatter.format_all_market_response(response)
         return data
 
@@ -121,6 +124,7 @@ class MockRPCExecutor(BaseRPCExecutor):
         order_price: float,
         side: Literal["buy", "sell"],
         sell_amount: int,
+<<<<<<< HEAD
     ):
         response = await self._place_order_responses.get()
         data = DataFormatter.format_place_order_response(response)
@@ -174,12 +178,14 @@ class MockRPCExecutor(BaseRPCExecutor):
 
     async def place_limit_order(
         self, base_asset: str, quote_asset: str, order_id: str, side: Literal["buy", "sell"], sell_amount: int
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     ):
         response = await self._place_order_responses.get()
-        data = DataFormatter.format_order_response(response, base_asset, quote_asset)
+        data = DataFormatter.format_place_order_response(response)
         return data
 
-    async def get_all_balances(self, main_account: str) -> Dict[str, Any]:
+    async def get_all_balances(self) -> Dict[str, Any]:
         response = await self._balances_responses.get()
         data = DataFormatter.format_balance_response(response)
         return data
@@ -198,8 +204,7 @@ class MockRPCExecutor(BaseRPCExecutor):
         side: Literal["buy", "sell"],
     ):
         response = await self._cancel_order_responses.get()
-        data = DataFormatter.format_order_response(response, base_asset, quote_asset)
-        return data
+        return response
 
     async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         response = await self._get_market_price_responses.get()

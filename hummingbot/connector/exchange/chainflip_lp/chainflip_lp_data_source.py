@@ -15,9 +15,12 @@ from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter impo
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import RPCQueryExecutor
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_utils import DEFAULT_FEES
 from hummingbot.connector.trading_rule import TradingRule
+<<<<<<< HEAD
 =======
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_utils import DEFAULT_FEES
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
@@ -131,11 +134,17 @@ class ChainflipLpDataSource:
         self._events_listening_tasks = []
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     def is_started(self):
         return len(self._assets_list) > 0
 
 =======
 >>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
+=======
+    def is_started(self):
+        return len(self._assets_list) > 0
+
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     def configure_throttler(self, throttler: AsyncThrottlerBase):
         self._throttler = throttler
 
@@ -222,10 +231,14 @@ class ChainflipLpDataSource:
         order_type: OrderType,
         price: Decimal,
 <<<<<<< HEAD
+<<<<<<< HEAD
         *kwargs,
 =======
         *kwargs
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        *kwargs,
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     ) -> Tuple[str, float]:
         asset_list = await self.assets_list()
         asset = DataFormatter.format_trading_pair(trading_pair, asset_list)
@@ -239,6 +252,9 @@ class ChainflipLpDataSource:
         )
         timestamp = self._time()
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         if not place_order_response:
             raise ValueError(f"Error placing order {order_id} in Chainflip LP")
         return place_order_response["order_id"], timestamp
@@ -259,13 +275,20 @@ class ChainflipLpDataSource:
     async def place_cancel(self, order_id: str, trading_pair: str, tracked_order: InFlightOrder):
         asset_list = await self.assets_list()
         asset = DataFormatter.format_trading_pair(trading_pair, asset_list)
+<<<<<<< HEAD
         status = self._rpc_executor.cancel_order(
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        self.logger().info("Canceling Order in Chainflip LP")
+        self.logger().info(f"Canceling Order with id {order_id}")
+        status = await self._rpc_executor.cancel_order(
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
             base_asset=asset["base_asset"],
             quote_asset=asset["quote_asset"],
             order_id=order_id,
             side=CONSTANTS.SIDE_BUY if tracked_order.trade_type == TradeType.BUY else CONSTANTS.SIDE_SELL,
         )
+<<<<<<< HEAD
 <<<<<<< HEAD
         return status
 
@@ -274,6 +297,10 @@ class ChainflipLpDataSource:
         return state
 <<<<<<< HEAD
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
+=======
+        return status
+
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     async def get_last_traded_price(self, trading_pair):
 <<<<<<< HEAD
         asset = DataFormatter.format_trading_pair(trading_pair, self._assets_list)
@@ -314,6 +341,7 @@ class ChainflipLpDataSource:
             trading_rules.append(TradingRule(trading_pair=trading_pair))
         return trading_rules
 
+<<<<<<< HEAD
 =======
         asset = DataFormatter.format_trading_pair(trading_pair,self._assets_list)
 =======
@@ -354,6 +382,8 @@ class ChainflipLpDataSource:
         return trade_updates
 
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     async def _process_recent_order_fills_async(self, events: Dict[str, Any]):
         if not events:
             return

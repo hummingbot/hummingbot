@@ -58,12 +58,17 @@ class ChainflipLpAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_subscriptions(self):
         # no supported subscription available to listen to in chainflip lp
+<<<<<<< HEAD
         pass
+=======
+        raise NotImplementedError
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise NotImplementedError
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
+<<<<<<< HEAD
 <<<<<<< HEAD
         pass
 
@@ -77,14 +82,21 @@ class ChainflipLpAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=CONSTANTS.WS_RPC_URLS[self._domain], ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         return ws
+=======
+        pass
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribe to the trades and order diffs
         """
         # subscriptions to trades and order diffs does not exist in chainflip lp
+<<<<<<< HEAD
         pass
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         return ""
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        raise NotImplementedError
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)

@@ -22,6 +22,7 @@ DEFAULT_FEES = TradeFeeSchema(
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 def chains_as_str(asset: str):
     return ",".join(CONSTANTS.SAME_CHAINS[asset])
 
@@ -29,6 +30,10 @@ def chains_as_str(asset: str):
 def chains_as_str():
     return ",".join(CONSTANTS.SAME_CHAINS)
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+def chains_as_str(asset: str):
+    return ",".join(CONSTANTS.SAME_CHAINS[asset])
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
 
 class ChainflipLpConfigMap(BaseConnectorConfigMap):
@@ -117,12 +122,17 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
     @validator("chainflip_usdc_chain", pre=True)
     def validate_chainflip_usdc_chain(cls, v: str):
 <<<<<<< HEAD
+<<<<<<< HEAD
         error_message = f"valid options are: {chains_as_str('USDC')}"
         if v not in CONSTANTS.SAME_CHAINS["USDC"]:
 =======
         error_message = f"valid options are: {chains_as_str()}"
         if v not in CONSTANTS.SAME_CHAINS:
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        error_message = f"valid options are: {chains_as_str('USDC')}"
+        if v not in CONSTANTS.SAME_CHAINS["USDC"]:
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
             raise ValueError(error_message)
         return v
 
@@ -204,12 +214,17 @@ class ChainflipLpTestnetConfigMap(BaseConnectorConfigMap):
     @validator("chainflip_usdc_chain", pre=True)
     def validate_chainflip_usdc_chain(cls, v: str):
 <<<<<<< HEAD
+<<<<<<< HEAD
         error_message = f"valid options are: {chains_as_str('USDC')}"
         if v not in CONSTANTS.SAME_CHAINS["USDC"]:
 =======
         error_message = f"valid options are: {chains_as_str()}"
         if v not in CONSTANTS.SAME_CHAINS:
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+        error_message = f"valid options are: {chains_as_str('USDC')}"
+        if v not in CONSTANTS.SAME_CHAINS["USDC"]:
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
             raise ValueError(error_message)
         return v
 

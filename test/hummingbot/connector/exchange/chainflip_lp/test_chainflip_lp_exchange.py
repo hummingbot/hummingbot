@@ -1,5 +1,6 @@
 import asyncio
 <<<<<<< HEAD
+<<<<<<< HEAD
 from functools import partial
 from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -13,11 +14,14 @@ from substrateinterface import Keypair
 =======
 import json
 from decimal import Decimal
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 from functools import partial
 from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from unittest.mock import AsyncMock
 
+from _decimal import Decimal
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from bidict import bidict
@@ -68,9 +72,9 @@ from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import Cha
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent
 from hummingbot.core.network_iterator import NetworkStatus
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
 
@@ -894,6 +898,459 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._data_source._rpc_executor._balances_responses.put_nowait(response)
         return ""
 
+    @property
+    def expected_partial_fill_price(self) -> Decimal:
+        raise NotImplementedError
+
+    @property
+    def expected_partial_fill_amount(self) -> Decimal:
+        raise NotImplementedError
+
+    @property
+    def expected_fill_fee(self) -> TradeFeeBase:
+        raise NotImplementedError
+
+    @property
+    def expected_fill_trade_id(self) -> str:
+        raise NotImplementedError
+
+    def validate_auth_credential_present(self, request_call: RequestCall):
+        raise NotImplementedError
+
+    def validate_order_creation_equest(self, order: InFlightOrder, request_call: RequestCall):
+        raise NotImplementedError
+
+    def validate_order_cancelatin_request(self, order: InFlightOrder, request_call: RequestCall):
+        raise NotImplementedError
+
+    def validate_order_status_reuest(self, order: InFlightOrder, request_call: RequestCall):
+        raise NotImplementedError
+
+    def validate_trades_request(elf, order: InFlightOrder, request_call: RequestCall):
+        raise NotImplementedError
+
+    def configure_order_not_found_error_cancelation_response(
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> str:
+        """
+        :return: the URL configured for the cancelation
+        """
+        raise NotImplementedError
+
+    def configure_one_successful_one_erroneous_cancel_all_response(
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+    ) -> List[str]:
+        """
+        :return: a list of all configured URLs for the cancelations
+        """
+
+    def configure_completely_filled_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_canceled_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> Union[str, List[str]]:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_open_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_http_error_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_partially_filled_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_order_not_found_error_order_status_response(
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> List[str]:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_partial_fill_trade_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_erroneous_http_fill_trade_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def configure_full_fill_trade_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = None
+    ) -> str:
+        """
+        :return: the URL configured
+        """
+        raise NotImplementedError
+
+    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        raise NotImplementedError
+
+    def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
+        raise NotImplementedError
+
+    def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        raise NotImplementedError
+
+    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return None
+
+    @property
+    def exchange_trading_pair(self) -> str:
+        return self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+
+    @property
+    def expected_trading_rule(self):
+        trading_rule = TradingRule(trading_pair=self.trading_pair)
+        return trading_rule
+
+    @property
+    def all_assets_mock_response(self):
+        return [
+            {"chain": "Ethereum", "asset": self.quote_asset},
+            {"chain": "Ethereum", "asset": self.base_asset},
+        ]
+
+    @property
+    def place_order_mock_response(self):
+        return {
+            "result": {
+                "tx_details": {
+                    "tx_hash": "0x3cb78cdbbfc34634e33d556a94ee7438938b65a5b852ee523e4fc3c0ec3f8151",  # noqa: mock
+                    "response": [
+                        {
+                            "base_asset": "ETH",
+                            "quote_asset": "USDC",
+                            "side": "buy",
+                            "id": "0x11",  # noqa: mock
+                            "tick": 50,
+                            "sell_amount_total": "0x100000",  # noqa: mock
+                            "collected_fees": "0x0",  # noqa: mock
+                            "bought_amount": "0x0",  # noqa: mock
+                            "sell_amount_change": {"increase": "0x100000"},  # noqa: mock
+                        }
+                    ],
+                }
+            },
+        }
+
+    @property
+    def all_symbols_request_mock_response(self):
+        response = {
+            "result": {
+                "fees": {
+                    "Ethereum": {
+                        self.base_asset: {
+                            "limit_order_fee_hundredth_pips": 500,
+                            "range_order_fee_hundredth_pips": 500,
+                            "range_order_total_fees_earned": {
+                                "base": "0x3d4a754fc1d2302",  # noqa: mock
+                                "quote": "0x3689782a",  # noqa: mock
+                            },
+                            "limit_order_total_fees_earned": {
+                                "base": "0x83c94dd54804790a",  # noqa: mock
+                                "quote": "0x670a76ae0",  # noqa: mock
+                            },
+                            "range_total_swap_inputs": {
+                                "base": "0x1dc18b046dde67f2b0",  # noqa: mock
+                                "quote": "0x1a774f80e62",  # noqa: mock
+                            },
+                            "limit_total_swap_inputs": {
+                                "base": "0x369c2e5bafeffddab46",  # noqa: mock
+                                "quote": "0x2be491b4d31d",  # noqa: mock
+                            },
+                            "quote_asset": {"chain": "Ethereum", "asset": self.quote_asset},
+                        },
+                    }
+                }
+            }
+        }
+        return response
+
+    @property
+    def latest_prices_request_mock_response(self):
+        response = {
+            "result": {
+                "base_asset": {"chain": "Ethereum", "asset": "ETH"},
+                "quote_asset": {"chain": "Ethereum", "asset": "USDC"},
+                "sell": "0x3bc9b4d35fc93990865a6",  # noqa: mock
+                "buy": "0x3baddb29af3e837abc358",  # noqa: mock
+                "range_order": "0x3bc9b4d35fc93990865a6",  # noqa: mock
+            }
+        }
+
+        return response
+
+    @property
+    def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
+        response = {
+            "result": {
+                "fees": {
+                    "Ethereum": {
+                        self.base_asset: {
+                            "limit_order_fee_hundredth_pips": 500,
+                            "range_order_fee_hundredth_pips": 500,
+                            "range_order_total_fees_earned": {
+                                "base": "0x3d4a754fc1d2302",  # noqa: mock
+                                "quote": "0x3689782a",  # noqa: mock
+                            },
+                            "limit_order_total_fees_earned": {
+                                "base": "0x83c94dd54804790a",  # noqa: mock
+                                "quote": "0x670a76ae0",  # noqa: mock
+                            },
+                            "range_total_swap_inputs": {
+                                "base": "0x1dc18b046dde67f2b0",  # noqa: mock
+                                "quote": "0x1a774f80e62",  # noqa: mock
+                            },
+                            "limit_total_swap_inputs": {
+                                "base": "0x369c2e5bafeffddab46",  # noqa: mock
+                                "quote": "0x2be491b4d31d",  # noqa: mock
+                            },
+                            "quote_asset": {"chain": "Ethereum", "asset": self.quote_asset},
+                        },
+                        "INVALID": {
+                            "limit_order_fee_hundredth_pips": 500,
+                            "range_order_fee_hundredth_pips": 500,
+                            "range_order_total_fees_earned": {
+                                "base": "0x3d4a754fc1d2302",  # noqa: mock
+                                "quote": "0x3689782a",  # noqa: mock
+                            },
+                            "limit_order_total_fees_earned": {
+                                "base": "0x83c94dd54804790a",  # noqa: mock
+                                "quote": "0x670a76ae0",  # noqa: mock
+                            },
+                            "range_total_swap_inputs": {
+                                "base": "0x1dc18b046dde67f2b0",  # noqa: mock
+                                "quote": "0x1a774f80e62",  # noqa: mock
+                            },
+                            "limit_total_swap_inputs": {
+                                "base": "0x369c2e5bafeffddab46",  # noqa: mock
+                                "quote": "0x2be491b4d31d",  # noqa: mock
+                            },
+                            "quote_asset": {"chain": "Ethereum", "asset": "PAIR"},
+                        },
+                    }
+                }
+            }
+        }
+
+        return "INVALID-PAIR", response
+
+    @property
+    def network_status_request_successful_mock_response(self):
+        return True
+
+    @property
+    def trading_rules_request_mock_response(self):
+        raise NotImplementedError
+
+    @property
+    def trading_rules_request_erroneous_mock_response(self):
+        raise NotImplementedError
+
+    @property
+    def order_creation_request_successful_mock_response(self):
+        response = {
+            "result": {
+                "tx_details": {
+                    "tx_hash": "0x3cb78cdbbfc34634e33d556a94ee7438938b65a5b852ee523e4fc3c0ec3f8151",  # noqa: mock
+                    "response": [
+                        {
+                            "base_asset": self.base_asset,
+                            "quote_asset": self.quote_asset,
+                            "side": "buy",
+                            "id": "0x11",  # noqa: mock
+                            "tick": 50,
+                            "sell_amount_total": "0x100000",  # noqa: mock
+                            "collected_fees": "0x0",  # noqa: mock
+                            "bought_amount": "0x0",  # noqa: mock
+                            "sell_amount_change": {"increase": "0x100000"},  # noqa: mock
+                        }
+                    ],
+                }
+            },
+        }
+        return response
+
+    @property
+    def balance_request_mock_response_for_base_and_quote(self):
+        response = {
+            "result": {
+                "Ethereum": {
+                    "ETH": "0x2386f26fc0bda2",  # noqa: mock
+                    "FLIP": "0xde0b6b3a763ec60",  # noqa: mock
+                    "USDC": "0x8bb50bca00",  # noqa: mock
+                },
+            }
+        }
+        return response
+
+    @property
+    def balance_request_mock_response_only_base(self):
+        response = {"result": {"Ethereum": {"ETH": "0x2386f26fc0bda2"}}}  # noqa: mock
+        return response
+
+    @property
+    def balance_event_websocket_update(self):
+        response = {
+            "result": {
+                "Ethereum": [
+                    {"asset": self.base_asset, "balance": "0x2386f26fc0bda2"},  # noqa: mock
+                    {"asset": self.quote_asset, "balance": "0x8bb50bca00"},  # noqa: mock
+                ]
+            },
+        }
+        return response
+
+    @property
+    def expected_latest_price(self):
+        return 9999.9
+
+    @property
+    def expected_supported_order_types(self):
+        return [OrderType.LIMIT]
+
+    @property
+    def expected_logged_error_for_erroneous_trading_rule(self):
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response["symbols"][0]
+        return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
+
+    @property
+    def is_order_fill_http_update_included_in_status_update(self) -> bool:
+        return True
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False
+
+    @property
+    def expected_exchange_order_id(self):
+        return "0x11"  # noqa: mock
+
+    def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
+        return f"{base_token}-{quote_token}"
+
+    def create_exchange_instance(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        exchange = ChainflipLpExchange(
+            client_config_map=client_config_map,
+            chainflip_lp_api_url="",
+            chainflip_lp_address=self._address,
+            chainflip_eth_chain=self._eth_chain,
+            chainflip_usdc_chain=self._usdc_chain,
+            trading_pairs=[self.trading_pair],
+        )
+        exchange._data_source._rpc_executor = MockRPCExecutor()
+        return exchange
+
+    def configure_no_fills_trade_response(self):
+        order_fills_response = []
+        self.exchange._data_source._rpc_executor._order_fills_responses.put_nowait(order_fills_response)
+
+    def configure_all_symbols_response(
+        self, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        all_assets_mock_response = self.all_assets_mock_response
+        self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
+        response = self.all_symbols_request_mock_response
+        self.exchange._data_source._rpc_executor._all_markets_responses.put_nowait(response)
+        return ""
+
+    def configure_successful_creation_order_status_response(
+        self, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        all_assets_mock_response = {"result": self.all_assets_mock_response}
+        self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response, callback=callback, response=self.place_order_mock_response
+        )
+        self.exchange._data_source._rpc_executor._place_order_responses = mock_queue
+        return ""
+
+    def configure_erroneous_creation_order_status_response(
+        self, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        all_assets_mock_response = {"result": self.all_assets_mock_response}
+        self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
+        creation_response = False
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response, callback=callback, response=creation_response
+        )
+        self.exchange._data_source._rpc_executor._place_order_responses = mock_queue
+        return ""
+
+    def configure_successful_cancelation_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        all_assets_mock_response = {"result": self.all_assets_mock_response}
+        self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
+        response = self._order_cancelation_request_successful_mock_response(order=order)
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
+        self.exchange._data_source._rpc_executor._cancel_order_responses = mock_queue
+        return ""
+
+    def configure_erroneous_cancelation_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        response = False
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
+        self.exchange._data_source._rpc_executor._cancel_order_responses = mock_queue
+        return ""
+
+    def _configure_balance_response(
+        self,
+        response: Dict[str, Any],
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> str:
+        all_assets_mock_response = self.all_assets_mock_response
+        self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
+        self.exchange._data_source._rpc_executor._balances_responses.put_nowait(response)
+        return ""
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -940,6 +1397,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         if self._logs_event is not None:
             await self._logs_event.wait()
 
+<<<<<<< HEAD
     @aioresponses()
     def test_check_network_success(self, mock_api):
         self.exchange._data_source._rpc_executor._check_connection_response.put_nowait(True)
@@ -1023,15 +1481,15 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         return {"websocket_streams": {"data": json.dumps(data)}}
 
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     @aioresponses()
     def test_check_network_success(self, mock_api):
-        all_assets_mock_response = self.all_assets_mock_response
-        self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
-
+        self.exchange._data_source._rpc_executor._check_connection_response.put_nowait(True)
         network_status = self.async_run_with_timeout(coroutine=self.exchange.check_network())
-
         self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
+<<<<<<< HEAD
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return None
 
@@ -1056,6 +1514,11 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 =======
         self.exchange._data_source._rpc_executor.__check_connection_response.put_nowait(False)
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+    @aioresponses()
+    def test_check_network_failure(self, mock_api):
+        self.exchange._data_source._rpc_executor._check_connection_response.put_nowait(False)
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
         ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
 
@@ -1066,10 +1529,14 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.exchange._data_source._rpc_executor._check_connection_response = mock_queue
 =======
         self.exchange._data_source._rpc_executor._all_assets_responses = mock_queue
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+        self.exchange._data_source._rpc_executor._check_connection_response = mock_queue
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
         self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.exchange.check_network())
 
@@ -1077,13 +1544,19 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def test_get_last_trade_prices(self, mock_api):
         response = self.latest_prices_request_mock_response
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         asset_response = self.all_assets_mock_response
         self.exchange._data_source._rpc_executor._get_market_price_responses.put_nowait(response)
         self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(asset_response)
         formatted_response = DataFormatter.format_market_price(response)
+<<<<<<< HEAD
 =======
         self.exchange._data_source._rpc_executor._get_market_price_responses.put_nowait(response)
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
         latest_prices: Dict[str, float] = self.async_run_with_timeout(
             self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
@@ -1091,6 +1564,9 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertEqual(1, len(latest_prices))
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         self.assertEqual(formatted_response["price"], latest_prices[self.trading_pair])
 
     @aioresponses()
@@ -1106,9 +1582,12 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(len(expected_valid_trading_pairs), len(all_trading_pairs))
         for trading_pair in expected_valid_trading_pairs:
             self.assertIn(trading_pair, all_trading_pairs)
+<<<<<<< HEAD
 =======
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     @aioresponses()
     def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
@@ -1125,6 +1604,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.exchange._data_source._assets_list = []
         queue_mock = AsyncMock()
         queue_mock.return_value = []
@@ -1135,6 +1615,12 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         queue_mock.get.side_effect = Exception
         self.exchange._data_source._rpc_executor._all_assets_responses = queue_mock
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+        self.exchange._data_source._assets_list = []
+        queue_mock = AsyncMock()
+        queue_mock.return_value = []
+        self.exchange._data_source._rpc_executor._all_markets_responses = queue_mock
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
         result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
 
@@ -1159,6 +1645,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
     @aioresponses()
+<<<<<<< HEAD
     def test_update_trading_rues(self, mock_api):
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
@@ -1182,6 +1669,8 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
 
     @aioresponses()
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     def test_create_buy_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
@@ -1192,6 +1681,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
         order_id = self.place_buy_order()
+        self.assertTrue(self.is_logged("INFO", "Placing buy Order in Chainflip LP"))
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1265,6 +1755,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
             )
         )
+<<<<<<< HEAD
 =======
 =======
 
@@ -1273,6 +1764,8 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         pass
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     @aioresponses()
     def test_cancel_order_successfully(self, mock_api):
@@ -1298,6 +1791,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
 <<<<<<< HEAD
+<<<<<<< HEAD
 
         self.async_run_with_timeout(request_sent_event.wait())
 
@@ -1320,6 +1814,12 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
         pass
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     @aioresponses()
     def test_update_balances(self, mock_api):
@@ -1333,6 +1833,9 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         total_balances = self.exchange.get_all_balances()
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         base_asset_key = f"{self.base_asset}-{self.base_asset_dict['chain']}"
         quote_asset_key = f"{self.quote_asset}-{self.quote_asset_dict['chain']}"
 
@@ -1340,18 +1843,22 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(formmatted_data[quote_asset_key], available_balances[quote_asset_key])
         self.assertEqual(formmatted_data[base_asset_key], total_balances[base_asset_key])
         self.assertEqual(formmatted_data[quote_asset_key], total_balances[quote_asset_key])
+<<<<<<< HEAD
 =======
         self.assertEqual(formmatted_data[self.base_asset], available_balances[self.base_asset])
         self.assertEqual(formmatted_data[self.quote_asset], available_balances[self.quote_asset])
         self.assertEqual(formmatted_data[self.base_asset], total_balances[self.base_asset])
         self.assertEqual(formmatted_data[self.base_asset], total_balances[self.quote_asset])
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
         response = self.balance_request_mock_response_only_base
 
         self._configure_balance_response(response=response, mock_api=mock_api)
         self.async_run_with_timeout(self.exchange._update_balances())
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         formmatted_data = DataFormatter.format_balance_response(response)
 
@@ -1402,14 +1909,64 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
         pass
 =======
+=======
+        formmatted_data = DataFormatter.format_balance_response(response)
+
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
+        self.assertNotIn(quote_asset_key, available_balances)
+        self.assertNotIn(quote_asset_key, total_balances)
+        self.assertEqual(formmatted_data[base_asset_key], available_balances[base_asset_key])
+        self.assertEqual(formmatted_data[base_asset_key], total_balances[base_asset_key])
 
+<<<<<<< HEAD
         self.assertNotIn(self.quote_asset, available_balances)
         self.assertNotIn(self.quote_asset, total_balances)
         self.assertEqual(formmatted_data[self.base_asset], available_balances[self.base_asset])
         self.assertEqual(formmatted_data[self.base_asset], total_balances[self.base_asset])
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+    @aioresponses()
+    def test_update_trading_rules(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+
+        all_assets_mock_response = {"result": self.all_assets_mock_response}
+        self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
+        response = self.all_symbols_request_mock_response
+        self.exchange._data_source._rpc_executor._all_markets_responses.put_nowait(response)
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+        trading_rule: TradingRule = self.exchange.trading_rules[self.trading_pair]
+
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+        self.assertEqual(repr(self.expected_trading_rule), repr(trading_rule))
+
+    @aioresponses()
+    def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
+        # no trading rules in chainflip lp
+        pass
+
+    @aioresponses()
+    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+        # no trading rules in chainflip LP
+        pass
+
+    @aioresponses()
+    def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
+        # no error being raised so test can be ignored
+        pass
+
+    @aioresponses()
+    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
+        pass
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
@@ -1531,6 +2088,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         pass
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return True
 =======
@@ -1646,6 +2204,10 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             "u": "",
         }
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
+=======
+    def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
+        return True
+>>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
     @staticmethod
     def _callback_wrapper_with_response(callback: Callable, response: Any, *args, **kwargs):
