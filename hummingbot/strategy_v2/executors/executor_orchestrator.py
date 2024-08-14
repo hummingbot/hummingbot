@@ -168,6 +168,7 @@ class ExecutorOrchestrator:
         for executor in combined_executors:
             close_type = executor.close_type
             if close_type == CloseType.FAILED:
+                close_type_counts[close_type] = close_type_counts.get(close_type, 0) + 1
                 continue
             elif close_type is not None:
                 if close_type in close_type_counts:
