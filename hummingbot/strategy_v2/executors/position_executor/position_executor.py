@@ -48,10 +48,12 @@ class PositionExecutor(ExecutorBase):
             error = "Only market orders are supported for time_limit and stop_loss"
             self.logger().error(error)
             raise ValueError(error)
-        super().__init__(strategy=strategy, config=config, connectors=[config.connector_name], update_interval=update_interval)
+        super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
+                         update_interval=update_interval)
         if not config.entry_price:
             open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
-            config.entry_price = self.get_price(config.connector_name, config.trading_pair, price_type=open_order_price_type)
+            config.entry_price = self.get_price(config.connector_name, config.trading_pair,
+                                                price_type=open_order_price_type)
         self.config: PositionExecutorConfig = config
         self.trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
 
@@ -234,7 +236,8 @@ class PositionExecutor(ExecutorBase):
 
         :return: The net pnl percentage.
         """
-        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote != Decimal("0") else Decimal("0")
+        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote != Decimal(
+            "0") else Decimal("0")
 
     @property
     def end_time(self) -> Optional[float]:
@@ -258,12 +261,14 @@ class PositionExecutor(ExecutorBase):
             take_profit_price = self.entry_price * (1 + self.config.triple_barrier_config.take_profit)
             if self.config.triple_barrier_config.take_profit_order_type == OrderType.LIMIT_MAKER:
                 take_profit_price = max(take_profit_price,
-                                        self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.BestAsk))
+                                        self.get_price(self.config.connector_name, self.config.trading_pair,
+                                                       PriceType.BestAsk))
         else:
             take_profit_price = self.entry_price * (1 - self.config.triple_barrier_config.take_profit)
             if self.config.triple_barrier_config.take_profit_order_type == OrderType.LIMIT_MAKER:
                 take_profit_price = min(take_profit_price,
-                                        self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.BestBid))
+                                        self.get_price(self.config.connector_name, self.config.trading_pair,
+                                                       PriceType.BestBid))
         return take_profit_price
 
     async def control_task(self):
@@ -296,32 +301,43 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if math.isclose(self.open_filled_amount, self.close_filled_amount, rel_tol=1e-2):
-            if self.open_orders_completed():
-                self.stop()
-            else:
-                self.cancel_open_orders()
-                self._current_retries += 1
-        elif self._close_order:
+        open_orders_completed = self.open_orders_completed()
+        order_execution_completed = self.open_and_close_volume_match()
+        if open_orders_completed and order_execution_completed:
+            self.stop()
+        else:
+            await self.control_close_order()
+            self.cancel_open_orders()
             self._current_retries += 1
-            if self._current_retries < self._max_retries / 2:
+        await asyncio.sleep(2.0)
+
+    def open_and_close_volume_match(self):
+        if self.open_filled_amount == Decimal("0"):
+            return True
+        else:
+            return self._close_order and self._close_order.is_filled
+
+    async def control_close_order(self):
+        """
+        This method is responsible for controlling the close order. If the close order is filled and the open orders are
+        completed, it stops the executor. If the close order is not placed, it places the close order. If the close order
+        is not filled, it waits for the close order to be filled and requests the order information to the connector.
+        """
+        if self._close_order:
+            in_flight_order = self.get_in_flight_order(self.config.connector_name,
+                                                       self._close_order.order_id) if not self._close_order.order else self._close_order.order
+            if in_flight_order:
+                self._close_order.order = in_flight_order
                 connector = self.connectors[self.config.connector_name]
-                in_flight_order = self.get_in_flight_order(self.config.connector_name, self._close_order.order_id) if not self._close_order.order else None
-                if in_flight_order:
-                    self._close_order.order = in_flight_order
                 await connector._update_orders_with_error_handler(
                     orders=[in_flight_order],
                     error_handler=connector._handle_update_error_for_lost_order)
-                self.logger().info(f"Waiting for close order to be filled --> Filled amount: {self.close_filled_amount} | Open amount: {self.open_filled_amount}")
+                self.logger().info("Waiting for close order to be filled")
             else:
-                self.logger().info("No fill on close order, will be retried.")
-                self.cancel_close_order()
                 self._failed_orders.append(self._close_order)
                 self._close_order = None
         else:
-            self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
-        await asyncio.sleep(2.0)
 
     def evaluate_max_retries(self):
         """
@@ -474,8 +490,9 @@ class PositionExecutor(ExecutorBase):
             if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
                 if not self._take_profit_limit_order:
                     self.place_take_profit_limit_order()
-                elif self._take_profit_limit_order.order and not math.isclose(self._take_profit_limit_order.order.amount,
-                                                                              self._open_order.executed_amount_base):
+                elif self._take_profit_limit_order.order and not math.isclose(
+                        self._take_profit_limit_order.order.amount,
+                        self._open_order.executed_amount_base):
                     self.renew_take_profit_order()
             elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
