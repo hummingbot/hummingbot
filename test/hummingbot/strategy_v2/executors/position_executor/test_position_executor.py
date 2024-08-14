@@ -636,3 +636,49 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
 
         executor = PositionExecutor(self.strategy, config)
         self.assertEqual(executor.entry_price, Decimal("101"))
+
+    @patch.object(PositionExecutor, "place_close_order_and_cancel_open_orders")
+    async def test_control_shutdown_process(self, place_order_mock):
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor._open_order = TrackedOrder("OID-BUY-1")
+        position_executor._open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair=position_config.trading_pair,
+            order_type=position_config.triple_barrier_config.open_order_type,
+            trade_type=TradeType.BUY,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        position_executor._open_order.order.update_with_trade_update(
+            TradeUpdate(
+                trade_id="1",
+                client_order_id="OID-BUY-1",
+                exchange_order_id="EOID4",
+                trading_pair=position_config.trading_pair,
+                fill_price=position_config.entry_price,
+                fill_base_amount=position_config.amount,
+                fill_quote_amount=position_config.amount * position_config.entry_price,
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+                fill_timestamp=10,
+            )
+        )
+        position_executor._status = RunnableStatus.SHUTTING_DOWN
+        await position_executor.control_task()
+        place_order_mock.assert_called_once()
+        position_executor._close_order = TrackedOrder("OID-SELL-1")
+        position_executor._close_order.order = InFlightOrder(
+            client_order_id="OID-SELL-1",
+            exchange_order_id="EOID4",
+            trading_pair=position_config.trading_pair,
+            order_type=position_config.triple_barrier_config.open_order_type,
+            trade_type=TradeType.SELL,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN
+        )
+        await position_executor.control_task()
