@@ -23,8 +23,7 @@ class KucoinSpotCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1min",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1min", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
         self._ws_url = None
         self._ws_token = None
@@ -52,6 +51,10 @@ class KucoinSpotCandles(CandlesBase):
     @property
     def candles_endpoint(self):
         return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
 
     @property
     def public_ws_url(self):
