@@ -80,7 +80,7 @@ If the Foundation team requests changes, make more commits to your branch to add
 
 ## Unit Test Coverage
 
-A minimum of 75% unit test coverage is required for all changes included in a pull request. However, some components, like UI components, are excluded from this validation.
+A minimum of 80% unit test coverage is required for all changes included in a pull request. However, some components, like UI components, are excluded from this validation.
 
 To run tests locally, run `make test` after activating the environment.
 
