@@ -13,8 +13,8 @@ HBOT_ORDER_ID_PREFIX = "hbot"
 MAX_ORDER_ID_LEN = 64
 
 # Base URL
-DEFAULT_JSON_RPC_URL = "https://s1.ripple.com:51234/"
-DEFAULT_WSS_URL = "wss://s1.ripple.com/"
+DEFAULT_JSON_RPC_URL = "https://xrplcluster.com/"
+DEFAULT_WSS_URL = "wss://xrplcluster.com/"
 
 # Websocket channels
 TRADE_EVENT_TYPE = "trades"
@@ -35,23 +35,33 @@ ORDER_STATE = {
 
 # Order Types
 XRPL_ORDER_TYPE = {
-    OrderType.LIMIT: 524288,
-    OrderType.LIMIT_MAKER: 589824,
-    OrderType.MARKET: 786432,
+    OrderType.LIMIT: 65536,
+    OrderType.LIMIT_MAKER: 65536,
+    OrderType.MARKET: 262144,
 }
 
+XRPL_SELL_FLAG = 524288
+
 # Market Order Max Slippage
-MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.005")
+MARKET_ORDER_MAX_SLIPPAGE = Decimal("0.02")
 
 # Order Side
 SIDE_BUY = 0
 SIDE_SELL = 1
 
 # Orderbook settings
-ORDER_BOOK_DEPTH = 500
+ORDER_BOOK_DEPTH = 150
+FETCH_ORDER_BOOK_MAX_RETRY = 3
+FETCH_ORDER_BOOK_RETRY_INTERVAL = 1
 
 # Ledger offset for getting order status:
 LEDGER_OFFSET = _LEDGER_OFFSET * 2
+
+# Timeout for pending order status check
+PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
+
+# Request Timeout
+REQUEST_TIMEOUT = 30
 
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
@@ -65,12 +75,31 @@ RATE_LIMITS = [
 PLACE_ORDER_MAX_RETRY = 3
 PLACE_ORDER_RETRY_INTERVAL = 3
 
+# Transaction fee multiplier
+FEE_MULTIPLIER = 2
+
 # Cancel All Timeout
 CANCEL_ALL_TIMEOUT = 60.0
 
 # Cancel retry parameters
 CANCEL_MAX_RETRY = 3
 CANCEL_RETRY_INTERVAL = 3
+
+# Verify transaction retry parameters
+VERIFY_TRANSACTION_MAX_RETRY = 3
+VERIFY_TRANSACTION_RETRY_INTERVAL = 2
+
+# Autofill transaction retry parameters
+AUTOFILL_TRANSACTION_MAX_RETRY = 5
+
+# Request retry interval
+REQUEST_RETRY_INTERVAL = 2
+
+# Request Orderbook Interval
+REQUEST_ORDERBOOK_INTERVAL = 3
+
+# Client refresh interval
+CLIENT_REFRESH_INTERVAL = 60
 
 # Markets list
 MARKETS = {

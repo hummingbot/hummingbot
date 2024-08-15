@@ -619,7 +619,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL
+            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL
         )
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)

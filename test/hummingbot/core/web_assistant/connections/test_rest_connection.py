@@ -6,8 +6,8 @@ from typing import Awaitable
 import aiohttp
 from aioresponses import aioresponses
 
-from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse
+from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 
 
 class RESTConnectionTest(unittest.TestCase):
@@ -26,7 +26,7 @@ class RESTConnectionTest(unittest.TestCase):
         resp = {"one": 1}
         mocked_api.get(url, body=json.dumps(resp).encode())
 
-        client_session = aiohttp.ClientSession()
+        client_session = aiohttp.ClientSession(loop=self.ev_loop)
         connection = RESTConnection(client_session)
         request = RESTRequest(method=RESTMethod.GET, url=url)
 

@@ -117,8 +117,8 @@ class KucoinExchange(ExchangePyBase):
         return pairs_prices
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        # API documentation does not clarify the error message for timestamp related problems
-        return False
+        error_description = str(request_exception)
+        return CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR in error_description and CONSTANTS.RET_MSG_AUTH_TIMESTAMP_ERROR in error_description
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return (str(CONSTANTS.RET_CODE_RESOURCE_NOT_FOUND) in str(status_update_exception) and
