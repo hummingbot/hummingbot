@@ -420,7 +420,11 @@ class BybitExchange(ExchangePyBase):
     def _parse_trade_update(self, trade_msg: Dict, tracked_order: InFlightOrder) -> TradeUpdate:
         trade_id: str = str(trade_msg["execId"])
         is_maker: bool = trade_msg["isMaker"]
-        maker_fee_rate: Decimal = Decimal(self._trading_fees[tracked_order.trading_pair]["makerFeeRate"])
+        try:
+            maker_fee_rate: Decimal = Decimal(self._trading_fees[tracked_order.trading_pair]["makerFeeRate"])
+        except KeyError:
+            # Workaround when no fees are initialized yet.
+            maker_fee_rate = Decimal("0")
         side: str = trade_msg["side"]
         if maker_fee_rate > Decimal("0"):
             if side == "Buy":
