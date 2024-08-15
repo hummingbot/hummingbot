@@ -164,6 +164,14 @@ class TestBybitExchange(unittest.TestCase):
         }
         self.exchange._initialize_trading_pair_symbols_from_exchange_info(self.get_exchange_rules_mock())
 
+    def _simulate_trading_fees_initialized(self):
+        fee_rates = {
+            "symbol": self.ex_trading_pair,
+            "takerFeeRate": "0.0002",
+            "makerFeeRate": "0.0001"
+        }
+        self.exchange._trading_fees[self.trading_pair] = fee_rates
+
     def _validate_auth_credentials_present(self, request_call_tuple: NamedTuple):
         request_headers = request_call_tuple.kwargs["headers"]
         self.assertIn("Content-Type", request_headers)
@@ -933,13 +941,43 @@ class TestBybitExchange(unittest.TestCase):
 
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
-        print(available_balances)
-        print(total_balances)
 
         self.assertEqual(Decimal("10"), available_balances["COINALPHA"])
         # self.assertEqual(Decimal("2000"), available_balances["USDT"])
         self.assertEqual(Decimal("15"), total_balances["COINALPHA"])
         # self.assertEqual(Decimal("2000"), total_balances["USDT"])
+
+    @aioresponses()
+    def test_update_trading_fees(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        url = web_utils.rest_url(CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        self._simulate_trading_fees_initialized()
+        self.assertEqual(Decimal("0.0001"), Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
+        self.assertEqual(Decimal("0.0002"), Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
+
+        response = {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "list": [
+                    {
+                        "symbol": self.ex_trading_pair,
+                        "takerFeeRate": "0.0006",
+                        "makerFeeRate": "0.0005"
+                    }
+                ]
+            },
+            "retExtInfo": {},
+            "time": 1676360412576
+        }
+
+        mock_api.get(regex_url, body=json.dumps(response))
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        self.assertEqual(Decimal("0.0005"), Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
+        self.assertEqual(Decimal("0.0006"), Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
@@ -1896,7 +1934,6 @@ class TestBybitExchange(unittest.TestCase):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [event_message, filled_event, asyncio.CancelledError]
         self.exchange._user_stream_tracker._user_stream = mock_queue
-
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener())
         except asyncio.CancelledError:
