@@ -66,6 +66,7 @@ def main():
         "commlib-py",
         "docker",
         "diff-cover",
+        "ecdsa",
         "eip712-structs",
         "eth-abi",
         "eth-account",
@@ -74,6 +75,7 @@ def main():
         "eth-typing",
         "eth-utils",
         "flake8",
+        "grpc",
         "hexbytes",
         "importlib-metadata",
         "injective-py",
@@ -109,6 +111,7 @@ def main():
         "websockets",
         "yarl",
         "pandas_ta==0.3.14b",
+        "xrpl-py==3.0.0",
     ]
 
     cython_kwargs = {

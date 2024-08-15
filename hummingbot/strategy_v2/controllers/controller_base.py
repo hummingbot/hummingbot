@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import inspect
+from decimal import Decimal
 from typing import Callable, Dict, List, Set
 
 from pydantic import Field, validator
@@ -36,6 +37,12 @@ class ControllerConfigBase(BaseClientModel):
         ))
     controller_name: str
     controller_type: str = "generic"
+    total_amount_quote: Decimal = Field(
+        default=100,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
     manual_kill_switch: bool = Field(default=None, client_data=ClientFieldData(is_updatable=True, prompt_on_new=False))
     candles_config: List[CandlesConfig] = Field(
         default="binance_perpetual.WLD-USDT.1m.500",
