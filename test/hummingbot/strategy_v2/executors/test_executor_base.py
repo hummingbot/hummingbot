@@ -3,6 +3,7 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import MagicMock, PropertyMock, patch
 
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_book import OrderBook
@@ -44,6 +45,8 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.get_order_book.return_value = OrderBook()
         connector.get_balance.return_value = Decimal("0.0")
         connector.get_available_balance.return_value = Decimal("0.0")
+        connector._order_tracker = MagicMock(spec=ClientOrderTracker)
+        connector._order_tracker.fetch_order.return_value = None
         strategy.connectors = {
             "connector1": connector,
         }
@@ -172,3 +175,7 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(balance, Decimal("0.0"))
         available_balance = self.component.get_available_balance("connector1", "ETH")
         self.assertEqual(available_balance, Decimal("0.0"))
+
+    def test_get_in_flight_order(self):
+        in_flight_orders = self.component.get_in_flight_order("connector1", "OID-BUY-1")
+        self.assertEqual(in_flight_orders, None)

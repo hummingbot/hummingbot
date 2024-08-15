@@ -61,6 +61,7 @@ ORDER_STATE = {
     "CANCELED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
     "EXPIRED": OrderState.FAILED,
+    "EXPIRED_IN_MATCH": OrderState.FAILED,
 }
 
 # Websocket event types
