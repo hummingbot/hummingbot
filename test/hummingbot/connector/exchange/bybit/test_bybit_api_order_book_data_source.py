@@ -343,10 +343,8 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
         incomplete_resp = {
             "topic": f"publicTrade.{self.ex_trading_pair}",
             "type": "trade",
-            # "ts": 1672304486868,
             "data": [
                 {
-                    # "T": 1672304486865,
                     "s": f"{self.ex_trading_pair}",
                     "S": "Buy",
                     "v": "0.001",
@@ -427,7 +425,6 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
 
     def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
-            # "topic": f"orderbook.50.{self.ex_trading_pair}",
             "type": "order_book_diff",
             "ts": 1687940967466,
             "data": {
@@ -504,8 +501,8 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
             self.async_run_with_timeout(self.listening_task)
         except asyncio.CancelledError:
             pass
-        # self.assertTrue(
-        #     self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
