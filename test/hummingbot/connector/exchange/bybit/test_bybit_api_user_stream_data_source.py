@@ -196,6 +196,9 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
             websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(4, len(sent_subscription_messages))
+        self.assertTrue(
+            self._is_logged("ERROR",
+                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
