@@ -29,7 +29,7 @@ class BybitAuth(AuthBase):
         This method is intended to configure a websocket request to be authenticated. Bybit does not use this
         functionality
         """
-        return request  # pass-through
+        return self.generate_ws_auth_message()
 
     def get_referral_code_headers(self):
         """
@@ -96,8 +96,6 @@ class BybitAuth(AuthBase):
         Generates the authentication message to start receiving messages from
         the 3 private ws channels
         """
-        # Generate expires.
-        # expires = int((self.time_provider.time() + 10) * 1e3)
         expires = int((self._time() + 10000) * 1000)
         signature = self._generate_ws_signature(expires)
         auth_message = {
