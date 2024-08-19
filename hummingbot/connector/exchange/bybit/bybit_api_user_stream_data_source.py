@@ -67,24 +67,19 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws = None
         while True:
             try:
-                ws: WSAssistant = await self._get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL[self._domain])
-                await self._authenticate_connection(ws)
+                ws: WSAssistant = await self._connected_websocket_assistant(self._domain)
+                await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
                     try:
-                        seconds_until_next_ping = (CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
-                                                   (self._time() - self._last_ws_message_sent_timestamp))
+                        seconds_until_next_ping = (
+                            CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL -
+                            (self._time() - self._last_ws_message_sent_timestamp)
+                        )
                         await asyncio.wait_for(
                             self._process_ws_messages(ws=ws, output=output), timeout=seconds_until_next_ping)
                     except asyncio.TimeoutError:
-                        ping_time = self._time()
-                        payload = {
-                            "ping": int(ping_time * 1e3)
-                        }
-                        ping_request = WSJSONRequest(payload=payload)
-                        await ws.send(request=ping_request)
-                        self._last_ws_message_sent_timestamp = ping_time
+                        await self._ping_server(ws)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -94,28 +89,111 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws and await ws.disconnect()
                 await self._sleep(5)
 
+    async def _ping_server(self, ws: WSAssistant):
+        ping_time = self._time()
+        payload = {
+            "op": "ping",
+            "args": int(ping_time * 1e3)
+        }
+        ping_request = WSJSONRequest(payload=payload)
+        await ws.send(request=ping_request)
+        self._last_ws_message_sent_timestamp = ping_time
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+        :param ws: the websocket assistant used to connect to the exchange
+        """
+        try:
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME}"],
+            }
+            subscribe_orders_request = WSJSONRequest(payload)
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME}"],
+            }
+            subscribe_executions_request = WSJSONRequest(payload)
+            payload = {
+                "op": "subscribe",
+                "args": [f"{CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME}"],
+            }
+            subscribe_wallet_request = WSJSONRequest(payload)
+
+            await ws.send(subscribe_orders_request)
+            await ws.send(subscribe_executions_request)
+            await ws.send(subscribe_wallet_request)
+
+            self.logger().info("Subscribed to private orders, executions and wallet channels")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to private channels...",
+                exc_info=True
+            )
+            raise
+
     async def _authenticate_connection(self, ws: WSAssistant):
         """
         Sends the authentication message.
         :param ws: the websocket assistant used to connect to the exchange
         """
-        auth_message: WSJSONRequest = WSJSONRequest(payload=self._auth.generate_ws_authentication_message())
-        await ws.send(auth_message)
+        request: WSJSONRequest = WSJSONRequest(
+            payload=self._auth.generate_ws_auth_message()
+        )
+        await ws.send(request)
 
     async def _process_ws_messages(self, ws: WSAssistant, output: asyncio.Queue):
         async for ws_response in ws.iter_messages():
             data = ws_response.data
-            if isinstance(data, list):
-                for message in data:
-                    if message["e"] in ["executionReport", "outboundAccountInfo"]:
-                        output.put_nowait(message)
-            elif data.get("auth") == "fail":
-                raise IOError("Private channel authentication failed.")
+            if "op" in data:
+                if data.get("op") == "auth":
+                    await self._process_ws_auth_msg(data)
+                elif data.get("op") == "subscribe":
+                    if data.get("success") is False:
+                        self.logger().error(
+                            "Unexpected error occurred subscribing to private channels...",
+                            exc_info=True
+                        )
+                continue
+            topic = data.get("topic")
+            channel = ""
+            if topic == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_ORDER_CHANNEL
+            elif topic == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_TRADE_CHANNEL
+            elif topic == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
+                channel = CONSTANTS.PRIVATE_WALLET_CHANNEL
+            else:
+                output.put_nowait(data)
+            if channel:
+                data["channel"] = channel
+                output.put_nowait(data)
+
+    async def _process_ws_auth_msg(self, data: dict):
+        if not data.get("success"):
+            raise IOError(f"Private channel authentication failed - {data['ret_msg']}")
+        else:
+            self.logger().info("Private channel authentication success.")
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
+
+    async def _connected_websocket_assistant(self, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> WSAssistant:
+        ws: WSAssistant = await self._get_ws_assistant()
+        await ws.connect(
+            ws_url=CONSTANTS.WSS_PRIVATE_URL[domain],
+            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+        )
+        await self._authenticate_connection(ws)
+        return ws
+
+    def _get_server_timestamp(self):
+        return web_utils.get_current_server_time()
 
     def _time(self):
         return time.time()
