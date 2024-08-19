@@ -141,7 +141,7 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-        self.assertEqual(0, msg_queue.qsize())
+        self.assertEqual(1, msg_queue.qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_does_not_queue_ticket_info(self, mock_ws):
@@ -181,10 +181,15 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
         auth_time_mock.side_effect = [100]
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_auth = {'auth': 'fail', 'userId': 24068148}
+        result = {
+            "success": False,
+            "ret_msg": "Failed to authenticate",
+            "op": "auth",
+            "conn_id": "24068148"
+        }
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_auth))
+            message=json.dumps(result))
 
         output_queue = asyncio.Queue()
 
@@ -195,6 +200,7 @@ class TestBybitAPIUserStreamDataSource(unittest.TestCase):
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
+        # 4 channels: auth, orderbook, trades and wallet
         self.assertEqual(4, len(sent_subscription_messages))
         self.assertTrue(
             self._is_logged("ERROR",

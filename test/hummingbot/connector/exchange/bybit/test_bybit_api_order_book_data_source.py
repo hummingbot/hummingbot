@@ -426,7 +426,6 @@ class TestBybitAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
             "type": "order_book_diff",
-            "ts": 1687940967466,
             "data": {
                 "s": f"{self.ex_trading_pair}",
                 "b": [
