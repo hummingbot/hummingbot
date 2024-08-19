@@ -167,7 +167,7 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             elif topic == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
                 channel = CONSTANTS.PRIVATE_WALLET_CHANNEL
             else:
-                pass
+                output.put_nowait(data)
             if channel:
                 data["channel"] = channel
                 output.put_nowait(data)
