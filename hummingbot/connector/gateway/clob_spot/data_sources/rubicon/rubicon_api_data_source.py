@@ -159,7 +159,11 @@ class RubiconAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return no_update
 
     def _get_last_trade_price_from_ticker_data(self, ticker_data: List[Dict[str, Any]]) -> Decimal:
-        return Decimal("0.00420")
+        self.logger().debug("get_last_traded_price: start")
+
+        self.logger().debug(ticker_data)
+
+        return Decimal(ticker_data["price"])
 
     def _get_maker_taker_exchange_fee_rates_from_market_info(self, market_info: Any) -> MakerTakerExchangeFeeRates:
         output = MakerTakerExchangeFeeRates(
