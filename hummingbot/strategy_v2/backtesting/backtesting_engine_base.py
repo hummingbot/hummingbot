@@ -250,7 +250,7 @@ class BacktestingEngineBase:
                 self.active_executor_simulations.remove(executor)
 
     @staticmethod
-    def summarize_results(executors_info, total_amount_quote=1000):
+    def summarize_results(executors_info: Dict, total_amount_quote: float = 1000):
         if len(executors_info) > 0:
             executors_df = pd.DataFrame([ei.to_dict() for ei in executors_info])
             net_pnl_quote = executors_df["net_pnl_quote"].sum()

@@ -38,13 +38,13 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             is_updatable=True,
             prompt_on_new=True,
             prompt=lambda mi: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
-    buy_amounts_pct: Union[List[float], None] = Field(
+    buy_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
             prompt_on_new=False,
             prompt=lambda mi: "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
-    sell_amounts_pct: Union[List[float], None] = Field(
+    sell_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
