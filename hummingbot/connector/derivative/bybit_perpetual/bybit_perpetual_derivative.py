@@ -847,32 +847,37 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        # exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
         params = {
-            "symbol": exchange_symbol
+            "type": "SETTLEMENT",
         }
+        if bybit_utils.is_linear_perpetual(trading_pair):
+            params["category"] = "linear"
         raw_response: Dict[str, Any] = await self._api_get(
             path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
             params=params,
             is_auth_required=True,
-            trading_pair=trading_pair,
+            trading_pair=trading_pair
         )
-        data: Dict[str, Any] = raw_response["result"]
+        data: Dict[str, Any] = raw_response["result"]["list"]
 
         if not data:
             # An empty funding fee/payment is retrieved.
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
         else:
-            funding_rate: Decimal = Decimal(str(data["funding_rate"]))
-            position_size: Decimal = Decimal(str(data["size"]))
+            # TODO: Check how to handle - signs and filter by exchange_symbol
+            last_data = data[0]
+            funding_rate: Decimal = Decimal(str(last_data["funding"]))
+            position_size: Decimal = Decimal(str(last_data["size"]))
             payment: Decimal = funding_rate * position_size
-            if bybit_utils.is_linear_perpetual(trading_pair):
-                timestamp: int = int(pd.Timestamp(data["exec_time"], tz="UTC").timestamp())
-            else:
-                timestamp: int = int(data["exec_timestamp"])
+            timestamp: int = int(last_data["transactionTime"])
 
         return timestamp, funding_rate, payment
+
+    @staticmethod
+    def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:
+        return f"ret_code <{ret_code}>"
 
     async def _api_request(self,
                            path_url,
@@ -903,7 +908,3 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             throttler_limit_id=limit_id if limit_id else path_url,
         )
         return resp
-
-    @staticmethod
-    def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:
-        return f"ret_code <{ret_code}>"
