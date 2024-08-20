@@ -408,6 +408,7 @@ class ClientOrderTracker:
             self.logger().info(
                 f"The {tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} "
                 f"amounting to {tracked_order.executed_amount_base}/{tracked_order.amount} "
+                f"has been filled at {fill_price} {tracked_order.quote_asset} each."
                 f"{tracked_order.base_asset} has been filled."
             )
             self._trigger_filled_event(
