@@ -71,8 +71,8 @@ SET_LEVERAGE_PATH_URL = {
     LINEAR_MARKET: "v5/position/set-leverage",
     NON_LINEAR_MARKET: "v5/position/set-leverage"}
 GET_LAST_FUNDING_RATE_PATH_URL = {
-    LINEAR_MARKET: "private/linear/funding/prev-funding",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/prev-funding"}
+    LINEAR_MARKET: "/v5/account/transaction-log",
+    NON_LINEAR_MARKET: "/v5/account/contract-transaction-log"}
 GET_PREDICTED_FUNDING_RATE_PATH_URL = {
     LINEAR_MARKET: "/private/linear/funding/predicted-funding",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/predicted-funding"
