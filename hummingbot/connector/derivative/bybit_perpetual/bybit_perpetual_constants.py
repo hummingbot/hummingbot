@@ -68,8 +68,8 @@ SERVER_TIME_PATH_URL = {
 
 # REST API Private Endpoints
 SET_LEVERAGE_PATH_URL = {
-    LINEAR_MARKET: "private/linear/position/set-leverage",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/leverage/save"}
+    LINEAR_MARKET: "v5/position/set-leverage",
+    NON_LINEAR_MARKET: "v5/position/set-leverage"}
 GET_LAST_FUNDING_RATE_PATH_URL = {
     LINEAR_MARKET: "private/linear/funding/prev-funding",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/prev-funding"}
@@ -152,5 +152,4 @@ RET_CODE_MODE_POSITION_NOT_EMPTY = 30082
 RET_CODE_MODE_NOT_MODIFIED = 30083
 RET_CODE_MODE_ORDER_NOT_EMPTY = 30086
 RET_CODE_API_KEY_EXPIRED = 33004
-RET_CODE_LEVERAGE_NOT_MODIFIED = 34036
 RET_CODE_POSITION_ZERO = 130125

@@ -823,19 +823,12 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-
-        if bybit_utils.is_linear_perpetual(trading_pair):
-            data = {
-                "symbol": exchange_symbol,
-                "buy_leverage": leverage,
-                "sell_leverage": leverage
-            }
-        else:
-            data = {
-                "symbol": exchange_symbol,
-                "leverage": leverage
-            }
-
+        data = {
+            "category": "linear" if bybit_utils.is_linear_perpetual(trading_pair) else "inverse",
+            "symbol": exchange_symbol,
+            "buyLeverage": str(leverage),
+            "sellLeverage": str(leverage)
+        }
         resp: Dict[str, Any] = await self._api_post(
             path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
             data=data,
@@ -845,11 +838,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         success = False
         msg = ""
-        if resp["ret_code"] == CONSTANTS.RET_CODE_OK or (resp["ret_code"] == CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED and resp["ret_msg"] == "leverage not modified"):
+        if resp["retCode"] in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED]:
             success = True
         else:
-            formatted_ret_code = self._format_ret_code_for_print(resp['ret_code'])
-            msg = f"{formatted_ret_code} - {resp['ret_msg']}"
+            formatted_ret_code = self._format_ret_code_for_print(resp['retCode'])
+            msg = f"{formatted_ret_code} - {resp['retMsg']}"
 
         return success, msg
 
