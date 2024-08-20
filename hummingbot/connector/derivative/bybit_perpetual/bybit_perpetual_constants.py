@@ -62,8 +62,8 @@ ORDER_BOOK_ENDPOINT = {
     LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2"}
 SERVER_TIME_PATH_URL = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/time",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/time"
+    LINEAR_MARKET: "/v5/market/time",
+    NON_LINEAR_MARKET: "/v5/market/time"
 }
 
 # REST API Private Endpoints
