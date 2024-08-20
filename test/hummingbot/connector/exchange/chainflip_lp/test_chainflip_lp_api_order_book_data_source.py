@@ -111,7 +111,8 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
             for record in self.log_records
         )
 
-    def test_get_new_order_book_successful(self):
+    @property
+    def all_asset_mock_data(self):
         asset_data = {
             "result": [
                 {"chain": "Ethereum", "asset": "ETH"},
@@ -124,6 +125,10 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
                 {"chain": "Arbitrum", "asset": "USDC"},
             ]
         }
+        return asset_data
+
+    def test_get_new_order_book_successful(self):
+        asset_data = self.all_asset_mock_data
         data = {
             "result": {
                 "bids": [
@@ -168,7 +173,10 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
         self.assertEqual(test_data["asks"][0]["amount"], asks[0].amount)
 
     def test_get_new_order_book_raises_exception(self):
-        pass
+        self.data_source._data_source._rpc_executor._all_assets_responses.put_nowait(self.all_asset_mock_data)
+        self.data_source._data_source._rpc_executor._order_book_snapshots.put_nowait(None)
+        with self.assertRaises(Exception):
+            self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self):
         pass

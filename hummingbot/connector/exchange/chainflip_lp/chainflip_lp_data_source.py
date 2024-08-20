@@ -98,6 +98,8 @@ class ChainflipLpDataSource:
         all_assets = await self.assets_list()
         symbol_dict = DataFormatter.format_trading_pair(trading_pair, all_assets)
         orderbook_items = await self._rpc_executor.get_orderbook(symbol_dict["base_asset"], symbol_dict["quote_asset"])
+        if orderbook_items is None:
+            raise ValueError("Error getting orderbook from Chainflip Lp")
         timestamp = self._time()
         bids = []
         asks = []

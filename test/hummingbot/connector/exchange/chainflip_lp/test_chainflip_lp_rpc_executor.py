@@ -135,3 +135,51 @@ class RPCQueryExecutorTests(TestCase):
         with self.assertRaises(SubstrateRequestException):
             rpc_executor._start_instance(MagicMock())
             self.assertTrue(self.is_logged("ERROR", str(error_data)))
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_all_asset_exception_returns_empty_list(self, mock_response: MagicMock):
+        return_data = {"code": -23000, "detail": "Method not found"}
+        mock_response.side_effect = SubstrateRequestException(return_data)
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._rpc_instance = Mock()
+        data = self.async_run_with_timeout(rpc_executor.all_assets())
+        self.assertTrue(isinstance(data, list))
+        self.assertEqual(len(data), 0)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_all_market_exception_returns_empty_list(self, mock_response: MagicMock):
+        return_data = {"code": -23000, "detail": "Method not found"}
+        mock_response.side_effect = SubstrateRequestException(return_data)
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._rpc_instance = Mock()
+        data = self.async_run_with_timeout(rpc_executor.all_markets())
+        self.assertTrue(isinstance(data, list))
+        self.assertEqual(len(data), 0)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._execute_api_request")
+    def test_connection_status_fail_when_one_request_is_false(self, mock_response: MagicMock):
+        mock_response.return_value = {"status": False, "data": []}
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._lp_api_instance = Mock()
+        data = self.async_run_with_timeout(rpc_executor.check_connection_status())
+        self.assertFalse(data)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._execute_rpc_request")
+    def test_get_market_price_exception_returns_none(self, mock_response: MagicMock):
+        mock_response.return_value = {"status": False, "data": []}
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._lp_api_instance = Mock()
+        data = self.async_run_with_timeout(
+            rpc_executor.get_market_price({"chain": "Ethereum", "asset": "ETH"}, {"chain": "Ethereum", "asset": "USDC"})
+        )
+        self.assertIsNone(data)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_all_balances_exception_returns_empty_list(self, mock_response: MagicMock):
+        return_data = {"code": -23000, "detail": "Method not found"}
+        mock_response.side_effect = SubstrateRequestException(return_data)
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._lp_api_instance = Mock()
+        data = self.async_run_with_timeout(rpc_executor.get_all_balances())
+        self.assertTrue(isinstance(data, list))
+        self.assertEqual(len(data), 0)

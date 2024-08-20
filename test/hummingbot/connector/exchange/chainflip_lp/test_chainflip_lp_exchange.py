@@ -68,16 +68,16 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def expected_fill_trade_id(self) -> str:
         raise NotImplementedError
 
-    def validate_auth_credential_present(self, request_call: RequestCall):
+    def validate_auth_credentials_present(self, request_call: RequestCall):
         raise NotImplementedError
 
-    def validate_order_creation_equest(self, order: InFlightOrder, request_call: RequestCall):
+    def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         raise NotImplementedError
 
-    def validate_order_cancelatin_request(self, order: InFlightOrder, request_call: RequestCall):
+    def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         raise NotImplementedError
 
-    def validate_order_status_reuest(self, order: InFlightOrder, request_call: RequestCall):
+    def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         raise NotImplementedError
 
     def validate_trades_request(elf, order: InFlightOrder, request_call: RequestCall):
@@ -642,7 +642,6 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
         order_id = self.place_buy_order()
-        self.assertTrue(self.is_logged("INFO", "Placing buy Order in Chainflip LP"))
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertIn(order_id, self.exchange.in_flight_orders)

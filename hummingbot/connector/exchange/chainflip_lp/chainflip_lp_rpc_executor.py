@@ -153,7 +153,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         response = await self._execute_rpc_request(CONSTANTS.POOL_ORDERBOOK_METHOD, params)
 
         if not response["status"]:
-            return []
+            return None
 
         return DataFormatter.format_orderbook_response(response["data"])
 
@@ -182,7 +182,8 @@ class RPCQueryExecutor(BaseRPCExecutor):
         response = await self._execute_rpc_request(CONSTANTS.MARKET_PRICE_V2_METHOD, params)
 
         if not response["status"]:
-            return DataFormatter.format_error_response(response["data"])
+            self.logger().error(f"Error getting market price for {base_asset['asset']}-{quote_asset['asset']}")
+            return None
 
         return DataFormatter.format_market_price(response["data"])
 

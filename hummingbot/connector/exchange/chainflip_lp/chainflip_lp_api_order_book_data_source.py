@@ -36,7 +36,7 @@ class ChainflipLpAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_subscriptions(self):
         # no supported subscription available to listen to in chainflip lp
-        raise NotImplementedError
+        pass
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise NotImplementedError
@@ -49,4 +49,4 @@ class ChainflipLpAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Subscribe to the trades and order diffs
         """
         # subscriptions to trades and order diffs does not exist in chainflip lp
-        raise NotImplementedError
+        pass
