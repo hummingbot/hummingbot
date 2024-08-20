@@ -23,7 +23,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         potential_dca_stages = []
         side_multiplier = 1 if config.side == TradeType.BUY else -1
         last_timestamp = df['timestamp'].max()
-        tl = config.time_limit * 1000 if config.time_limit else None
+        tl = config.time_limit if config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
         # Filter dataframe based on the conditions
         df_filtered = df[df['timestamp'] <= tl_timestamp].copy()
@@ -45,7 +45,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 break
             returns_df = df_filtered[df_filtered['timestamp'] >= entry_timestamp]
             returns = returns_df['close'].pct_change().fillna(0)
-            cumulative_returns = ((1 + returns).cumprod() - 1) * side_multiplier
+            cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
             take_profit_timestamp = None
             stop_loss_timestamp = None
             next_order_timestamp = None
@@ -77,7 +77,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 'entry_timestamp': entry_timestamp,
                 'price': float(price),
                 'amount': float(amount),
-                'break_even_price': break_even_price,
+                'break_even_price': float(break_even_price),
                 'close_timestamp': close_timestamp,
                 'close_type': close_type,
                 'cumulative_returns': cumulative_returns
@@ -102,7 +102,8 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         df_filtered['filled_amount_quote'] = sum([df_filtered[f'filled_amount_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['net_pnl_quote'] = sum([df_filtered[f'net_pnl_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
-        df_filtered['net_pnl_pct'] = df_filtered['net_pnl_quote'] / df_filtered['filled_amount_quote']
+        df_filtered.loc[df_filtered["filled_amount_quote"] > 0, "net_pnl_pct"] = df_filtered["net_pnl_quote"] / df_filtered["filled_amount_quote"]
+
         if close_type is None:
             close_type = CloseType.FAILED
 

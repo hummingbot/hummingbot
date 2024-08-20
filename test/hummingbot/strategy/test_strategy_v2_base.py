@@ -165,8 +165,8 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         # Since no actions are returned, execute_action should not be called
         mock_execute_action.assert_not_called()
 
-    def test_on_stop(self):
-        self.strategy.on_stop()
+    async def test_on_stop(self):
+        await self.strategy.on_stop()
 
         # Check if stop methods are called on each component
         self.strategy.executor_orchestrator.stop.assert_called_once()
@@ -293,6 +293,8 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             global_pnl_quote=Decimal('150'),
             global_pnl_pct=Decimal('15'),
             volume_traded=Decimal('1000'),
+            open_order_volume=Decimal('0'),
+            inventory_imbalance=Decimal('100'),
             close_type_counts={CloseType.TAKE_PROFIT: 10, CloseType.STOP_LOSS: 5}
         )
 

@@ -25,8 +25,8 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 * [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
 * [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
 * [FAQs](https://hummingbot.org/faq/): Answers to all your burning questions
-* [Botcamp](https://hummingbot.org/botcamp/): Learn how build your own custom HFT strategy in Hummingbot with our hands-on bootcamp!
-* [Newsletter](https://hummingbot.substack.com): Get our monthly newletter whenever we ship a new release
+* [Botcamp](https://hummingbot.org/botcamp/): Learn how to build your own custom HFT strategy in Hummingbot with our hands-on bootcamp!
+* [Newsletter](https://hummingbot.substack.com): Get our monthly newsletter whenever we ship a new release
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most of of Hummingbot
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
@@ -37,6 +37,7 @@ Help us **democratize high-frequency trading** and make powerful trading algorit
 ### Install with Docker
 
 We recommend installing Hummingbot using Docker if you want the simplest, easiest installation method and don't need to modify the Hummingbot codebase.
+
 
 **Prerequisites:**
 

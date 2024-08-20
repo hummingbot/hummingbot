@@ -82,7 +82,6 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | ∟ mqtt_external_events            | True                 |\n"
                            "    | ∟ mqtt_autostart                  | False                |\n"
                            "    | send_error_logs                   | True                 |\n"
-                           "    | pmm_script_mode                   | pmm_script_disabled  |\n"
                            "    | gateway                           |                      |\n"
                            "    | ∟ gateway_api_host                | localhost            |\n"
                            "    | ∟ gateway_api_port                | 15888                |\n"
@@ -97,7 +96,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | tables_format                     | psql                 |\n"
                            "    | tick_size                         | 1.0                  |\n"
                            "    | market_data_collection            |                      |\n"
-                           "    | ∟ market_data_collection_enabled  | True                 |\n"
+                           "    | ∟ market_data_collection_enabled  | False                |\n"
                            "    | ∟ market_data_collection_interval | 60                   |\n"
                            "    | ∟ market_data_collection_depth    | 20                   |\n"
                            "    +-----------------------------------+----------------------+")

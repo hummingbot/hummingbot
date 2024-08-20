@@ -31,19 +31,11 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
         client_data=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
-
-    total_amount_quote: Decimal = Field(
-        default=100.0,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the amount of quote asset to use per executor (e.g., 100):"))
-
     max_executors_per_side: int = Field(
         default=2,
         client_data=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda mi: "Enter the maximum number of executors per side (e.g., 2):"))
-
     cooldown_time: int = Field(
         default=60 * 5, gt=0,
         client_data=ClientFieldData(
@@ -204,7 +196,7 @@ class DirectionalTradingControllerBase(ControllerBase):
             filter_func=lambda x: x.is_active and (x.side == TradeType.BUY if signal > 0 else TradeType.SELL))
         max_timestamp = max([executor.timestamp for executor in active_executors_by_signal_side], default=0)
         active_executors_condition = len(active_executors_by_signal_side) < self.config.max_executors_per_side
-        cooldown_condition = (self.market_data_provider.time() - max_timestamp) / 1000 > self.config.cooldown_time
+        cooldown_condition = self.market_data_provider.time() - max_timestamp > self.config.cooldown_time
         return active_executors_condition and cooldown_condition
 
     def stop_actions_proposal(self) -> List[ExecutorAction]:

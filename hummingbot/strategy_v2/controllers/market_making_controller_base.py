@@ -26,12 +26,6 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         client_data=ClientFieldData(
             prompt_on_new=True,
             prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
-    total_amount_quote: float = Field(
-        default=100,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
     buy_spreads: List[float] = Field(
         default="0.01,0.02",
         client_data=ClientFieldData(
@@ -44,13 +38,13 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             is_updatable=True,
             prompt_on_new=True,
             prompt=lambda mi: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
-    buy_amounts_pct: Union[List[float], None] = Field(
+    buy_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
             prompt_on_new=False,
             prompt=lambda mi: "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
-    sell_amounts_pct: Union[List[float], None] = Field(
+    sell_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
         client_data=ClientFieldData(
             is_updatable=True,
@@ -256,7 +250,7 @@ class MarketMakingControllerBase(ControllerBase):
     def get_levels_to_execute(self) -> List[str]:
         working_levels = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: x.is_active or (x.close_type == CloseType.STOP_LOSS and self.market_data_provider.time() - x.close_timestamp < self.config.cooldown_time * 1000)
+            filter_func=lambda x: x.is_active or (x.close_type == CloseType.STOP_LOSS and self.market_data_provider.time() - x.close_timestamp < self.config.cooldown_time)
         )
         working_levels_ids = [executor.custom_info["level_id"] for executor in working_levels]
         return self.get_not_active_levels_ids(working_levels_ids)
@@ -273,7 +267,7 @@ class MarketMakingControllerBase(ControllerBase):
     def executors_to_refresh(self) -> List[ExecutorAction]:
         executors_to_refresh = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda x: not x.is_trading and x.is_active and self.market_data_provider.time() - x.timestamp > self.config.executor_refresh_time * 1000)
+            filter_func=lambda x: not x.is_trading and x.is_active and self.market_data_provider.time() - x.timestamp > self.config.executor_refresh_time)
 
         return [StopExecutorAction(
             controller_id=self.config.id,
