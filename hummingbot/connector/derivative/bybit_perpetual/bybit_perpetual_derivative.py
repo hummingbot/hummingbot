@@ -67,7 +67,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> BybitPerpetualAuth:
-        return BybitPerpetualAuth(self.bybit_perpetual_api_key, self.bybit_perpetual_secret_key)
+        return BybitPerpetualAuth(self.bybit_perpetual_api_key, self.bybit_perpetual_secret_key, self._time_synchronizer)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
