@@ -28,6 +28,12 @@ from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import
 
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
 class RPCQueryExecutorTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
+        cls.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
+
     def setUp(self) -> None:
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
@@ -224,6 +230,7 @@ class RPCQueryExecutorTests(TestCase):
         data = self.async_run_with_timeout(rpc_executor.get_all_balances())
         self.assertTrue(isinstance(data, list))
         self.assertEqual(len(data), 0)
+<<<<<<< HEAD
 =======
     
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._rpc_api_instance")
@@ -281,10 +288,16 @@ class RPCQueryExecutorTests(TestCase):
 
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
     def test_execute_rpc_request_handles_exceptions(self, mock_response: MagicMock):
+=======
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_get_open_orders_exception_returns_empty_list(self, mock_response: MagicMock):
+>>>>>>> 9a9fdd0f6 ((fix) make code fix)
         return_data = {"code": -23000, "detail": "Method not found"}
         mock_response.side_effect = SubstrateRequestException(return_data)
         rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
         rpc_executor._rpc_instance = Mock()
+<<<<<<< HEAD
         response = self.async_run_with_timeout(rpc_executor._execute_rpc_request(MagicMock()))
         self.assertIn("data", response)
         self.assertIn("status", response)
@@ -342,3 +355,43 @@ class RPCQueryExecutorTests(TestCase):
             rpc_executor._start_instance(MagicMock())
             self.assertTrue(self.is_logged("ERROR", str(error_data)))
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+        data = self.async_run_with_timeout(rpc_executor.get_open_orders(self.base_asset_dict, self.quote_asset_dict))
+        self.assertTrue(isinstance(data, list))
+        self.assertEqual(len(data), 0)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_place_limit_order_exception_returns_False(self, mock_response: MagicMock):
+        return_data = {"code": -23000, "detail": "Method not found"}
+        mock_response.side_effect = SubstrateRequestException(return_data)
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._lp_api_instance = Mock()
+        data = self.async_run_with_timeout(
+            rpc_executor.place_limit_order(self.base_asset_dict, self.quote_asset_dict, "11", 122000.00, "buy", 12000)
+        )
+        self.assertFalse(data)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_cancel_order_exception_returns_False(self, mock_response: MagicMock):
+        return_data = {"code": -23000, "detail": "Method not found"}
+        mock_response.side_effect = SubstrateRequestException(return_data)
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._lp_api_instance = Mock()
+        data = self.async_run_with_timeout(
+            rpc_executor.cancel_order(self.base_asset_dict, self.quote_asset_dict, "11", "buy")
+        )
+        self.assertFalse(data)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_get_account_order_fills_exception_returns_empty_list(self, mock_response: MagicMock):
+        return_data = {"code": -23000, "detail": "Method not found"}
+        return_asset_data = [self.base_asset_dict, self.base_asset_dict]
+        mock = AsyncMock()
+        mock.return_value = return_asset_data
+        mock_response.side_effect = SubstrateRequestException(return_data)
+        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
+        rpc_executor._rpc_instance = Mock()
+        data = self.async_run_with_timeout(rpc_executor.get_account_order_fills())
+        self.assertTrue(isinstance(data, list))
+        self.assertEqual(len(data), 0)
+>>>>>>> 9a9fdd0f6 ((fix) make code fix)
