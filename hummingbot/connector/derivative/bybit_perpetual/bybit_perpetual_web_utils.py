@@ -58,9 +58,12 @@ async def get_current_server_time(
         throttler_limit_id=limit_id,
         method=RESTMethod.GET,
     )
-    server_time = float(response["time_now"])
-
-    return server_time
+    time = response.get("result")
+    if time is not None:
+        server_time = float(time["timeNano"])
+        return server_time
+    else:
+        raise ValueError("Failed to get server time")
 
 
 def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
