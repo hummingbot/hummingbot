@@ -17,6 +17,15 @@ WSS_LINEAR_PUBLIC_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realti
 WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime_private",
                            "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_private"}
 
+
+# unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
+# It is also used to prevent replay attacks.
+# https://bybit-exchange.github.io/docs/v5/guide#parameters-for-authenticated-endpoints
+X_API_RECV_WINDOW = str(50000)
+
+X_API_SIGN_TYPE = str(2)
+
+
 REST_API_VERSION = "v2"
 
 HBOT_BROKER_ID = "Hummingbot"
