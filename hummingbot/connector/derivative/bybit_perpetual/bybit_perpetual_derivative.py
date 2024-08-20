@@ -93,6 +93,34 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     def trading_pairs_request_path(self) -> str:
         return CONSTANTS.QUERY_SYMBOL_ENDPOINT
 
+    async def _make_trading_pairs_request(self) -> Any:
+        linear_exchange_info_response, non_linear_exchange_info_response = await asyncio.gather(
+            self._api_get(path_url=self.trading_pairs_request_path, params={"category": "linear"}),
+            self._api_get(path_url=self.trading_pairs_request_path, params={"category": "inverse"})
+        )
+        for exchange_info_response in [linear_exchange_info_response, non_linear_exchange_info_response]:
+            if exchange_info_response["retCode"] != CONSTANTS.RET_CODE_OK:
+                formatted_ret_code = self._format_ret_code_for_print(exchange_info_response['retCode'])
+                raise IOError(f"{formatted_ret_code} - {exchange_info_response['retMsg']}")
+
+        linear_trading_pairs = linear_exchange_info_response["result"]["list"]
+        non_linear_trading_pairs = non_linear_exchange_info_response["result"]["list"]
+        return linear_trading_pairs + non_linear_trading_pairs
+
+    async def _make_trading_rules_request(self) -> Any:
+        linear_trading_rules_response, non_linear_trading_rules_response = await asyncio.gather(
+            self._api_get(path_url=self.trading_rules_request_path, params={"category": "linear"}),
+            self._api_get(path_url=self.trading_rules_request_path, params={"category": "inverse"})
+        )
+        for exchange_info_response in [linear_trading_rules_response, non_linear_trading_rules_response]:
+            if exchange_info_response["retCode"] != CONSTANTS.RET_CODE_OK:
+                formatted_ret_code = self._format_ret_code_for_print(exchange_info_response['retCode'])
+                raise IOError(f"{formatted_ret_code} - {exchange_info_response['retMsg']}")
+
+        linear_trading_rules = linear_trading_rules_response["result"]["list"]
+        non_linear_trading_rules = non_linear_trading_rules_response["result"]["list"]
+        return linear_trading_rules + non_linear_trading_rules
+
     @property
     def check_network_request_path(self) -> str:
         return CONSTANTS.SERVER_TIME_PATH_URL
@@ -123,7 +151,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
             return [PositionMode.ONEWAY, PositionMode.HEDGE]
         elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-            # As of ByBit API v2, we only support ONEWAY mode for non-linear perpetuals
+            # As of ByBit API v5, we only support ONEWAY mode for non-linear perpetuals
             return [PositionMode.ONEWAY]
         else:
             self.logger().warning(
@@ -145,6 +173,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
 
+    # TODO: Implement the following methods before sending PR
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
         ts_error_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
@@ -699,19 +728,19 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         """
         trading_rules = {}
         symbol_map = await self.trading_pair_symbol_map()
-        for instrument in instrument_info_dict["result"]:
+        for instrument in instrument_info_dict:
             try:
-                exchange_symbol = instrument["name"]
+                exchange_symbol = instrument["symbol"]
                 if exchange_symbol in symbol_map:
-                    trading_pair = combine_to_hb_trading_pair(instrument['base_currency'], instrument['quote_currency'])
+                    trading_pair = combine_to_hb_trading_pair(instrument['baseCoin'], instrument['quoteCoin'])
                     is_linear = bybit_utils.is_linear_perpetual(trading_pair)
-                    collateral_token = instrument["quote_currency"] if is_linear else instrument["base_currency"]
+                    collateral_token = instrument["quoteCoin"] if is_linear else instrument["baseCoin"]
                     trading_rules[trading_pair] = TradingRule(
                         trading_pair=trading_pair,
-                        min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
-                        max_order_size=Decimal(str(instrument["lot_size_filter"]["max_trading_qty"])),
-                        min_price_increment=Decimal(str(instrument["price_filter"]["tick_size"])),
-                        min_base_amount_increment=Decimal(str(instrument["lot_size_filter"]["qty_step"])),
+                        min_order_size=Decimal(instrument["lotSizeFilter"]["minOrderQty"]),
+                        max_order_size=Decimal(instrument["lotSizeFilter"]["maxOrderQty"]),
+                        min_price_increment=Decimal(instrument["priceFilter"]["tickSize"]),
+                        min_base_amount_increment=Decimal(instrument["lotSizeFilter"]["qtyStep"]),
                         buy_order_collateral_token=collateral_token,
                         sell_order_collateral_token=collateral_token,
                     )
@@ -721,10 +750,10 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(bybit_utils.is_exchange_information_valid, exchange_info["result"]):
-            exchange_symbol = symbol_data["name"]
-            base = symbol_data["base_currency"]
-            quote = symbol_data["quote_currency"]
+        for symbol_data in filter(bybit_utils.is_exchange_information_valid, exchange_info):
+            exchange_symbol = symbol_data["symbol"]
+            base = symbol_data["baseCoin"]
+            quote = symbol_data["quoteCoin"]
             trading_pair = combine_to_hb_trading_pair(base, quote)
             if trading_pair in mapping.inverse:
                 self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
