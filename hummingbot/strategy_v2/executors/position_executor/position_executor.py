@@ -292,8 +292,7 @@ class PositionExecutor(ExecutorBase):
         """
         open_order_condition = not self._open_order or self._open_order.is_done
         take_profit_condition = not self._take_profit_limit_order or self._take_profit_limit_order.is_done
-        failed_orders_condition = len(self._failed_orders) == 0 or all([order.is_done for order in self._failed_orders])
-        return open_order_condition and take_profit_condition and failed_orders_condition
+        return open_order_condition and take_profit_condition
 
     async def control_shutdown_process(self):
         """
@@ -301,6 +300,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
+        self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_orders_completed()
         order_execution_completed = self.open_and_close_volume_match()
         if open_orders_completed and order_execution_completed:
