@@ -98,11 +98,11 @@ class RubiconAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     "exchange_order_id": in_flight_order.exchange_order_id,
                 }
 
-                self.logger().debug(f"""get_clob_order_status_updates request:\n "{self._dump(request)}".""")
+                self.logger().debug(f"""get_clob_order_status_updates request:\n "{request}".""")
 
                 response = await self._get_gateway_instance().get_clob_order_status_updates(**request)
 
-                self.logger().debug(f"""get_clob_order_status_updates response:\n "{self._dump(response)}".""")
+                self.logger().debug(f"""get_clob_order_status_updates response:\n "{response}".""")
 
                 order_response = DotMap(response, _dynamic=False)["orders"]
                 order_update: OrderUpdate
