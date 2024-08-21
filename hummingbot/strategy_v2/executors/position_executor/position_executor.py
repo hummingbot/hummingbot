@@ -421,7 +421,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if self.open_filled_amount >= self.trading_rules.min_order_size \
+        if self._open_order.is_filled and self.open_filled_amount >= self.trading_rules.min_order_size \
                 and self.open_filled_amount_quote >= self.trading_rules.min_notional_size:
             self.control_stop_loss()
             self.control_trailing_stop()
