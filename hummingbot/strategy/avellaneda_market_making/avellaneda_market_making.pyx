@@ -618,12 +618,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self.c_collect_market_variables(timestamp)
 
-
-            self.logger().info("Algo ready")
-
-            self.logger().info(self.c_is_algorithm_ready())
-
-
             if self.c_is_algorithm_ready():
                 if self._create_timestamp <= self._current_timestamp:
                     # Measure order book liquidity

@@ -168,7 +168,6 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-
         order_result = await self._get_gateway_instance().clob_place_order(
             connector=self.connector_name,
             chain=self._chain,
