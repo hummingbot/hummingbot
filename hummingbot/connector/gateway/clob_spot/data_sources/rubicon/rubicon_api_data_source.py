@@ -3,8 +3,6 @@ from decimal import Decimal
 from time import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from dotmap import DotMap
-
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
     GatewayCLOBAPIDataSourceBase,
@@ -104,12 +102,12 @@ class RubiconAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
                 self.logger().debug(f"""get_clob_order_status_updates response:\n "{response}".""")
 
-                order_response = DotMap(response, _dynamic=False)["orders"]
+                order_response = response["orders"]
                 order_update: OrderUpdate
                 if order_response:
                     order = order_response[0]
                     if order:
-                        order_status = RubiconOrderStatus.to_hummingbot(RubiconOrderStatus.from_name(order.state))
+                        order_status = RubiconOrderStatus.to_hummingbot(RubiconOrderStatus.from_name(order['status']))
                     else:
                         order_status = in_flight_order.current_state
 
@@ -193,20 +191,20 @@ class RubiconAPIDataSource(GatewayCLOBAPIDataSourceBase):
                         "exchange_order_id": in_flight_order.exchange_order_id,
                     }
 
-                    self.logger().debug(f"""get_clob_order_status_updates request:\n "{self._dump(request)}".""")
+                    self.logger().debug(f"""get_clob_order_status_updates request:\n "{request}".""")
 
                     response = await self._get_gateway_instance().get_clob_order_status_updates(**request)
 
-                    self.logger().debug(f"""get_clob_order_status_updates response:\n "{self._dump(response)}".""")
+                    self.logger().debug(f"""get_clob_order_status_updates response:\n "{response}".""")
 
-                    orders = DotMap(response, _dynamic=False)["orders"]
+                    orders = response["orders"]
 
                     order = None
                     if len(orders):
                         order = orders[0]
 
                     if order is not None:
-                        order_status = RubiconOrderStatus.to_hummingbot(RubiconOrderStatus.from_name(order.state))
+                        order_status = RubiconOrderStatus.to_hummingbot(RubiconOrderStatus.from_name(order['status']))
                     else:
                         order_status = in_flight_order.current_state
 
