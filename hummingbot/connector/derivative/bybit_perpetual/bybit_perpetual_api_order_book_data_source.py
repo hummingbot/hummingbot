@@ -192,8 +192,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if event_type == "delta":
             symbol = raw_message["topic"].split(".")[-1]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_us = int(raw_message["timestamp_e6"])
-            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_us * 1e-6)
+            timestamp_seconds = int(raw_message["ts"]) / 1e3
+            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_seconds)
             diffs_data = raw_message["data"]
             bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
             order_book_message_content = {
@@ -205,7 +205,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             diff_message = OrderBookMessage(
                 message_type=OrderBookMessageType.DIFF,
                 content=order_book_message_content,
-                timestamp=timestamp_us * 1e-6,
+                timestamp=timestamp_seconds,
             )
             message_queue.put_nowait(diff_message)
 
@@ -309,22 +309,38 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     @staticmethod
     def _get_bids_and_asks_from_ws_msg_data(
-        snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
+            snapshot: Dict[str, Union[List[List[str]], str, int]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
+        """
+        This method processes snapshot data from the websocket message and returns
+        the bids and asks as lists of tuples (price, size).
+
+        :param snapshot: Websocket message snapshot data
+        :return: Tuple containing bids and asks as lists of (price, size) tuples
+        """
         bids = []
         asks = []
-        for action, rows_list in snapshot.items():
-            if action not in ["delete", "update", "insert"]:
+
+        bids_list = snapshot.get("b", [])
+        asks_list = snapshot.get("a", [])
+
+        for bid in bids_list:
+            bid_price = float(bid[0])
+            bid_size = float(bid[1])
+            if bid_size == 0:
+                # Size of 0 means delete the entry
                 continue
-            is_delete = action == "delete"
-            for row_dict in rows_list:
-                row_price = row_dict["price"]
-                row_size = 0.0 if is_delete else row_dict["size"]
-                row_tuple = (row_price, row_size)
-                if row_dict["side"] == "Buy":
-                    bids.append(row_tuple)
-                else:
-                    asks.append(row_tuple)
+            bids.append((bid_price, bid_size))
+
+        # Process asks
+        for ask in asks_list:
+            ask_price = float(ask[0])
+            ask_size = float(ask[1])
+            if ask_size == 0:
+                # Size of 0 means delete the entry
+                continue
+            asks.append((ask_price, ask_size))
+
         return bids, asks
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
