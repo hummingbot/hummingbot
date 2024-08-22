@@ -83,8 +83,8 @@ GET_POSITIONS_PATH_URL = {
     LINEAR_MARKET: "v5/position/list",
     NON_LINEAR_MARKET: "v5/position/list"}
 PLACE_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/create",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/create"}
+    LINEAR_MARKET: "v5/order/create",
+    NON_LINEAR_MARKET: "v5/order/create"}
 CANCEL_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/cancel",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancel"}
