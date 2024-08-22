@@ -500,8 +500,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                trades_list_key = "data" if bybit_utils.is_linear_perpetual(order.trading_pair) else "trade_list"
-                fills_data = all_fills_response["result"].get(trades_list_key, [])
+                fills_data = all_fills_response["result"].get("list", [])
 
                 if fills_data is not None:
                     for fill_data in fills_data:
@@ -516,7 +515,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
         body_params = {
-            "order_id": order.exchange_order_id,
+            "category": "linear" if bybit_utils.is_linear_perpetual(order.trading_pair) else "inverse",
+            "orderId": order.exchange_order_id,
             "symbol": exchange_symbol,
         }
         res = await self._api_get(
