@@ -107,7 +107,7 @@ FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after s
 WS_PING_REQUEST = "ping"
 WS_TRADES_TOPIC = "publicTrade"
 WS_ORDER_BOOK_EVENTS_TOPIC = "orderbook.200"
-WS_INSTRUMENTS_INFO_TOPIC = "instrument_info.100ms"
+WS_INSTRUMENTS_INFO_TOPIC = "tickers"
 
 # WebSocket Private Endpoints
 WS_AUTHENTICATE_USER_ENDPOINT_NAME = "auth"
