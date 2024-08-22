@@ -217,7 +217,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
                 await self._order_tracker.process_order_not_found(order_id)
             formatted_ret_code = self._format_ret_code_for_print(response_code)
-            raise IOError(f"{formatted_ret_code} - {cancel_result['ret_msg']}")
+            raise IOError(f"{formatted_ret_code} - {cancel_result['retMsg']}")
 
         return True
 
@@ -258,7 +258,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         if resp["ret_code"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(resp['ret_code'])
-            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['ret_msg']}")
+            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['retMsg']}")
 
         return str(resp["result"]["order_id"]), self.current_timestamp
 
@@ -776,7 +776,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {"symbol": exchange_symbol}
+        params = {
+            "category": "linear" if bybit_utils.is_linear_perpetual(trading_pair) else "inverse",
+            "symbol": exchange_symbol}
 
         resp_json = await self._api_get(
             path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
