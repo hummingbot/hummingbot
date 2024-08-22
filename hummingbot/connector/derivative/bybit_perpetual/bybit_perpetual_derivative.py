@@ -200,18 +200,21 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        data = {"symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
+        data = {
+            "category": "linear" if bybit_utils.is_linear_perpetual(tracked_order.trading_pair) else "inverse",
+            "symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
+        }
         if tracked_order.exchange_order_id:
-            data["order_id"] = tracked_order.exchange_order_id
+            data["orderId"] = tracked_order.exchange_order_id
         else:
-            data["order_link_id"] = tracked_order.client_order_id
+            data["orderLinkId"] = tracked_order.client_order_id
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
             data=data,
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
         )
-        response_code = cancel_result["ret_code"]
+        response_code = cancel_result["retCode"]
 
         if response_code != CONSTANTS.RET_CODE_OK:
             if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
