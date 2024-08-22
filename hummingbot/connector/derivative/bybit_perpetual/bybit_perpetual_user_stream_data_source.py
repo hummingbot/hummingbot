@@ -150,11 +150,13 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 continue
             topic = data.get("topic")
             channel = ""
-            if topic in [CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME, CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME,
-                         CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME]:
+            if topic in [
+                CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME,
+                CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME,
+                CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME,
+                CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME
+            ]:
                 channel = topic
-            elif topic == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
-                channel = CONSTANTS.WS_TRADES_TOPIC
             else:
                 output.put_nowait(data)
             if channel:
