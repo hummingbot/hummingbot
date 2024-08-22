@@ -41,16 +41,33 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        funding_info_response = await self._request_complete_funding_info(trading_pair)
-        general_info = funding_info_response[0]["result"][0]
-        predicted_funding = funding_info_response[1]["result"]
+        params = {
+            "category": "linear" if web_utils.is_linear_perpetual(trading_pair) else "inverse",
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+        }
+
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        endpoint_info = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        url_info = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_info, trading_pair=trading_pair,
+                                                       domain=self._domain)
+        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_info)
+        funding_info_response = await rest_assistant.execute_request(
+            url=url_info,
+            throttler_limit_id=limit_id,
+            params=params,
+            method=RESTMethod.GET,
+        )
+        if not funding_info_response["result"]:
+            self._connector.logger().warning(f"Failed to get funding info for {trading_pair}")
+            raise ValueError(f"Failed to get funding info for {trading_pair}")
+        general_info = funding_info_response["result"]["list"][0]
 
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(general_info["index_price"])),
-            mark_price=Decimal(str(general_info["mark_price"])),
-            next_funding_utc_timestamp=int(pd.Timestamp(general_info["next_funding_time"]).timestamp()),
-            rate=Decimal(str(predicted_funding["predicted_funding_rate"])),
+            index_price=Decimal(str(general_info["indexPrice"])),
+            mark_price=Decimal(str(general_info["markPrice"])),
+            next_funding_utc_timestamp=int(general_info["nextFundingTime"]) // 1000,
+            rate=Decimal(str(general_info["fundingRate"])),
         )
         return funding_info
 
@@ -235,36 +252,6 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                         Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
                     )
                 message_queue.put_nowait(info_update)
-
-    async def _request_complete_funding_info(self, trading_pair: str):
-        tasks = []
-        params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-        }
-
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint_info = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url_info = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_info, trading_pair=trading_pair, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_info)
-        tasks.append(rest_assistant.execute_request(
-            url=url_info,
-            throttler_limit_id=limit_id,
-            params=params,
-            method=RESTMethod.GET,
-        ))
-        endpoint_predicted = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
-        url_predicted = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_predicted, trading_pair=trading_pair, domain=self._domain)
-        limit_id_predicted = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_predicted, trading_pair)
-        tasks.append(rest_assistant.execute_request(
-            url=url_predicted,
-            throttler_limit_id=limit_id_predicted,
-            params=params,
-            method=RESTMethod.GET,
-            is_auth_required=True
-        ))
-
-        responses = await asyncio.gather(*tasks)
-        return responses
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
