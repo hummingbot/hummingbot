@@ -2,8 +2,6 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
-
 from hummingbot.connector.derivative.bybit_perpetual import (
     bybit_perpetual_constants as CONSTANTS,
     bybit_perpetual_utils,
@@ -236,22 +234,17 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if event_type == "delta":
             symbol = raw_message["topic"].split(".")[-1]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            entries = raw_message["data"]["update"]
-            for entry in entries:
-                info_update = FundingInfoUpdate(trading_pair)
-                if "index_price" in entry:
-                    info_update.index_price = Decimal(str(entry["index_price"]))
-                if "mark_price" in entry:
-                    info_update.mark_price = Decimal(str(entry["mark_price"]))
-                if "next_funding_time" in entry:
-                    info_update.next_funding_utc_timestamp = int(
-                        pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp()
-                    )
-                if "predicted_funding_rate_e6" in entry:
-                    info_update.rate = (
-                        Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
-                    )
-                message_queue.put_nowait(info_update)
+            entry = raw_message["data"]
+            info_update = FundingInfoUpdate(trading_pair)
+            if "indexPrice" in entry:
+                info_update.index_price = Decimal(entry["indexPrice"])
+            if "markPrice" in entry:
+                info_update.mark_price = Decimal(entry["markPrice"])
+            if "nextFundingTime" in entry:
+                info_update.next_funding_utc_timestamp = int(entry["nextFundingTime"]) // 1e3
+            if "fundingRate" in entry:
+                info_update.rate = Decimal(str(entry["fundingRate"]))
+            message_queue.put_nowait(info_update)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
