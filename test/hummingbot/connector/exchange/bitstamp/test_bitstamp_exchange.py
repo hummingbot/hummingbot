@@ -732,7 +732,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair}."
+                f"{Decimal('100.000000')} {self.trading_pair} "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
