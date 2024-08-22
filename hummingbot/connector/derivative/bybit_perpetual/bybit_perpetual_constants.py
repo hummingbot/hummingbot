@@ -24,7 +24,7 @@ WSS_LINEAR_PRIVATE_URLS = {
 }
 WS_HEARTBEAT_TIME_INTERVAL = 20.0
 
-# unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
+# unit in millisecond and default value is 5,000, to specify how long an HTTP request is valid.
 # It is also used to prevent replay attacks.
 # https://bybit-exchange.github.io/docs/v5/guide#parameters-for-authenticated-endpoints
 X_API_RECV_WINDOW = str(50000)
@@ -96,7 +96,7 @@ USER_TRADE_RECORDS_PATH_URL = {
     NON_LINEAR_MARKET: "v5/execution/list"}
 GET_WALLET_BALANCE_PATH_URL = {
     LINEAR_MARKET: "v5/account/wallet-balance",
-    NON_LINEAR_MARKET: "/v5/account/wallet-balance"}
+    NON_LINEAR_MARKET: "v5/account/wallet-balance"}
 SET_POSITION_MODE_URL = {
     LINEAR_MARKET: "v5/position/switch-mode"}
 
@@ -106,7 +106,7 @@ FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after s
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"
 WS_TRADES_TOPIC = "publicTrade"
-WS_ORDER_BOOK_EVENTS_TOPIC = "orderBook_200.100ms"
+WS_ORDER_BOOK_EVENTS_TOPIC = "orderbook.200"
 WS_INSTRUMENTS_INFO_TOPIC = "instrument_info.100ms"
 
 # WebSocket Private Endpoints

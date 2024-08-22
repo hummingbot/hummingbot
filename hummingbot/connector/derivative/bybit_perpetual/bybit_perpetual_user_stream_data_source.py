@@ -177,13 +177,14 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _connected_websocket_assistant(self, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> WSAssistant:
         ws: WSAssistant = await self._get_ws_assistant()
         await ws.connect(
-            ws_url=CONSTANTS.WSS_PRIVATE_URL[domain],
+            ws_url=CONSTANTS.WSS_LINEAR_PRIVATE_URLS[domain],
             ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
         )
         await self._authenticate_connection(ws)
         return ws
 
-    def _get_server_timestamp(self):
+    @staticmethod
+    def _get_server_timestamp():
         return web_utils.get_current_server_time()
 
     def _time(self):

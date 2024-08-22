@@ -421,7 +421,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         """
         unified_wallet_response, contract_wallet_response = await asyncio.gather(
             self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL, params={"accountType": "UNIFIED"},
-                          is_auth_required=True,),
+                          is_auth_required=True),
             self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL, params={"accountType": "CONTRACT"},
                           is_auth_required=True)
         )
