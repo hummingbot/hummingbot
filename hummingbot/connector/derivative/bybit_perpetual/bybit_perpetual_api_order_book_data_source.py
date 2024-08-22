@@ -213,16 +213,16 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trade_updates = raw_message["data"]
 
         for trade_data in trade_updates:
-            symbol = trade_data["symbol"]
+            symbol = trade_data["s"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            ts_ms = int(trade_data["trade_time_ms"])
-            trade_type = float(TradeType.BUY.value) if trade_data["side"] == "Buy" else float(TradeType.SELL.value)
+            ts_ms = int(trade_data["T"])
+            trade_type = float(TradeType.BUY.value) if trade_data["S"] == "Buy" else float(TradeType.SELL.value)
             message_content = {
-                "trade_id": trade_data["trade_id"],
+                "trade_id": trade_data["i"],
                 "trading_pair": trading_pair,
                 "trade_type": trade_type,
-                "amount": trade_data["size"],
-                "price": trade_data["price"],
+                "amount": trade_data["v"],
+                "price": trade_data["p"],
             }
             trade_message = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
