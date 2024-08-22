@@ -782,7 +782,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             params=params,
         )
 
-        price = float(resp_json["result"][0]["last_price"])
+        price = float(resp_json["result"]["list"][0]["lastPrice"])
         return price
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
