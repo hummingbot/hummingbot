@@ -289,7 +289,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                  order_side: TradeType,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+                 is_maker: Optional[bool] = None,
+                 position_action: PositionAction = None) -> TradeFeeBase:
         is_maker = is_maker or False
         fee = build_trade_fee(
             self.name,
