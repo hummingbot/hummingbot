@@ -686,8 +686,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.ORDER_STATE[order_msg["order_status"]]
-        client_order_id = str(order_msg["order_link_id"])
+        order_status = CONSTANTS.ORDER_STATE[order_msg["orderStatus"]]
+        client_order_id = str(order_msg["orderLinkId"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
         if updatable_order is not None:
@@ -696,7 +696,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 update_timestamp=self.current_timestamp,
                 new_state=order_status,
                 client_order_id=client_order_id,
-                exchange_order_id=order_msg["order_id"],
+                exchange_order_id=order_msg["orderId"],
             )
             self._order_tracker.process_order_update(new_order_update)
 
