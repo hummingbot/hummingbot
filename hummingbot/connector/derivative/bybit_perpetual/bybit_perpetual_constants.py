@@ -52,9 +52,11 @@ POSITION_MODE_MAP = {
 LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
 
+# Covers: Spot / USDT perpetual / USDC contract / Inverse contract / Option
 LATEST_SYMBOL_INFORMATION_ENDPOINT = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/tickers",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/tickers"}
+    LINEAR_MARKET: "/v5/market/tickers",
+    NON_LINEAR_MARKET: "/v5/market/tickers"}
+
 QUERY_SYMBOL_ENDPOINT = {
     LINEAR_MARKET: "/v5/market/instruments-info",
     NON_LINEAR_MARKET: "/v5/market/instruments-info"}
