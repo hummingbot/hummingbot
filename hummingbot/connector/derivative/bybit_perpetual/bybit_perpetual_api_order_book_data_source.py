@@ -256,7 +256,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
         snapshot_data = snapshot_response["result"]
-        timestamp = float(snapshot_response["time_now"])
+        timestamp = float(snapshot_data["ts"])
         update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
 
         bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
@@ -276,6 +276,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         params = {
+            "category": "linear" if web_utils.is_linear_perpetual(trading_pair) else "inverse",
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
         }
 
@@ -296,18 +297,13 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def _get_bids_and_asks_from_rest_msg_data(
         snapshot: List[Dict[str, Union[str, int, float]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bisect_idx = 0
-        for i, row in enumerate(snapshot):
-            if row["side"] == "Sell":
-                bisect_idx = i
-                break
         bids = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[:bisect_idx]
+            (float(row[0]), float(row[1]))
+            for row in snapshot["b"]
         ]
         asks = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[bisect_idx:]
+            (float(row[0]), float(row[1]))
+            for row in snapshot["a"]
         ]
         return bids, asks
 
