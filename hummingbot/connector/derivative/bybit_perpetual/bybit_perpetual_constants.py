@@ -78,8 +78,8 @@ GET_PREDICTED_FUNDING_RATE_PATH_URL = {
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/predicted-funding"
 }
 GET_POSITIONS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/position/list",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/list"}
+    LINEAR_MARKET: "v5/position/list",
+    NON_LINEAR_MARKET: "v5/position/list"}
 PLACE_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/create",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/create"}

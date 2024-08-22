@@ -445,7 +445,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         for trading_pair in self._trading_pairs:
             ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
-            body_params = {"symbol": ex_trading_pair}
+            body_params = {
+                "category": "linear" if bybit_utils.is_linear_perpetual(trading_pair) else "inverse",
+                "symbol": ex_trading_pair}
             position_tasks.append(
                 asyncio.create_task(self._api_get(
                     path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
@@ -461,7 +463,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         parsed_resps: List[Dict[str, Any]] = []
         for resp, trading_pair in zip(raw_responses, self._trading_pairs):
             if not isinstance(resp, Exception):
-                result = resp["result"]
+                result = resp["result"]["list"]
                 if result:
                     position_entries = result if isinstance(result, list) else [result]
                     parsed_resps.extend(position_entries)
@@ -471,15 +473,14 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         for position in parsed_resps:
             data = position
             ex_trading_pair = data.get("symbol")
+            amount = Decimal(str(data["size"]))
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
             position_side = PositionSide.LONG if data["side"] == "Buy" else PositionSide.SHORT
-            unrealized_pnl = Decimal(str(data["unrealised_pnl"]))
-            entry_price = Decimal(str(data["entry_price"]))
-            amount = Decimal(str(data["size"]))
-            leverage = Decimal(str(data["leverage"])) if bybit_utils.is_linear_perpetual(hb_trading_pair) \
-                else Decimal(str(data["effective_leverage"]))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
+                unrealized_pnl = Decimal(str(data["unrealisedPnl"]))
+                entry_price = Decimal(str(data["avgPrice"]))
+                leverage = Decimal(str(data["leverage"]))
                 position = Position(
                     trading_pair=hb_trading_pair,
                     position_side=position_side,
