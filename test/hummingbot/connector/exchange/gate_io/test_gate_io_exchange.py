@@ -1274,7 +1274,7 @@ class TestGateIoExchange(unittest.TestCase):
                 "INFO",
                 f"The {order.trade_type.name.upper()} order {order.client_order_id} "
                 f"amounting to {order.executed_amount_base}/{order.amount} "
-                f"{order.base_asset} has been filled."
+                f"{order.base_asset} has been filled at {Decimal('10000')} HBOT."
             )
         )
 
@@ -1535,7 +1535,7 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged("INFO", f"The {order.trade_type.name} order {order.client_order_id} amounting to "
-                                    f"0.5/{order.amount} {order.base_asset} has been filled.")
+                                    f"0.5/{order.amount} {order.base_asset} has been filled at {Decimal('10000.00000000')} HBOT.")
         )
 
     def test_user_stream_update_for_order_fill(self):
