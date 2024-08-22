@@ -92,8 +92,8 @@ CANCEL_ALL_ACTIVE_ORDERS_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/cancelAll",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancelAll"}
 QUERY_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/search",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order"}
+    LINEAR_MARKET: "v5/order/realtime",
+    NON_LINEAR_MARKET: "v5/order/realtime"}
 USER_TRADE_RECORDS_PATH_URL = {
     LINEAR_MARKET: "v5/execution/list",
     NON_LINEAR_MARKET: "v5/execution/list"}

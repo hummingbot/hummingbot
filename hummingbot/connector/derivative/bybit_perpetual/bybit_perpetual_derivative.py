@@ -529,19 +529,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
-            order_msg = order_status_data["result"]
-            client_order_id = str(order_msg["order_link_id"])
+            order_msg = order_status_data["result"]["list"][0]
+            client_order_id = str(order_msg["orderLinkId"])
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.ORDER_STATE[order_msg["order_status"]],
+                new_state=CONSTANTS.ORDER_STATE[order_msg["orderStatus"]],
                 client_order_id=client_order_id,
-                exchange_order_id=order_msg["order_id"],
+                exchange_order_id=order_msg["orderId"],
             )
-
-            return order_update
-
         except IOError as ex:
             if self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
                 order_update = OrderUpdate(
@@ -559,10 +556,10 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         exchange_symbol = await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
         query_params = {
             "symbol": exchange_symbol,
-            "order_link_id": tracked_order.client_order_id
+            "orderLinkId": tracked_order.client_order_id
         }
         if tracked_order.exchange_order_id is not None:
-            query_params["order_id"] = tracked_order.exchange_order_id
+            query_params["orderId"] = tracked_order.exchange_order_id
 
         resp = await self._api_get(
             path_url=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
