@@ -93,8 +93,8 @@ QUERY_ACTIVE_ORDER_PATH_URL = {
     LINEAR_MARKET: "private/linear/order/search",
     NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order"}
 USER_TRADE_RECORDS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/trade/execution/list",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/execution/list"}
+    LINEAR_MARKET: "v5/execution/list",
+    NON_LINEAR_MARKET: "v5/execution/list"}
 GET_WALLET_BALANCE_PATH_URL = {
     LINEAR_MARKET: "/v5/account/wallet-balance",
     NON_LINEAR_MARKET: "/v5/account/wallet-balance"}
