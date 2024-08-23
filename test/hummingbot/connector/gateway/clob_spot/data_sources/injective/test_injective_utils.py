@@ -28,6 +28,7 @@ class InjectiveUtilsTests(TestCase):
             quote=6,
             min_price_tick_size=1000,
             min_quantity_tick_size=100,
+            min_notional=0,
         )
 
         backend_quantity = derivative_quantity_to_backend(quantity=Decimal("1"), denom=denom)
@@ -41,6 +42,7 @@ class InjectiveUtilsTests(TestCase):
             quote=6,
             min_price_tick_size=1000,
             min_quantity_tick_size=100,
+            min_notional=0,
         )
 
         backend_quantity = derivative_price_to_backend(price=Decimal("123.45"), denom=denom)
