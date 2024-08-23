@@ -1709,7 +1709,8 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT_MAKER.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
+                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
