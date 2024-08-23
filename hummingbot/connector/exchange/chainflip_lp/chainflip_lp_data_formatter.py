@@ -68,17 +68,21 @@ class DataFormatter:
         logger.info("Converting " + str(balance) + " as " + str(asset))
 =======
     def format_hex_balance(cls, balance: str, asset: Dict[str, str]):
+<<<<<<< HEAD
         cls.logger().info(f"Converting {balance} as {asset}")
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+        cls.logger().debug(f"Converting {balance} as {asset}")
+>>>>>>> ffb9c2b3c ((fix) fix test failures and errors)
 
         int_balance = cls.hex_str_to_int(balance)
-        cls.logger().info(f"Balance for {balance} as {int_balance}")
+        cls.logger().debug(f"Balance for {balance} as {int_balance}")
 
         precision = cls.format_asset_precision(asset)
-        cls.logger().info(f"Precision for {balance} is {precision}")
+        cls.logger().debug(f"Precision for {balance} is {precision}")
 
         value = int_balance / precision
-        cls.logger().info(f"Converted value is {value}")
+        cls.logger().debug(f"Converted value is {value}")
 
 <<<<<<< HEAD
         return Decimal(value)

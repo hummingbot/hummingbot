@@ -203,11 +203,14 @@ class RPCQueryExecutorTests(TestCase):
         self.assertTrue(isinstance(data, list))
         self.assertEqual(len(data), 0)
 
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._execute_rpc_request")
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor._execute_api_request")
-    def test_connection_status_fail_when_one_request_is_false(self, mock_response: MagicMock):
+    def test_connection_status_fail_when_one_request_is_false(self, mock_response: MagicMock, mock_rpc_response: MagicMock):
         mock_response.return_value = {"status": False, "data": []}
+        mock_rpc_response.return_value = {"status": True, "data": []}
         rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
         rpc_executor._lp_api_instance = Mock()
+        rpc_executor._rpc_instance = Mock()
         data = self.async_run_with_timeout(rpc_executor.check_connection_status())
         self.assertFalse(data)
 

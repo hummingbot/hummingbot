@@ -558,14 +558,18 @@ class RPCQueryExecutor(BaseRPCExecutor):
         return instance
 
     def _reinitialize_rpc_instance(self):
-        self.logger().info("Reinitializing RPC Instance")
+        self.logger().debug("Reinitializing RPC Instance")
         self._rpc_instance.close()
         self._rpc_instance = self._start_instance(self._rpc_url)
 
     def _reinitialize_api_instance(self):
+<<<<<<< HEAD
         self.logger().info("Reinitializing LP API Instance")
 <<<<<<< HEAD
 <<<<<<< HEAD
+=======
+        self.logger().debug("Reinitializing LP API Instance")
+>>>>>>> ffb9c2b3c ((fix) fix test failures and errors)
         self._lp_api_instance.close()
         self._lp_api_instance = self._start_instance(self._lp_api_url)
 =======
@@ -583,6 +587,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.logger().info(f"Making {request_method} API call")
 =======
         self.logger().info("Making " + request_method + " API call")
@@ -590,6 +595,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
 =======
         self.logger().info(f"Making {request_method} API call")
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+        self.logger().debug(f"Making {request_method} API call")
+>>>>>>> ffb9c2b3c ((fix) fix test failures and errors)
 
         if not self._lp_api_instance:
             self._lp_api_instance = self._start_instance(self._lp_api_url)
@@ -601,7 +609,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
             while True:
                 try:
-                    self.logger().info("Calling " + request_method)
+                    self.logger().debug("Calling " + request_method)
                     response = await self.run_in_thread(
                         self._lp_api_instance.rpc_request, method=request_method, params=params
 =======
@@ -642,7 +650,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     response_data["data"] = {"code": 0, "message": "An Error Occurred"}
                     break
 
-            self.logger().info(request_method + " API call response:" + str(response_data["data"]))
+            self.logger().debug(request_method + " API call response:" + str(response_data["data"]))
             return response_data
 
     async def _execute_rpc_request(
@@ -651,7 +659,11 @@ class RPCQueryExecutor(BaseRPCExecutor):
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.logger().info(f"Making {request_method} RPC call")
+=======
+        self.logger().debug(f"Making {request_method} RPC call")
+>>>>>>> ffb9c2b3c ((fix) fix test failures and errors)
 
         if not self._rpc_instance:
             self._rpc_instance = self._start_instance(self._rpc_url)
@@ -660,6 +672,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         async with self._throttler.execute_task(throttler_limit_id):
             while True:
                 try:
+<<<<<<< HEAD
                     self.logger().info("Calling " + request_method)
 =======
 =======
@@ -681,6 +694,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
 =======
                     self.logger().info("Calling " + request_method)
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
+=======
+                    self.logger().debug("Calling " + request_method)
+>>>>>>> ffb9c2b3c ((fix) fix test failures and errors)
                     response = await self.run_in_thread(
                         self._rpc_instance.rpc_request, method=request_method, params=params
                     )

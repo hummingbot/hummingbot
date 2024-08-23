@@ -1300,6 +1300,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> str:
         all_assets_mock_response = {"result": self.all_assets_mock_response}
         self.exchange._data_source._rpc_executor._all_assets_responses.put_nowait(all_assets_mock_response)
+        self.exchange._data_source._rpc_executor._check_connection_response.put_nowait(True)
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = partial(
             self._callback_wrapper_with_response, callback=callback, response=self.place_order_mock_response
@@ -1699,7 +1700,7 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair}.",
+                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000')}.",
             )
         )
 <<<<<<< HEAD
