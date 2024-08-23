@@ -489,7 +489,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Created LIMIT BUY order OID1 for {Decimal('100.000000')} {self.trading_pair}."
+                f"Created LIMIT BUY order OID1 for {Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000')}."
             )
         )
 
@@ -604,7 +604,7 @@ class TestBybitExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Created MARKET SELL order OID1 for {Decimal('100.000000')} {self.trading_pair}."
+                f"Created MARKET SELL order OID1 for {Decimal('100.000000')} {self.trading_pair} at {Decimal('10')}."
             )
         )
 
@@ -1388,7 +1388,7 @@ class TestBybitExchange(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"Created {order.order_type.name.upper()} {order.trade_type.name.upper()} order "
-                f"{order.client_order_id} for {order.amount} {order.trading_pair}."
+                f"{order.client_order_id} for {order.amount} {order.trading_pair} at {Decimal('10000')}."
             )
         )
 
