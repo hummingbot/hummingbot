@@ -214,7 +214,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
     async def all_assets(self):
 <<<<<<< HEAD
         self.logger().info("Fetching all_assets")
-        response = await self._execute_api_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
+        response = await self._execute_rpc_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
 
         if not response["status"]:
             return []
@@ -309,7 +309,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
             return []
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
-        return DataFormatter.format_order_response(response["data"])
+        return DataFormatter.format_order_response(response["data"], base_asset, quote_asset)
 
 <<<<<<< HEAD
 =======
@@ -701,6 +701,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
                         self._rpc_instance.rpc_request, method=request_method, params=params
                     )
                     response_data["data"] = response
+                    self.logger().info(f"Calling {request_method} response: {response}")
                     break
 
                 except ssl.SSLEOFError:

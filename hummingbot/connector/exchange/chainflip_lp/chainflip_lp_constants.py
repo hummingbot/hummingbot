@@ -76,15 +76,15 @@ RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
 
 ASSET_PRECISIONS = {
     "Ethereum": {
-        "USDC": 10**6,
-        "USDT": 10**6,
-        "FLIP": 10**18,
-        "ETH": 10**18,
+        "USDC": 1e6,
+        "USDT": 1e6,
+        "FLIP": 1e18,
+        "ETH": 1e18,
     },
-    "Arbitrum": {"USDC": 10**6, "USDT": 10**6, "ETH": 10**18},
-    "Bitcoin": {"BTC": 10**8},
-    "Polkadot": {"DOT": 10**12},
-    "Solana": {"SOL": 10**9},
+    "Arbitrum": {"USDC": 1e6, "USDT": 1e6, "ETH": 1e18},
+    "Bitcoin": {"BTC": 1e8},
+    "Polkadot": {"DOT": 1e12},
+    "Solana": {"SOL": 1e9},
 }
 
 <<<<<<< HEAD
