@@ -40,6 +40,7 @@ KRAKEN_TIER_LIMITS: Dict[KrakenAPITier, Tuple[int, int]] = {
 KRAKEN_TO_HB_MAP = {
     "XBT": "BTC",
     "XDG": "DOGE",
+    "LUNA": "LUNC",
 }
 
 BASE_URL = "https://api.kraken.com"

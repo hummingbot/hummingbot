@@ -44,7 +44,7 @@ class ExchangePyBase(ExchangeBase, ABC):
     LONG_POLL_INTERVAL = 120.0
     TRADING_RULES_INTERVAL = 30 * MINUTE
     TRADING_FEES_INTERVAL = TWELVE_HOURS
-    TICK_INTERVAL_LIMIT = 60.0
+    TICK_INTERVAL_LIMIT = 240.0
 
     def __init__(self, client_config_map: "ClientConfigAdapter"):
         super().__init__(client_config_map)

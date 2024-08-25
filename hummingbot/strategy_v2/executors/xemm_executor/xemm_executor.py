@@ -34,6 +34,7 @@ class XEMMExecutor(ExecutorBase):
     @staticmethod
     def _are_tokens_interchangeable(first_token: str, second_token: str):
         interchangeable_tokens = [
+            {"LUNA", "LUNC"},
             {"WETH", "ETH"},
             {"WBTC", "BTC"},
             {"WBNB", "BNB"},

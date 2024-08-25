@@ -82,7 +82,7 @@ class ExecutorBase(RunnableBase):
         return self.is_active and self.net_pnl_quote != 0
 
     @property
-    def filled_amount_quote(self):
+    def filled_amount(self):
         """
         Returns the filled amount in quote currency.
         """
@@ -118,7 +118,7 @@ class ExecutorBase(RunnableBase):
             net_pnl_pct=self.net_pnl_pct,
             net_pnl_quote=self.net_pnl_quote,
             cum_fees_quote=self.cum_fees_quote,
-            filled_amount_quote=self.filled_amount_quote,
+            filled_amount=self.filled_amount,
             is_active=self.is_active,
             is_trading=self.is_trading,
             custom_info=self.get_custom_info(),

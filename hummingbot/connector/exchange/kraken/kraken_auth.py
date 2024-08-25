@@ -21,7 +21,7 @@ class KrakenAuth(AuthBase):
 
     @classmethod
     def get_tracking_nonce(self) -> str:
-        nonce = int(time.time())
+        nonce = int(time.time() * 1000000)
         self._last_tracking_nonce = nonce if nonce > self._last_tracking_nonce else self._last_tracking_nonce + 1
         return str(self._last_tracking_nonce)
 
