@@ -172,8 +172,13 @@ class RPCQueryExecutor(BaseRPCExecutor):
     async def start(self):
         self.logger().info(f"Starting up! API URL: {self._lp_api_url} RPC URL: {self._rpc_url}")
 <<<<<<< HEAD
+<<<<<<< HEAD
         self._lp_api_instance = await self._start_instance(self._lp_api_url)
         self._rpc_instance = await self._start_instance(self._rpc_url)
+=======
+        self._lp_api_instance = self._start_instance(self._lp_api_url)
+        self._rpc_instance = self._start_instance(self._rpc_url)
+>>>>>>> a23c2447c ((fix) fix invalid await method call)
 
     async def check_connection_status(self):
         self.logger().info("Checking connection status")
