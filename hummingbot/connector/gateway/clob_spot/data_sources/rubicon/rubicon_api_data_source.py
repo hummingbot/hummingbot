@@ -42,7 +42,7 @@ class RubiconAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return False
 
     def get_supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT]
 
     def _get_exchange_base_quote_tokens_from_market_info(self, market_info: Dict[str, Any]) -> Tuple[str, str]:
         base = market_info["baseSymbol"]
