@@ -248,7 +248,8 @@ class AbstractPerpetualDerivativeTests:
                 self.is_logged(
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                    f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
+                    f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
+                    f"at {Decimal('10000.0000')}."
                 )
             )
 
@@ -292,7 +293,8 @@ class AbstractPerpetualDerivativeTests:
                 self.is_logged(
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                    f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
+                    f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
+                    f"at {Decimal('10000.0000')}."
                 )
             )
 
@@ -338,7 +340,8 @@ class AbstractPerpetualDerivativeTests:
                 self.is_logged(
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                    f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position."
+                    f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
+                    f"at {Decimal('10000.0000')}."
                 )
             )
 
@@ -381,7 +384,8 @@ class AbstractPerpetualDerivativeTests:
                 self.is_logged(
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                    f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position."
+                    f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
+                    f"at {Decimal('10000.0000')}."
                 )
             )
 
