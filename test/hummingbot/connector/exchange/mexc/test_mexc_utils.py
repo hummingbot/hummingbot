@@ -30,14 +30,14 @@ class MexcUtilTestCases(unittest.TestCase):
         self.assertFalse(utils.is_exchange_information_valid(invalid_info_2))
 
         invalid_info_3 = {
-            "status": "ENABLED",
+            "status": "1",
             "permissions": ["MARGIN"],
         }
 
         self.assertFalse(utils.is_exchange_information_valid(invalid_info_3))
 
         invalid_info_4 = {
-            "status": "ENABLED",
+            "status": "1",
             "permissions": ["SPOT"],
         }
 

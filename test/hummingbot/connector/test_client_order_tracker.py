@@ -343,7 +343,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"Created {order.order_type.name} {order.trade_type.name} order {order.client_order_id} for "
-                f"{order.amount} {order.trading_pair}.",
+                f"{order.amount} {order.trading_pair} at {order.price}.",
             )
         )
 
@@ -394,7 +394,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"Created {order.order_type.name} {order.trade_type.name} order {order.client_order_id} for "
-                f"{order.amount} {order.trading_pair}.",
+                f"{order.amount} {order.trading_pair} at {order.price}.",
             )
         )
 
@@ -638,7 +638,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"The {order.trade_type.name.upper()} order {order.client_order_id} amounting to "
-                f"{trade_filled_amount}/{order.amount} {order.base_asset} has been filled.",
+                f"{trade_filled_amount}/{order.amount} {order.base_asset} has been filled at {trade_filled_price} {order.quote_asset}.",
             )
         )
 
@@ -690,7 +690,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"The {order.trade_type.name.upper()} order {order.client_order_id} amounting to "
-                f"{order.amount}/{order.amount} {order.base_asset} has been filled.",
+                f"{order.amount}/{order.amount} {order.base_asset} has been filled at {order.price} {order.quote_asset}.",
             )
         )
 

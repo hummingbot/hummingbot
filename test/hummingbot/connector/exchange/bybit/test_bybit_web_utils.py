@@ -6,6 +6,6 @@ from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS, by
 class WebUtilsTests(TestCase):
     def test_rest_url(self):
         url = web_utils.rest_url(path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, domain=CONSTANTS.DEFAULT_DOMAIN)
-        self.assertEqual('https://api.bybit.com/spot/quote/v1/ticker/price', url)
+        self.assertEqual('https://api.bybit.com/v5/market/tickers', url)
         url = web_utils.rest_url(path_url=CONSTANTS.LAST_TRADED_PRICE_PATH, domain='bybit_testnet')
-        self.assertEqual('https://api-testnet.bybit.com/spot/quote/v1/ticker/price', url)
+        self.assertEqual('https://api-testnet.bybit.com/v5/market/tickers', url)
