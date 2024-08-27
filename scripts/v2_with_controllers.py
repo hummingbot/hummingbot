@@ -86,7 +86,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
 
     def check_max_controller_drawdown(self):
         for controller_id, controller in self.controllers.items():
-            controller_pnl = self.performance_reports[controller_id].global_pnl_quote
+            controller_pnl = self.performance_reports[controller_id]["global_pnl_quote"]
             last_max_pnl = self.max_pnl_by_controller[controller_id]
             if controller_pnl > last_max_pnl:
                 self.max_pnl_by_controller[controller_id] = controller_pnl
@@ -105,7 +105,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                     self.drawdown_exited_controllers.append(controller_id)
 
     def check_max_global_drawdown(self):
-        current_global_pnl = sum([report.global_pnl_quote for report in self.performance_reports.values()])
+        current_global_pnl = sum([report["global_pnl_quote"] for report in self.performance_reports.values()])
         if current_global_pnl > self.max_global_pnl:
             self.max_global_pnl = current_global_pnl
         else:
