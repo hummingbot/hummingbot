@@ -5,7 +5,7 @@ EXCHANGE_NAME = "bybit_perpetual"
 
 DEFAULT_DOMAIN = "bybit_perpetual_main"
 
-DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
+DEFAULT_TIME_IN_FORCE = "GTC"
 
 REST_URLS = {
     "bybit_perpetual_main": "https://api.bybit.com/",

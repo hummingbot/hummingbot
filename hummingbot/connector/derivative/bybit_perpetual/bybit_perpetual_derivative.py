@@ -240,7 +240,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             "category": "linear" if bybit_utils.is_linear_perpetual(trading_pair) else "inverse",
             "side": "Buy" if trade_type == TradeType.BUY else "Sell",
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-            "qty": float(amount),
+            "qty": str(amount),
             "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
             "closeOnTrigger": position_action == PositionAction.CLOSE,
             "orderLinkId": order_id,
@@ -249,7 +249,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             "orderType": CONSTANTS.ORDER_TYPE_MAP[order_type],
         }
         if order_type.is_limit_type():
-            data["price"] = float(price)
+            data["price"] = str(price)
 
         resp = await self._api_post(
             path_url=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
@@ -560,6 +560,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
         query_params = {
+            "category": "linear" if bybit_utils.is_linear_perpetual(tracked_order.trading_pair) else "inverse",
             "symbol": exchange_symbol,
             "orderLinkId": tracked_order.client_order_id
         }
@@ -594,7 +595,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     for trade_msg in payload:
                         self._process_trade_event_message(trade_msg)
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
-                    for wallet_msg in payload:
+                    for wallet_msg in payload[0]["coin"]:
                         self._process_wallet_event_message(wallet_msg)
                 elif endpoint is None:
                     self.logger().error(f"Could not extract endpoint from {event_message}.")
@@ -714,8 +715,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             symbol = wallet_msg["coin"]
         else:  # linear
             symbol = "USDT"
-        self._account_balances[symbol] = Decimal(str(wallet_msg["wallet_balance"]))
-        self._account_available_balances[symbol] = Decimal(str(wallet_msg["available_balance"]))
+        self._account_balances[symbol] = Decimal(str(wallet_msg["equity"]))
+        self._account_available_balances[symbol] = Decimal(str(wallet_msg["availableToWithdraw"]))
 
     async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """

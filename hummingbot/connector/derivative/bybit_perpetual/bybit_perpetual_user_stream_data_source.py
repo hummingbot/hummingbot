@@ -52,6 +52,7 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._connected_websocket_assistant(self._domain)
+                self._ws_assistants.append(ws)
                 await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
