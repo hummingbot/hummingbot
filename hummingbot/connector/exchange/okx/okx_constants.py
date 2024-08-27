@@ -64,7 +64,7 @@ ORDER_TYPE_MAP = {
 NO_LIMIT = sys.maxsize
 
 RATE_LIMITS = [
-    RateLimit(WS_CONNECTION_LIMIT_ID, limit=1, time_interval=1),
+    RateLimit(WS_CONNECTION_LIMIT_ID, limit=3, time_interval=1),
     RateLimit(WS_REQUEST_LIMIT_ID, limit=100, time_interval=10),
     RateLimit(WS_SUBSCRIPTION_LIMIT_ID, limit=240, time_interval=60 * 60),
     RateLimit(WS_LOGIN_LIMIT_ID, limit=1, time_interval=15),
