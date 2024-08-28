@@ -502,7 +502,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000')} {self.trading_pair}."
+                f"{Decimal('100.000')} {self.trading_pair} at {Decimal('10000.00000')}."
             )
         )
 
@@ -544,7 +544,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.000')} {self.trading_pair}."
+                f"{Decimal('100.000')} {self.trading_pair} at {Decimal('10000.00000')}."
             )
         )
 
@@ -845,7 +845,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name}"
                 f" order {buy_order_to_create_in_flight.client_order_id} for "
-                f"{buy_create_event.amount} {self.trading_pair}."
+                f"{buy_create_event.amount} {self.trading_pair} at {buy_create_event.price}."
             )
         )
 

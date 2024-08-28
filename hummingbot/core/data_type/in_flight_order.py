@@ -296,7 +296,7 @@ class InFlightOrder:
 
     def cumulative_fee_paid(self, token: str, exchange: Optional['ExchangeBase'] = None) -> Decimal:
         """
-        Returns the total amount of fee paid for each traid update, expressed in the specified token
+        Returns the total amount of fee paid for each trade update, expressed in the specified token
         :param token: The token all partial fills' fees should be transformed to before summing them
         :param exchange: The exchange being used. If specified the logic will try to use the order book to get the rate
         :return: the cumulative fee paid for all partial fills in the specified token
@@ -375,7 +375,8 @@ class InFlightOrder:
     def build_order_created_message(self) -> str:
         return (
             f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
-            f"{self.client_order_id} for {self.amount} {self.trading_pair}."
+            f"{self.client_order_id} for {self.amount} {self.trading_pair} "
+            f"at {self.price}."
         )
 
 
@@ -383,5 +384,6 @@ class PerpetualDerivativeInFlightOrder(InFlightOrder):
     def build_order_created_message(self) -> str:
         return (
             f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
-            f"{self.client_order_id} for {self.amount} to {self.position.name.upper()} a {self.trading_pair} position."
+            f"{self.client_order_id} for {self.amount} to {self.position.name.upper()} a {self.trading_pair} position "
+            f"at {self.price}."
         )
