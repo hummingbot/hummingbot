@@ -241,6 +241,7 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
             chain_stream_endpoint=self.chain_stream_endpoint,
             chain_id=self.chain_id,
             env=self.env,
+            official_tokens_list_url=Network.mainnet().official_tokens_list_url,
         )
 
     def use_secure_connection(self) -> bool:
