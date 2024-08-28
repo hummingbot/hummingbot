@@ -61,6 +61,7 @@ ORDER_STATE = {
     "CANCELED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
     "EXPIRED": OrderState.FAILED,
+    "EXPIRED_IN_MATCH": OrderState.FAILED,
 }
 
 # Websocket event types
@@ -70,9 +71,9 @@ TRADE_EVENT_TYPE = "trade"
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id=REQUEST_WEIGHT, limit=6000, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS, limit=50, time_interval=10 * ONE_SECOND),
-    RateLimit(limit_id=ORDERS_24HR, limit=160000, time_interval=ONE_DAY),
-    RateLimit(limit_id=RAW_REQUESTS, limit=61000, time_interval= 5 * ONE_MINUTE),
+    RateLimit(limit_id=ORDERS, limit=100, time_interval=10 * ONE_SECOND),
+    RateLimit(limit_id=ORDERS_24HR, limit=200000, time_interval=ONE_DAY),
+    RateLimit(limit_id=RAW_REQUESTS, limit=61000, time_interval=5 * ONE_MINUTE),
     # Weighted Limits
     RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),

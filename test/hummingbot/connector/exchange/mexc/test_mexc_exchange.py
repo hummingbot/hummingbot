@@ -17,8 +17,10 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import MarketOrderFailureEvent, OrderFilledEvent
+from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, OrderFilledEvent
 
 
 class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -63,7 +65,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -130,7 +132,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -159,7 +161,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 },
                 {
                     "symbol": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": "INVALID",
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -205,7 +207,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -253,7 +255,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseAssetPrecision": 8,
                     "quoteAsset": self.quote_asset,
@@ -1016,18 +1018,8 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
+                            "Error: {'code':700003,'msg':'Timestamp for this request is outside of the recvWindow.'}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-        exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1021,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-                            "time.'}")
-        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-        exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1022,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-                            "time.'}")
-        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         exception = IOError("Error executing request POST https://api.mexc.com/api/v3/order. HTTP status is 400. "
                             "Error: {'code':-1021,'msg':'Other error.'}")
@@ -1091,13 +1083,55 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 price=Decimal("2"),
             ))
 
+    @aioresponses()
+    def test_create_market_order_price_is_nan(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        resp = self.order_creation_request_successful_mock_response
+        url = self.order_creation_url
+        mock_api.post(url,
+                      body=json.dumps(resp),
+                      status=201,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[OrderBookRow(price=5.0, amount=10, update_id=1)],
+            asks=[OrderBookRow(price=5.1, amount=10, update_id=1)],
+            update_id=1,
+        )
+
+        order_id = self.place_buy_order(
+            amount=Decimal("1"), price=Decimal("NaN"), order_type=OrderType.MARKET
+        )
+        self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        request_data = order_request.kwargs["data"]
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.assertEqual("5.1000000", request_data["quoteOrderQty"])
+        self.assertEqual("MARKET", request_data["type"])
+        self.assertEqual("BUY", request_data["side"])
+
+        self.assertEqual(1, len(self.buy_order_created_logger.event_log))
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(Decimal("1"), create_event.amount)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(resp["orderId"]), create_event.exchange_order_id)
+
     def test_format_trading_rules__min_notional_present(self):
         trading_rules = [{
             "symbol": "COINALPHAHBOT",
             "baseSizePrecision": 1e-8,
             "quotePrecision": 8,
             "baseAssetPrecision": 8,
-            "status": "ENABLED",
+            "status": "1",
             "quoteAmountPrecision": "0.001",
             "orderTypes": ["LIMIT", "MARKET"],
             "filters": [
