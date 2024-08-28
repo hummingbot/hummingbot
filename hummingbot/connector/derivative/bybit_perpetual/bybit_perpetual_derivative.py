@@ -413,7 +413,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 await self._order_tracker.process_order_not_found(active_order.client_order_id)
 
         for order_status in parsed_status_responses:
-            self._process_order_event_message(order_status)
+            self._process_order_event_message(order_status["list"][0])
 
     async def _update_balances(self):
         """
@@ -671,7 +671,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
         exec_price = Decimal(trade_msg["execPrice"]) if "execPrice" in trade_msg else Decimal(trade_msg["orderPrice"])
-        exec_time = trade_msg["execTime"].timestamp()
+        exec_time = float(trade_msg["execTime"]) / 1e3
 
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=trade_id,
