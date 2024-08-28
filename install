@@ -12,12 +12,38 @@ fi
 
 if [ "${CONDA_EXE}_" == "_" ]; then
     echo "Please install Anaconda w/ Python 3.7+ first"
-    echo "See: https://www.anaconda.com/distribution/"
+    echo "See: https://www.anaconda.com/download"
     exit 1
 fi
 
 CONDA_BIN=$(dirname ${CONDA_EXE})
-ENV_FILE=setup/environment.yml
+ENV_FILE_1="setup/environment.yml"
+ENV_FILE_2="setup/environment_dydx.yml"
+
+# The default is ENV_FILE_1
+ENV_FILE=$ENV_FILE_1
+
+# Parse command line arguments
+USE_DYDX=false
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --dydx)
+        USE_DYDX=true
+        shift
+        ;;
+        *)
+        # Handle other unidentified parameters
+        shift
+        ;;
+    esac
+done
+
+# If you use the --dydx flag, switch to ENV_FILE_2
+if [ "$USE_DYDX" = true ]; then
+    ENV_FILE=$ENV_FILE_2
+    echo "install dydx version."
+fi
 
 if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
     ${CONDA_EXE} env update -f $ENV_FILE

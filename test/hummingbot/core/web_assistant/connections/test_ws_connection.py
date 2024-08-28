@@ -21,7 +21,7 @@ class WSConnectionTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.client_session = aiohttp.ClientSession()
+        self.client_session = aiohttp.ClientSession(loop=self.ev_loop)
         self.ws_connection = WSConnection(self.client_session)
         self.async_tasks: List[asyncio.Task] = []
 
