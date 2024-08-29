@@ -241,6 +241,7 @@ class ChainflipLpDataSource:
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     ) -> Tuple[str, float]:
         asset_list = await self.assets_list()
+        self.logger().info(f"Placing Order on Chainflip LP with order id {order_id}")
         asset = DataFormatter.format_trading_pair(trading_pair, asset_list)
         place_order_response = await self._rpc_executor.place_limit_order(
             base_asset=asset["base_asset"],
@@ -267,7 +268,6 @@ class ChainflipLpDataSource:
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
         asset_list = await self.assets_list()
         asset = DataFormatter.format_trading_pair(trading_pair, asset_list)
-        self.logger().info("Canceling Order in Chainflip LP")
         self.logger().info(f"Canceling Order with id {order_id}")
         status = await self._rpc_executor.cancel_order(
 =======
@@ -338,7 +338,14 @@ class ChainflipLpDataSource:
         trading_rules = []
         for market in markets:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=market["symbol"])
-            trading_rules.append(TradingRule(trading_pair=trading_pair))
+            trading_rules.append(TradingRule(
+                trading_pair=trading_pair,
+                min_order_size=0,
+                max_order_size=10**6,
+                min_price_increment=Decimal("0.00001"),
+                min_base_amount_increment=Decimal("0.00001"),
+                min_quote_amount_increment=Decimal("0.00001"),
+            ))
         return trading_rules
 
 <<<<<<< HEAD

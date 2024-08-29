@@ -296,9 +296,7 @@ class ChainflipLpExchange(ExchangePyBase):
         return hex_order_id
 
     async def _update_balances(self):
-        self.logger().info("Updating balances")
         all_balances = await self._data_source.all_balances()
-        self.logger().info("New balances: " + str(all_balances))
 
         self._account_available_balances.clear()
         self._account_balances.clear()

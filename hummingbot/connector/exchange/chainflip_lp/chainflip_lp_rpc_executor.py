@@ -170,18 +170,20 @@ class RPCQueryExecutor(BaseRPCExecutor):
         self._chain_config = chain_config
 
     async def start(self):
+<<<<<<< HEAD
         self.logger().info(f"Starting up! API URL: {self._lp_api_url} RPC URL: {self._rpc_url}")
 <<<<<<< HEAD
 <<<<<<< HEAD
         self._lp_api_instance = await self._start_instance(self._lp_api_url)
         self._rpc_instance = await self._start_instance(self._rpc_url)
 =======
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         self._lp_api_instance = self._start_instance(self._lp_api_url)
         self._rpc_instance = self._start_instance(self._rpc_url)
 >>>>>>> a23c2447c ((fix) fix invalid await method call)
 
     async def check_connection_status(self):
-        self.logger().info("Checking connection status")
         response = await self._execute_rpc_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
         api_response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
 
@@ -218,7 +220,10 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
     async def all_assets(self):
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.logger().info("Fetching all_assets")
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         response = await self._execute_rpc_request(CONSTANTS.SUPPORTED_ASSETS_METHOD)
 
         if not response["status"]:
@@ -227,7 +232,6 @@ class RPCQueryExecutor(BaseRPCExecutor):
         return DataFormatter.format_all_assets_response(response["data"], chain_config=self._chain_config)
 
     async def all_markets(self):
-        self.logger().info("Fetching all_markets")
         response = await self._execute_rpc_request(CONSTANTS.ACTIVE_POOLS_METHOD)
 
         if not response["status"]:
@@ -272,9 +276,12 @@ class RPCQueryExecutor(BaseRPCExecutor):
         """
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         self.logger().info("Fetching get_orderbook")
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "orders": orders}
         response = await self._execute_rpc_request(CONSTANTS.POOL_ORDERBOOK_METHOD, params)
 
@@ -290,14 +297,17 @@ class RPCQueryExecutor(BaseRPCExecutor):
             return []
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 
-        return DataFormatter.format_orderbook_response(response["data"])
+        return DataFormatter.format_orderbook_response(response["data"], base_asset, quote_asset)
 
     async def get_open_orders(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         self.logger().info("Fetching get_open_orders")
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         params = {"base_asset": base_asset, "quote_asset": quote_asset, "lp": self._lp_account_address}
         response = await self._execute_rpc_request(CONSTANTS.OPEN_ORDERS_METHOD, params)
 
@@ -321,7 +331,6 @@ class RPCQueryExecutor(BaseRPCExecutor):
         return DataFormatter.format_order_response(response["data"])
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
     async def get_all_balances(self):
-        self.logger().info("Fetching get_all_balances")
         response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
 
 =======
@@ -337,7 +346,10 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
     async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.logger().info("Fetching get_market_price")
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         params = {"base_asset": base_asset, "quote_asset": quote_asset}
         response = await self._execute_rpc_request(CONSTANTS.MARKET_PRICE_V2_METHOD, params)
 
@@ -397,13 +409,18 @@ class RPCQueryExecutor(BaseRPCExecutor):
             "side": side,
             "tick": tick,
             "sell_amount": amount,
+            "wait_for": "InBlock"
         }
         response = await self._execute_api_request(CONSTANTS.PLACE_LIMIT_ORDER_METHOD, params)
         if not response["status"]:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+            self.logger().error("Could not place order")
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
             return False
         return DataFormatter.format_place_order_response(response["data"])
 
@@ -428,6 +445,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
             "id": order_id,
             "side": side,
             "sell_amount": DataFormatter.format_amount(0, base_asset),
+            "wait_for": "InBlock"
         }
         response = await self._execute_api_request(CONSTANTS.CANCEL_LIMIT_ORDER, params)
         return response["status"]
@@ -535,7 +553,11 @@ class RPCQueryExecutor(BaseRPCExecutor):
     def _start_instance(self, url):
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.logger().info(f"Start instance {url}")
+=======
+        self.logger().debug(f"Start instance {url}")
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
 
         try:
             instance = SubstrateInterface(url=url, auto_discover=False)
@@ -610,11 +632,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
 <<<<<<< HEAD
         async with self._throttler.execute_task(throttler_limit_id):
             response_data = {"status": True, "data": {}}
-            response = None  # for testing purposes
-
+            self.logger().debug("Calling " + request_method)
             while True:
                 try:
-                    self.logger().debug("Calling " + request_method)
                     response = await self.run_in_thread(
                         self._lp_api_instance.rpc_request, method=request_method, params=params
 =======
@@ -655,7 +675,6 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     response_data["data"] = {"code": 0, "message": "An Error Occurred"}
                     break
 
-            self.logger().debug(request_method + " API call response:" + str(response_data["data"]))
             return response_data
 
     async def _execute_rpc_request(
@@ -673,10 +692,10 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not self._rpc_instance:
             self._rpc_instance = self._start_instance(self._rpc_url)
         response_data = {"status": True, "data": {}}
-        response = None  # for testing purposes
         async with self._throttler.execute_task(throttler_limit_id):
             while True:
                 try:
+<<<<<<< HEAD
 <<<<<<< HEAD
                     self.logger().info("Calling " + request_method)
 =======
@@ -702,11 +721,12 @@ class RPCQueryExecutor(BaseRPCExecutor):
 =======
                     self.logger().debug("Calling " + request_method)
 >>>>>>> ffb9c2b3c ((fix) fix test failures and errors)
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
                     response = await self.run_in_thread(
                         self._rpc_instance.rpc_request, method=request_method, params=params
                     )
                     response_data["data"] = response
-                    self.logger().info(f"Calling {request_method} response: {response}")
                     break
 
                 except ssl.SSLEOFError:

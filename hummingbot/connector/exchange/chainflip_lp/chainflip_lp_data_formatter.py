@@ -45,6 +45,7 @@ class DataFormatter:
 <<<<<<< HEAD
     def format_hex_balance(cls, balance: str, asset: Dict[str, str]):
 <<<<<<< HEAD
+<<<<<<< HEAD
         cls.logger().info(f"Converting {balance} as {asset}")
 
 =======
@@ -75,19 +76,20 @@ class DataFormatter:
         cls.logger().debug(f"Converting {balance} as {asset}")
 >>>>>>> ffb9c2b3c ((fix) fix test failures and errors)
 
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         int_balance = cls.hex_str_to_int(balance)
-        cls.logger().debug(f"Balance for {balance} as {int_balance}")
-
         precision = cls.format_asset_precision(asset)
-        cls.logger().debug(f"Precision for {balance} is {precision}")
-
         value = int_balance / precision
+<<<<<<< HEAD
         cls.logger().debug(f"Converted value is {value}")
 
 <<<<<<< HEAD
         return Decimal(value)
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 =======
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         return value
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 
@@ -172,6 +174,7 @@ class DataFormatter:
         data = response["result"]
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         cls.logger().info(f"Mapping {data} as balance")
 =======
         logger.info("Mapping " + str(data) + " as balance")
@@ -179,6 +182,8 @@ class DataFormatter:
 =======
         cls.logger().info(f"Mapping {data} as balance")
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
 
         chains = data.keys()
 
@@ -189,14 +194,12 @@ class DataFormatter:
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
         for chain in chains:
             assets = data[chain].keys()
-
             for asset in assets:
 <<<<<<< HEAD
 <<<<<<< HEAD
                 token = f"{asset}-{chain}"
-                cls.logger().info("Mapping " + token)
-
                 balance_map[token] = cls.format_hex_balance(data[chain][asset], {"chain": chain, "asset": asset})
+<<<<<<< HEAD
 =======
         for key in keys:
             for asset in data[key]:
@@ -225,6 +228,9 @@ class DataFormatter:
 
                 balance_map[token] = cls.format_hex_balance(data[chain][asset], {"chain": chain, "asset": asset})
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+
+>>>>>>> af09807ef ((refactor) remove unneccessary logs and make minor fixes)
         return balance_map
 
     @classmethod
@@ -472,14 +478,12 @@ class DataFormatter:
         limit_orders_fills = list(filter(lambda x: x[0] == "limit_orders", fills.items()))
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         if not limit_orders_fills:
-            cls.logger().info("No Limit Order fills found")
             return []
         # filter the limit orders fill by the user address
 <<<<<<< HEAD
 <<<<<<< HEAD
         user_orders = list(filter(lambda x: x[1]["lp"] == address, limit_orders_fills))
         if not user_orders:
-            cls.logger().info("No order fill found for current address")
             return []
         # get the values of the
         main_data = list(map(lambda x: x[1], user_orders))

@@ -1,7 +1,7 @@
 from hummingbot.core.api_throttler.data_types import RateLimit
 
 DEFAULT_DOMAIN = "chainflip_lp"
-EXCHANGE_NAME = "Chainflip"
+EXCHANGE_NAME = "chainflip_lp"
 
 REST_RPC_URLS = {
     "chainflip_lp": "https://mainnet-rpc.chainflip.io",

@@ -258,7 +258,14 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def expected_trading_rule(self):
-        trading_rule = TradingRule(trading_pair=self.trading_pair)
+        trading_rule = TradingRule(
+            trading_pair=self.trading_pair,
+            min_order_size=0,
+            max_order_size=10**6,
+            min_price_increment=Decimal("0.00001"),
+            min_base_amount_increment=Decimal("0.00001"),
+            min_quote_amount_increment=Decimal("0.00001"),
+        )
         return trading_rule
 =======
     
