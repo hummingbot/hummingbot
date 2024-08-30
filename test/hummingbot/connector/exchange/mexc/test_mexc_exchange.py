@@ -65,7 +65,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -132,7 +132,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -161,7 +161,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 },
                 {
                     "symbol": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": "INVALID",
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -207,7 +207,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
@@ -255,7 +255,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "symbols": [
                 {
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
+                    "status": "1",
                     "baseAsset": self.base_asset,
                     "baseAssetPrecision": 8,
                     "quoteAsset": self.quote_asset,
@@ -1131,7 +1131,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "baseSizePrecision": 1e-8,
             "quotePrecision": 8,
             "baseAssetPrecision": 8,
-            "status": "ENABLED",
+            "status": "1",
             "quoteAmountPrecision": "0.001",
             "orderTypes": ["LIMIT", "MARKET"],
             "filters": [
