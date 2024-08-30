@@ -166,7 +166,9 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _process_ws_auth_msg(self, data: dict):
         if not data.get("success"):
-            raise IOError(f"Private channel authentication failed - {data['ret_msg']}")
+            error_msg = f"Private channel authentication failed - {data['ret_msg']}"
+            self.logger().error(error_msg)
+            raise IOError(error_msg)
         else:
             self.logger().info("Private channel authentication success.")
 
