@@ -874,7 +874,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             funding_rate: Decimal = Decimal(str(last_data["funding"]))
             position_size: Decimal = Decimal(str(last_data["size"]))
             payment: Decimal = funding_rate * position_size
-            timestamp: int = int(last_data["transactionTime"])
+            timestamp: int = int(last_data["transactionTime"]) / 1e3
 
         return timestamp, funding_rate, payment
 
