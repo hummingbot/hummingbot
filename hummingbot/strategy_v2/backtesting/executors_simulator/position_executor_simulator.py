@@ -58,6 +58,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         # Determine the earliest close event
         first_tp_timestamp = df_filtered[df_filtered['net_pnl_pct'] > tp]['timestamp'].min() if tp else None
+        # TODO: Implement the stop loss with low/high prices
         first_sl_timestamp = df_filtered[df_filtered['net_pnl_pct'] < -sl]['timestamp'].min() if sl else None
         first_trailing_sl_timestamp = df_filtered[(~df_filtered['ts'].isna()) & (df_filtered['net_pnl_pct'] < df_filtered['ts'])]['timestamp'].min() if trailing_sl_delta_pct and trailing_sl_trigger_pct else None
         close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp, first_trailing_sl_timestamp] if not pd.isna(timestamp)])
