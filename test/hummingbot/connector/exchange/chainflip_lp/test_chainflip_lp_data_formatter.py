@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest import TestCase
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -185,9 +186,13 @@ class DataFormatterTests(TestCase):
         self.assertEqual(len(balances), 3)
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         self.assertEqual(type(balances[f"{self.base_asset_dict['asset']}-{self.base_asset_dict['chain']}"]), float)
+=======
+        self.assertEqual(type(balances[f"{self.base_asset_dict['asset']}"]), Decimal)
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
 
 =======
         self.assertEqual(type(balances[self.base_asset]), float)
@@ -451,6 +456,7 @@ class DataFormatterTests(TestCase):
         order_data = DataFormatter.format_place_order_response(response)
         self.assertTrue(isinstance(order_data, dict))
         self.assertIn("order_id", order_data)
+<<<<<<< HEAD
 =======
                     {
                         "amount": "0x54b2cec31723f8b04",
@@ -616,3 +622,41 @@ class DataFormatterTests(TestCase):
         self.assertTrue(isinstance(order_data, dict))
         self.assertIn("order_id", order_data)
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+
+    def test_format_order_status(self):
+        response_data = {
+            "result": {
+                "limit_orders": {
+                    "asks": [
+                        {
+                            "lp": "cFLGvPhhrribWCx9id5kLVqwiFK4QiVNjQ6ViyaRFF2Nrgq7j",  # noqa: mock
+                            "id": "0x0",  # noqa: mock
+                            "tick": -195623,
+                            "sell_amount": "0x56d3a03776ce8ba0",  # noqa: mock
+                            "fees_earned": "0x0",  # noqa: mock
+                            "original_sell_amount": "0x56d3a03776ce8ba0"  # noqa: mock
+                        },
+                    ],
+                    "bids": [
+                        {
+                            "lp": "cFLGvPhhrribWCx9id5kLVqwiFK4QiVNjQ6ViyaRFF2Nrgq7j",  # noqa: mock
+                            "id": "0x0",  # noqa: mock
+                            "tick": -195622,
+                            "sell_amount": "0x4a817c800",  # noqa: mock
+                            "fees_earned": "0x0",  # noqa: mock
+                            "original_sell_amount": "0x4a817c800"  # noqa: mock
+                        },
+                    ]
+                },
+            }
+        }
+        status = DataFormatter.format_order_status(
+            response_data,
+            "0x0",  # noqa: mock
+            "sell"
+        )
+
+        self.assertIsNotNone(status)
+        self.assertIsInstance(status, dict)
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)

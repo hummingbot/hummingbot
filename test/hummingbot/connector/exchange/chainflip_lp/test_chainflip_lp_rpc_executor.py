@@ -2,6 +2,10 @@ import asyncio
 import re
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+from decimal import Decimal
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
 from typing import Awaitable, Union
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -146,16 +150,6 @@ class RPCQueryExecutorTests(TestCase):
         self.assertIn("status", response)
         self.assertFalse(response["status"])
         self.assertEqual(response["data"], return_data)
-
-    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.websockets_connect")
-    def test_subscribe_to_rpc_event(self, mock_socket: MagicMock):
-        session_mock = AsyncMock()
-        session_mock.recv.__aenter__.return_value = {"chain": "Ethereum", "asset": "USDT"}
-        mock_socket.return_value.__aenter__.return_value = session_mock
-        rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
-        self.async_run_with_timeout(rpc_executor._subscribe_to_rpc_event("stream", []))
-        session_mock.send.assert_called_once()
-        session_mock.recv.assert_called_once()
 
     def test_calculate_ticks(self):
         rpc_executor = RPCQueryExecutor(MagicMock(), MagicMock(), MagicMock())
@@ -328,7 +322,7 @@ class RPCQueryExecutorTests(TestCase):
         data = self.async_run_with_timeout(rpc_executor.get_all_balances())
         self.assertEqual(type(data), dict)
         self.assertEqual(len(data), 3)
-        self.assertEqual(type(data[f"{self.base_asset_dict['asset']}-{self.base_asset_dict['chain']}"]), float)
+        self.assertEqual(type(data[f"{self.base_asset_dict['asset']}"]), Decimal)
 
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
     def test_all_balances_exception_returns_empty_list(self, mock_response: MagicMock):
@@ -564,4 +558,73 @@ class RPCQueryExecutorTests(TestCase):
         )
         self.assertIn("asks", data)
         self.assertIn("bids", data)
+<<<<<<< HEAD
 >>>>>>> be08ccc9c ((refactor) add more chainflip rpc executor test)
+=======
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_get_order_status_successful(self, mock_response: MagicMock):
+        return_data = {
+            "result": {
+                "limit_orders": {
+                    "asks": [
+                        {
+                            "lp": "cFLGvPhhrribWCx9id5kLVqwiFK4QiVNjQ6ViyaRFF2Nrgq7j",  # noqa: mock
+                            "id": "0x0",  # noqa: mock
+                            "tick": -195623,
+                            "sell_amount": "0x56d3a03776ce8ba0",  # noqa: mock
+                            "fees_earned": "0x0",  # noqa: mock
+                            "original_sell_amount": "0x56d3a03776ce8ba0"  # noqa: mock
+                        },
+                    ],
+                    "bids": [
+                        {
+                            "lp": "cFLGvPhhrribWCx9id5kLVqwiFK4QiVNjQ6ViyaRFF2Nrgq7j",  # noqa: mock
+                            "id": "0x0",  # noqa: mock
+                            "tick": -195622,
+                            "sell_amount": "0x4a817c800",  # noqa: mock
+                            "fees_earned": "0x0",  # noqa: mock
+                            "original_sell_amount": "0x4a817c800"  # noqa: mock
+                        },
+                    ]
+                },
+            }
+        }
+        mock_response.return_value = return_data
+        rpc_executor = RPCQueryExecutor(
+            MagicMock(),
+            MagicMock(),
+            "cFLGvPhhrribWCx9id5kLVqwiFK4QiVNjQ6ViyaRFF2Nrgq7j"  # noqa: mock
+        )
+        rpc_executor._rpc_instance = Mock()
+        data = self.async_run_with_timeout(
+            rpc_executor.get_order_status(
+                "0x0",  # noqa: mock,
+                "sell",
+                self.base_asset_dict,
+                self.quote_asset_dict
+            )
+        )
+        self.assertIsNotNone(data)
+        self.assertIsInstance(data, dict)
+
+    @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
+    def test_get_order_status_failure_raises_exeception(self, mock_response: MagicMock):
+        mock_response.side_effect = SubstrateRequestException({"data": "Method Not Found"})
+        rpc_executor = RPCQueryExecutor(
+            MagicMock(),
+            MagicMock(),
+            "cFLGvPhhrribWCx9id5kLVqwiFK4QiVNjQ6ViyaRFF2Nrgq7j"  # noqa: mock
+        )
+        rpc_executor._rpc_instance = Mock()
+
+        with self.assertRaises(RuntimeError):
+            self.async_run_with_timeout(
+                rpc_executor.get_order_status(
+                    "0x0",  # noqa: mock,
+                    "sell",
+                    self.base_asset_dict,
+                    self.quote_asset_dict
+                )
+            )
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)

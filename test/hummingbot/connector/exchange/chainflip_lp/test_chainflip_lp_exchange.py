@@ -1842,10 +1842,15 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         base_asset_key = f"{self.base_asset}-{self.base_asset_dict['chain']}"
         quote_asset_key = f"{self.quote_asset}-{self.quote_asset_dict['chain']}"
+=======
+        base_asset_key = f"{self.base_asset}"
+        quote_asset_key = f"{self.quote_asset}"
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
 
         self.assertEqual(formmatted_data[base_asset_key], available_balances[base_asset_key])
         self.assertEqual(formmatted_data[quote_asset_key], available_balances[quote_asset_key])

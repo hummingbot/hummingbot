@@ -349,6 +349,7 @@ class ChainflipLpDataSource:
         return trading_rules
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         asset = DataFormatter.format_trading_pair(trading_pair,self._assets_list)
 =======
@@ -391,6 +392,36 @@ class ChainflipLpDataSource:
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
 =======
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+    async def order_update(self, order: InFlightOrder):
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(order.trading_pair)
+        pair = DataFormatter.format_trading_pair(trading_pair, self._assets_list)
+        trade_type = CONSTANTS.SIDE_BUY if order.trade_type == TradeType.BUY else CONSTANTS.SIDE_SELL
+        order_info = await self._rpc_executor.get_order_status(
+            order.exchange_order_id,
+            trade_type,
+            pair["base_asset"],
+            pair["quote_asset"]
+        )
+        if order_info is None:
+            order_update = OrderUpdate(
+                trading_pair=order.trading_pair,
+                update_timestamp=self._time(),
+                client_order_id=order.client_order_id,
+                exchange_order_id=order.exchange_order_id,
+                new_state=OrderState.COMPLETED
+            )
+        else:
+            order_update = OrderUpdate(
+                trading_pair=order.trading_pair,
+                update_timestamp=self._time(),
+                client_order_id=order.client_order_id,
+                exchange_order_id=order.exchange_order_id,
+                new_state=OrderState.OPEN
+            )
+        return order_update
+
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
     async def _process_recent_order_fills_async(self, events: Dict[str, Any]):
         if not events:
             return

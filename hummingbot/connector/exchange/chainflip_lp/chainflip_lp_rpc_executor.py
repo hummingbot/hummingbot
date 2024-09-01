@@ -1,10 +1,10 @@
 import asyncio
-import json
 import logging
 import math
 import ssl
 import sys
 from abc import ABC, abstractmethod
+from decimal import Decimal
 from functools import partial
 from typing import Any, Callable, Dict, List, Literal, Optional
 
@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional
 from requests.exceptions import ConnectionError
 from substrateinterface import SubstrateInterface
 from substrateinterface.exceptions import SubstrateRequestException
+<<<<<<< HEAD
 from websockets import connect as websockets_connect
 <<<<<<< HEAD
 =======
@@ -29,6 +30,8 @@ from substrateinterface.exceptions import SubstrateRequestException
 >>>>>>> 52298288f (fix: make it actually connect to chainflip, and fetch balance)
 =======
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
@@ -327,9 +330,25 @@ class RPCQueryExecutor(BaseRPCExecutor):
         return DataFormatter.format_order_response(response["data"], base_asset, quote_asset)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         return DataFormatter.format_order_response(response["data"])
 >>>>>>> 9979ea9b9 ((refactor) update code and tests)
+=======
+    async def get_order_status(self, id: str, side: str, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+        params = {
+            "base_asset": base_asset,
+            "quote_asset": quote_asset,
+            "lp": self._lp_account_address
+        }
+        self.logger().info(f"params: {params}")
+        response = await self._execute_rpc_request(CONSTANTS.OPEN_ORDERS_METHOD, params)
+        if not response["status"]:
+            raise RuntimeError(f"Error getting order status: {response['data']}")
+
+        return DataFormatter.format_order_status(response["data"], id, side)
+
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
     async def get_all_balances(self):
         response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
 
@@ -342,7 +361,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not response["status"]:
             return []
 
-        return DataFormatter.format_balance_response(response["data"])
+        return DataFormatter.format_balance_response(response["data"], self._chain_config)
 
     async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
 <<<<<<< HEAD
@@ -387,6 +406,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         order_id: str,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         order_price: float,
 =======
         order_price: int,
@@ -394,18 +414,22 @@ class RPCQueryExecutor(BaseRPCExecutor):
 =======
         order_price: float,
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
+=======
+        order_price: Decimal,
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
         side: Literal["buy"] | Literal["sell"],
-        sell_amount: int,
+        sell_amount: Decimal,
     ):
-        tick = self._calculate_tick(order_price, base_asset, quote_asset)
+        tick = self._calculate_tick(float(order_price), base_asset, quote_asset)
         if side == CONSTANTS.SIDE_BUY:
-            amount = DataFormatter.format_amount(sell_amount, quote_asset)
+            amount = DataFormatter.format_amount(float(sell_amount), quote_asset)
         else:
-            amount = DataFormatter.format_amount(sell_amount, base_asset)
+            amount = DataFormatter.format_amount(float(sell_amount), base_asset)
+        converted_id = DataFormatter.convert_bot_id_to_int(order_id)
         params = {
-            "base_asset": base_asset["asset"],
-            "quote_asset": quote_asset["asset"],
-            "id": order_id,
+            "base_asset": base_asset,
+            "quote_asset": quote_asset,
+            "id": converted_id,
             "side": side,
             "tick": tick,
             "sell_amount": amount,
@@ -439,10 +463,11 @@ class RPCQueryExecutor(BaseRPCExecutor):
         order_id: str,
         side: Literal["buy"] | Literal["sell"],
     ) -> bool:
+        converted_id = DataFormatter.convert_bot_id_to_int(order_id)
         params = {
-            "base_asset": base_asset["asset"],
-            "quote_asset": quote_asset["asset"],
-            "id": order_id,
+            "base_asset": base_asset,
+            "quote_asset": quote_asset,
+            "id": converted_id,
             "side": side,
             "sell_amount": DataFormatter.format_amount(0, base_asset),
             "wait_for": "InBlock"
@@ -791,6 +816,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     async def _subscribe_to_rpc_event(
 =======
     async def _subscribe_to_rpc_events(
@@ -832,6 +858,8 @@ class RPCQueryExecutor(BaseRPCExecutor):
                     )
                     break
 
+=======
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
     def _calculate_tick(self, price: float, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
 =======
                         f"Unexpected error listening to order fill update from Chainflip lp. Error: {e}", exc_info=True

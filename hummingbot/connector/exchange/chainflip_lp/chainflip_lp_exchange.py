@@ -178,7 +178,7 @@ class ChainflipLpExchange(ExchangePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         # Not used in Chainflip LP
-        raise NotImplementedError  # pragma: no cover
+        pass  # pragma: no cover
 
     async def _update_trading_fees(self):
         """
@@ -416,9 +416,10 @@ class ChainflipLpExchange(ExchangePyBase):
 
     async def _user_stream_event_listener(self):
         # no user stream in chainflip lp
-        raise NotImplementedError
+        pass
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+<<<<<<< HEAD
         # not used in chainflip LP
 =======
         raise NotImplementedError
@@ -443,6 +444,11 @@ class ChainflipLpExchange(ExchangePyBase):
         # not used in chainflip LP
 >>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
         raise NotImplementedError
+=======
+        await tracked_order.get_exchange_order_id()
+        order_update = await self._data_source.order_update(tracked_order)
+        return order_update
+>>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
 
     def _configure_event_forwarders(self):
 
