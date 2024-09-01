@@ -22,7 +22,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :param exchange_info: the exchange information for a trading pair
     :return: True if the trading pair is enabled, False otherwise
     """
-    return exchange_info.get("status", None) == "ENABLED" and "SPOT" in exchange_info.get("permissions", list()) \
+    return exchange_info.get("status", None) == "1" and "SPOT" in exchange_info.get("permissions", list()) \
         and exchange_info.get("isSpotTradingAllowed", True) is True
 
 
