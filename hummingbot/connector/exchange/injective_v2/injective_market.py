@@ -74,6 +74,9 @@ class InjectiveSpotMarket:
     def taker_fee_rate(self) -> Decimal:
         return self.native_market.taker_fee_rate
 
+    def min_notional(self) -> Decimal:
+        return self.quote_token.value_from_chain_format(chain_value=self.native_market.min_notional)
+
 
 @dataclass(frozen=True)
 class InjectiveDerivativeMarket:
@@ -124,3 +127,6 @@ class InjectiveDerivativeMarket:
 
     def oracle_type(self) -> str:
         return self.native_market.oracle_type
+
+    def min_notional(self) -> Decimal:
+        return self.quote_token.value_from_chain_format(chain_value=self.native_market.min_notional)
