@@ -732,7 +732,8 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair}."
+                f"{Decimal('100.000000')} {self.trading_pair} "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -772,7 +773,7 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair}."
+                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000')}."
             )
         )
 
@@ -962,14 +963,14 @@ class BitstampExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self.assertTrue(
             self.is_logged(
                 "INFO",
-                f"The BUY order {buy_order.client_order_id} amounting to {buy_order.executed_amount_base}/{buy_order.amount} COINALPHA has been filled."
+                f"The BUY order {buy_order.client_order_id} amounting to {buy_order.executed_amount_base}/{buy_order.amount} COINALPHA has been filled at {Decimal('10000')} HBOT."
             )
         )
 
         self.assertTrue(
             self.is_logged(
                 "INFO",
-                f"The SELL order {sell_order.client_order_id} amounting to {sell_order.executed_amount_base}/{sell_order.amount} COINALPHA has been filled."
+                f"The SELL order {sell_order.client_order_id} amounting to {sell_order.executed_amount_base}/{sell_order.amount} COINALPHA has been filled at {Decimal('10000')} HBOT."
             )
         )
 
