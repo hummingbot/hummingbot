@@ -416,6 +416,46 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         ]
         return linear_url
 
+    def configure_trade_fills_response(
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> List[str]:
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL, trading_pair=self.trading_pair
+        )
+        params = {
+            "category": "linear" if web_utils.is_linear_perpetual(self.trading_pair) else "inverse",
+            "limit": 200,
+            "startTime": int(int(self.exchange._last_trade_history_timestamp) * 1e3),
+            "symbol": self.exchange_trading_pair,
+        }
+        encoded_params = urlencode(params)
+        url = f"{url}?{encoded_params}"
+        response = self._trade_fills_request_mock_response()
+        mock_api.get(url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def configure_erroneous_trade_fills_response(
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> List[str]:
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL, trading_pair=self.trading_pair
+        )
+        params = {
+            "category": "linear" if web_utils.is_linear_perpetual(self.trading_pair) else "inverse",
+            "limit": 200,
+            "startTime": int(int(self.exchange._last_trade_history_timestamp) * 1e3),
+            "symbol": self.exchange_trading_pair,
+        }
+        encoded_params = urlencode(params)
+        url = f"{url}?{encoded_params}"
+        resp = {"retCode": 10001, "retMsg": "SOME ERROR"}
+        mock_api.get(url, body=json.dumps(resp), status=404, callback=callback)
+        return [url]
+
     @property
     def balance_request_mock_response_only_base(self):
         mock_response = self.balance_request_mock_response_for_base_and_quote
@@ -423,6 +463,49 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             if coin["coin"] == self.quote_asset:
                 mock_response["result"]["list"][0]["coin"].remove(coin)
         return mock_response
+
+    def _trade_fills_request_mock_response(self):
+        return {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "nextPageCursor": "132766%3A2%2C132766%3A2",
+                "category": "linear",
+                "list": [
+                    {
+                        "symbol": self.exchange_trading_pair,
+                        "orderType": "Limit",
+                        "underlyingPrice": "",
+                        "orderLinkId": "",
+                        "side": "Buy",
+                        "indexPrice": "",
+                        "orderId": "",
+                        "stopOrderType": "UNKNOWN",
+                        "leavesQty": "0",
+                        "execTime": "1672282722429",
+                        "feeCurrency": "",
+                        "isMaker": False,
+                        "execFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "feeRate": "0.0006",
+                        "execId": self.expected_fill_trade_id,
+                        "tradeIv": "",
+                        "blockTradeId": "",
+                        "markPrice": "1183.54",
+                        "execPrice": "10.0",
+                        "markIv": "",
+                        "orderQty": "0.1",
+                        "orderPrice": "1236.9",
+                        "execValue": "119.015",
+                        "execType": "Trade",
+                        "execQty": "1.0",
+                        "closedSize": "",
+                        "seq": 4688002127
+                    }
+                ]
+            },
+            "retExtInfo": {},
+            "time": 1672283754510
+        }
 
     @property
     def balance_event_websocket_update(self):
@@ -1236,6 +1319,17 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
 
         self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
+
+    @aioresponses()
+    def test_trade_history_fetch_raises_exception(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        self.configure_erroneous_trade_fills_response(mock_api=mock_api,
+                                                      callback=lambda *args, **kwargs: request_sent_event.set())
+        resp = {"retCode": 10001, "retMsg": "SOME ERROR"}
+        asyncio.get_event_loop().run_until_complete(self.exchange._update_trade_history())
+        self.is_logged("network", f"Error fetching status update for {self.trading_pair}: {resp}.")
 
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
