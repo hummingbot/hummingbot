@@ -93,7 +93,7 @@ class OKXSpotCandles(CandlesBase):
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         return [[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], row[6], 0., 0., 0.]
-                for row in data["data"] if self.ensure_timestamp_in_seconds(row[0]) < end_time][::-1]
+                for row in data["data"]][::-1]
 
     def ws_subscription_payload(self):
         candle_args = [{"channel": f"candle{CONSTANTS.INTERVALS[self.interval]}", "instId": self._ex_trading_pair}]

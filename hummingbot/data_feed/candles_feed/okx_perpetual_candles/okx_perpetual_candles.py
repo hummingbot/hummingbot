@@ -88,7 +88,7 @@ class OKXPerpetualCandles(CandlesBase):
             [
                 self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.
             ]
-            for row in data["data"] if self.ensure_timestamp_in_seconds(row[0]) < end_time
+            for row in data["data"]
         ][::-1]
 
     def ws_subscription_payload(self):
