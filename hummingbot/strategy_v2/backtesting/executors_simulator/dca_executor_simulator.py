@@ -137,6 +137,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         df_filtered['net_pnl_quote'] = sum([df_filtered[f'net_pnl_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
         df_filtered.loc[df_filtered["filled_amount_quote"] > 0, "net_pnl_pct"] = df_filtered["net_pnl_quote"] / df_filtered["filled_amount_quote"]
+        df_filtered["filled_amount_quote"].iloc[-1] = df_filtered["filled_amount_quote"].iloc[-1] * 2
 
         if close_type is None:
             close_type = CloseType.FAILED
