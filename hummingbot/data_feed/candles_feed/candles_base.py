@@ -168,8 +168,8 @@ class CandlesBase(NetworkBase):
             current_start_time = self._round_timestamp_to_interval_multiple(config.start_time)
             while current_end_time >= current_start_time:
                 missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
-                fetched_candles = await self.fetch_candles(start_time=self._calculate_start_time(current_start_time),
-                                                           end_time=self._calculate_end_time(current_end_time),
+                fetched_candles = await self.fetch_candles(start_time=current_start_time,
+                                                           end_time=current_end_time,
                                                            limit=missing_records)
                 if fetched_candles.size <= 1 or missing_records == 0:
                     break
@@ -217,18 +217,18 @@ class CandlesBase(NetworkBase):
 
         if limit is None:
             limit = self.candles_max_result_per_rest_request
+
         candles_to_fetch = min(self.candles_max_result_per_rest_request, limit)
 
         if end_time is None:
-            start_time = self._round_timestamp_to_interval_multiple(start_time)
-            end_time = start_time + self.interval_in_seconds * candles_to_fetch
+            fixed_start_time = self._calculate_start_time(start_time)
+            fixed_end_time = self._calculate_end_time(start_time + self.interval_in_seconds * candles_to_fetch)
+        else:
+            fixed_start_time = self._calculate_start_time(end_time - self.interval_in_seconds * candles_to_fetch)
+            fixed_end_time = self._calculate_end_time(end_time)
 
-        if start_time is None:
-            end_time = self._round_timestamp_to_interval_multiple(end_time)
-            start_time = end_time - self.interval_in_seconds * candles_to_fetch
-
-        params = self._get_rest_candles_params(self._calculate_start_time(start_time),
-                                               self._calculate_end_time(end_time))
+        params = self._get_rest_candles_params(fixed_start_time,
+                                               fixed_end_time)
         headers = self._get_rest_candles_headers()
         rest_assistant = await self._api_factory.get_rest_assistant()
         candles = await rest_assistant.execute_request(url=self.candles_url,
@@ -300,9 +300,10 @@ class CandlesBase(NetworkBase):
         while not self.ready:
             await self._ws_candle_available.wait()
             try:
-                end_time = self._candles[0][0]
+                end_time = self._round_timestamp_to_interval_multiple(self._candles[0][0])
                 missing_records = self._candles.maxlen - len(self._candles)
                 candles: np.ndarray = await self.fetch_candles(end_time=end_time, limit=missing_records)
+                candles = candles[candles[:, 0] < end_time]
                 records_to_add = min(missing_records, len(candles))
                 self._candles.extendleft(candles[-records_to_add:][::-1])
             except asyncio.CancelledError:
