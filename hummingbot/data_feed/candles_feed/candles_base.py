@@ -164,17 +164,17 @@ class CandlesBase(NetworkBase):
         try:
             await self.initialize_exchange_data()
             all_candles = []
-            current_end_time = config.end_time + self.interval_in_seconds
-            current_start_time = config.start_time - self.interval_in_seconds
+            current_end_time = self._round_timestamp_to_interval_multiple(config.end_time)
+            current_start_time = self._round_timestamp_to_interval_multiple(config.start_time)
             while current_end_time >= current_start_time:
                 missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
-                fetched_candles = await self.fetch_candles(end_time=current_end_time, limit=missing_records)
+                fetched_candles = await self.fetch_candles(start_time=self._calculate_start_time(current_start_time),
+                                                           end_time=self._calculate_end_time(current_end_time),
+                                                           limit=missing_records)
                 if fetched_candles.size <= 1:
                     break
                 all_candles.append(fetched_candles)
-                last_timestamp = self.ensure_timestamp_in_seconds(
-                    fetched_candles[0][0])  # Assuming the first column is the timestamp
-                current_end_time = last_timestamp - self.interval_in_seconds
+                current_end_time = self.ensure_timestamp_in_seconds(fetched_candles[0][0])
                 self.check_candles_sorted_and_equidistant(all_candles)
             final_candles = np.concatenate(all_candles[::-1], axis=0) if all_candles else np.array([])
             candles_df = pd.DataFrame(final_candles, columns=self.columns)
@@ -214,16 +214,21 @@ class CandlesBase(NetworkBase):
                             limit: Optional[int] = None):
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
-        if limit is None:
-            limit = self.candles_max_result_per_rest_request - 1
 
-        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, limit)
+        if limit is None:
+            limit = self.candles_max_result_per_rest_request
+        candles_to_fetch = min(self.candles_max_result_per_rest_request, limit)
+
         if end_time is None:
+            start_time = self._round_timestamp_to_interval_multiple(start_time)
             end_time = start_time + self.interval_in_seconds * candles_to_fetch
+
         if start_time is None:
+            end_time = self._round_timestamp_to_interval_multiple(end_time)
             start_time = end_time - self.interval_in_seconds * candles_to_fetch
 
-        params = self._get_rest_candles_params(start_time, end_time)
+        params = self._get_rest_candles_params(self._calculate_start_time(start_time),
+                                               self._calculate_end_time(end_time))
         headers = self._get_rest_candles_headers()
         rest_assistant = await self._api_factory.get_rest_assistant()
         candles = await rest_assistant.execute_request(url=self.candles_url,
@@ -238,7 +243,9 @@ class CandlesBase(NetworkBase):
                                  end_time: Optional[int] = None,
                                  limit: Optional[int] = None) -> dict:
         """
-        This method returns the parameters for the candles REST request.
+        This method returns the parameters for the candles REST request. In specific implementations, if the last candle
+        is not included in rest request then when filtering the candles data, the end_time should be less than the
+        actual end_time. Else, the end_time should be less or equal to the actual end_time.
 
         :param start_time: the start time of the candles data to fetch
         :param end_time: the end time of the candles data to fetch
@@ -264,6 +271,28 @@ class CandlesBase(NetworkBase):
         """
         pass
 
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    def _round_timestamp_to_interval_multiple(self, timestamp: int) -> int:
+        """
+        This method rounds the given timestamp to the nearest multiple of the interval in seconds.
+        :param timestamp: the timestamp to round
+        :return: the rounded timestamp
+        """
+        return int(timestamp - timestamp % self.interval_in_seconds)
+
+    def _calculate_end_time(self, end_time: Optional[int] = None):
+        return end_time + self.interval_in_seconds * self._is_last_candle_not_included_in_rest_request
+
+    def _calculate_start_time(self, start_time: Optional[int]):
+        return start_time - self.interval_in_seconds * self._is_first_candle_not_included_in_rest_request
+
     async def fill_historical_candles(self):
         """
         This method fills the historical candles in the _candles deque until it reaches the maximum length.
@@ -271,9 +300,9 @@ class CandlesBase(NetworkBase):
         while not self.ready:
             await self._ws_candle_available.wait()
             try:
-                end_timestamp = int(self._candles[0][0])
+                end_time = self._candles[0][0]
                 missing_records = self._candles.maxlen - len(self._candles)
-                candles: np.ndarray = await self.fetch_candles(end_time=end_timestamp, limit=missing_records)
+                candles: np.ndarray = await self.fetch_candles(end_time=end_time, limit=missing_records)
                 records_to_add = min(missing_records, len(candles))
                 self._candles.extendleft(candles[-records_to_add:][::-1])
             except asyncio.CancelledError:
