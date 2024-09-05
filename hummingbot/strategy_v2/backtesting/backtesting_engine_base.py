@@ -257,7 +257,7 @@ class BacktestingEngineBase:
             total_executors = executors_df.shape[0]
             executors_with_position = executors_df[executors_df["net_pnl_quote"] != 0]
             total_executors_with_position = executors_with_position.shape[0]
-            total_volume = executors_with_position["filled_amount_quote"].sum() * 2
+            total_volume = executors_with_position["filled_amount_quote"].sum()
             total_long = (executors_with_position["side"] == TradeType.BUY).sum()
             total_short = (executors_with_position["side"] == TradeType.SELL).sum()
             correct_long = ((executors_with_position["side"] == TradeType.BUY) & (executors_with_position["net_pnl_quote"] > 0)).sum()
