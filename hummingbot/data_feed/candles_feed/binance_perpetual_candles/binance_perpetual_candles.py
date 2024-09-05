@@ -64,6 +64,14 @@ class BinancePerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -87,7 +95,7 @@ class BinancePerpetualCandles(CandlesBase):
         return [
             [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], row[7],
              row[8], row[9], row[10]]
-            for row in data if self.ensure_timestamp_in_seconds(row[0]) < end_time]
+            for row in data if self.ensure_timestamp_in_seconds(row[0]) <= end_time]
 
     def ws_subscription_payload(self):
         candle_params = [f"{self._ex_trading_pair.lower()}@kline_{self.interval}"]
