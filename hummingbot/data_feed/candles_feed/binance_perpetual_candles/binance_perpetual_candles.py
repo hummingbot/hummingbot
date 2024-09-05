@@ -95,7 +95,8 @@ class BinancePerpetualCandles(CandlesBase):
         return [
             [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], row[7],
              row[8], row[9], row[10]]
-            for row in data if self.ensure_timestamp_in_seconds(row[0]) <= end_time]
+            for row in data
+        ]
 
     def ws_subscription_payload(self):
         candle_params = [f"{self._ex_trading_pair.lower()}@kline_{self.interval}"]
