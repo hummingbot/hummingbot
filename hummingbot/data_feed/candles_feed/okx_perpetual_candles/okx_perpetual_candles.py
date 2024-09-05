@@ -18,25 +18,6 @@ class OKXPerpetualCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
-        self.interval_to_milliseconds_dict = {
-            "1s": 1000,
-            "1m": 60000,
-            "3m": 180000,
-            "5m": 300000,
-            "15m": 900000,
-            "30m": 1800000,
-            "1h": 3600000,
-            "2h": 7200000,
-            "4h": 14400000,
-            "6h": 21600000,
-            "8h": 28800000,
-            "12h": 43200000,
-            "1d": 86400000,
-            "3d": 259200000,
-            "1w": 604800000,
-            "1M": 2592000000,
-            "3M": 7776000000
-        }
 
     @property
     def name(self):
@@ -83,16 +64,23 @@ class OKXPerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return f"{trading_pair}-SWAP"
 
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return True
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return True
+
     def _get_rest_candles_params(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
                                  limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
         params = {
             "instId": self._ex_trading_pair,
             "bar": CONSTANTS.INTERVALS[self.interval]
         }
-        if end_time:
-            params["after"] = end_time * 1000
         if start_time:
             params["before"] = start_time * 1000
+        params["after"] = end_time * 1000
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
