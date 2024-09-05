@@ -338,10 +338,8 @@ class RPCQueryExecutor(BaseRPCExecutor):
     async def get_order_status(self, id: str, side: str, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         params = {
             "base_asset": base_asset,
-            "quote_asset": quote_asset,
-            "lp": self._lp_account_address
+            "quote_asset": quote_asset
         }
-        self.logger().info(f"params: {params}")
         response = await self._execute_rpc_request(CONSTANTS.OPEN_ORDERS_METHOD, params)
         if not response["status"]:
             raise RuntimeError(f"Error getting order status: {response['data']}")
