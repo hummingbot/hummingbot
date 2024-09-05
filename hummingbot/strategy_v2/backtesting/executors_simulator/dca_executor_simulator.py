@@ -63,11 +63,13 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 if config.side == TradeType.BUY:
                     ts_activated_condition = returns_df["close"] >= trailing_stop_activation_price
                     if ts_activated_condition.any():
+                        ts_activated_condition = ts_activated_condition.cumsum() > 0
                         returns_df.loc[ts_activated_condition, "ts_trigger_price"] = (returns_df[ts_activated_condition]["close"] * float(1 - trailing_sl_delta_pct)).cummax()
                         trailing_stop_condition = returns_df['close'] <= returns_df['ts_trigger_price']
                 else:
                     ts_activated_condition = returns_df["close"] <= trailing_stop_activation_price
                     if ts_activated_condition.any():
+                        ts_activated_condition = ts_activated_condition.cumsum() > 0
                         returns_df.loc[ts_activated_condition, "ts_trigger_price"] = (returns_df[ts_activated_condition]["close"] * float(1 + trailing_sl_delta_pct)).cummin()
                         trailing_stop_condition = returns_df['close'] >= returns_df['ts_trigger_price']
                 trailing_sl_timestamp = returns_df[trailing_stop_condition]['timestamp'].min() if trailing_stop_condition is not None else None
