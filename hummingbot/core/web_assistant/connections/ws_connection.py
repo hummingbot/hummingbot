@@ -104,7 +104,7 @@ class WSConnection:
 
     async def _check_msg_ping_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
         if msg is not None and msg.type == aiohttp.WSMsgType.PING:
-            await self._connection.pong()
+            await self._connection.pong(msg.data.decode('utf-8'))
             msg = None
         return msg
 
