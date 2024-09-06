@@ -51,7 +51,7 @@ class CandlesExample(ScriptStrategyBase):
     def on_tick(self):
         pass
 
-    def on_stop(self):
+    async def on_stop(self):
         """
         Without this functionality, the network iterator will continue running forever after stopping the strategy
         That's why is necessary to introduce this new feature to make a custom stop with the strategy.
