@@ -161,27 +161,31 @@ class CandlesBase(NetworkBase):
         self._candles.extendleft(df.values.tolist())
 
     async def get_historical_candles(self, config: HistoricalCandlesConfig):
+        candles_df = pd.DataFrame()
         try:
             await self.initialize_exchange_data()
-            all_candles = []
             current_end_time = self._round_timestamp_to_interval_multiple(config.end_time)
             current_start_time = self._round_timestamp_to_interval_multiple(config.start_time)
             while current_end_time >= current_start_time:
                 missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
-                fetched_candles = await self.fetch_candles(start_time=current_start_time,
-                                                           end_time=current_end_time,
-                                                           limit=missing_records)
-                if fetched_candles.size <= 1 or missing_records == 0:
+                candles = await self.fetch_candles(start_time=current_start_time,
+                                                   end_time=current_end_time,
+                                                   limit=missing_records)
+                candles = candles[candles[:, 0] <= current_end_time]
+                if candles.size <= 1 or missing_records == 0:
                     break
-                all_candles.append(fetched_candles)
-                current_end_time = self.ensure_timestamp_in_seconds(fetched_candles[0][0])
-                self.check_candles_sorted_and_equidistant(all_candles)
-            final_candles = np.concatenate(all_candles[::-1], axis=0) if all_candles else np.array([])
-            candles_df = pd.DataFrame(final_candles, columns=self.columns)
-            candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
+                current_end_time = self.ensure_timestamp_in_seconds(candles[0][0])
+                fetched_candles_df = pd.DataFrame(candles, columns=self.columns)
+                candles_df = pd.concat([fetched_candles_df, candles_df])
+                candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
+                candles_df.reset_index(drop=True, inplace=True)
+                self.check_candles_sorted_and_equidistant(candles_df.values)
             candles_df = candles_df[
                 (candles_df["timestamp"] <= config.end_time) & (candles_df["timestamp"] >= config.start_time)]
             return candles_df
+        except ValueError as e:
+            self.logger().error(f"Error fetching historical candles: {str(e)}")
+            raise e
         except Exception as e:
             self.logger().exception(f"Error fetching historical candles: {str(e)}")
 
