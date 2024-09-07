@@ -2,7 +2,6 @@ import asyncio
 <<<<<<< HEAD
 <<<<<<< HEAD
 import re
-from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
 from typing import Awaitable, Optional, Union
 from unittest import TestCase
 =======
@@ -33,6 +32,7 @@ from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter impo
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
+<<<<<<< HEAD:test/hummingbot/connector/exchange/chainflip_lp/test_chainflip_lp_api_order_book_data_source.py
 =======
 
 from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
@@ -54,6 +54,10 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 =======
 
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+=======
+from .mock_rpc_executor import MockRPCExecutor
+
+>>>>>>> c51331d4e ((refactor) move chainflip tests to test-bronze):test-bronze/chainflip_lp/test_chainflip_lp_api_order_book_data_source.py
 
 class TestChanflipLPAPIOrderBookDataSource(TestCase):
     # the level is required to receive logs from the data source logger

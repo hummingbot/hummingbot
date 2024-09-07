@@ -1,7 +1,10 @@
 import asyncio
+<<<<<<< HEAD:test/hummingbot/connector/exchange/chainflip_lp/test_chainflip_lp_data_source.py
 <<<<<<< HEAD
 <<<<<<< HEAD
 from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
+=======
+>>>>>>> c51331d4e ((refactor) move chainflip tests to test-bronze):test-bronze/chainflip_lp/test_chainflip_lp_data_source.py
 from typing import Awaitable
 from unittest import TestCase
 
@@ -46,6 +49,8 @@ from hummingbot.core.data_type.common import TradeType
 >>>>>>> 483756138 ((feat) add chainflip lp connector tests)
 =======
 >>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
+
+from .mock_rpc_executor import MockRPCExecutor
 
 
 class ChainflipLpDataSourceTests(TestCase):
