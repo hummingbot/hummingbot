@@ -212,8 +212,6 @@ class RubiconAPIDataSource(GatewayCLOBAPIDataSourceBase):
                         timestamp = time()
                         trade_id = str(timestamp)
 
-                        market = self._markets_info[in_flight_order.trading_pair]
-
                         trade_update = TradeUpdate(
                             trade_id=trade_id,
                             client_order_id=in_flight_order.client_order_id,
@@ -227,8 +225,8 @@ class RubiconAPIDataSource(GatewayCLOBAPIDataSourceBase):
                                 fee_schema=TradeFeeSchema(),
                                 trade_type=in_flight_order.trade_type,
                                 flat_fees=[TokenAmount(
-                                    amount=Decimal(market.fees.taker),
-                                    token=market.quoteToken.symbol
+                                    amount=Decimal("0"),
+                                    token=""
                                 )]
                             ),
                         )

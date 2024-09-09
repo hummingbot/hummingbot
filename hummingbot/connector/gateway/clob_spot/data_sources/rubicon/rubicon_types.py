@@ -5,62 +5,63 @@ from hummingbot.core.data_type.in_flight_order import OrderState as HummingBotOr
 
 
 class OrderStatus(Enum):
-    OPEN = "OPEN",
-    CANCELLED = "CANCELLED",
-    PARTIALLY_FILLED = "PARTIALLY_FILLED",
-    FILLED = "FILLED",
-    CREATION_PENDING = "CREATION_PENDING",
-    CANCELLATION_PENDING = "CANCELLATION_PENDING",
-    UNKNOWN = "UNKNOWN"
+    open = 'open',
+    expired = 'expired',
+    error = 'error',
+    cancelled = 'cancelled',
+    filled = 'filled',
+    insufficient_funds = 'insufficient-funds',
 
     @staticmethod
     def from_name(name: str):
         if name == "open":
-            return OrderStatus.OPEN
+            return OrderStatus.open
         elif name == "cancelled":
-            return OrderStatus.CANCELLED
+            return OrderStatus.cancelled
         elif name == "expired":
-            return OrderStatus.CANCELLED
+            return OrderStatus.cancelled
         elif name == "insufficient-funds":
-            return OrderStatus.CANCELLED
+            return OrderStatus.cancelled
         elif name == "filled":
-            return OrderStatus.FILLED
+            return OrderStatus.filled
         elif name == "error":
-            return OrderStatus.UNKNOWN
+            return OrderStatus.error
         else:
             raise ValueError(f"Unknown order status: {name}")
 
     @staticmethod
     def from_hummingbot(target: HummingBotOrderStatus):
         if target == HummingBotOrderStatus.PENDING_CREATE:
-            return OrderStatus.CREATION_PENDING
+            return OrderStatus.open
         elif target == HummingBotOrderStatus.OPEN:
-            return OrderStatus.OPEN
+            return OrderStatus.open
         elif target == HummingBotOrderStatus.PENDING_CANCEL:
-            return OrderStatus.CANCELLATION_PENDING
+            return OrderStatus.open
         elif target == HummingBotOrderStatus.CANCELED:
-            return OrderStatus.CANCELLED
+            return OrderStatus.cancelled
         elif target == HummingBotOrderStatus.PARTIALLY_FILLED:
-            return OrderStatus.PARTIALLY_FILLED
+            return OrderStatus.filled
         elif target == HummingBotOrderStatus.FILLED:
-            return OrderStatus.FILLED
+            return OrderStatus.filled
+        elif target == HummingBotOrderStatus.FAILED:
+            return OrderStatus.error
         else:
             raise ValueError(f"Unknown order status: {target}")
 
     @staticmethod
     def to_hummingbot(self):
-        if self == OrderStatus.OPEN:
+        if self == OrderStatus.open:
             return HummingBotOrderStatus.OPEN
-        elif self == OrderStatus.CANCELLED:
+        elif self == OrderStatus.cancelled:
             return HummingBotOrderStatus.CANCELED
-        elif self == OrderStatus.PARTIALLY_FILLED:
-            return HummingBotOrderStatus.PARTIALLY_FILLED
-        elif self == OrderStatus.FILLED:
+        elif self == OrderStatus.expired:
+            return HummingBotOrderStatus.CANCELED
+        elif self == OrderStatus.filled:
             return HummingBotOrderStatus.FILLED
-        elif self == OrderStatus.CREATION_PENDING:
-            return HummingBotOrderStatus.PENDING_CREATE
-        elif self == OrderStatus.CANCELLATION_PENDING:
-            return HummingBotOrderStatus.PENDING_CANCEL
+        elif self == OrderStatus.error:
+            return HummingBotOrderStatus.FAILED
+        elif self == OrderStatus.insufficient_funds:
+            return HummingBotOrderStatus.FAILED
         else:
             raise ValueError(f"Unknown order status: {self}")
 
@@ -126,11 +127,3 @@ class OrderSide(Enum):
             return HummingBotOrderSide.SELL
         else:
             raise ValueError(f'Unrecognized order side "{self}".')
-
-
-class TickerSource(Enum):
-    ORDER_BOOK_SAP = "orderBookSimpleAveragePrice",
-    ORDER_BOOK_WAP = "orderBookWeightedAveragePrice",
-    ORDER_BOOK_VWAP = "orderBookVolumeWeightedAveragePrice",
-    LAST_FILLED_ORDER = "lastFilledOrder",
-    NOMICS = "nomics",
