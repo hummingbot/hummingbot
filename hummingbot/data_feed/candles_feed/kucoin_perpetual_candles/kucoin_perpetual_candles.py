@@ -1,5 +1,4 @@
 import logging
-import time
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -170,10 +169,6 @@ class KucoinPerpetualCandles(CandlesBase):
                 candles_row_dict["taker_buy_base_volume"] = 0.
                 candles_row_dict["taker_buy_quote_volume"] = 0.
                 return candles_row_dict
-
-    @staticmethod
-    def _time():
-        return time.time()
 
     async def initialize_exchange_data(self) -> Dict[str, Any]:
         await self._get_symbols_dict()

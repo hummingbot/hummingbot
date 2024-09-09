@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from collections import deque
 from typing import List, Optional
 
@@ -485,3 +486,7 @@ class CandlesBase(NetworkBase):
         else:
             raise ValueError(
                 "Timestamp is not in a recognized format. Must be in seconds, milliseconds, microseconds or nanoseconds.")
+
+    @staticmethod
+    def _time():
+        return time.time()
