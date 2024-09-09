@@ -172,9 +172,9 @@ class CandlesBase(NetworkBase):
                 candles = await self.fetch_candles(start_time=current_start_time,
                                                    end_time=current_end_time,
                                                    limit=missing_records)
-                candles = candles[candles[:, 0] <= current_end_time]
                 if candles.size <= 1 or missing_records == 0:
                     break
+                candles = candles[candles[:, 0] <= current_end_time]
                 current_end_time = self.ensure_timestamp_in_seconds(candles[0][0])
                 fetched_candles_df = pd.DataFrame(candles, columns=self.columns)
                 candles_df = pd.concat([fetched_candles_df, candles_df])
