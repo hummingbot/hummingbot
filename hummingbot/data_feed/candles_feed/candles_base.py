@@ -235,12 +235,6 @@ class CandlesBase(NetworkBase):
         if limit is None:
             limit = self.candles_max_result_per_rest_request
 
-        kwargs = {
-            "start_time": start_time,
-            "end_time": end_time,
-            "limit": limit
-        }
-
         candles_to_fetch = min(self.candles_max_result_per_rest_request, limit)
 
         if end_time is None:
@@ -249,6 +243,12 @@ class CandlesBase(NetworkBase):
         else:
             fixed_start_time = self._calculate_start_time(end_time - self.interval_in_seconds * candles_to_fetch)
             fixed_end_time = self._calculate_end_time(end_time)
+
+        kwargs = {
+            "start_time": fixed_start_time,
+            "end_time": fixed_end_time,
+            "limit": limit
+        }
 
         params = self._get_rest_candles_params(fixed_start_time,
                                                fixed_end_time)
