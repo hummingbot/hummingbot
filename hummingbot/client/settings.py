@@ -43,7 +43,6 @@ SCRIPT_STRATEGY_CONF_DIR_PATH = CONF_DIR_PATH / "scripts"
 CONTROLLERS_CONF_DIR_PATH = CONF_DIR_PATH / "controllers"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
-PMM_SCRIPTS_PATH = root_path() / "pmm_scripts"
 SCRIPT_STRATEGIES_MODULE = "scripts"
 SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
 CONTROLLERS_MODULE = "controllers"
@@ -370,6 +369,7 @@ class AllConnectorSettings:
         """
         cls.all_connector_settings = {}  # reset
         connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
+        # connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "injective_v2", "injective_v2_perpetual"]
 
         type_dirs: List[DirEntry] = [
             cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
