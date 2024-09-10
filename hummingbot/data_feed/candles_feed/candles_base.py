@@ -12,7 +12,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
@@ -189,6 +189,7 @@ class CandlesBase(NetworkBase):
             raise e
         except Exception as e:
             self.logger().exception(f"Error fetching historical candles: {str(e)}")
+            raise e
 
     def check_candles_sorted_and_equidistant(self, candles: np.ndarray):
         """
@@ -213,6 +214,17 @@ class CandlesBase(NetworkBase):
         self._ws_candle_available.clear()
         self._candles.clear()
 
+    def _rest_payload(self, **kwargs) -> Optional[dict]:
+        return None
+
+    @property
+    def _rest_method(self) -> RESTMethod:
+        return RESTMethod.GET
+
+    @property
+    def _rest_throttler_limit_id(self):
+        return self.candles_endpoint
+
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None,
@@ -222,6 +234,12 @@ class CandlesBase(NetworkBase):
 
         if limit is None:
             limit = self.candles_max_result_per_rest_request
+
+        kwargs = {
+            "start_time": start_time,
+            "end_time": end_time,
+            "limit": limit
+        }
 
         candles_to_fetch = min(self.candles_max_result_per_rest_request, limit)
 
@@ -237,9 +255,11 @@ class CandlesBase(NetworkBase):
         headers = self._get_rest_candles_headers()
         rest_assistant = await self._api_factory.get_rest_assistant()
         candles = await rest_assistant.execute_request(url=self.candles_url,
-                                                       throttler_limit_id=self.candles_endpoint,
+                                                       throttler_limit_id=self._rest_throttler_limit_id,
                                                        params=params,
-                                                       headers=headers)
+                                                       data=self._rest_payload(**kwargs),
+                                                       headers=headers,
+                                                       method=self._rest_method)
         arr = self._parse_rest_candles(candles, end_time)
         return np.array(arr).astype(float)
 
