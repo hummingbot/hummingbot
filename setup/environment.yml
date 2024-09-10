@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   - bidict
-  - coinbase-advanced-py
+  - coinbase-advanced-py=1.4.3
   - coverage
   - cython=3.0
   - nomkl
@@ -48,7 +48,7 @@ dependencies:
     - gql
     - grpcio-tools
     - importlib-metadata==0.23
-    - injective-py==1.5.*
+    - injective-py==1.6.*
     - jsonpickle==3.0.1
     - mypy-extensions==0.4.3
     - msgpack

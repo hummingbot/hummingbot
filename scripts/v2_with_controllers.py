@@ -1,5 +1,6 @@
 import os
 import time
+from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
 from pydantic import Field
@@ -19,6 +20,8 @@ class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
     candles_config: List[CandlesConfig] = []
     markets: Dict[str, Set[str]] = {}
     time_to_cash_out: Optional[int] = None
+    max_global_drawdown: Optional[float] = None
+    max_controller_drawdown: Optional[float] = None
 
 
 class GenericV2StrategyWithCashOut(StrategyV2Base):
@@ -36,6 +39,10 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         super().__init__(connectors, config)
         self.config = config
         self.cashing_out = False
+        self.max_pnl_by_controller = {}
+        self.performance_reports = {}
+        self.max_global_pnl = Decimal("0")
+        self.drawdown_exited_controllers = []
         self.closed_executors_buffer: int = 30
         self.performance_report_interval: int = 1
         self._last_performance_report_timestamp = 0
@@ -58,20 +65,58 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         if self.mqtt_enabled:
             self._pub = ETopicPublisher("performance", use_bot_prefix=True)
 
-    def on_stop(self):
+    async def on_stop(self):
+        await super().on_stop()
         if self.mqtt_enabled:
             self._pub({controller_id: {} for controller_id in self.controllers.keys()})
             self._pub = None
 
     def on_tick(self):
         super().on_tick()
+        self.performance_reports = {controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict() for controller_id in self.controllers.keys()}
         self.control_cash_out()
+        self.control_max_drawdown()
         self.send_performance_report()
+
+    def control_max_drawdown(self):
+        if self.config.max_controller_drawdown:
+            self.check_max_controller_drawdown()
+        if self.config.max_global_drawdown:
+            self.check_max_global_drawdown()
+
+    def check_max_controller_drawdown(self):
+        for controller_id, controller in self.controllers.items():
+            controller_pnl = self.performance_reports[controller_id]["global_pnl_quote"]
+            last_max_pnl = self.max_pnl_by_controller[controller_id]
+            if controller_pnl > last_max_pnl:
+                self.max_pnl_by_controller[controller_id] = controller_pnl
+            else:
+                current_drawdown = last_max_pnl - controller_pnl
+                if current_drawdown > self.config.max_controller_drawdown:
+                    self.logger().info(f"Controller {controller_id} reached max drawdown. Stopping the controller.")
+                    controller.stop()
+                    executors_order_placed = self.filter_executors(
+                        executors=self.executors_info[controller_id],
+                        filter_func=lambda x: x.is_active and not x.is_trading,
+                    )
+                    self.executor_orchestrator.execute_actions(
+                        actions=[StopExecutorAction(controller_id=controller_id, executor_id=executor.id) for executor in executors_order_placed]
+                    )
+                    self.drawdown_exited_controllers.append(controller_id)
+
+    def check_max_global_drawdown(self):
+        current_global_pnl = sum([report["global_pnl_quote"] for report in self.performance_reports.values()])
+        if current_global_pnl > self.max_global_pnl:
+            self.max_global_pnl = current_global_pnl
+        else:
+            current_global_drawdown = self.max_global_pnl - current_global_pnl
+            if current_global_drawdown > self.config.max_global_drawdown:
+                self.logger().info("Global drawdown reached. Stopping the strategy.")
+                HummingbotApplication.main_application().stop()
 
     def send_performance_report(self):
         if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self.mqtt_enabled:
-            performance_reports = {controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict() for controller_id in self.controllers.keys()}
-            self._pub(performance_reports)
+            self._pub(self.performance_reports)
             self._last_performance_report_timestamp = self.current_timestamp
 
     def control_cash_out(self):
@@ -100,6 +145,8 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
                     [StopExecutorAction(executor_id=executor.id,
                                         controller_id=executor.controller_id) for executor in executors_to_stop])
             if not controller.config.manual_kill_switch and controller.status == RunnableStatus.TERMINATED:
+                if controller_id in self.drawdown_exited_controllers:
+                    continue
                 self.logger().info(f"Restarting controller {controller_id}.")
                 controller.start()
 
@@ -129,6 +176,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
     def apply_initial_setting(self):
         connectors_position_mode = {}
         for controller_id, controller in self.controllers.items():
+            self.max_pnl_by_controller[controller_id] = Decimal("0")
             config_dict = controller.config.dict()
             if "connector_name" in config_dict:
                 if self.is_perpetual(config_dict["connector_name"]):
