@@ -682,3 +682,19 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             initial_state=OrderState.OPEN
         )
         await position_executor.control_task()
+
+    def test_is_within_activation_bounds_market_long(self):
+        position_config = self.get_position_config_market_long()
+        position_config.activation_bounds = [Decimal("0.0"), Decimal("0.01")]
+        position_config.triple_barrier_config.open_order_type = OrderType.MARKET
+        executor = PositionExecutor(self.strategy, position_config)
+        self.assertTrue(executor._is_within_activation_bounds(Decimal("100.1")))
+        self.assertFalse(executor._is_within_activation_bounds(Decimal("99.9")))
+
+    def test_is_within_activation_bounds_market_short(self):
+        position_config = self.get_position_config_market_short()
+        position_config.activation_bounds = [Decimal("0.0"), Decimal("0.01")]
+        position_config.triple_barrier_config.open_order_type = OrderType.MARKET
+        executor = PositionExecutor(self.strategy, position_config)
+        self.assertTrue(executor._is_within_activation_bounds(Decimal("99.9")))
+        self.assertFalse(executor._is_within_activation_bounds(Decimal("100.1")))
