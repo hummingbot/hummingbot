@@ -390,9 +390,13 @@ class PositionExecutor(ExecutorBase):
                     return order_price < close_price * (1 + activation_bounds[0])
             else:
                 if self.config.side == TradeType.BUY:
-                    return order_price < close_price * (1 - activation_bounds[1])
+                    min_price_to_buy = order_price * (1 - activation_bounds[0])
+                    max_price_to_buy = order_price * (1 + activation_bounds[1])
+                    return min_price_to_buy < close_price < max_price_to_buy
                 else:
-                    return order_price > close_price * (1 + activation_bounds[1])
+                    min_price_to_sell = order_price * (1 - activation_bounds[1])
+                    max_price_to_sell = order_price * (1 + activation_bounds[0])
+                    return min_price_to_sell < close_price < max_price_to_sell
         else:
             return True
 
@@ -421,7 +425,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if self._open_order.is_filled and self.open_filled_amount >= self.trading_rules.min_order_size \
+        if self._open_order and self._open_order.is_filled and self.open_filled_amount >= self.trading_rules.min_order_size \
                 and self.open_filled_amount_quote >= self.trading_rules.min_notional_size:
             self.control_stop_loss()
             self.control_trailing_stop()
