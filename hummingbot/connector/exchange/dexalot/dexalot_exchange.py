@@ -315,8 +315,8 @@ class DexalotExchange(ExchangePyBase):
 
         return results
 
-    async def _execute_batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[
-        CancellationResult]:
+    async def _execute_batch_order_cancel(self,
+                                          orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancellationResult]:
         try:
             async with self._throttler.execute_task(limit_id=CONSTANTS.UID_REQUEST_WEIGHT):
                 cancelation_results = []
@@ -523,10 +523,6 @@ class DexalotExchange(ExchangePyBase):
         Listens to messages from _user_stream_tracker.user_stream queue.
         Traders, Orders, and Balance updates from the WS.
         """
-        user_channels = [
-            CONSTANTS.USER_TRADES_ENDPOINT_NAME,
-            CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-        ]
         async for event_message in self._iter_user_event_queue():
             try:
                 channel: str = event_message.get("type", None)
