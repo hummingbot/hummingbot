@@ -416,7 +416,7 @@ class PositionExecutor(ExecutorBase):
             position_action=PositionAction.OPEN,
         )
         self._open_order = TrackedOrder(order_id=order_id)
-        self.logger().debug("Placing open order")
+        self.logger().debug(f"Executor ID: {self.config.id} - Placing open order {order_id}")
 
     def control_barriers(self):
         """
@@ -455,7 +455,7 @@ class PositionExecutor(ExecutorBase):
                 position_action=PositionAction.CLOSE,
             )
             self._close_order = TrackedOrder(order_id=order_id)
-            self.logger().debug(f"Placing close order --> Filled amount: {self.open_filled_amount}")
+            self.logger().debug(f"Executor ID: {self.config.id} - Placing close order {order_id} --> Filled amount: {self.open_filled_amount}")
         self.close_type = close_type
         self._status = RunnableStatus.SHUTTING_DOWN
 
@@ -527,7 +527,7 @@ class PositionExecutor(ExecutorBase):
             side=TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL,
         )
         self._take_profit_limit_order = TrackedOrder(order_id=order_id)
-        self.logger().debug("Placing take profit order")
+        self.logger().debug(f"Executor ID: {self.config.id} - Placing take profit order {order_id}")
 
     def renew_take_profit_order(self):
         """
