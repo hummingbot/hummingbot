@@ -64,15 +64,16 @@ class BacktestingDataProvider(MarketDataProvider):
         :param connector_name: str
         :return: Trading rules.
         """
-        return self.trading_rules[trading_pair]
+        return self.trading_rules[connector_name][trading_pair]
 
     def time(self):
         return self._time
 
     async def initialize_trading_rules(self, connector_name: str):
-        connector = self.connectors.get(connector_name)
-        await connector._update_trading_rules()
-        self.trading_rules = connector.trading_rules
+        if len(self.trading_rules[connector_name]) == 0:
+            connector = self.connectors.get(connector_name)
+            await connector._update_trading_rules()
+            self.trading_rules[connector_name] = connector.trading_rules
 
     async def initialize_candles_feed(self, config: CandlesConfig):
         await self.get_candles_feed(config)
