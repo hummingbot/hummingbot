@@ -369,8 +369,13 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if not self._open_order and self._is_within_activation_bounds(self.close_price):
-            self.place_open_order()
+        if not self._open_order:
+            if self._is_within_activation_bounds(self.close_price):
+                self.place_open_order()
+        else:
+            if self._open_order.order and not self._open_order.is_filled and \
+                    not self._is_within_activation_bounds(self.close_price):
+                self.cancel_open_order()
 
     def _is_within_activation_bounds(self, close_price: Decimal) -> bool:
         """
@@ -383,7 +388,7 @@ class PositionExecutor(ExecutorBase):
         activation_bounds = self.config.activation_bounds
         order_price = self.config.entry_price
         if activation_bounds:
-            if self.config.triple_barrier_config.open_order_type == OrderType.LIMIT:
+            if self.config.triple_barrier_config.open_order_type.is_limit_type():
                 if self.config.side == TradeType.BUY:
                     return order_price > close_price * (1 - activation_bounds[0])
                 else:
