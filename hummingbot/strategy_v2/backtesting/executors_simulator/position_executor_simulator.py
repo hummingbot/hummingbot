@@ -76,7 +76,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         # Set the final state of the DataFrame
         df_filtered = df_filtered[df_filtered['timestamp'] <= close_timestamp]
-        df_filtered["filled_amount_quote"].iloc[-1] = df_filtered["filled_amount_quote"].iloc[-1] * 2
+        df_filtered.loc[df_filtered.index[-1], "filled_amount_quote"] = df_filtered["filled_amount_quote"].iloc[-1] * 2
 
         # Construct and return ExecutorSimulation object
         simulation = ExecutorSimulation(
