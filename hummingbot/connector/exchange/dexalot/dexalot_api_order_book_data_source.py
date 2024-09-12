@@ -1,6 +1,7 @@
 import asyncio
 import time
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
@@ -45,6 +46,8 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
+            if not self._connector._evm_params:
+                await self._connector._update_trading_rules()
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 show_decimal = self._connector.trading_rules[trading_pair].min_price_increment
@@ -52,7 +55,7 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "data": symbol,
                     "pair": symbol,
                     "type": "subscribe",
-                    "decimal": show_decimal
+                    "decimal": int(show_decimal)
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
                 await ws.send(subscribe_orderbook_request)
@@ -116,13 +119,13 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         data = raw_message["data"]
         row_bids = [[price, amount] for price, amount in
-                    zip(data["buyBook"][0]["prices"], data["buyBook"][0]["quantities"])]
+                    zip(data["buyBook"][0]["prices"].split(','), data["buyBook"][0]["quantities"].split(','))]
         row_asks = [[price, amount] for price, amount in
-                    zip(data["sellBook"][0]["prices"], data["sellBook"][0]["quantities"])]
+                    zip(data["sellBook"][0]["prices"].split(','), data["sellBook"][0]["quantities"].split(','))]
 
-        bids = [list(self._connector._format_evmamount_to_amount(trading_pair, evm_price, evm_amount)) for
+        bids = [list(self._connector._format_evmamount_to_amount(trading_pair, Decimal(evm_price), Decimal(evm_amount))) for
                 evm_price, evm_amount in row_bids]
-        asks = [list(self._connector._format_evmamount_to_amount(trading_pair, evm_price, evm_amount)) for
+        asks = [list(self._connector._format_evmamount_to_amount(trading_pair, Decimal(evm_price), Decimal(evm_amount))) for
                 evm_price, evm_amount in row_asks]
 
         order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {

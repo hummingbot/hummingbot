@@ -13,6 +13,7 @@ DEXALOT_SUBNET_RPC_URL = "https://subnets.avax.network/dexalot/mainnet/rpc"
 
 # Public API endpoints or DexalotClient function
 EXCHANGE_INFO_PATH_URL = "/trading/pairs"
+TOKEN_INFO_PATH_URL = "/trading/tokens"
 PING_PATH_URL = "/trading/environments"
 
 # Private API endpoints or Dexalot function

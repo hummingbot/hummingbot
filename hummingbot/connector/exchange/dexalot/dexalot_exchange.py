@@ -1,9 +1,9 @@
 import asyncio
 import hashlib
-from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+import dateutil.parser as dp
 from async_timeout import timeout
 from bidict import bidict
 
@@ -131,6 +131,7 @@ class DexalotExchange(ExchangePyBase):
 
     async def start_network(self):
         await super().start_network()
+        await self._update_trading_rules()
         if self.is_trading_required:
             self._queued_orders_task = safe_ensure_future(self._process_queued_orders())
 
@@ -150,7 +151,7 @@ class DexalotExchange(ExchangePyBase):
     def _format_evmamount_to_amount(self, trading_pair, base_evm_amount: Decimal, quote_evm_amount: Decimal) -> Tuple:
 
         base_evmdecimals = self._evm_params[trading_pair].get("base_evmdecimals")
-        quote_evmdecimals = self._evm_params[trading_pair].get("base_evmdecimals")
+        quote_evmdecimals = self._evm_params[trading_pair].get("quote_evmdecimals")
         base_amount = base_evm_amount * Decimal(f"1e-{base_evmdecimals}")
         quote_amount = quote_evm_amount * Decimal(f"1e-{quote_evmdecimals}")
 
@@ -159,7 +160,7 @@ class DexalotExchange(ExchangePyBase):
     def _format_amount_to_evmamount(self, trading_pair, base_amount: Decimal, quote_amount: Decimal) -> Tuple:
 
         base_evmdecimals = self._evm_params[trading_pair].get("base_evmdecimals")
-        quote_evmdecimals = self._evm_params[trading_pair].get("base_evmdecimals")
+        quote_evmdecimals = self._evm_params[trading_pair].get("quote_evmdecimals")
         base_evm_amount = base_amount * Decimal(f"1e{base_evmdecimals}")
         quote_evm_amount = quote_amount * Decimal(f"1e{quote_evmdecimals}")
 
@@ -297,14 +298,6 @@ class DexalotExchange(ExchangePyBase):
 
         for order in orders_to_cancel:
             tracked_order = self._order_tracker.all_updatable_orders.get(order.client_order_id)
-            try:
-                await tracked_order.get_exchange_order_id()
-            except asyncio.TimeoutError:
-                self.logger().debug(
-                    f"Tracked order {order.client_order_id} does not have an exchange id. "
-                    f"Attempting cancel it in next polling interval."
-                )
-                continue
             if tracked_order is not None:
                 tracked_orders_to_cancel.append(tracked_order)
             else:
@@ -321,7 +314,7 @@ class DexalotExchange(ExchangePyBase):
             async with self._throttler.execute_task(limit_id=CONSTANTS.UID_REQUEST_WEIGHT):
                 cancelation_results = []
 
-                cancel_transaction_hash = await self._tx_client.cancel_order_list(order_id_list=orders_to_cancel)
+                cancel_transaction_hash = await self._tx_client.cancel_order_list(orders_to_cancel=orders_to_cancel)
                 for cancel_order_result in orders_to_cancel:
                     success = True
                     order_update: OrderUpdate = OrderUpdate(
@@ -392,7 +385,7 @@ class DexalotExchange(ExchangePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        md5 = hashlib.md5()
+        md5 = hashlib.sha256()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
 
@@ -432,7 +425,7 @@ class DexalotExchange(ExchangePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        md5 = hashlib.md5()
+        md5 = hashlib.sha256()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
@@ -527,7 +520,7 @@ class DexalotExchange(ExchangePyBase):
             try:
                 channel: str = event_message.get("type", None)
                 if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
-                    self._process_trade_message(event_message)
+                    await self._process_trade_message(event_message)
                 elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
                     self._process_order_message(event_message)
 
@@ -581,7 +574,7 @@ class DexalotExchange(ExchangePyBase):
         )
         return trade_update
 
-    def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
+    async def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
 
         exchange_order_id = trade["data"].get("makerOrder", "") \
             if trade["data"].get("addressMaker", "") == self.api_key else trade["data"].get("takerOrder", "")
@@ -666,7 +659,7 @@ class DexalotExchange(ExchangePyBase):
                     fill_base_amount=Decimal(trade["quantity"]),
                     fill_quote_amount=Decimal(trade["quantity"]) * Decimal(trade["price"]),
                     fill_price=Decimal(trade["price"]),
-                    fill_timestamp=datetime.fromisoformat(trade["ts"]).timestamp(),
+                    fill_timestamp=dp.parse(trade["ts"]).timestamp(),
                 )
                 trade_updates.append(trade_update)
 
@@ -693,7 +686,7 @@ class DexalotExchange(ExchangePyBase):
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(exchange_order_id),
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=datetime.fromisoformat(updated_order_data["timestamp"]).timestamp(),
+            update_timestamp=dp.parse(updated_order_data["timestamp"]).timestamp(),
             new_state=new_state,
         )
 
@@ -702,7 +695,6 @@ class DexalotExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-
         account_info = await self._api_get(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             is_auth_required=True,
@@ -712,15 +704,16 @@ class DexalotExchange(ExchangePyBase):
         for balance_entry in balances:
             asset_name = balance_entry["symbol"]
             remote_asset_names.add(asset_name)
-        await self._tx_client.get_balances(self._account_balances, self._account_available_balances)
+        account_balances, account_available_balances = await self._tx_client.get_balances(self._account_balances, self._account_available_balances)
+        self._account_balances,self._account_available_balances = account_balances, account_available_balances
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List):
         mapping = bidict()
-        for symbol_data in filter(dexalot_utils.is_exchange_information_valid, exchange_info["pair"]):
+        for symbol_data in filter(dexalot_utils.is_exchange_information_valid, exchange_info):
             mapping[symbol_data["pair"]] = combine_to_hb_trading_pair(base=symbol_data["base"],
                                                                       quote=symbol_data["quote"])
         self._set_trading_pair_symbol_map(mapping)

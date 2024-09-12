@@ -36,5 +36,5 @@ class DexalotAuth(AuthBase):
         """
         message = encode_defunct(text="dexalot")
         signed_message = self.wallet.sign_message(signable_message=message)
-        request.playload["signature"] = f"{self.wallet.address}:{signed_message.signature.hex()}"
+        request.payload["signature"] = f"{self.wallet.address}:{signed_message.signature.hex()}"
         return request
