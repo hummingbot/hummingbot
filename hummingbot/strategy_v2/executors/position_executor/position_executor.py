@@ -642,6 +642,9 @@ class PositionExecutor(ExecutorBase):
         if self._close_order and event.order_id == self._close_order.order_id:
             self._failed_orders.append(self._close_order)
             self._close_order = None
+        if self._open_order and event.order_id == self._open_order.order_id:
+            self._failed_orders.append(self._open_order)
+            self._open_order = None
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         """
