@@ -370,7 +370,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         )
 
         if order_result["success"]:
-            o_id = str(order_result["order_id"])
+            o_id = str(order_result["success_response"]["order_id"])
             transact_time = self.time_synchronizer.time()
             self.logger().debug(f"Placed {type_str} order {side_str} {amount_str} {symbol} @ {price_str}")
             return o_id, transact_time
