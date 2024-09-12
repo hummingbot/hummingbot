@@ -1,6 +1,6 @@
 import pandas as pd
 
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.backtesting.executor_simulator_base import ExecutorSimulation, ExecutorSimulatorBase
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.models.executors import CloseType
@@ -8,8 +8,8 @@ from hummingbot.strategy_v2.models.executors import CloseType
 
 class PositionExecutorSimulator(ExecutorSimulatorBase):
     def simulate(self, df: pd.DataFrame, config: PositionExecutorConfig, trade_cost: float) -> ExecutorSimulation:
-        if config.triple_barrier_config.open_order_type == OrderType.LIMIT:
-            entry_condition = (df['close'] < config.entry_price) if config.side == TradeType.BUY else (df['close'] > config.entry_price)
+        if config.triple_barrier_config.open_order_type.is_limit_type():
+            entry_condition = (df['close'] <= config.entry_price) if config.side == TradeType.BUY else (df['close'] >= config.entry_price)
             start_timestamp = df[entry_condition]['timestamp'].min()
         else:
             start_timestamp = df['timestamp'].min()
