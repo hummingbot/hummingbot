@@ -1874,7 +1874,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_limit_successful(self, mock_time, mock_pair, mock_post):
         """Test successful limit order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '12345'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '12345'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 
@@ -1895,7 +1895,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_limit_maker_successful(self, mock_time, mock_pair, mock_post):
         """Test successful limit maker order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '67890'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '67890'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 
@@ -1916,7 +1916,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_market_buy_successful(self, mock_time, mock_pair, mock_post):
         """Test successful market buy order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '54321'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '54321'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 
@@ -1940,7 +1940,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_market_sell_successful(self, mock_time, mock_pair, mock_post):
         """Test successful market sell order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '98765'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '98765'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 
