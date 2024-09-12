@@ -70,7 +70,7 @@ class BacktestingDataProvider(MarketDataProvider):
         return self._time
 
     async def initialize_trading_rules(self, connector_name: str):
-        if len(self.trading_rules[connector_name]) == 0:
+        if len(self.trading_rules.get(connector_name, {})) == 0:
             connector = self.connectors.get(connector_name)
             await connector._update_trading_rules()
             self.trading_rules[connector_name] = connector.trading_rules
