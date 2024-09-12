@@ -6,7 +6,7 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import AsyncWeb3, Web3
-from web3.middleware import ExtraDataToPOAMiddleware, SignAndSendRawMiddlewareBuilder
+from web3.middleware import async_geth_poa_middleware
 
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -30,17 +30,14 @@ class DexalotClient:
         self._private_key = dexalot_api_secret
         self._connector = connector
         self.transaction_lock = Lock()
-        self.number = 0
-        self.sequence = 0
-        self._is_trading_account_initialized = False
+        self.balance_evm_params = {}
 
         self.account: LocalAccount = Account.from_key(dexalot_api_secret)
 
         self.provider = CONSTANTS.DEXALOT_SUBNET_RPC_URL
         self._w3 = Web3(Web3.HTTPProvider(self.provider))
         self.async_w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(self.provider))
-        self.async_w3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(self._private_key))
-        self.async_w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        self.async_w3.middleware_onion.inject(async_geth_poa_middleware, layer=0)
         self.async_w3.eth.default_account = self.account.address
         self.async_w3.strict_bytes_type_checking = False
 
@@ -50,7 +47,19 @@ class DexalotClient:
         self.portfolio_sub_manager = self.async_w3.eth.contract(address=DEXALOT_PORTFOLIOSUB_ADDRESS,
                                                                 abi=DEXALOT_PORTFOLIOSUB_ABI)
 
+    async def _get_token_info(self):
+        token_raw_info_list = await self._connector._api_get(
+                path_url=CONSTANTS.TOKEN_INFO_PATH_URL,
+                params={},
+                is_auth_required=False,
+                limit_id=CONSTANTS.IP_REQUEST_WEIGHT)
+        for token_info in token_raw_info_list:
+            self.balance_evm_params[token_info["symbol"]] = {
+                "token_evmdecimals": token_info["evmdecimals"]
+            }
     async def get_balances(self, account_balances: Dict, account_available_balances: Dict):
+        if not self.balance_evm_params:
+            await self._get_token_info()
         balances = await self.portfolio_sub_manager.functions.getBalances(self.account.address, 50).call()
         coin_list = balances[0]
         total_list = balances[1]
@@ -59,22 +68,15 @@ class DexalotClient:
             if evm_total_balance != 0:
                 coin = coin_list[index].decode('utf-8').rstrip('\x00')
                 evm_avaliable_balance = avaliable_list[index]
-                for k, v in self._connector._evm_params.items():
-                    if v["base_coin"] == coin:
-                        base_evmdecimals = v["base_evmdecimals"]
-                        total_balance = evm_total_balance * Decimal(f'1e-{base_evmdecimals}')
-                        avaliabve_balance = evm_avaliable_balance * Decimal(f'1e-{base_evmdecimals}')
+                for k, v in self.balance_evm_params.items():
+                    if k == coin:
+                        evmdecimals = v["token_evmdecimals"]
+                        total_balance = evm_total_balance * Decimal(f'1e-{evmdecimals}')
+                        avaliabve_balance = evm_avaliable_balance * Decimal(f'1e-{evmdecimals}')
                         account_balances[coin] = total_balance
                         account_available_balances[coin] = avaliabve_balance
                         break
-                    elif v["quote_coin"] == coin:
-                        quote_evmdecimals = v["quote_evmdecimals"]
-                        total_balance = evm_total_balance * Decimal(f'1e-{quote_evmdecimals}')
-                        avaliabve_balance = evm_avaliable_balance * Decimal(f'1e-{quote_evmdecimals}')
-                        account_balances[coin] = total_balance
-                        account_available_balances[coin] = avaliabve_balance
-                        break
-        return balances
+        return account_balances, account_available_balances
 
     async def add_order_list(self, order_list: List[GatewayInFlightOrder]):
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=order_list[0].trading_pair)
@@ -88,11 +90,11 @@ class DexalotClient:
         type2s_list = []
         for order in order_list:
             trading_pair = order_list[0].trading_pair
-            price = int(order.price * 10 ** self._connector._evm_params[trading_pair]["quote_evmdecimals"])
-            quantity = int(order.amount * 10 ** self._connector._evm_params[trading_pair]["base_evmdecimals"])
+            price = int(order.price * 10 ** self._connector._evm_params[trading_pair]["base_evmdecimals"])
+            quantity = int(order.amount * 10 ** self._connector._evm_params[trading_pair]["quote_evmdecimals"])
             prices_list.append(price)
             quantities_list.append(quantity)
-            sides_list.append(1 if order.trade_type == TradeType.SELL else 2)
+            sides_list.append(1 if order.trade_type == TradeType.SELL else 0)
             client_order_id_list.append(order.client_order_id)
             type2s_list.append(3 if order.order_type == OrderType.LIMIT_MAKER else 0)
 
@@ -127,4 +129,7 @@ class DexalotClient:
                 'gas': gas,
             }
             transaction = await function.build_transaction(tx_params)
-            return await self.async_w3.eth.send_transaction(transaction)
+            signed_txn = self.async_w3.eth.account.sign_transaction(
+                transaction, private_key=self._private_key
+            )
+            return await self.async_w3.eth.send_raw_transaction(signed_txn.rawTransaction)
