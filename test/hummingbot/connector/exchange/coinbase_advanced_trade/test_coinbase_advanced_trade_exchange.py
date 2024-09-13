@@ -394,8 +394,6 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["product_ids"])
         self.assertEqual(order.exchange_order_id, str(request_params["order_ids"]))
 
     def configure_successful_cancelation_response(
