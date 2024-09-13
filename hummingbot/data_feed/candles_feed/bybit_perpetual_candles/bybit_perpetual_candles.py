@@ -64,6 +64,14 @@ class BybitPerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -91,7 +99,7 @@ class BybitPerpetualCandles(CandlesBase):
             candles = data["result"].get("list")
             if candles is not None:
                 return [[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
-                         0., 0., 0., 0.] for row in candles if self.ensure_timestamp_in_seconds(row[0]) < end_time][::-1]
+                         0., 0., 0., 0.] for row in candles][::-1]
 
     def ws_subscription_payload(self):
         interval = CONSTANTS.INTERVALS[self.interval]
