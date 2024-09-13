@@ -1025,9 +1025,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         trade_updates = []
         if order.exchange_order_id is not None:
             order_id: str = order.exchange_order_id
-            product_id: str = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            # product_id: str = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             params = {
-                "product_ids": product_id,
                 "order_ids": order_id
             }
             all_fills_response: Dict[str, Any] = await self._api_get(
