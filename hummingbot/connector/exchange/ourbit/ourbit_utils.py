@@ -27,8 +27,8 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class OurbitConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="mexc", const=True, client_data=None)
-    mexc_api_key: SecretStr = Field(
+    connector: str = Field(default="ourbit", const=True, client_data=None)
+    ourbit_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ourbit API key",
@@ -37,7 +37,7 @@ class OurbitConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-    mexc_api_secret: SecretStr = Field(
+    ourbit_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ourbit API secret",
@@ -48,7 +48,7 @@ class OurbitConfigMap(BaseConnectorConfigMap):
     )
 
     class Config:
-        title = "mexc"
+        title = "ourbit"
 
 
 KEYS = OurbitConfigMap.construct()
