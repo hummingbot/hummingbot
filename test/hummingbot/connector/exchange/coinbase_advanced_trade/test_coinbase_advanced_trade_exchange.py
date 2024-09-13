@@ -1091,7 +1091,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["product_id"])
+                         request_params["product_ids"])
         # This method uses the TimeSynchronizer to get the current timestamp
         self.assertEqual(set_exchange_time_from_timestamp(10), request_params["start_sequence_timestamp"])
 
