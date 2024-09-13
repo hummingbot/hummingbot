@@ -430,6 +430,25 @@ class AllConnectorSettings:
                         use_eth_gas_lookup=parent.use_eth_gas_lookup,
                     )
 
+        # Add Ourbit connector
+        ourbit_util_module = importlib.import_module("hummingbot.connector.exchange.ourbit.ourbit_utils")
+        ourbit_trade_fee_schema = cls._validate_trade_fee_schema(
+            "ourbit", getattr(ourbit_util_module, "DEFAULT_FEES", None)
+        )
+        cls.all_connector_settings["ourbit"] = ConnectorSetting(
+            name="ourbit",
+            type=ConnectorType.Exchange,
+            centralised=getattr(ourbit_util_module, "CENTRALIZED", True),
+            example_pair=getattr(ourbit_util_module, "EXAMPLE_PAIR", ""),
+            use_ethereum_wallet=getattr(ourbit_util_module, "USE_ETHEREUM_WALLET", False),
+            trade_fee_schema=ourbit_trade_fee_schema,
+            config_keys=getattr(ourbit_util_module, "KEYS", None),
+            is_sub_domain=False,
+            parent_name=None,
+            domain_parameter=None,
+            use_eth_gas_lookup=getattr(ourbit_util_module, "USE_ETH_GAS_LOOKUP", False),
+        )
+
         # add gateway connectors
         gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
         trade_fee_settings: List[float] = [0.0, 0.0]  # we assume no swap fees for now
