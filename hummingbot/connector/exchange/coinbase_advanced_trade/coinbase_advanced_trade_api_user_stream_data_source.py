@@ -96,7 +96,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._ws_assistant = await self._api_factory.get_ws_assistant()
 
         await self._ws_assistant.connect(
-            ws_url=constants.WSS_URL.format(domain=self._domain),
+            ws_url=constants.USER_WSS_URL.format(domain=self._domain),
             ping_timeout=constants.WS_HEARTBEAT_TIME_INTERVAL
         )
         return self._ws_assistant
