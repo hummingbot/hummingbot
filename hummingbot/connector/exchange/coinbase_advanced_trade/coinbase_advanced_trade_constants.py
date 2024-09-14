@@ -25,6 +25,7 @@ HBOT_BROKER_ID = "Hummingbot"
 SIGNIN_URL = "https://api.coinbase.{domain}/v2"
 REST_URL = "https://api.coinbase.{domain}/api/v3"
 WSS_URL = "wss://advanced-trade-ws.coinbase.{domain}"
+USER_WSS_URL = "wss://advanced-trade-ws-user.coinbase.{domain}"
 
 # Coinbase Signin API endpoints
 EXCHANGE_RATES_USD_EP = "/exchange-rates"
