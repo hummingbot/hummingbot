@@ -46,32 +46,6 @@ SIDE_SELL = "sell"
 GENERAL_LIMIT_ID = "General"
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
-=======
-
-
-
-RATE_LIMITS = [
-    RateLimit(GENERAL_LIMIT_ID,MAX_REQUEST, SECOND)
-]
->>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
-
-ASSET_PRECISIONS = {
-    "Ethereum": {
-        "USDC": 10e6,
-        "USDT": 10e6,
-        "FLIP": 10e18,
-        "ETH": 10e18,
-    },
-    "Arbitrum": {"USDC": 10e6, "USDT": 10e6, "ETH": 10e18},
-    "Bitcoin": {"BTC": 10e8},
-    "Polkadot": {"DOT": 10e12},
-    "Solana": {"SOL": 10e9},
-}
-
-=======
 RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
 
 ASSET_PRECISIONS = {
@@ -87,25 +61,10 @@ ASSET_PRECISIONS = {
     "Solana": {"SOL": 1e9},
 }
 
-<<<<<<< HEAD
-STABLE_ASSETS = ["USDC", "USDT"]
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
 FRACTIONAL_BITS = 128
 SQRT_PRICE_FRACTIONAL_BITS = 96
 LOWER_TICK_BOUND = -887272
 UPPER_TICK_BOUND = 887272
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum"]}
 DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}
-=======
-SAME_CHAINS = ["Arbitrum", "Ethereum"]
-DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Arbitrum"}
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum"]}
-DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)

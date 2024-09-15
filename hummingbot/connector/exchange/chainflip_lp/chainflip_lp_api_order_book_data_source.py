@@ -2,23 +2,9 @@ import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
-<<<<<<< HEAD
-<<<<<<< HEAD
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-=======
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
->>>>>>> cb0a3d276 ((refactor) implement review changes)
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
@@ -30,15 +16,7 @@ class ChainflipLpAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self,
         trading_pairs: List[str],
         connector: "ChainflipLpExchange",
-<<<<<<< HEAD
-<<<<<<< HEAD
         data_source: "ChainflipLpDataSource",
-=======
-        data_source: "ChainflipLPDataSource",
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-        data_source: "ChainflipLpDataSource",
->>>>>>> cb0a3d276 ((refactor) implement review changes)
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs=trading_pairs)
@@ -56,57 +34,17 @@ class ChainflipLpAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_subscriptions(self):
         # no supported subscription available to listen to in chainflip lp
-<<<<<<< HEAD
-<<<<<<< HEAD
-        pass
-=======
-        raise NotImplementedError
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
-=======
         pass  # pragma: no cover
->>>>>>> 08d1ab638 ((refactor) add tests for chainflip lp api order book)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise NotImplementedError
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-        pass
-=======
         pass  # pragma: no cover
->>>>>>> 08d1ab638 ((refactor) add tests for chainflip lp api order book)
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribe to the trades and order diffs
         """
         # subscriptions to trades and order diffs does not exist in chainflip lp
-<<<<<<< HEAD
-        pass
-=======
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WS_RPC_URLS[self._domain], ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
-        return ws
-=======
-        pass
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
-
-    async def _subscribe_channels(self, ws: WSAssistant):
-        """
-        Subscribe to the trades and order diffs
-        """
-        # subscriptions to trades and order diffs does not exist in chainflip lp
-<<<<<<< HEAD
-        pass
-
-    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        return ""
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-        raise NotImplementedError
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
-=======
         pass  # pragma: no cover
->>>>>>> 08d1ab638 ((refactor) add tests for chainflip lp api order book)

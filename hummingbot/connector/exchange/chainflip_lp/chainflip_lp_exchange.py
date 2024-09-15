@@ -9,21 +9,9 @@ from hummingbot.connector.exchange.chainflip_lp import (
     chainflip_lp_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_api_order_book_data_source import (
-<<<<<<< HEAD
-<<<<<<< HEAD
     ChainflipLpAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
-=======
-    ChainflipLPAPIOrderBookDataSource,
-)
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLPDataSource
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-    ChainflipLpAPIOrderBookDataSource,
-)
-from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_source import ChainflipLpDataSource
->>>>>>> cb0a3d276 ((refactor) implement review changes)
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
@@ -63,15 +51,7 @@ class ChainflipLpExchange(ExchangePyBase):
         self.chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG.copy()
         self.chain_config["ETH"] = chainflip_eth_chain
         self.chain_config["USDC"] = chainflip_usdc_chain
-<<<<<<< HEAD
-<<<<<<< HEAD
         self._data_source = ChainflipLpDataSource(
-=======
-        self._data_source = ChainflipLPDataSource(
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-        self._data_source = ChainflipLpDataSource(
->>>>>>> cb0a3d276 ((refactor) implement review changes)
             connector=self,
             address=chainflip_lp_address,
             rpc_api_url=chainflip_lp_api_url,
@@ -138,20 +118,7 @@ class ChainflipLpExchange(ExchangePyBase):
 
     async def start_network(self):
         await super().start_network()
-<<<<<<< HEAD
-<<<<<<< HEAD
         await self._data_source.start()
-=======
-
-        market_symbols = [
-            await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-            for trading_pair in self._trading_pairs
-        ]
-        await self._data_source.start(market_symbols=market_symbols)
->>>>>>> 63271bb03 ((refactor) update and cleanup chainflip connector codes)
-=======
-        await self._data_source.start()
->>>>>>> 9979ea9b9 ((refactor) update code and tests)
 
     async def stop_network(self):
         """
@@ -193,15 +160,7 @@ class ChainflipLpExchange(ExchangePyBase):
         raise NotImplementedError
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-<<<<<<< HEAD
-<<<<<<< HEAD
         return ChainflipLpAPIOrderBookDataSource(
-=======
-        return ChainflipLPAPIOrderBookDataSource(
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-        return ChainflipLpAPIOrderBookDataSource(
->>>>>>> cb0a3d276 ((refactor) implement review changes)
             trading_pairs=self._trading_pairs, connector=self, data_source=self._data_source, domain=self.domain
         )
 
@@ -353,29 +312,11 @@ class ChainflipLpExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         return await self._data_source.place_cancel(order_id, symbol, tracked_order)
-<<<<<<< HEAD
-<<<<<<< HEAD
 
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
         try:
             if len(orders) > 0:
                 trade_updates = await self._data_source.get_order_fills(orders)
-=======
-    
-    async def _update_orders_fills(self, orders: List[InFlightOrder]):
-        try:
-            if len(orders) > 0:
-                trade_updates = await self._data_source.get_order_fills(
-                    orders
-                )
->>>>>>> 9979ea9b9 ((refactor) update code and tests)
-=======
-
-    async def _update_orders_fills(self, orders: List[InFlightOrder]):
-        try:
-            if len(orders) > 0:
-                trade_updates = await self._data_source.get_order_fills(orders)
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
                 for trade_update in trade_updates:
                     self._order_tracker.process_trade_update(trade_update=trade_update)
 
@@ -383,29 +324,16 @@ class ChainflipLpExchange(ExchangePyBase):
             raise
         except Exception as e:
             self.logger().warning(f"Error fetching trades updates. {e}")
-<<<<<<< HEAD
-<<<<<<< HEAD
 
     async def _update_trading_rules(self):
         trading_rules_list = await self._data_source.all_trading_rules()
         self._trading_rules = {trading_rule.trading_pair: trading_rule for trading_rule in trading_rules_list}
 
-<<<<<<< HEAD
-=======
-    
->>>>>>> 9979ea9b9 ((refactor) update code and tests)
-=======
-
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # not used
         raise NotImplementedError
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
-<<<<<<< HEAD
-<<<<<<< HEAD
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -419,36 +347,9 @@ class ChainflipLpExchange(ExchangePyBase):
         pass
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-<<<<<<< HEAD
-        # not used in chainflip LP
-=======
-        raise NotImplementedError
-=======
-        return False
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
-
-    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return False
-
-    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return False
-
-    async def _user_stream_event_listener(self):
-        # no user stream in chainflip lp
-        raise NotImplementedError
-
-    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-<<<<<<< HEAD
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-        # not used in chainflip LP
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
-        raise NotImplementedError
-=======
         await tracked_order.get_exchange_order_id()
         order_update = await self._data_source.order_update(tracked_order)
         return order_update
->>>>>>> 2df344816 ((refactor) add order update and fix balance mapping)
 
     def _configure_event_forwarders(self):
 
@@ -479,27 +380,9 @@ class ChainflipLpExchange(ExchangePyBase):
             self._order_tracker.process_order_update(order_update=order_update_to_process)
 
     async def get_last_traded_prices(self, trading_pairs: List[str]):
-<<<<<<< HEAD
-<<<<<<< HEAD
         price_dict = {}
         for pair in trading_pairs:
             symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
             price = await self._data_source.get_last_traded_price(symbol)
             price_dict[pair] = price
         return price_dict
-=======
-        price_list = []
-        for pair in trading_pairs:
-            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
-            price_map = await self._data_source.get_last_traded_price(symbol)
-            price_list.append(price_map)
-        return price_list
->>>>>>> 67f0d8422 ((fix) fix code errors, format errors and test errors)
-=======
-        price_dict = {}
-        for pair in trading_pairs:
-            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
-            price = await self._data_source.get_last_traded_price(symbol)
-            price_dict[pair] = price
-        return price_dict
->>>>>>> 622c18947 ((fix) fix tests and make chainflip lp codebase updates)
