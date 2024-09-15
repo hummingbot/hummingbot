@@ -63,9 +63,9 @@ class CoincheckAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
+                url=web_utils.public_rest_url(path_url=CONSTANTS.COINCHECK_USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
-                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                throttler_limit_id=CONSTANTS.COINCHECK_USER_STREAM_PATH_URL,
                 headers=self._auth.header_for_authentication()
             )
         except asyncio.CancelledError:
@@ -79,11 +79,11 @@ class CoincheckAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
+                url=web_utils.public_rest_url(path_url=CONSTANTS.COINCHECK_USER_STREAM_PATH_URL, domain=self._domain),
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
                 return_err=True,
-                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                throttler_limit_id=CONSTANTS.COINCHECK_USER_STREAM_PATH_URL,
                 headers=self._auth.header_for_authentication()
             )
 

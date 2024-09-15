@@ -1,4 +1,9 @@
 import asyncio
+import hashlib
+import hmac
+import logging
+import time
+import urllib.parse
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -182,14 +187,15 @@ class CoincheckExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
-        type_str = CoincheckExchange.coincheck_order_type(order_type)
-        side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
-                      "side": side_str,
-                      "quantity": amount_str,
-                      "type": type_str,
-                      "newClientOrderId": order_id}
+        order_type_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
+        pair = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        api_params = {"pair": pair,
+                      "order_type": order_type_str,
+                      "rate": "0.00005",
+                      "amount": amount_str,
+                      "market_buy_amount": "",
+                      "stop_loss_rate": "",
+                      }
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             price_str = f"{price:f}"
             api_params["price"] = price_str
@@ -215,16 +221,15 @@ class CoincheckExchange(ExchangePyBase):
         return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        api_params = {
-            "symbol": symbol,
-            "origClientOrderId": order_id,
-        }
-        cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            params=api_params,
-            is_auth_required=True)
-        if cancel_result.get("status") == "CANCELED":
+        try:
+            cancel_result = await self._api_delete(
+                path_url=CONSTANTS.ORDER_PATH_URL,
+                params=order_id,
+                is_auth_required=True)
+        except Exception as error:
+            logging.getLogger().error(f"Error canceling order: {error}")
+            return False
+        if cancel_result.get("success") is True:
             return True
         return False
 
@@ -232,33 +237,23 @@ class CoincheckExchange(ExchangePyBase):
         """
         Example:
         {
-            "symbol": "ETHBTC",
-            "baseAssetPrecision": 8,
-            "quotePrecision": 8,
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00100000"
-                }
-            ]
+               {
+      "pair": "btc_jpy",
+      "status": "available",
+      "timestamp": 1726325966,
+      "availability": {
+        "order": true,
+        "market_order": true,
+        "cancel": true
+      }
+    },
         }
         """
-        trading_pair_rules = exchange_info_dict.get("symbols", [])
+        trading_pair_rules = exchange_info_dict.get("exchange_status", [])
         retval = []
         for rule in filter(coincheck_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("pair"))
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
@@ -515,16 +510,28 @@ class CoincheckExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-
-        account_info = await self._api_get(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            is_auth_required=True)
-
-        balances = account_info["balances"]
+        nonce = str(int(time.time()))
+        uri = CONSTANTS.REST_URL.format(CONSTANTS.DEFAULT_DOMAIN) + CONSTANTS.PRIVATE_API_VERSION + CONSTANTS.ACCOUNTS_PATH_URL + "/balance"
+        message = nonce + urllib.parse.urlparse(uri).geturl()
+        signature = hmac.new(self.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+        headers = {
+            "ACCESS-KEY": self.api_key,
+            "ACCESS-NONCE": nonce,
+            "ACCESS-SIGNATURE": signature
+        }
+        logging.getLogger().info(f"---{self.api_key}---{nonce}---{signature}")
+        try:
+            balances = await self._api_get(
+                path_url=CONSTANTS.ACCOUNTS_PATH_URL + "/balance",
+                headers=headers,
+                is_auth_required=True)
+        except Exception as error:
+            logging.getLogger().error(f"Error fetching balances: {error}")
+            return
         for balance_entry in balances:
-            asset_name = balance_entry["asset"]
-            free_balance = Decimal(balance_entry["free"])
-            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
+            asset_name = "jpy"
+            free_balance = Decimal(balance_entry["jpy_reserved"])
+            total_balance = Decimal(balance_entry["jpy_reserved"]) + Decimal(balance_entry["jpy_lend_in_use"])
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -536,14 +543,14 @@ class CoincheckExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(coincheck_utils.is_exchange_information_valid, exchange_info["symbols"]):
+        for symbol_data in filter(coincheck_utils.is_exchange_information_valid, exchange_info["exchange_status"]):
             mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
                                                                         quote=symbol_data["quoteAsset"])
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            "pair": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
         resp_json = await self._api_request(
