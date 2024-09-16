@@ -55,8 +55,8 @@ class TrackedOrder:
 
     @property
     def fee_asset(self):
-        if self.order:
-            return self.order.fee_asset
+        if self.order and len(self.order.order_fills) > 0:
+            return list(self.order.order_fills.values())[0].fee_asset
         else:
             return None
 
