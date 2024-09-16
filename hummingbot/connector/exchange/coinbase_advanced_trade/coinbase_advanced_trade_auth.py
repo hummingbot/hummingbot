@@ -245,7 +245,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         time_: int = int(self.time_provider.time())
         jwt_data = {
             "sub": self.api_key,
-            "iss": "coinbase-cdp",
+            "iss": "coinbase-cloud",
             "nbf": time_,
             "exp": time_ + 120,
             "aud": [service],
