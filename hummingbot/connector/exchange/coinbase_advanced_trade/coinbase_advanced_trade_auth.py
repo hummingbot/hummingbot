@@ -25,7 +25,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
     Uses HMAC SHA256 to authenticate REST and websocket requests.
 
-    Coinbase API documentation: https://docs.cloud.coinbase.com/sign-in-with-coinbase/docs/api-key-authentication
+    Coinbase API documentation: https://docs.cdp.coinbase.com/sign-in-with-coinbase/docs/api-key-authentication
     """
     TIME_SYNC_UPDATE_S: float = 30
     _time_sync_last_updated_s: float = -1
@@ -149,7 +149,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         This method is intended to configure a websocket request to be authenticated.
         :param request: the request to be configured for authenticated interaction
-        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-overview
+        https://docs.cdp.coinbase.com/advanced-trade/docs/ws-overview
         {
             "type": "subscribe",
             "product_ids": [
@@ -188,7 +188,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         This method is intended to configure a websocket request to be authenticated.
         :param request: the request to be configured for authenticated interaction
-        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-overview
+        https://docs.cdp.coinbase.com/advanced-trade/docs/ws-overview
         {
             "type": "subscribe",
             "product_ids": [
@@ -245,7 +245,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         time_: int = int(self.time_provider.time())
         jwt_data = {
             "sub": self.api_key,
-            "iss": "coinbase-cloud",
+            "iss": "coinbase-cdp",
             "nbf": time_,
             "exp": time_ + 120,
             "aud": [service],
