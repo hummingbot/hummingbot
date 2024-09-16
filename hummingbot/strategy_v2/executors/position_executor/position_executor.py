@@ -96,6 +96,18 @@ class PositionExecutor(ExecutorBase):
         return self._open_order.executed_amount_base if self._open_order else Decimal("0")
 
     @property
+    def amount_to_close(self) -> Decimal:
+        """
+        Get the amount to close the position.
+
+        :return: The amount to close the position.
+        """
+        if self._open_order.fee_asset == self.config.trading_pair.split("-")[0]:
+            return self.open_filled_amount - self._open_order.cum_fees_base - self.close_filled_amount
+        else:
+            return self.open_filled_amount - self.close_filled_amount
+
+    @property
     def open_filled_amount_quote(self) -> Decimal:
         """
         Get the filled amount of the open order in quote currency.
@@ -448,13 +460,12 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         self.cancel_open_orders()
-        delta_amount_to_close = self.open_filled_amount - self.close_filled_amount
-        if delta_amount_to_close > self.trading_rules.min_order_size:
+        if self.amount_to_close >= self.trading_rules.min_order_size:
             order_id = self.place_order(
                 connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
                 order_type=OrderType.MARKET,
-                amount=delta_amount_to_close,
+                amount=self.amount_to_close,
                 price=price,
                 side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
                 position_action=PositionAction.CLOSE,
@@ -525,7 +536,7 @@ class PositionExecutor(ExecutorBase):
         order_id = self.place_order(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
-            amount=self.open_filled_amount,
+            amount=self.amount_to_close,
             price=self.take_profit_price,
             order_type=self.config.triple_barrier_config.take_profit_order_type,
             position_action=PositionAction.CLOSE,
