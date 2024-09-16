@@ -120,7 +120,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         jwt_uri = jwt_generator.format_jwt_uri(request.method, endpoint)
 
         try:
-            token = self._build_jwt(coinbase.constants.REST_SERVICE, jwt_uri)
+            token = self._build_jwt(jwt_uri)
             headers: Dict = dict(request.headers or {}) | {
                 "content-type": 'application/json',
                 "Authorization": f"Bearer {token}",
@@ -208,7 +208,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         """
         try:
             payload: Dict = dict(request.payload or {}) | {
-                "jwt": self._build_jwt(coinbase.constants.WS_SERVICE),
+                "jwt": self._build_jwt(),
             }
             request.payload = payload
         except ValueError as e:
@@ -228,7 +228,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         digest: str = hmac.new(self.secret_key.encode("utf8"), message.encode("utf8"), hashlib.sha256).digest().hex()
         return digest
 
-    def _build_jwt(self, service, uri=None) -> str:
+    def _build_jwt(self, uri=None) -> str:
         """
         This is extracted from Coinbase SDK because it relies upon 'time' rather than the eim synchronizer
         """
@@ -245,10 +245,9 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         time_: int = int(self.time_provider.time())
         jwt_data = {
             "sub": self.api_key,
-            "iss": "coinbase-cloud",
+            "iss": "cdp",
             "nbf": time_,
             "exp": time_ + 120,
-            "aud": [service],
         }
 
         if uri is not None:
