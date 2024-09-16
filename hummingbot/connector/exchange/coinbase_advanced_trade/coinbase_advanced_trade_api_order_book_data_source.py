@@ -138,7 +138,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Subscribes to the order book events through the provided websocket connection.
         :param ws: the websocket assistant used to connect to the exchange
-        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-best-practices
+        https://docs.cdp.coinbase.com/advanced-trade/docs/ws-best-practices
 
         Recommended to use several subscriptions
         {

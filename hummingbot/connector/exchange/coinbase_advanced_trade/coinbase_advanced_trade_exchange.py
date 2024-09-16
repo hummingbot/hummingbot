@@ -313,7 +313,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         """
         Places an order with the exchange and returns the order ID and the timestamp of the order.
-        reference: https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_postorder
+        reference: https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_postorder
         Maximum open orders: 500
         """
         amount_str: str = f"{amount:f}"
@@ -492,7 +492,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_cancelorders
 
         :param order_id: str
         :param tracked_order: InFlightOrder
@@ -531,7 +531,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _place_cancels(self, order_ids: List[str], max_size: int = 100) -> List[Dict[str, Any]]:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_cancelorders
         MAX_ORDERS is 100 (ChangeLog: 2024-JAN-16)
 
         :param order_ids: List[str]
@@ -574,7 +574,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         """
         Get a list of bids/asks for a single product.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getproductbook
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproductbook
 
         :param trading_pair: str
         :return: OrderBookMessage
@@ -602,7 +602,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
         Queries Order status by order_id.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_gethistoricalorder
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_gethistoricalorder
 
         :param tracked_order: InFlightOrder
         :return: OrderUpdate
@@ -759,7 +759,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _list_one_page_of_accounts(self, cursor: str) -> Dict[str, Any]:
         """
         List one page of accounts with maximum of 250 accounts per page.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getaccounts
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getaccounts
         """
         params = {"limit": 250}
         if cursor != "0":
@@ -1020,7 +1020,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         """
         Queries all trades for an order.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getfills
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getfills
         """
         trade_updates = []
         if order.exchange_order_id is not None:
