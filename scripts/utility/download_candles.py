@@ -57,6 +57,6 @@ class DownloadCandles(ScriptStrategyBase):
         if all(candles_info["candles"].ready for candles_info in self.candles.values()):
             HummingbotApplication.main_application().stop()
 
-    def on_stop(self):
+    async def on_stop(self):
         for candles_info in self.candles.values():
             candles_info["candles"].stop()

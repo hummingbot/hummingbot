@@ -1,9 +1,38 @@
+import asyncio
 import unittest
+from typing import Awaitable
+from unittest.mock import AsyncMock
 
-from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLConfigMap, compute_order_book_changes
+from xrpl.asyncio.clients import XRPLRequestFailureException
+from xrpl.asyncio.transaction import XRPLReliableSubmissionException
+from xrpl.models import OfferCancel, Response
+from xrpl.models.response import ResponseStatus
+
+from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
+from hummingbot.connector.exchange.xrpl.xrpl_utils import (
+    XRPLConfigMap,
+    _wait_for_final_transaction_outcome,
+    autofill,
+    compute_order_book_changes,
+)
 
 
-class TestGetOfferChange(unittest.TestCase):
+class TestXRPLUtils(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.ev_loop = asyncio.get_event_loop()
+
+    def setUp(self) -> None:
+        super().setUp()
+
+    def tearDown(self) -> None:
+        super().tearDown()
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 5):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def _event_message_limit_order_partially_filled(self):
         resp = {
@@ -242,3 +271,101 @@ class TestGetOfferChange(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             XRPLConfigMap.validate_wss_second_node_url(invalid_url)
         self.assertIn("Invalid node url", str(context.exception))
+
+    def test_auto_fill(self):
+        client = AsyncMock()
+
+        request = OfferCancel(
+            account="rsoLoDTcxn9wCEHHBR7enMhzQMThkB2w28", # noqa: mock
+            offer_sequence=69870875,
+        )
+
+        client.network_id = None
+        client.build_version = None
+        client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "info": {"network_id": 1026, "build_version": "1.11.1"},
+                "account_data": {"Sequence": 99999911},
+                "drops": {
+                    "open_ledger_fee": "10",
+                    "minimum_fee": "10",
+                },
+                "ledger_index": 99999221,
+            },
+        )
+
+        filled_request = self.async_run_with_timeout(autofill(request, client))
+
+        self.assertIsInstance(filled_request, OfferCancel)
+        self.assertEqual(filled_request.fee, str(10 * CONSTANTS.FEE_MULTIPLIER))
+        self.assertEqual(filled_request.last_ledger_sequence, 99999221 + 20)
+        self.assertEqual(filled_request.network_id, 1026)
+
+        client._request_impl.side_effect = Exception("Error")
+
+        with self.assertRaises(Exception):
+            self.async_run_with_timeout(autofill(request, client))
+
+    def test_wait_for_final_transaction_outcome(self):
+        client = AsyncMock()
+        client.network_id = None
+        client.build_version = None
+        client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "ledger_index": 99999221,
+                "validated": True,
+                "meta": {
+                    "TransactionResult": "tesSUCCESS",
+                },
+            },
+        )
+
+        with self.assertRaises(XRPLReliableSubmissionException):
+            self.async_run_with_timeout(
+                _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
+            )
+
+        with self.assertRaises(XRPLRequestFailureException):
+            client._request_impl.return_value = Response(
+                status=ResponseStatus.ERROR,
+                result={"error": "something happened"},
+            )
+            self.async_run_with_timeout(
+                _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
+            )
+
+        with self.assertRaises(XRPLReliableSubmissionException):
+            client._request_impl.return_value = Response(
+                status=ResponseStatus.SUCCESS,
+                result={
+                    "ledger_index": 99999221,
+                    "validated": True,
+                    "meta": {
+                        "TransactionResult": "tecKilled",
+                    },
+                },
+            )
+            self.async_run_with_timeout(
+                _wait_for_final_transaction_outcome("transaction_hash", client, "something", 12345)
+            )
+
+        client._request_impl.return_value = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "ledger_index": 99999221,
+                "validated": True,
+                "meta": {
+                    "TransactionResult": "tesSUCCESS",
+                },
+            },
+        )
+
+        response = self.async_run_with_timeout(
+            _wait_for_final_transaction_outcome("transaction_hash", client, "something", 1234500000)
+        )
+
+        self.assertEqual(response.result["ledger_index"], 99999221)
+        self.assertEqual(response.result["validated"], True)
+        self.assertEqual(response.result["meta"]["TransactionResult"], "tesSUCCESS")

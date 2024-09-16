@@ -564,7 +564,8 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Created LIMIT BUY order OID1 for {Decimal('100.000000')} {self.trading_pair}."
+                f"Created LIMIT BUY order OID1 for {Decimal('100.000000')} {self.trading_pair} "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -620,7 +621,8 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Created LIMIT_MAKER BUY order OID1 for {Decimal('100.000000')} {self.trading_pair}."
+                f"Created LIMIT_MAKER BUY order OID1 for {Decimal('100.000000')} {self.trading_pair} "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -708,7 +710,8 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                f"Created MARKET SELL order OID1 for {Decimal('100.000000')} {self.trading_pair}."
+                f"Created MARKET SELL order OID1 for {Decimal('100.000000')} {self.trading_pair} "
+                f"at {None}."
             )
         )
 
@@ -2246,7 +2249,14 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
-    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found(self):
+    @aioresponses()
+    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found(self, mock_api):
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt=")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url_fills, body=json.dumps({}))
+
         update_event = MagicMock()
         update_event.wait.side_effect = asyncio.TimeoutError
 
@@ -2330,7 +2340,8 @@ class KucoinExchangeTests(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"Created {order.order_type.name.upper()} {order.trade_type.name.upper()} order "
-                f"{order.client_order_id} for {order.amount} {order.trading_pair}."
+                f"{order.client_order_id} for {order.amount} {order.trading_pair} "
+                f"at {Decimal('10000')}."
             )
         )
 
@@ -2464,7 +2475,7 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged("INFO", f"The {order.trade_type.name} order {order.client_order_id} amounting to "
-                                    f"0.1/{order.amount} {order.base_asset} has been filled.")
+                                    f"0.1/{order.amount} {order.base_asset} has been filled at {Decimal('10010.5')} HBOT.")
         )
 
     def test_user_stream_update_for_order_fill(self):
