@@ -26,8 +26,10 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
     :return: True if the trading pair is enabled, False otherwise
     """
+    contract_type = exchange_info.get("contractType")
     status = exchange_info.get("status")
-    valid = status is not None and status in ["Trading", "Settling"]
+    valid = (status is not None and contract_type is not None
+             and status in ["Trading", "Settling"] and contract_type in ["LinearPerpetual", "InversePerpetual"])
     return valid
 
 
