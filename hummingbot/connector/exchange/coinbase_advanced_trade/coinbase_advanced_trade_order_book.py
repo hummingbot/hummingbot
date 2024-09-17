@@ -60,7 +60,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> Optional[OrderBookMessage]:
         """
         Process messages from the order book or trade channel
-        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
+        https://docs.cdp.coinbase.com/advanced-trade/docs/ws-channels#level2-channel
         The snapshot is the first message received form the 'level2' channel. It has a sequence_num = 0
         :param msg: the response from the exchange when requesting the order book snapshot
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
@@ -99,7 +99,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> Optional[OrderBookMessage]:
         """
         Process messages from the order book or trade channel
-        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
+        https://docs.cdp.coinbase.com/advanced-trade/docs/ws-channels#level2-channel
         The snapshot is the first message received form the 'level2' channel. It has a sequence_num = 0
         :param msg: the response from the exchange when requesting the order book snapshot
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
@@ -138,7 +138,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
         """
         Process messages from the market trades channel
-        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#market-trades-channel
+        https://docs.cdp.coinbase.com/advanced-trade/docs/ws-channels#market-trades-channel
         :param msg: the response from the exchange when requesting the order book snapshot
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a trade message with the trade information received from the exchange
