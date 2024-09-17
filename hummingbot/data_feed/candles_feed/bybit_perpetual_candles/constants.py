@@ -6,7 +6,7 @@ REST_URL = "https://api.bybit.com"
 HEALTH_CHECK_ENDPOINT = "/v5/market/time"
 CANDLES_ENDPOINT = "/v5/market/kline"
 
-WSS_URL = "wss://stream.bybit.com/v5/public/linear"
+WSS_URL = "wss://stream.bybit.com/v5/public"
 
 INTERVALS = bidict({
     "1m": 1,
