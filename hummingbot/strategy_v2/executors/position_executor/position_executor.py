@@ -103,7 +103,7 @@ class PositionExecutor(ExecutorBase):
         :return: The amount to close the position.
         """
         if self._open_order.fee_asset == self.config.trading_pair.split("-")[0]:
-            return self.open_filled_amount - self._open_order.cum_fees_base - self.close_filled_amount
+            return self.open_filled_amount + self._open_order.cum_fees_base - self.close_filled_amount
         else:
             return self.open_filled_amount - self.close_filled_amount
 
