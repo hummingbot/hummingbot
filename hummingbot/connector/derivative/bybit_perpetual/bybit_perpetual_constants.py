@@ -5,19 +5,32 @@ EXCHANGE_NAME = "bybit_perpetual"
 
 DEFAULT_DOMAIN = "bybit_perpetual_main"
 
-DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
+DEFAULT_TIME_IN_FORCE = "GTC"
 
-REST_URLS = {"bybit_perpetual_main": "https://api.bybit.com/",
-             "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"}
-WSS_NON_LINEAR_PUBLIC_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime",
-                              "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime"}
+REST_URLS = {
+    "bybit_perpetual_main": "https://api.bybit.com/",
+    "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"
+}
+WSS_NON_LINEAR_PUBLIC_URLS = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/inverse",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/inverse"}
 WSS_NON_LINEAR_PRIVATE_URLS = WSS_NON_LINEAR_PUBLIC_URLS
-WSS_LINEAR_PUBLIC_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime_public",
-                          "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_public"}
-WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime_private",
-                           "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_private"}
+WSS_LINEAR_PUBLIC_URLS = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/linear",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"}
+WSS_LINEAR_PRIVATE_URLS = {
+    "bybit_perpetual_main": "wss://stream.bybit.com/v5/private",
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/private"
+}
+WS_HEARTBEAT_TIME_INTERVAL = 20.0
 
-REST_API_VERSION = "v2"
+# unit in millisecond and default value is 5,000, to specify how long an HTTP request is valid.
+# It is also used to prevent replay attacks.
+# https://bybit-exchange.github.io/docs/v5/guide#parameters-for-authenticated-endpoints
+X_API_RECV_WINDOW = str(50000)
+
+X_API_SIGN_TYPE = str(2)
+
 
 HBOT_BROKER_ID = "Hummingbot"
 
@@ -32,8 +45,8 @@ ORDER_TYPE_MAP = {
     OrderType.MARKET: "Market",
 }
 
-POSITION_MODE_API_ONEWAY = "MergedSingle"
-POSITION_MODE_API_HEDGE = "BothSide"
+POSITION_MODE_API_ONEWAY = 0
+POSITION_MODE_API_HEDGE = 3
 POSITION_MODE_MAP = {
     PositionMode.ONEWAY: POSITION_MODE_API_ONEWAY,
     PositionMode.HEDGE: POSITION_MODE_API_HEDGE,
@@ -43,63 +56,60 @@ POSITION_MODE_MAP = {
 LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
 
+# Covers: Spot / USDT perpetual / USDC contract / Inverse contract / Option
 LATEST_SYMBOL_INFORMATION_ENDPOINT = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/tickers",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/tickers"}
+    LINEAR_MARKET: "v5/market/tickers",
+    NON_LINEAR_MARKET: "v5/market/tickers"}
+
 QUERY_SYMBOL_ENDPOINT = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/symbols",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/symbols"}
+    LINEAR_MARKET: "v5/market/instruments-info",
+    NON_LINEAR_MARKET: "v5/market/instruments-info"}
 ORDER_BOOK_ENDPOINT = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/orderBook/L2"}
+    LINEAR_MARKET: "v5/market/orderbook",
+    NON_LINEAR_MARKET: "v5/market/orderbook"}
 SERVER_TIME_PATH_URL = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/public/time",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/public/time"
+    LINEAR_MARKET: "v5/market/time",
+    NON_LINEAR_MARKET: "v5/market/time"
 }
 
 # REST API Private Endpoints
 SET_LEVERAGE_PATH_URL = {
-    LINEAR_MARKET: "private/linear/position/set-leverage",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/leverage/save"}
+    LINEAR_MARKET: "v5/position/set-leverage",
+    NON_LINEAR_MARKET: "v5/position/set-leverage"}
 GET_LAST_FUNDING_RATE_PATH_URL = {
-    LINEAR_MARKET: "private/linear/funding/prev-funding",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/prev-funding"}
-GET_PREDICTED_FUNDING_RATE_PATH_URL = {
-    LINEAR_MARKET: "/private/linear/funding/predicted-funding",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/funding/predicted-funding"
-}
+    LINEAR_MARKET: "v5/account/transaction-log",
+    NON_LINEAR_MARKET: "v5/account/contract-transaction-log"}
 GET_POSITIONS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/position/list",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/position/list"}
+    LINEAR_MARKET: "v5/position/list",
+    NON_LINEAR_MARKET: "v5/position/list"}
 PLACE_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/create",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/create"}
+    LINEAR_MARKET: "v5/order/create",
+    NON_LINEAR_MARKET: "v5/order/create"}
 CANCEL_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/cancel",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancel"}
-CANCEL_ALL_ACTIVE_ORDERS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/cancelAll",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order/cancelAll"}
+    LINEAR_MARKET: "v5/order/cancel",
+    NON_LINEAR_MARKET: "v5/order/cancel"}
 QUERY_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "private/linear/order/search",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/order"}
+    LINEAR_MARKET: "v5/order/realtime",
+    NON_LINEAR_MARKET: "v5/order/realtime"}
 USER_TRADE_RECORDS_PATH_URL = {
-    LINEAR_MARKET: "private/linear/trade/execution/list",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/execution/list"}
+    LINEAR_MARKET: "v5/execution/list",
+    NON_LINEAR_MARKET: "v5/execution/list"}
 GET_WALLET_BALANCE_PATH_URL = {
-    LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance",
-    NON_LINEAR_MARKET: f"{REST_API_VERSION}/private/wallet/balance"}
+    LINEAR_MARKET: "v5/account/wallet-balance",
+    NON_LINEAR_MARKET: "v5/account/wallet-balance"}
 SET_POSITION_MODE_URL = {
-    LINEAR_MARKET: "private/linear/position/switch-mode"}
+    LINEAR_MARKET: "v5/position/switch-mode"}
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
 
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"
-WS_ORDER_BOOK_EVENTS_TOPIC = "orderBook_200.100ms"
-WS_TRADES_TOPIC = "trade"
-WS_INSTRUMENTS_INFO_TOPIC = "instrument_info.100ms"
+WS_TRADES_TOPIC = "publicTrade"
+WS_ORDER_BOOK_EVENTS_TOPIC = "orderbook.200"
+WS_INSTRUMENTS_INFO_TOPIC = "tickers"
+
+# WebSocket Private Endpoints
 WS_AUTHENTICATE_USER_ENDPOINT_NAME = "auth"
 WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME = "position"
 WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
@@ -135,13 +145,18 @@ LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID = "LinearPrivateBucket120A"
 
 # Request error codes
 RET_CODE_OK = 0
+
+RET_CODE_MODE_POSITION_NOT_EMPTY = 110024
+RET_CODE_MODE_NOT_MODIFIED = 110025
+RET_CODE_MODE_ORDER_NOT_EMPTY = 110028
+RET_CODE_HEDGE_NOT_SUPPORTED = 110029
+
+RET_CODE_LEVERAGE_NOT_MODIFIED = 110043
+
+RET_CODE_ORDER_NOT_EXISTS = 110001
+
 RET_CODE_PARAMS_ERROR = 10001
 RET_CODE_API_KEY_INVALID = 10003
 RET_CODE_AUTH_TIMESTAMP_ERROR = 10021
-RET_CODE_ORDER_NOT_EXISTS = 20001
-RET_CODE_MODE_POSITION_NOT_EMPTY = 30082
-RET_CODE_MODE_NOT_MODIFIED = 30083
-RET_CODE_MODE_ORDER_NOT_EMPTY = 30086
 RET_CODE_API_KEY_EXPIRED = 33004
-RET_CODE_LEVERAGE_NOT_MODIFIED = 34036
 RET_CODE_POSITION_ZERO = 130125
