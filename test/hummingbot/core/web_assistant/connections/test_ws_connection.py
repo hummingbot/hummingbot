@@ -17,6 +17,7 @@ class WSConnectionTest(unittest.TestCase):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
         cls.ws_url = "ws://some/url"
+        cls.max_msg_size = 10485760
 
     def setUp(self) -> None:
         super().setUp()
@@ -149,6 +150,36 @@ class WSConnectionTest(unittest.TestCase):
             self.async_run_with_timeout(self.ws_connection.receive())
 
         self.assertEqual("The WS connection was closed unexpectedly. Close code = 1111 msg data: ", str(e.exception))
+        self.assertFalse(self.ws_connection.connected)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_receive_disconnects_and_raises_on_aiohttp_max_size(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.close_code = 1009
+        self.async_run_with_timeout(self.ws_connection.connect(self.ws_url, self.max_msg_size))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.ERROR,
+        )
+
+        with self.assertRaises(ConnectionError) as e:
+            self.async_run_with_timeout(self.ws_connection.receive())
+
+        self.assertEqual("The WS message is too big: ", str(e.exception))
+        self.assertFalse(self.ws_connection.connected)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_receive_disconnects_and_raises_on_aiohttp_max_size_error(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.close_code = 1111
+        self.async_run_with_timeout(self.ws_connection.connect(self.ws_url, self.max_msg_size))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.ERROR,
+        )
+
+        with self.assertRaises(ConnectionError) as e:
+            self.async_run_with_timeout(self.ws_connection.receive())
+
+        self.assertEqual("WS error: ", str(e.exception))
         self.assertFalse(self.ws_connection.connected)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)

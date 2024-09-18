@@ -18,7 +18,6 @@ class WSConnection:
         self._connected = False
         self._message_timeout: Optional[float] = None
         self._last_recv_time = 0
-        self._max_size = 0
 
     @property
     def last_recv_time(self) -> float:
@@ -104,7 +103,7 @@ class WSConnection:
         if msg is not None and msg.type in [aiohttp.WSMsgType.ERROR]:
             if isinstance(msg.data, WebSocketError) and msg.data.code == WSCloseCode.MESSAGE_TOO_BIG:
                 await self.disconnect()
-                raise ConnectionError(f"The WS message is too big: {msg.data} Max size: {self._max_size}")
+                raise ConnectionError(f"The WS message is too big: {msg.data}")
             else:
                 await self.disconnect()
                 raise ConnectionError(f"WS error: {msg.data}")
