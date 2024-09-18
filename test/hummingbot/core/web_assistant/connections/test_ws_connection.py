@@ -18,7 +18,7 @@ class WSConnectionTest(unittest.TestCase):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
         cls.ws_url = "ws://some/url"
-        cls.max_msg_size = 10485760
+        cls.max_msg_size = 104
 
     def setUp(self) -> None:
         super().setUp()
