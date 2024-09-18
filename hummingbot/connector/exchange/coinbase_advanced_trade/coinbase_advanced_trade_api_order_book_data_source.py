@@ -172,16 +172,18 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().info(f"Subscribed to order book channels for: {', '.join(self._trading_pairs)}")
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
             self.logger().error(
                 "Unexpected error occurred subscribing to order book trading and delta streams...",
                 exc_info=True
             )
+            self.logger().debug(f"Error: {e}")
             raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
+            self.logger().debug(f"Received message from Coinbase Advanced Trade: {data}")
 
             if data and "type" in data and data["type"] == 'error':
                 self.logger().error(f"Error received from websocket: {ws_response}")
