@@ -131,7 +131,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     # Implemented methods
     async def _connected_websocket_assistant(self) -> WSAssistant:
         self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
-        await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain))
+        await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain), max_msg_size=constants.WS_MAX_MSG_SIZE)
         return self._ws_assistant
 
     async def _subscribe_channels(self, ws: WSAssistant):
