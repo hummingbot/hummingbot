@@ -91,7 +91,7 @@ class WebsocketAction(Enum):
 WS_ORDER_SUBSCRIPTION_KEYS: Tuple[str, ...] = ("level2", "market_trades")
 WS_ORDER_SUBSCRIPTION_CHANNELS: bidict[str, str] = bidict({k: k for k in WS_ORDER_SUBSCRIPTION_KEYS})
 WS_ORDER_SUBSCRIPTION_CHANNELS["level2"] = "l2_data"
-WS_MAX_MSG_SIZE = 10 * 1024 * 1024
+WS_MAX_MSG_SIZE = 8 * 1024 * 1024
 
 WS_USER_SUBSCRIPTION_KEYS: str = "user"
 # WS_USER_SUBSCRIPTION_KEYS: Tuple[str, ...] = ("user",)
