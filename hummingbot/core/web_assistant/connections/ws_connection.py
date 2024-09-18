@@ -36,8 +36,6 @@ class WSConnection:
         max_msg_size: Optional[int] = None
     ):
         self._ensure_not_connected()
-        max_msg_size = max_msg_size if max_msg_size else WSConnection._MAX_MSG_SIZE
-        self._max_size = max_msg_size  # update max size
         self._connection = await self._client_session.ws_connect(
             ws_url,
             headers=ws_headers,
