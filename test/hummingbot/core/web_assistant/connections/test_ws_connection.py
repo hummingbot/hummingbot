@@ -165,7 +165,7 @@ class WSConnectionTest(unittest.TestCase):
             self.async_run_with_timeout(self.ws_connection.receive())
 
         self.assertEqual("The WS message is too big: ", str(e.exception))
-        with self.assertRaises(WebSocketError) as e:
+        with self.assertRaises(ConnectionError) as e:
             self.async_run_with_timeout(self.ws_connection.receive())
 
         self.assertEqual("WS error: ", str(e.exception))
