@@ -165,6 +165,10 @@ class WSConnectionTest(unittest.TestCase):
             self.async_run_with_timeout(self.ws_connection.receive())
 
         self.assertEqual("The WS message is too big: ", str(e.exception))
+        with self.assertRaises(WebSocketError) as e:
+            self.async_run_with_timeout(self.ws_connection.receive())
+
+        self.assertEqual("WS error: ", str(e.exception))
         self.assertFalse(self.ws_connection.connected)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
