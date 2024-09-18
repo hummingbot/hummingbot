@@ -105,32 +105,31 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
         """
-        if msg["events"] is not None:
-            for event in msg["events"]:
-                trading_pair = await symbol_to_pair(event["product_id"])
-                obm_content = {"trading_pair": trading_pair,
-                               "update_id": int(get_timestamp_from_exchange_time(msg["timestamp"], "s")),
-                               "bids": [],
-                               "asks": []
-                               }
-                for update in event.get("updates", []):
-                    if update["side"] == "bid":
-                        obm_content["bids"].append([update["price_level"], update["new_quantity"]])
-                    else:
-                        obm_content["asks"].append([update["price_level"], update["new_quantity"]])
+        for event in msg["events"]:
+            trading_pair = await symbol_to_pair(event["product_id"])
+            obm_content = {"trading_pair": trading_pair,
+                           "update_id": int(get_timestamp_from_exchange_time(msg["timestamp"], "s")),
+                           "bids": [],
+                           "asks": []
+                           }
+            for update in event.get("updates", []):
+                if update["side"] == "bid":
+                    obm_content["bids"].append([update["price_level"], update["new_quantity"]])
+                else:
+                    obm_content["asks"].append([update["price_level"], update["new_quantity"]])
 
-                if event["type"] == "snapshot":
-                    # obm_content["first_update_id"] = 0
-                    return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
-                                            obm_content,
-                                            timestamp=obm_content['update_id'])
-                if event["type"] == "update":
-                    return OrderBookMessage(OrderBookMessageType.DIFF,
-                                            obm_content,
-                                            timestamp=obm_content['update_id'])
+            if event["type"] == "snapshot":
+                # obm_content["first_update_id"] = 0
+                return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
+                                        obm_content,
+                                        timestamp=obm_content['update_id'])
+            if event["type"] == "update":
+                return OrderBookMessage(OrderBookMessageType.DIFF,
+                                        obm_content,
+                                        timestamp=obm_content['update_id'])
 
-                cls.logger().warning(f"Unexpected event type: {event['type']}")
-                return None
+            cls.logger().warning(f"Unexpected event type: {event['type']}")
+            return None
 
     @classmethod
     async def _market_trades_order_book_message(
