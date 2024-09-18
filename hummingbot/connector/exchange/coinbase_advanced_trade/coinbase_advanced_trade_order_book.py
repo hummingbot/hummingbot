@@ -105,7 +105,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
         """
-        try:
+        if msg["events"] is not None:
             for event in msg["events"]:
                 trading_pair = await symbol_to_pair(event["product_id"])
                 obm_content = {"trading_pair": trading_pair,
@@ -131,8 +131,6 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
 
                 cls.logger().warning(f"Unexpected event type: {event['type']}")
                 return None
-        except Exception as e:
-            cls.logger().error(f"Error processing message from Coinbase Advanced Trade {msg}: {e}")
 
     @classmethod
     async def _market_trades_order_book_message(

@@ -5,6 +5,7 @@ from typing import Awaitable, List
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
+from aiohttp import WebSocketError
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
@@ -160,8 +161,7 @@ class WSConnectionTest(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.ERROR,
         )
-
-        with self.assertRaises(ConnectionError) as e:
+        with self.assertRaises(WebSocketError) as e:
             self.async_run_with_timeout(self.ws_connection.receive())
 
         self.assertEqual("The WS message is too big: ", str(e.exception))

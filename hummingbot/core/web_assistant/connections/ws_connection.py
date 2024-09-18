@@ -104,9 +104,6 @@ class WSConnection:
             if isinstance(msg.data, WebSocketError) and msg.data.code == WSCloseCode.MESSAGE_TOO_BIG:
                 await self.disconnect()
                 raise ConnectionError(f"The WS message is too big: {msg.data}")
-            else:
-                await self.disconnect()
-                raise ConnectionError(f"WS error: {msg.data}")
         return msg
 
     async def _check_msg_closed_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:

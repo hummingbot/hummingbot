@@ -37,7 +37,7 @@ class WSAssistantTest(unittest.TestCase):
         ws_url = "ws://some.url"
         ping_timeout = 10
         message_timeout = 20
-        max_msg_size = 1024
+        max_msg_size = 4 * 1024 * 1024
 
         self.async_run_with_timeout(
             self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout, max_msg_size=max_msg_size)
