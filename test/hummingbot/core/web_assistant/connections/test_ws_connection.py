@@ -160,17 +160,13 @@ class WSConnectionTest(unittest.TestCase):
 
         # Simulating the WebSocket closing with error code 1009 (message too big)
         ws_connect_mock.return_value.close_code = aiohttp.WSCloseCode.MESSAGE_TOO_BIG
-
-        # Simulate WebSocket message type as ERROR with MESSAGE_TOO_BIG
-        ws_connect_mock.return_value.receive = AsyncMock()
-        ws_connect_mock.return_value.receive.return_value = aiohttp.WSMessage(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
+            message=WebSocketError(code=aiohttp.WSCloseCode.MESSAGE_TOO_BIG),
             message_type=aiohttp.WSMsgType.ERROR,
-            message=WebSocketError(code=aiohttp.WSCloseCode.MESSAGE_TOO_BIG)
         )
-        # Simulate the WebSocket connection and handling the message
         with self.assertRaises(WebSocketError) as e:
-            await self.ws_connection.receive()
+            self.async_run_with_timeout(self.ws_connection.receive())
 
         # Validate the correct exception is raised with the appropriate message
         self.assertEqual(str(e.exception), "The WS message is too big: ")

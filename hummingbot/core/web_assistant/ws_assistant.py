@@ -42,7 +42,6 @@ class WSAssistant:
         max_msg_size: Optional[int] = None,
     ):
         max_msg_size = max_msg_size if max_msg_size else self._connection._MAX_MSG_SIZE
-        self._max_size = max_msg_size  # update max size
         await self._connection.connect(
             ws_url=ws_url,
             ws_headers=ws_headers,
