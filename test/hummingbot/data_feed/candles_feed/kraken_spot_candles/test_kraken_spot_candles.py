@@ -107,7 +107,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
         config = HistoricalCandlesConfig(start_time=start_time, end_time=end_time, interval=self.interval,
                                          connector_name=self.data_feed.name, trading_pair=self.trading_pair)
         with self.assertRaises(ValueError,
-                               msg="Gate.io REST API does not support fetching more than 10000 candles ago."):
+                               msg="Kraken REST API does not support fetching more than 720 candles ago."):
             self.async_run_with_timeout(self.data_feed.get_historical_candles(config))
 
     @aioresponses()
