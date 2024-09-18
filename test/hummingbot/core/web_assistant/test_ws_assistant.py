@@ -37,15 +37,17 @@ class WSAssistantTest(unittest.TestCase):
         ws_url = "ws://some.url"
         ping_timeout = 10
         message_timeout = 20
+        max_msg_size = 1024
 
         self.async_run_with_timeout(
-            self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout)
+            self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout, max_msg_size=max_msg_size)
         )
 
         connect_mock.assert_called_with(ws_url=ws_url,
                                         ws_headers={},
                                         ping_timeout=ping_timeout,
-                                        message_timeout=message_timeout)
+                                        message_timeout=message_timeout,
+                                        max_msg_size=max_msg_size)
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.disconnect")
     def test_disconnect(self, disconnect_mock):
