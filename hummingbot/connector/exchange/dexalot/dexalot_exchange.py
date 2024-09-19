@@ -65,6 +65,7 @@ class DexalotExchange(ExchangePyBase):
         self._tx_client: DexalotClient = self._create_tx_client()
 
         super().__init__(client_config_map)
+        self._real_time_balance_update = False
 
     @staticmethod
     def dexalot_order_type(order_type: OrderType) -> str:
@@ -88,10 +89,6 @@ class DexalotExchange(ExchangePyBase):
     @property
     def rate_limits_rules(self):
         return CONSTANTS.RATE_LIMITS
-
-    @property
-    def real_time_balance_update(self):
-        return False
 
     @property
     def domain(self):
@@ -298,7 +295,7 @@ class DexalotExchange(ExchangePyBase):
 
         for order in orders_to_cancel:
             tracked_order = self._order_tracker.all_updatable_orders.get(order.client_order_id)
-            if tracked_order is not None:
+            if tracked_order is not None and tracked_order.exchange_order_id:
                 tracked_orders_to_cancel.append(tracked_order)
             else:
                 results.append(CancellationResult(order_id=order.client_order_id, success=False))
@@ -703,9 +700,12 @@ class DexalotExchange(ExchangePyBase):
         balances = account_info
         for balance_entry in balances:
             asset_name = balance_entry["symbol"]
+            # If _account_available_balances exists, use existing value, otherwise use total_balance
+            self._account_available_balances[asset_name] = self._account_available_balances.get(
+                asset_name, Decimal(balance_entry["currentbal"])
+            )
+            self._account_balances[asset_name] = Decimal(balance_entry["currentbal"])
             remote_asset_names.add(asset_name)
-        account_balances, account_available_balances = await self._tx_client.get_balances(self._account_balances, self._account_available_balances)
-        self._account_balances,self._account_available_balances = account_balances, account_available_balances
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
