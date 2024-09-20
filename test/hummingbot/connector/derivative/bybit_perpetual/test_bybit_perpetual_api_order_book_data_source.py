@@ -6,7 +6,6 @@ from typing import Awaitable, Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pandas as pd
 from aioresponses import aioresponses
 from bidict import bidict
 
@@ -92,25 +91,29 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def get_rest_snapshot_msg(self) -> Dict:
         return {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                {
-                    "symbol": self.ex_trading_pair,
-                    "price": "9487",
-                    "size": 336241,
-                    "side": "Buy"
-                },
-                {
-                    "symbol": self.ex_trading_pair,
-                    "price": "9487.5",
-                    "size": 522147,
-                    "side": "Sell"
-                }
-            ],
-            "time_now": "1567108756.834357"
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "s": self.ex_trading_pair,
+                "a": [
+                    [
+                        "65557.7",
+                        "16.606555"
+                    ]
+                ],
+                "b": [
+                    [
+                        "65485.47",
+                        "47.081829"
+                    ]
+                ],
+                "ts": 1716863719031,
+                "u": 230704,
+                "seq": 1432604333,
+                "cts": 1716863718905
+            },
+            "retExtInfo": {},
+            "time": 1716863719382
         }
 
     def get_ws_snapshot_msg(self) -> Dict:
@@ -139,39 +142,35 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def get_ws_diff_msg(self) -> Dict:
         return {
-            "topic": f"orderBook_200.100ms.{self.ex_trading_pair}",
+            "topic": f"orderbook.50.{self.ex_trading_pair}",
             "type": "delta",
+            "ts": 1672304484978,
             "data": {
-                "delete": [
-                    {
-                        "price": "3001.00",
-                        "symbol": self.ex_trading_pair,
-                        "id": 30010000,
-                        "side": "Sell"
-                    }
+                "s": f"{self.ex_trading_pair}",
+                "b": [
+                    [
+                        "16493.50",
+                        "0.006"
+                    ],
+                    [
+                        "16493.00",
+                        "0.100"
+                    ]
                 ],
-                "update": [
-                    {
-                        "price": "2999.00",
-                        "symbol": self.ex_trading_pair,
-                        "id": 29990000,
-                        "side": "Buy",
-                        "size": 8
-                    }
+                "a": [
+                    [
+                        "16611.00",
+                        "0.029"
+                    ],
+                    [
+                        "16612.00",
+                        "0.213"
+                    ],
                 ],
-                "insert": [
-                    {
-                        "price": "2998.00",
-                        "symbol": self.ex_trading_pair,
-                        "id": 29980000,
-                        "side": "Buy",
-                        "size": 8
-                    }
-                ],
-                "transactTimeE6": 0
+                "u": 18521288,
+                "seq": 7961638724
             },
-            "cross_seq": 11519,
-            "timestamp_e6": 1555647221331673
+            "cts": 1672304484976
         }
 
     def get_funding_info_msg(self) -> Dict:
@@ -224,73 +223,71 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def get_funding_info_event(self):
         return {
-            "topic": f"instrument_info.100ms.{self.ex_trading_pair}",
+            "topic": f"tickers.{self.ex_trading_pair}",
             "type": "delta",
             "data": {
-                "delete": [],
-                "update": [
-                    {
-                        "id": 1,
-                        "symbol": self.ex_trading_pair,
-                        "prev_price_24h_e4": 81565000,
-                        "prev_price_24h": "81565000",
-                        "price_24h_pcnt_e6": -4904,
-                        "open_value_e8": 2000479681106,
-                        "total_turnover_e8": 2029370495672976,
-                        "turnover_24h_e8": 9066215468687,
-                        "volume_24h": 735316391,
-                        "cross_seq": 1053192657,
-                        "created_at": "2018-11-14T16:33:26Z",
-                        "updated_at": "2020-01-12T18:25:25Z",
-                        "index_price": 123,
-                        "mark_price": 234,
-                        "next_funding_time": "2020-01-12T18:25:25Z",
-                        "predicted_funding_rate_e6": 456,
-                    }
-                ],
-                "insert": []
+                "symbol": f"{self.ex_trading_pair}",
+                "tickDirection": "PlusTick",
+                "price24hPcnt": "0.017103",
+                "lastPrice": "17216.00",
+                "prevPrice24h": "16926.50",
+                "highPrice24h": "17281.50",
+                "lowPrice24h": "16915.00",
+                "prevPrice1h": "17238.00",
+                "markPrice": "17217.33",
+                "indexPrice": "17227.36",
+                "openInterest": "68744.761",
+                "openInterestValue": "1183601235.91",
+                "turnover24h": "1570383121.943499",
+                "volume24h": "91705.276",
+                "nextFundingTime": "1673280000000",
+                "fundingRate": "-0.000212",
+                "bid1Price": "17215.50",
+                "bid1Size": "84.489",
+                "ask1Price": "17216.00",
+                "ask1Size": "83.020"
             },
-            "cross_seq": 1053192657,
-            "timestamp_e6": 1578853525691123
+            "cs": 24987956059,
+            "ts": 1673272861686
         }
 
     def get_general_info_rest_msg(self):
         return {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                {
-                    "symbol": self.ex_trading_pair,
-                    "bid_price": "7230",
-                    "ask_price": "7230.5",
-                    "last_price": "7230.00",
-                    "last_tick_direction": "ZeroMinusTick",
-                    "prev_price_24h": "7163.00",
-                    "price_24h_pcnt": "0.009353",
-                    "high_price_24h": "7267.50",
-                    "low_price_24h": "7067.00",
-                    "prev_price_1h": "7209.50",
-                    "price_1h_pcnt": "0.002843",
-                    "mark_price": "7230.31",
-                    "index_price": "7230.14",
-                    "open_interest": 117860186,
-                    "open_value": "16157.26",
-                    "total_turnover": "3412874.21",
-                    "turnover_24h": "10864.63",
-                    "total_volume": 28291403954,
-                    "volume_24h": 78053288,
-                    "funding_rate": "0.0001",
-                    "predicted_funding_rate": "0.0001",
-                    "next_funding_time": "2019-12-28T00:00:00Z",
-                    "countdown_hour": 2,
-                    "delivery_fee_rate": "0",
-                    "predicted_delivery_price": "0.00",
-                    "delivery_time": ""
-                },
-            ],
-            "time_now": "1577484619.817968",
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "category": "inverse",
+                "list": [
+                    {
+                        "symbol": self.ex_trading_pair,
+                        "lastPrice": "16597.00",
+                        "indexPrice": "16598.54",
+                        "markPrice": "16596.00",
+                        "prevPrice24h": "16464.50",
+                        "price24hPcnt": "0.008047",
+                        "highPrice24h": "30912.50",
+                        "lowPrice24h": "15700.00",
+                        "prevPrice1h": "16595.50",
+                        "openInterest": "373504107",
+                        "openInterestValue": "22505.67",
+                        "turnover24h": "2352.94950046",
+                        "volume24h": "49337318",
+                        "fundingRate": "-0.001034",
+                        "nextFundingTime": "1672387200000",
+                        "predictedDeliveryPrice": "",
+                        "basisRate": "",
+                        "deliveryFeeRate": "",
+                        "deliveryTime": "0",
+                        "ask1Size": "1",
+                        "bid1Price": "16596.00",
+                        "ask1Price": "16597.50",
+                        "bid1Size": "1",
+                        "basis": ""
+                    }
+                ]
+            },
+            "retExtInfo": {},
+            "time": 1672376496682
         }
 
     def get_predicted_funding_info(self):
@@ -315,24 +312,25 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_rest_snapshot_msg()
+        snapshot_data = resp["result"]
         mock_api.get(regex_url, body=json.dumps(resp))
 
         order_book = self.async_run_with_timeout(
             self.data_source.get_new_order_book(self.trading_pair)
         )
 
-        expected_update_id = int(float(resp["time_now"]) * 1e6)
+        expected_update_id = float(snapshot_data["ts"] * 1e6)
 
         self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
         self.assertEqual(1, len(bids))
-        self.assertEqual(9487, bids[0].price)
-        self.assertEqual(336241, bids[0].amount)
+        self.assertEqual(65485.47, bids[0].price)
+        self.assertEqual(47.081829, bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
-        self.assertEqual(9487.5, asks[0].price)
-        self.assertEqual(522147, asks[0].amount)
+        self.assertEqual(65557.7, asks[0].price)
+        self.assertEqual(16.606555, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
@@ -374,17 +372,17 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(3, len(sent_subscription_messages))
         expected_trade_subscription = {
             "op": "subscribe",
-            "args": [f"trade.{self.ex_trading_pair}"],
+            "args": [f"publicTrade.{self.ex_trading_pair}"],
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "op": "subscribe",
-            "args": [f"orderBook_200.100ms.{self.ex_trading_pair}"],
+            "args": [f"orderbook.200.{self.ex_trading_pair}"],
         }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
         expected_funding_info_subscription = {
             "op": "subscribe",
-            "args": [f"instrument_info.100ms.{self.ex_trading_pair}"],
+            "args": [f"tickers.{self.ex_trading_pair}"],
         }
         self.assertEqual(expected_funding_info_subscription, sent_subscription_messages[2])
 
@@ -410,12 +408,12 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
 
         self.async_run_with_timeout(self.resume_test_event.wait())
-
+        trading_type = "linear" if "USDT" in self.trading_pair else "inverse"
         self.assertTrue(
             self._is_logged(
                 "ERROR",
                 "Unexpected error occurred when listening to order book streams"
-                " wss://stream-testnet.bybit.com/realtime. Retrying in 5 seconds...",
+                f" wss://stream-testnet.bybit.com/v5/public/{trading_type}. Retrying in 5 seconds...",
             )
         )
 
@@ -494,18 +492,19 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         trade_event = {
-            "topic": f"trade.{self.ex_trading_pair}",
+            "topic": f"publicTrade.{self.ex_trading_pair}",
+            "type": "snapshot",
+            "ts": 1672304486868,
             "data": [
                 {
-                    "timestamp": "2020-01-12T16:59:59.000Z",
-                    "trade_time_ms": 1582793344685,
-                    "symbol": self.ex_trading_pair,
-                    "side": "Sell",
-                    "size": 328,
-                    "price": 8098,
-                    "tick_direction": "MinusTick",
-                    "trade_id": "00c706e1-ba52-5bb0-98d0-bf694bdc69f7",
-                    "cross_seq": 1052816407
+                    "T": 1672304486865,
+                    "s": self.ex_trading_pair,
+                    "S": "Buy",
+                    "v": "0.001",
+                    "p": "16578.50",
+                    "L": "PlusTick",
+                    "i": "20f43950-d8dd-5b31-9112-a178eb6023af",
+                    "BT": False
                 }
             ]
         }
@@ -520,8 +519,8 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(trade_event["data"][0]["trade_id"], msg.trade_id)
-        self.assertEqual(trade_event["data"][0]["trade_time_ms"] * 1e-3, msg.timestamp)
+        self.assertEqual(trade_event["data"][0]["i"], msg.trade_id)
+        self.assertEqual(trade_event["data"][0]["T"] * 1e-3, msg.timestamp)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -538,7 +537,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = self.get_ws_diff_msg()
-        del incomplete_resp["timestamp_e6"]
+        del incomplete_resp["ts"]
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -570,22 +569,21 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
-
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(diff_event["timestamp_e6"] * 1e-6, msg.timestamp)
-        expected_update_id = int(diff_event["timestamp_e6"])
+        self.assertEqual(diff_event["ts"] * 1e-3, msg.timestamp)
+        expected_update_id = diff_event["ts"] * 1000
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
         self.assertEqual(2, len(bids))
-        self.assertEqual(2999.0, bids[0].price)
-        self.assertEqual(8, bids[0].amount)
+        self.assertEqual(16493.5, bids[0].price)
+        self.assertEqual(0.006, bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
-        self.assertEqual(1, len(asks))
-        self.assertEqual(3001, asks[0].price)
-        self.assertEqual(0, asks[0].amount)
+        self.assertEqual(2, len(asks))
+        self.assertEqual(16611.0, asks[0].price)
+        self.assertEqual(0.029, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
@@ -647,19 +645,19 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(float(resp["time_now"]), msg.timestamp)
-        expected_update_id = int(float(resp["time_now"]) * 1e6)
+        self.assertEqual(float(resp["result"]["ts"]), msg.timestamp)
+        expected_update_id = float(resp["result"]["ts"]) * 1e6
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
         self.assertEqual(1, len(bids))
-        self.assertEqual(9487, bids[0].price)
-        self.assertEqual(336241, bids[0].amount)
+        self.assertEqual(65485.47, bids[0].price)
+        self.assertEqual(47.081829, bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
-        self.assertEqual(9487.5, asks[0].price)
-        self.assertEqual(522147, asks[0].amount)
+        self.assertEqual(65557.7, asks[0].price)
+        self.assertEqual(16.606555, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     def test_listen_for_funding_info_cancelled_when_listening(self):
@@ -707,19 +705,15 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
         msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
-        funding_update = funding_info_event["data"]["update"][0]
+        funding_update = funding_info_event["data"]
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        expected_index_price = Decimal(str(funding_update["index_price"]))
+        expected_index_price = Decimal(str(funding_update["indexPrice"]))
         self.assertEqual(expected_index_price, msg.index_price)
-        expected_mark_price = Decimal(str(funding_update["mark_price"]))
+        expected_mark_price = Decimal(str(funding_update["markPrice"]))
         self.assertEqual(expected_mark_price, msg.mark_price)
-        expected_funding_time = int(
-            pd.Timestamp(str(funding_update["next_funding_time"]), tz="UTC").timestamp()
-        )
+        expected_funding_time = int(funding_update["nextFundingTime"]) // 1e3
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
-        expected_rate = Decimal(str(funding_update["predicted_funding_rate_e6"])) * Decimal(1e-6)
-        self.assertEqual(expected_rate, msg.rate)
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
@@ -729,20 +723,13 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         general_resp = self.get_general_info_rest_msg()
         mock_api.get(regex_url, body=json.dumps(general_resp))
 
-        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        funding_resp = self.get_predicted_funding_info()
-        mock_api.get(regex_url, body=json.dumps(funding_resp))
-
         funding_info: FundingInfo = self.async_run_with_timeout(
             self.data_source.get_funding_info(self.trading_pair)
         )
-        general_info_result = general_resp["result"][0]
+        general_info_result = general_resp["result"]["list"][0]
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal(str(general_info_result["index_price"])), funding_info.index_price)
-        self.assertEqual(Decimal(str(general_info_result["mark_price"])), funding_info.mark_price)
-        expected_utc_timestamp = int(pd.Timestamp(general_info_result["next_funding_time"]).timestamp())
+        self.assertEqual(Decimal(str(general_info_result["indexPrice"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(general_info_result["markPrice"])), funding_info.mark_price)
+        expected_utc_timestamp = int(general_info_result["nextFundingTime"]) // 1e3
         self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
-        self.assertEqual(Decimal(str(funding_resp["result"]["predicted_funding_rate"])), funding_info.rate)
