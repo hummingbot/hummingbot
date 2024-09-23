@@ -698,3 +698,12 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         executor = PositionExecutor(self.strategy, position_config)
         self.assertTrue(executor._is_within_activation_bounds(Decimal("99.9")))
         self.assertFalse(executor._is_within_activation_bounds(Decimal("100.1")))
+
+    def test_failed_executor_info(self):
+        position_config = self.get_position_config_market_short()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor.close_type = CloseType.FAILED
+        type(position_executor).filled_amount_quote = PropertyMock(return_value=Decimal("0"))
+        executor_info = position_executor.executor_info
+        self.assertEqual(executor_info.close_type, CloseType.FAILED)
+        self.assertEqual(executor_info.net_pnl_pct, Decimal("0"))
