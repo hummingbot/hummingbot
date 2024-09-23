@@ -65,6 +65,14 @@ class GateioSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "_")
 
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -75,10 +83,6 @@ class GateioSpotCandles(CandlesBase):
 
         This API only accepts a limit of 10000 candles ago.
         """
-        if start_time is None:
-            start_time = end_time
-        if end_time is None:
-            end_time = start_time
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Gate.io REST API does not support fetching more than 10000 candles ago.")
@@ -93,8 +97,6 @@ class GateioSpotCandles(CandlesBase):
         new_hb_candles = []
         for i in data:
             timestamp = self.ensure_timestamp_in_seconds(i[0])
-            if timestamp == end_time:
-                continue
             open = i[5]
             high = i[3]
             low = i[4]
