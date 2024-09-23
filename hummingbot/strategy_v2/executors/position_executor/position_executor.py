@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import math
 from decimal import Decimal
 from typing import Dict, List, Optional, Union
 
@@ -102,10 +101,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: The amount to close the position.
         """
-        if self._open_order.fee_asset == self.config.trading_pair.split("-")[0]:
-            return self.open_filled_amount + self._open_order.cum_fees_base - self.close_filled_amount
-        else:
-            return self.open_filled_amount - self.close_filled_amount
+        return self.open_filled_amount - self.close_filled_amount
 
     @property
     def open_filled_amount_quote(self) -> Decimal:
@@ -507,13 +503,8 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         if self.config.triple_barrier_config.take_profit:
-            if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
-                if not self._take_profit_limit_order:
-                    self.place_take_profit_limit_order()
-                elif self._take_profit_limit_order.order and not math.isclose(
-                        self._take_profit_limit_order.order.amount,
-                        self._open_order.executed_amount_base):
-                    self.renew_take_profit_order()
+            if self.config.triple_barrier_config.take_profit_order_type.is_limit_type() and not self._take_profit_limit_order:
+                self.place_take_profit_limit_order()
             elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
