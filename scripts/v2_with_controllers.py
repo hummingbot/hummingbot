@@ -8,6 +8,7 @@ from pydantic import Field
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.remote_iface.mqtt import ETopicPublisher
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
@@ -22,6 +23,11 @@ class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
     time_to_cash_out: Optional[int] = None
     max_global_drawdown: Optional[float] = None
     max_controller_drawdown: Optional[float] = None
+    performance_report_interval: int = 1
+    rebalance_interval: Optional[int] = 60
+    extra_inventory: Optional[float] = 0.01
+    min_amount_to_rebalance_usd: Decimal = Decimal("10")
+    asset_to_rebalance: str = "USDT"
 
 
 class GenericV2StrategyWithCashOut(StrategyV2Base):
@@ -44,8 +50,10 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         self.max_global_pnl = Decimal("0")
         self.drawdown_exited_controllers = []
         self.closed_executors_buffer: int = 30
-        self.performance_report_interval: int = 1
+        self.performance_report_interval: int = self.config.performance_report_interval
+        self.rebalance_interval: int = self.config.rebalance_interval
         self._last_performance_report_timestamp = 0
+        self._last_rebalance_check_timestamp = 0
         hb_app = HummingbotApplication.main_application()
         self.mqtt_enabled = hb_app._mqtt is not None
         self._pub: Optional[ETopicPublisher] = None
@@ -74,9 +82,69 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
     def on_tick(self):
         super().on_tick()
         self.performance_reports = {controller_id: self.executor_orchestrator.generate_performance_report(controller_id=controller_id).dict() for controller_id in self.controllers.keys()}
+        self.control_rebalance()
         self.control_cash_out()
         self.control_max_drawdown()
         self.send_performance_report()
+
+    def control_rebalance(self):
+        if self.rebalance_interval and self._last_rebalance_check_timestamp + self.rebalance_interval <= self.current_timestamp:
+            balance_required = {}
+            for controller_id, controller in self.controllers.items():
+                connector_name = controller.config.dict().get("connector_name")
+                if connector_name and "perpetual" in connector_name:
+                    continue
+                if connector_name not in balance_required:
+                    balance_required[connector_name] = {}
+                tokens_required = controller.get_balance_requirements()
+                for token, amount in tokens_required:
+                    if token not in balance_required[connector_name]:
+                        balance_required[connector_name][token] = amount
+                    else:
+                        balance_required[connector_name][token] += amount
+            for connector_name, balance_requirements in balance_required.items():
+                connector = self.connectors[connector_name]
+                for token, amount in balance_requirements.items():
+                    if token == self.config.asset_to_rebalance:
+                        continue
+                    balance = connector.get_balance(token)
+                    trading_pair = f"{token}-{self.config.asset_to_rebalance}"
+                    mid_price = connector.get_mid_price(trading_pair)
+                    trading_rule = connector.trading_rules[trading_pair]
+                    amount_with_safe_margin = amount * (1 + Decimal(self.config.extra_inventory))
+                    active_executors_for_pair = self.filter_executors(
+                        executors=self.get_all_executors(),
+                        filter_func=lambda x: x.is_active and x.trading_pair == trading_pair and x.connector_name == connector_name
+                    )
+                    unmatched_amount = sum([executor.filled_amount_quote for executor in active_executors_for_pair if executor.side == TradeType.SELL]) - sum([executor.filled_amount_quote for executor in active_executors_for_pair if executor.side == TradeType.BUY])
+                    balance += unmatched_amount
+                    base_balance_diff = balance - amount_with_safe_margin
+                    abs_balance_diff = abs(base_balance_diff)
+                    trading_rules_condition = abs_balance_diff > trading_rule.min_order_size and abs_balance_diff * mid_price > trading_rule.min_notional_size and abs_balance_diff * mid_price > self.config.min_amount_to_rebalance_usd
+                    order_type = OrderType.MARKET
+                    if base_balance_diff > 0:
+                        if trading_rules_condition:
+                            self.logger().info(f"Rebalance: Selling {amount_with_safe_margin} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount}")
+                            connector.sell(
+                                trading_pair=trading_pair,
+                                amount=abs_balance_diff,
+                                order_type=order_type,
+                                price=mid_price)
+                        else:
+                            self.logger().info("Skipping rebalance due a low amount to sell that may cause future imbalance")
+                    else:
+                        if not trading_rules_condition:
+                            amount = max([self.config.min_amount_to_rebalance_usd / mid_price, trading_rule.min_order_size, trading_rule.min_notional_size / mid_price])
+                            self.logger().info(f"Rebalance: Buying for a higher value to avoid future imbalance {amount} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount}")
+                        else:
+                            amount = abs_balance_diff
+                            self.logger().info(f"Rebalance: Buying {amount} {token} to {self.config.asset_to_rebalance}. Balance: {balance} | Executors unmatched balance {unmatched_amount}")
+                        connector.buy(
+                            trading_pair=trading_pair,
+                            amount=amount,
+                            order_type=order_type,
+                            price=mid_price)
+            self._last_rebalance_check_timestamp = self.current_timestamp
 
     def control_max_drawdown(self):
         if self.config.max_controller_drawdown:
