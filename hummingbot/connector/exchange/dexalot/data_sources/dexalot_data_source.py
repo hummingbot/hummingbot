@@ -1,6 +1,5 @@
 from asyncio import Lock
-from decimal import Decimal
-from typing import Dict, List
+from typing import List
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
