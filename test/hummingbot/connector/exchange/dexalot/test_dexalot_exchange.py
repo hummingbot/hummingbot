@@ -809,7 +809,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertEquals(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
             any(
-                log.msg.startswith(f"Failed to cancel orders")
+                log.msg.startswith("Failed to cancel orders")
                 for log in self.log_records
             )
         )
