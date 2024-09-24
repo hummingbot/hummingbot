@@ -7,6 +7,7 @@ from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandles
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.kraken_spot_candles import KrakenSpotCandles, constants as CONSTANTS
 
 
@@ -35,6 +36,8 @@ class TestKrakenSpotCandles(TestCandlesBase):
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
         self.resume_test_event = asyncio.Event()
+        self._time = int(time.time())
+        self._interval_in_seconds = 3600
 
     def _candles_data_mock(self):
         return [[1716127200, '66934.0', '66951.8', '66800.0', '66901.6', '28.50228560', 1906800.0564114398, 0, 0, 0],
@@ -48,7 +51,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
             "result": {
                 self.ex_trading_pair: [
                     [
-                        1716130800,
+                        self._time - self._interval_in_seconds * 3,
                         "66934.0",
                         "66951.8",
                         "66800.0",
@@ -58,7 +61,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
                         763
                     ],
                     [
-                        1716134400,
+                        self._time - self._interval_in_seconds * 2,
                         "66901.7",
                         "66989.3",
                         "66551.7",
@@ -68,7 +71,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
                         1022
                     ],
                     [
-                        1716138000,
+                        self._time - self._interval_in_seconds,
                         "66669.9",
                         "66797.5",
                         "66595.1",
@@ -78,7 +81,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
                         746
                     ],
                     [
-                        1716141600,
+                        self._time,
                         "66733.4",
                         "66757.4",
                         "66550.0",
@@ -98,22 +101,25 @@ class TestKrakenSpotCandles(TestCandlesBase):
         regex_url = re.compile(f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
+        start_time = self._time - self._interval_in_seconds * 100000
+        end_time = self._time
 
-        with self.assertRaises(ValueError, msg="Gate.io REST API does not support fetching more than 10000 candles ago."):
-            self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
-                                                                     end_time=self.end_time))
+        config = HistoricalCandlesConfig(start_time=start_time, end_time=end_time, interval=self.interval,
+                                         connector_name=self.data_feed.name, trading_pair=self.trading_pair)
+        with self.assertRaises(ValueError,
+                               msg="Kraken REST API does not support fetching more than 720 candles ago."):
+            self.async_run_with_timeout(self.data_feed.get_historical_candles(config))
 
     @aioresponses()
     def test_fetch_candles(self, mock_api):
         regex_url = re.compile(f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
-
-        self.start_time = int(time.time()) - (CONSTANTS.MAX_CANDLES_AGO - 1) * self.data_feed.interval_in_seconds
-        self.end_time = int(time.time())
-
+        self.start_time = self._time - self._interval_in_seconds * 3
+        self.end_time = self._time
         candles = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
-                                                                           end_time=self.end_time))
+                                                                           end_time=self.end_time,
+                                                                           limit=4))
         self.assertEqual(len(candles), len(data_mock["result"][self.ex_trading_pair]))
 
     def get_candles_ws_data_mock_1(self):
