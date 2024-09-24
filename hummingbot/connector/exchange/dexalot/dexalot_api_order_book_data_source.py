@@ -139,7 +139,7 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }, timestamp=timestamp)
         message_queue.put_nowait(order_book_message)
 
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Suppressing call to this function as the orderbook snapshots are handled by
         listen_for_order_book_diffs() for dexalot
