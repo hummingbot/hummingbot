@@ -26,7 +26,7 @@ Hummingbot will never collect and/or report sensitive information, such as priva
 
 ## How do I opt-in to or opt-out of data sharing?
 
-See https://docs.hummingbot.org/faq/#reporting for information on configuring this functionality.
+See https://docs.hummingbot.org/reporting for information on configuring this functionality.
 
 ## How this data is used
 
