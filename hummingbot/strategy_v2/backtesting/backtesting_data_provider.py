@@ -131,3 +131,27 @@ class BacktestingDataProvider(MarketDataProvider):
         :return: Price.
         """
         return self.prices.get(f"{connector_name}_{trading_pair}", Decimal("1"))
+
+    def quantize_order_amount(self, connector_name: str, trading_pair: str, amount: Decimal):
+        """
+        Quantizes the order amount based on the trading pair's minimum order size.
+        :param connector_name: str
+        :param trading_pair: str
+        :param amount: Decimal
+        :return: Quantized amount.
+        """
+        trading_rules = self.get_trading_rules(connector_name, trading_pair)
+        order_size_quantum = trading_rules.min_base_amount_increment
+        return (amount // order_size_quantum) * order_size_quantum
+
+    def quantize_order_price(self, connector_name: str, trading_pair: str, price: Decimal):
+        """
+        Quantizes the order price based on the trading pair's minimum price increment.
+        :param connector_name: str
+        :param trading_pair: str
+        :param price: Decimal
+        :return: Quantized price.
+        """
+        trading_rules = self.get_trading_rules(connector_name, trading_pair)
+        price_quantum = trading_rules.min_price_increment
+        return (price // price_quantum) * price_quantum
