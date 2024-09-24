@@ -89,7 +89,8 @@ class TestDexalotAPIUserStreamDataSource(unittest.TestCase):
 
         result_subscribe_orders = {
             'data': {
-                'version': 2, 'traderaddress': '0x335e5b9a72A3aBA693B68bDe44FeBA1252e54cFc', 'pair': 'AVAX/USDC',
+                'version': 2, 'traderaddress': '0x335e5b9a72A3aBA693B68bDe44FeBA1252e54cFc',  # noqa: mock
+                'pair': 'AVAX/USDC',
                 'orderId': '0x000000000000000000000000000000000000000000000000000000006bff4383',  # noqa: mock
                 'clientOrderId': '0xab79ca8d0140a5fd64c7e55aad74a329e8f04819486987a120e2c9a03b722556',  # noqa: mock
                 'price': '26.0',
@@ -98,9 +99,9 @@ class TestDexalotAPIUserStreamDataSource(unittest.TestCase):
                 'type2': 'GTC', 'type2Id': 0, 'status': 'NEW', 'statusId': 0, 'quantityfilled': '0.0',
                 'totalfee': '0.0',
                 'code': '', 'blockTimestamp': 1725903204,
-                'transactionHash': '0xbb86fc3ba6702b59febd14cebea8fdea89fded7058b2d226eb7b3c2e18507473',
+                'transactionHash': '0xbb86fc3ba6702b59febd14cebea8fdea89fded7058b2d226eb7b3c2e18507473',  # noqa: mock
                 'blockNumber': 23252530,
-                'blockHash': '0xb91986c528dc2dcf91d60072bc1f1694005ee0741c953de2ea3a5c908d5921bc'
+                'blockHash': '0xb91986c528dc2dcf91d60072bc1f1694005ee0741c953de2ea3a5c908d5921bc'  # noqa: mock
             },
             'type': 'orderStatusUpdateEvent'
         }
