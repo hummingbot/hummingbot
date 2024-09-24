@@ -316,7 +316,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             params=params,
         )
 
-        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"]}
+        last_traded_prices = {ticker["instId"].replace("-SWAP", ""): float(ticker["last"]) for ticker in resp_json["data"]}
         return last_traded_prices
 
     async def _update_balances(self):
