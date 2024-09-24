@@ -86,10 +86,6 @@ bitmart_memo = os.getenv("BITMART_MEMO")
 btc_markets_api_key = os.getenv("BTC_MARKETS_API_KEY")
 btc_markets_secret_key = os.getenv("BTC_MARKETS_SECRET_KEY")
 
-# HitBTC Tests
-hitbtc_api_key = os.getenv("HITBTC_API_KEY")
-hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
-
 # Gate.io Tests
 gate_io_api_key = os.getenv("GATE_IO_API_KEY")
 gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
