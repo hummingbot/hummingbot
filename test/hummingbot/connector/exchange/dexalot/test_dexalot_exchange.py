@@ -807,7 +807,6 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertEquals(0, len(self.order_cancelled_logger.event_log))
-        print("@@@@", self.log_records)
         self.assertTrue(
             any(
                 log.msg.startswith(f"Failed to cancel orders")
