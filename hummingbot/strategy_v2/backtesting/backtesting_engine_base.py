@@ -85,6 +85,7 @@ class BacktestingEngineBase:
         # Load historical candles
         controller_class = controller_config.get_controller_class()
         self.backtesting_data_provider.update_backtesting_time(start, end)
+        await self.backtesting_data_provider.initialize_trading_rules(controller_config.connector_name)
         self.controller = controller_class(config=controller_config, market_data_provider=self.backtesting_data_provider,
                                            actions_queue=None)
         self.backtesting_resolution = backtesting_resolution
@@ -104,7 +105,6 @@ class BacktestingEngineBase:
             trading_pair=self.controller.config.trading_pair,
             interval=self.backtesting_resolution
         )
-        await self.backtesting_data_provider.initialize_trading_rules(self.controller.config.connector_name)
         await self.controller.market_data_provider.initialize_candles_feed(backtesting_config)
         for config in self.controller.config.candles_config:
             await self.controller.market_data_provider.initialize_candles_feed(config)
@@ -251,7 +251,7 @@ class BacktestingEngineBase:
                 self.active_executor_simulations.remove(executor)
 
     @staticmethod
-    def summarize_results(executors_info: Dict, total_amount_quote: float = 1000):
+    def summarize_results(executors_info: List, total_amount_quote: float = 1000):
         if len(executors_info) > 0:
             executors_df = pd.DataFrame([ei.to_dict() for ei in executors_info])
             net_pnl_quote = executors_df["net_pnl_quote"].sum()
