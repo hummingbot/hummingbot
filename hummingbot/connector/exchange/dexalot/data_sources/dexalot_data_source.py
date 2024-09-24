@@ -93,4 +93,5 @@ class DexalotClient:
             signed_txn = self.async_w3.eth.account.sign_transaction(
                 transaction, private_key=self._private_key
             )
-            return await self.async_w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+            result = await self.async_w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+            return result.hex()
