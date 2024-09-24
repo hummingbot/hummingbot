@@ -124,11 +124,10 @@ class ExecutorBase(RunnableBase):
             custom_info=self.get_custom_info(),
             controller_id=self.config.controller_id,
         )
-        if self.close_type == CloseType.FAILED:
-            ei.filled_amount_quote = Decimal("0")
-            ei.net_pnl_quote = Decimal("0")
-            ei.cum_fees_quote = Decimal("0")
-            ei.net_pnl_pct = Decimal("0")
+        ei.filled_amount_quote = ei.filled_amount_quote if not ei.filled_amount_quote.is_nan() else Decimal("0")
+        ei.net_pnl_quote = ei.net_pnl_quote if not ei.net_pnl_quote.is_nan() else Decimal("0")
+        ei.cum_fees_quote = ei.cum_fees_quote if not ei.cum_fees_quote.is_nan() else Decimal("0")
+        ei.net_pnl_pct = ei.net_pnl_pct if not ei.net_pnl_pct.is_nan() else Decimal("0")
         return ei
 
     def get_custom_info(self) -> Dict:
