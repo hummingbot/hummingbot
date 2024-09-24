@@ -10,8 +10,8 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-NIS"
 
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.001"),
-    taker_percent_fee_decimal=Decimal("0.001"),
+    maker_percent_fee_decimal=Decimal("0.025"),
+    taker_percent_fee_decimal=Decimal("0.025"),
     buy_percent_fee_deducted_from_returns=True
 )
 

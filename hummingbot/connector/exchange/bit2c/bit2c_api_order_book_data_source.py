@@ -45,7 +45,7 @@ class Bit2cAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+        symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
@@ -74,10 +74,12 @@ class Bit2cAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 for trading_pair in self._trading_pairs:
-                    snapshot_msg: OrderBookMessage = await self._order_book_snapshot(trading_pair)
-                    self._order_book_tracker.add_snapshot(snapshot_msg)
-                    self._message_queue[self._snapshot_messages_queue_key].put_nowait(snapshot_msg)
-                await self._sleep(0.5)
+                    snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+                    snapshot_timestamp: float = time.time()
+                    snapshot['trading_pair'] = trading_pair
+                    snapshot['timestamp'] = snapshot_timestamp
+                    self._message_queue[self._snapshot_messages_queue_key].put_nowait(snapshot)
+                await self._sleep(0.2)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -85,3 +87,13 @@ class Bit2cAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "Unexpected error occurred while fetching order book snapshots. Retrying in a second..."
                 )
                 await self._sleep(1.0)
+
+    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        snapshot_timestamp: float = raw_message['timestamp']
+        trading_pair: str = raw_message['trading_pair']
+        order_book_message: OrderBookMessage = Bit2cOrderBook.snapshot_message_from_exchange(
+            raw_message,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair}
+        )
+        message_queue.put_nowait(order_book_message)

@@ -1,3 +1,4 @@
+import asyncio
 import math
 import time
 from decimal import Decimal
@@ -27,6 +28,8 @@ if TYPE_CHECKING:
 
 class Bit2cExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    SHORT_POLL_INTERVAL = 1.0
+    LONG_POLL_INTERVAL = 1.0
 
     web_utils = web_utils
 
@@ -44,6 +47,10 @@ class Bit2cExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_bit2c_timestamp = 1.0
+        self._last_order_time = 0  # Initialize last order time
+        self._order_wait_time = 0.75  # Set this after rigorous testing and finetuning on bit2c exchange
+        self._last_balance_time = 0  # Initialize last balance time
+        self._balance_wait_time = 0.75  # Set this after rigorous testing and finetuning on bit2c exchange
         super().__init__(client_config_map)
 
     @staticmethod
@@ -99,7 +106,7 @@ class Bit2cExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return False
+        return True
 
     @property
     def is_trading_required(self) -> bool:
@@ -163,13 +170,17 @@ class Bit2cExchange(ExchangePyBase):
                            order_type: OrderType,
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
-        order_result = None
+        # Ensure that sufficient time has passed since the last order
+        time_since_last_order = time.time() - self._last_order_time
+        if time_since_last_order < self._order_wait_time:
+            await asyncio.sleep(self._order_wait_time - time_since_last_order)
+
         amount_str = f"{amount:f}"
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"Pair": symbol}
         if order_type is OrderType.LIMIT:
             price_str = f"{price:f}"
-            api_params["price"] = price_str
+            api_params["Price"] = price_str
             api_params["Amount"] = amount_str
             isBid = True if trade_type is TradeType.BUY else False
             api_params["isBid"] = isBid
@@ -193,12 +204,17 @@ class Bit2cExchange(ExchangePyBase):
             data=api_params,
             is_auth_required=True)
 
+        # Update the last order time
+        self._last_order_time = time.time()
+
         if order_result.get("OrderResponse", {}).get("HasError", False):
-            error_message = order_result["OrderResponse"].get("Error", "Unknown error")
+            error_message = order_result["OrderResponse"].get("Error", "Unknown error") if order_result.get("OrderResponse").get("Error") else order_result["OrderResponse"].get("Message", "Unknown error")
             raise Exception(f"Error placing order on Bit2c: {error_message}")
+        if order_result.get("error") is not None:
+            raise Exception(f"Error placing order on Bit2c: {order_result.get('error')}")
 
         o_id = str(order_result.get("NewOrder", {}).get("id"))
-        transact_time = self._time()
+        transact_time = time.time()
 
         return o_id, transact_time
 
@@ -207,15 +223,20 @@ class Bit2cExchange(ExchangePyBase):
         api_params = {
             "id": int(exchange_order_id),
         }
-        cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            params=api_params,
+        cancel_result = await self._api_post(
+            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+            data=api_params,
             is_auth_required=True)
 
+        error_message = None
         if cancel_result.get("OrderResponse", {}).get("HasError", False):
-            error_message = cancel_result["OrderResponse"].get("Error", "Unknown error")
-            self.logger().error(f"Error cancelling order on Bit2c: {error_message}")
-            return False
+            error_message = cancel_result["OrderResponse"].get("Error", "Unknown error") if cancel_result.get("OrderResponse").get("Error") else cancel_result["OrderResponse"].get("Message", "Unknown error")
+
+        if cancel_result.get("error") is not None:
+            error_message = cancel_result.get("error")
+
+        if error_message is not None:
+            raise Exception(f"Error cancelling order on Bit2c: {error_message}")
 
         return True
 
@@ -280,16 +301,22 @@ class Bit2cExchange(ExchangePyBase):
                     "id": exchange_order_id
                 },
                 is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+                limit_id=CONSTANTS.GET_TRADES_PATH_URL)
 
             for trade in all_fills_response:
                 # Bit2c API returns the action as 0 for buy and 1 for sell, we are only concerned with buy and sell
-                if int(trade.get("action")) not in [0, 1]:
+                action = int(trade.get("action"))
+                if action not in [0, 1]:
+                    continue
+
+                # Skip the trade if the action does not match the order's trade type
+                if (action == 0 and order.trade_type is TradeType.SELL) or \
+                        (action == 1 and order.trade_type is TradeType.BUY):
                     continue
                 exchange_order_id = str(exchange_order_id)
 
                 # Bit2c API returns the fee coin as "₪" for NIS
-                if trade.get("feeCoin") == "₪":
+                if trade.get("feeCoin") == "₪":     # \u20aa is the unicode for "₪", symbol for NIS
                     trade["feeCoin"] = "NIS"
 
                 fee = TradeFeeBase.new_spot_fee(
@@ -299,7 +326,7 @@ class Bit2cExchange(ExchangePyBase):
                     flat_fees=[TokenAmount(amount=Decimal(trade["feeAmount"]), token=trade["feeCoin"])]
                 )
                 trade_update = TradeUpdate(
-                    trade_id=str(trade["reference"]),
+                    trade_id=f'{exchange_order_id}-{trade["reference"]}-{trade["ticks"]}-{trade["secondAmount"]}',
                     client_order_id=order.client_order_id,
                     exchange_order_id=exchange_order_id,
                     trading_pair=order.trading_pair,
@@ -323,7 +350,7 @@ class Bit2cExchange(ExchangePyBase):
 
         status = int(updated_order_data["status_type"])
 
-        new_state = OrderState.NEW
+        new_state = OrderState.PENDING_CREATE
         if status == 1:
             if math.isclose(Decimal(str(updated_order_data["amount"])), Decimal(str(updated_order_data["initialAmount"]))):
                 new_state = OrderState.OPEN
@@ -346,11 +373,14 @@ class Bit2cExchange(ExchangePyBase):
         return order_update
 
     async def _update_balances(self):
-        self.logger().info("Updating balances")
+        # Ensure that sufficient time has passed since the last order
+        time_since_last_balance = time.time() - self._last_balance_time
+        if time_since_last_balance < self._balance_wait_time:
+            await asyncio.sleep(self._balance_wait_time - time_since_last_balance)
+
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        self.logger().info("Getting account info")
         account_info = await self._api_get(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             is_auth_required=True)
@@ -368,7 +398,6 @@ class Bit2cExchange(ExchangePyBase):
         # traverse the dict, separate based on the key having "AVAILABLE_" prefix
         total_balances = {}
         available_balances = {}
-        self.logger().info(f"account_info: {account_info}")
         for key, value in account_info.items():
             if key.startswith("AVAILABLE_"):
                 asset_name = key.replace("AVAILABLE_", "")
@@ -411,3 +440,61 @@ class Bit2cExchange(ExchangePyBase):
 
     async def _make_trading_pairs_request(self) -> Any:
         return CONSTANTS.EXCHANGE_INFO
+
+    async def _api_request(
+            self,
+            path_url,
+            overwrite_url: Optional[str] = None,
+            method: RESTMethod = RESTMethod.GET,
+            params: Optional[Dict[str, Any]] = None,
+            data: Optional[Dict[str, Any]] = None,
+            is_auth_required: bool = False,
+            return_err: bool = False,
+            limit_id: Optional[str] = None,
+            headers: Optional[Dict[str, Any]] = None,
+            **kwargs,
+    ) -> Dict[str, Any]:
+
+        last_exception = None
+        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+
+        url = overwrite_url or await self._api_request_url(path_url=path_url, is_auth_required=is_auth_required)
+
+        for _ in range(2):
+            try:
+                request_result = await rest_assistant.execute_request(
+                    url=url,
+                    params=params,
+                    data=data,
+                    method=method,
+                    is_auth_required=is_auth_required,
+                    return_err=return_err,
+                    throttler_limit_id=limit_id if limit_id else path_url,
+                    headers=headers,
+                )
+
+                if "error" in request_result and "is not bigger than last nonce" in request_result["error"]:
+                    request_result = await self._api_request(
+                        path_url,
+                        overwrite_url=overwrite_url,
+                        method=method,
+                        params=params,
+                        data=data,
+                        is_auth_required=is_auth_required,
+                        return_err=return_err,
+                        limit_id=limit_id,
+                        headers=headers,
+                    )
+                    return request_result
+
+                return request_result
+            except IOError as request_exception:
+                last_exception = request_exception
+                if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
+                    self._time_synchronizer.clear_time_offset_ms_samples()
+                    await self._update_time_synchronizer()
+                else:
+                    raise
+
+        # Failed even after the last retry
+        raise last_exception

@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import time
 from collections import OrderedDict
 from typing import Any, Dict
 from urllib.parse import urlencode
@@ -26,14 +27,14 @@ class Bit2cAuth(AuthBase):
         if request.headers is not None:
             headers.update(request.headers)
 
-        nonce = int(self.time_provider.time() * 1e3)
+        nonce = int(time.time_ns() * 1e-3)
         auth_headers = {}
         if request.method == RESTMethod.POST:
             params = json.loads(request.data)
             params = params if params is not None else {}
             params["nonce"] = nonce
             auth_headers = self.add_auth_to_headers(params=params)
-            request.data = json.dumps(params)
+            request.data = params
         else:
             params = request.params
             params = params if params is not None else {}
