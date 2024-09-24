@@ -90,12 +90,6 @@ coinbase_advanced_trade_maker_percent_fee:
 coinbase_advanced_trade_percent_fee_token:
 coinbase_advanced_trade_taker_fixed_fees:
 coinbase_advanced_trade_taker_percent_fee:
-dydx_perpetual_buy_percent_fee_deducted_from_returns:
-dydx_perpetual_maker_fixed_fees:
-dydx_perpetual_maker_percent_fee:
-dydx_perpetual_percent_fee_token:
-dydx_perpetual_taker_fixed_fees:
-dydx_perpetual_taker_percent_fee:
 gate_io_buy_percent_fee_deducted_from_returns:
 gate_io_maker_fixed_fees:
 gate_io_maker_percent_fee:
@@ -103,11 +97,6 @@ gate_io_percent_fee_token:
 gate_io_taker_fixed_fees:
 gate_io_taker_percent_fee:
 hitbtc_buy_percent_fee_deducted_from_returns:
-hitbtc_maker_fixed_fees:
-hitbtc_maker_percent_fee:
-hitbtc_percent_fee_token:
-hitbtc_taker_fixed_fees:
-hitbtc_taker_percent_fee:
 htx_buy_percent_fee_deducted_from_returns:
 htx_maker_fixed_fees:
 htx_maker_percent_fee:

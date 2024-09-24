@@ -64,6 +64,14 @@ class MexcSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -74,13 +82,17 @@ class MexcSpotCandles(CandlesBase):
 
         startTime and endTime must be used at the same time.
         """
+        now = self._round_timestamp_to_interval_multiple(self._time())
+        max_duration = 500
+        if (now - start_time) / self.interval_in_seconds >= max_duration:
+            raise ValueError(
+                f"{self.interval} candles are only available for the last {max_duration} bars from now.")
+
         params = {
             "symbol": self._ex_trading_pair,
             "interval": CONSTANTS.INTERVALS[self.interval],
             "limit": limit
         }
-        if start_time:
-            params["startTime"] = start_time * 1000
         if end_time:
             params["endTime"] = end_time * 1000
         return params
@@ -92,7 +104,8 @@ class MexcSpotCandles(CandlesBase):
         return [
             [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], row[7],
              0., 0., 0.]
-            for row in data if self.ensure_timestamp_in_seconds(row[0]) < end_time]
+            for row in data
+        ]
 
     def ws_subscription_payload(self):
         trading_pair = self.get_exchange_trading_pair(self._trading_pair)
