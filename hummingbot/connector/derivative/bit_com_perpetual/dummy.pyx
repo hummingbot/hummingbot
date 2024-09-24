@@ -1,2 +1,0 @@
-cdef class dummy():
-    pass
