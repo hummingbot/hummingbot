@@ -129,7 +129,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         :return a list of OrderType supported by this connector
         """
         # TODO: Check if it's market or limit_maker
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
