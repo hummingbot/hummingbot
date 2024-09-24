@@ -246,6 +246,7 @@ class DexalotExchange(ExchangePyBase):
             new_state=OrderState.FAILED,
         )
         self._order_tracker.process_order_update(order_update)
+        return order_update
 
     def batch_order_cancel(self, orders_to_cancel: List[LimitOrder]):
         """
@@ -663,8 +664,17 @@ class DexalotExchange(ExchangePyBase):
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder, exchange_order_id=None) -> OrderUpdate:
-        if not exchange_order_id:
-            exchange_order_id = await tracked_order.get_exchange_order_id()
+        try:
+            if not exchange_order_id:
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+        except TimeoutError:
+            self.logger().warning(
+                f"Error fetching status update for the lost order {tracked_order.client_order_id}: TimeoutError.")
+            order_update = self._update_order_after_creation_failure(
+                tracked_order.client_order_id,
+                tracked_order.trading_pair
+            )
+            return order_update
         if not tracked_order:
             all_fillable_orders_by_exchange_order_id = {
                 order.exchange_order_id: order for order in self._order_tracker.all_fillable_orders.values()
