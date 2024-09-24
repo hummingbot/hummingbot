@@ -179,6 +179,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         else:
             current_global_drawdown = self.max_global_pnl - current_global_pnl
             if current_global_drawdown > self.config.max_global_drawdown:
+                self.drawdown_exited_controllers.extend(list(self.controllers.keys()))
                 self.logger().info("Global drawdown reached. Stopping the strategy.")
                 HummingbotApplication.main_application().stop()
 
