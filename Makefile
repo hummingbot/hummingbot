@@ -13,7 +13,6 @@ test:
 	coverage run -m nose \
  	--exclude-dir="test/mock" \
  	--exclude-dir="test/hummingbot/connector/gateway/amm" \
- 	--exclude-dir="test/hummingbot/connector/exchange/hitbtc" \
  	--exclude-dir="test/hummingbot/connector/exchange/coinbase_advance_trade" \
  	--exclude-dir="test/hummingbot/connector/exchange/ndax" \
  	--exclude-dir="test/hummingbot/connector/exchange/foxbit" \
