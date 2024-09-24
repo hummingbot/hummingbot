@@ -65,6 +65,14 @@ class AscendExSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "/")
 
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return True
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return True
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -77,18 +85,14 @@ class AscendExSpotCandles(CandlesBase):
             "symbol": self._ex_trading_pair,
             "interval": CONSTANTS.INTERVALS[self.interval],
             "n": limit,
+            "to": end_time * 1000
         }
-        if start_time:
-            params["from"] = start_time * 1000
-            params["to"] = (start_time + self.interval_in_seconds * limit) * 1000
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         new_hb_candles = []
         for i in data["data"]:
             timestamp = self.ensure_timestamp_in_seconds(i["data"]["ts"])
-            if timestamp >= end_time:
-                continue
             open = i["data"]["o"]
             high = i["data"]["h"]
             low = i["data"]["l"]
