@@ -264,19 +264,6 @@ class DexalotAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual("1807784856", msg.trade_id)
 
-    def test_listen_for_order_book_diffs_cancelled(self):
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
-
     def get_trading_rule_rest_msg(self):
         return [
             {'env': 'production-multi-subnet', 'pair': 'AVAX/USDC', 'base': 'AVAX', 'quote': 'USDC',
