@@ -1,4 +1,5 @@
 import asyncio
+import math
 import time
 from datetime import datetime
 from decimal import Decimal
@@ -31,7 +32,6 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._api_factory = api_factory
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
-    # todo 这个还没做
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
@@ -50,12 +50,13 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._connector._update_trading_rules()
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                show_decimal = self._connector.trading_rules[trading_pair].min_price_increment
+                min_price_increment = self._connector.trading_rules[trading_pair].min_price_increment
+                show_decimal = int(-math.log10(min_price_increment))
                 payload = {
                     "data": symbol,
                     "pair": symbol,
                     "type": "subscribe",
-                    "decimal": int(show_decimal)
+                    "decimal": show_decimal
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
                 await ws.send(subscribe_orderbook_request)
@@ -78,7 +79,7 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         # snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        snapshot_timestamp: float = time.time()
+        snapshot_timestamp: float = self._time()
         # snapshot_msg: OrderBookMessage = DexalotOrderBook.snapshot_message_from_exchange(
         #     snapshot,
         #     snapshot_timestamp,
@@ -98,7 +99,7 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["pair"])
-        for trade_data in raw_message['data']:
+        for trade_data in raw_message["data"]:
             timestamp = int(datetime.strptime(trade_data['ts'], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp())
             trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
                 "trading_pair": trading_pair,
@@ -123,9 +124,11 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
         row_asks = [[price, amount] for price, amount in
                     zip(data["sellBook"][0]["prices"].split(','), data["sellBook"][0]["quantities"].split(','))]
 
-        bids = [list(self._connector._format_evmamount_to_amount(trading_pair, Decimal(evm_price), Decimal(evm_amount))) for
+        bids = [list(self._connector._format_evmamount_to_amount(trading_pair, Decimal(evm_price), Decimal(evm_amount)))
+                for
                 evm_price, evm_amount in row_bids]
-        asks = [list(self._connector._format_evmamount_to_amount(trading_pair, Decimal(evm_price), Decimal(evm_amount))) for
+        asks = [list(self._connector._format_evmamount_to_amount(trading_pair, Decimal(evm_price), Decimal(evm_amount)))
+                for
                 evm_price, evm_amount in row_asks]
 
         order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -136,8 +139,11 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }, timestamp=timestamp)
         message_queue.put_nowait(order_book_message)
 
-    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # Dexalot never sends diff messages. This method will never be called
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """
+        Suppressing call to this function as the orderbook snapshots are handled by
+        listen_for_order_book_diffs() for dexalot
+        """
         pass
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
@@ -148,3 +154,6 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
         elif stream_name == "lastTrade":
             channel = self._trade_messages_queue_key
         return channel
+
+    def _time(self):
+        return time.time()
