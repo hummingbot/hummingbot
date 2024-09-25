@@ -66,6 +66,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             raw_message,
             self._connector.exchange_symbol_associated_to_pair)
+        self.logger().debug(f"Received level2_and_trade_message from Coinbase Advanced Trade: {raw_message}")
         await message_queue.put(order_book_message)
 
     async def get_last_traded_prices(self,
@@ -183,6 +184,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
+            self.logger().debug(f"Received message from Coinbase Advanced Trade: {data}")
 
             if data and "type" in data and data["type"] == 'error':
                 self.logger().error(f"Error received from websocket: {ws_response}")

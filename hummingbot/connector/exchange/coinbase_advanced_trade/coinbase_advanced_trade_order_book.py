@@ -70,7 +70,6 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             cls.logger().error(f"Unexpected message from Coinbase Advanced Trade: {msg}"
                                " - missing 'events' or 'channel' key")
             return None
-
         channel = msg["channel"]
 
         if channel not in cls._sequence_nums:
@@ -80,9 +79,11 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         cls._sequence_nums[channel] = msg["sequence_num"] + 1
 
         if channel == "l2_data":
+            cls.logger().debug(f"Received level2 from Coinbase Advanced Trade: {msg}")
             return await cls._level2_order_book_message(msg, symbol_to_pair)
 
         elif channel == "market_trades":
+            cls.logger().debug(f"Received trade_message from Coinbase Advanced Trade: {msg}")
             return await cls._market_trades_order_book_message(msg, symbol_to_pair)
 
         elif channel in ["subscriptions", "heartbeat"]:
@@ -105,6 +106,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
         """
+        cls.logger().debug(f"Events Received trade_message from _level2_order_book_message: {msg}")
         for event in msg["events"]:
             trading_pair = await symbol_to_pair(event["product_id"])
             obm_content = {"trading_pair": trading_pair,
@@ -143,6 +145,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a trade message with the trade information received from the exchange
         """
+        cls.logger().debug(f"Events Received trade_message from _market_trades_order_book_message: {msg}")
         for event in msg["events"]:
             for trade in event["trades"]:
                 ts: float = get_timestamp_from_exchange_time(msg["timestamp"], "s")
