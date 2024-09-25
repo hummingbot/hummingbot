@@ -131,7 +131,7 @@ ORDER_STATE = {
     "CANCELLED": OrderState.CANCELED,
     "EXPIRED": OrderState.FAILED,
     "FAILED": OrderState.FAILED,
-    "CANCEL_QUEUED": OrderState.CANCELED,
+    "CANCEL_QUEUED": OrderState.PENDING_CANCEL,
     # Not directly from exchange
     "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
 }
