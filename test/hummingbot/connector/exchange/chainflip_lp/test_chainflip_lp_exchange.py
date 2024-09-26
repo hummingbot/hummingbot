@@ -1,5 +1,6 @@
 import asyncio
 from functools import partial
+from test.hummingbot.connector.exchange.chainflip_lp.mock_rpc_executor import MockRPCExecutor
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from unittest.mock import AsyncMock
 
@@ -21,8 +22,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent
 from hummingbot.core.network_iterator import NetworkStatus
-
-from .mock_rpc_executor import MockRPCExecutor
 
 
 class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
