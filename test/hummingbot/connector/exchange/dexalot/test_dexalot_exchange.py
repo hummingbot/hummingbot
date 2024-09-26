@@ -76,6 +76,11 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL, domain=self.exchange._domain)
         return url
 
+    @property
+    def orders_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.ORDERS_PATH_URL, domain=self.exchange._domain)
+        return url
+
     @staticmethod
     def _callback_wrapper_with_response(callback: Callable, response: Any, *args, **kwargs):
         callback(args, kwargs)
@@ -180,6 +185,10 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
              'fee': '0', 'currentbal': '2000'}]
 
     @property
+    def orders_request_mock_response_for_base_and_quote(self):
+        return {"rows": []}
+
+    @property
     def balance_request_mock_response_only_base(self):
         return [
             {'traderaddress': '0x335e5b9a72a3aba693b68bde44feba1252e54cfc',  # noqa: mock
@@ -253,6 +262,15 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     def expected_fill_trade_id(self) -> int:
         return 1809034423
 
+    def _expected_initial_status_dict(self) -> Dict[str, bool]:
+        return {
+            "symbols_mapping_initialized": False,
+            "order_books_initialized": False,
+            "account_balance": True,
+            "trading_rule_initialized": False,
+            "user_stream_initialized": False,
+        }
+
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return f"{base_token}/{quote_token}"
 
@@ -272,6 +290,8 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "base_evmdecimals": Decimal(6),
             "quote_evmdecimals": Decimal(18),
         }
+        exchange._account_balances[self.base_asset] = exchange._account_available_balances[self.base_asset] = 10
+        exchange._account_balances[self.quote_asset] = exchange._account_available_balances[self.quote_asset] = 10
         return exchange
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
@@ -538,6 +558,11 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         response = self.balance_request_mock_response_for_base_and_quote
         self._configure_balance_response(response=response, mock_api=mock_api)
 
+        url = self.orders_url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.orders_request_mock_response_for_base_and_quote
+        mock_api.get(regex_url, body=json.dumps(resp))
+
         self.async_run_with_timeout(self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances
@@ -549,6 +574,11 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
 
         response = self.balance_request_mock_response_only_base
+
+        url = self.orders_url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.orders_request_mock_response_for_base_and_quote
+        mock_api.get(regex_url, body=json.dumps(resp))
 
         self._configure_balance_response(response=response, mock_api=mock_api)
         self.async_run_with_timeout(self.exchange._update_balances())
