@@ -20,6 +20,7 @@ PING_PATH_URL = "/trading/environments"
 ACCOUNTS_PATH_URL = "/signed/portfoliobalance"
 MY_TRADES_PATH_URL = "/signed/executions"
 ORDER_PATH_URL = "/signed/orders/{}"
+ORDERS_PATH_URL = "/signed/orders"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 

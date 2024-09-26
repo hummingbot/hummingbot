@@ -65,7 +65,6 @@ class DexalotExchange(ExchangePyBase):
         self._tx_client: DexalotClient = self._create_tx_client()
 
         super().__init__(client_config_map)
-        self._real_time_balance_update = False
 
     @staticmethod
     def dexalot_order_type(order_type: OrderType) -> str:
@@ -518,7 +517,7 @@ class DexalotExchange(ExchangePyBase):
             try:
                 channel: str = event_message.get("type", None)
                 if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
-                    await self._process_trade_message(event_message)
+                    safe_ensure_future(self._process_trade_message(event_message))
                 elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
                     self._process_order_message(event_message)
 
@@ -592,7 +591,7 @@ class DexalotExchange(ExchangePyBase):
                 self.logger().debug(f"Received untracked order with exchange order id of {exchange_order_id}")
                 return
             client_order_id = order_update.client_order_id
-            tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+            tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
         else:
             tracked_order = _cli_tracked_orders[0]
 
@@ -606,6 +605,7 @@ class DexalotExchange(ExchangePyBase):
 
     def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
         client_order_id = str(order_status.get("clientOrderId", ""))
+        order.update_exchange_order_id(order_status["orderId"])
         order_update = OrderUpdate(
             trading_pair=order.trading_pair,
             update_timestamp=int(order_status["blockTimestamp"]),
@@ -619,12 +619,49 @@ class DexalotExchange(ExchangePyBase):
         order_msg = raw_msg.get("data", {})
         client_order_id = str(order_msg.get("clientOrderId", ""))
         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+        self._calculate_available_balance_from_orders(order_msg)
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
 
         order_update = self._create_order_update_with_order_status_data(order_status=order_msg, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
+
+    def _calculate_available_balance_from_orders(self, order_msg: Dict):
+        if order_msg.get("pair"):
+            base_coin = order_msg["pair"].split("/")[0]
+            quote_coin = order_msg["pair"].split("/")[1]
+            if order_msg["status"] in ["NEW", 0]:
+                if order_msg["side"] == "BUY" or order_msg["side"] == 0:
+                    quote_collateral_value = Decimal(order_msg.get("price")) * Decimal(order_msg.get("quantity"))
+                    self._account_available_balances[quote_coin] -= quote_collateral_value
+                else:
+                    base_collateral_value = Decimal(order_msg["quantity"])
+                    self._account_available_balances[base_coin] -= base_collateral_value
+            if order_msg["status"] in ["FILLED", "PARTIAL", 3, 2]:
+                if order_msg["side"] == "BUY" or order_msg["side"] == 0:
+                    base_collateral_value = Decimal(order_msg["quantityfilled"])
+                    self._account_available_balances[quote_coin] += base_collateral_value
+                else:
+                    quote_collateral_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
+                    self._account_available_balances[quote_coin] += quote_collateral_value
+            if order_msg["status"] in ["CANCELED", 4]:
+                if order_msg["side"] == "BUY" or order_msg["side"] == 0:
+                    quote_collateral_value = Decimal(order_msg.get("price")) * Decimal(order_msg.get("quantity"))
+                    quote_filled_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
+                    self._account_available_balances[quote_coin] += quote_collateral_value
+                    self._account_available_balances[quote_coin] -= quote_filled_value
+
+                    base_collateral_value = Decimal(order_msg["quantityfilled"])
+                    self._account_available_balances[quote_coin] += base_collateral_value
+                else:
+                    base_collateral_value = Decimal(order_msg["quantity"])
+                    base_filled_value = Decimal(order_msg["quantityfilled"])
+                    self._account_available_balances[base_coin] += base_collateral_value
+                    self._account_available_balances[base_coin] -= base_filled_value
+
+                    quote_collateral_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
+                    self._account_available_balances[quote_coin] += quote_collateral_value
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
@@ -686,11 +723,14 @@ class DexalotExchange(ExchangePyBase):
             params={},
             is_auth_required=True,
             limit_id=CONSTANTS.IP_REQUEST_WEIGHT)
+        client_order_id = updated_order_data.get("clientOrderId")
+        tracked_order = self._order_tracker.all_fillable_orders.get(
+            client_order_id) if not tracked_order else tracked_order
 
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
 
         order_update = OrderUpdate(
-            client_order_id=tracked_order.client_order_id,
+            client_order_id=client_order_id or tracked_order.client_order_id,
             exchange_order_id=str(exchange_order_id),
             trading_pair=tracked_order.trading_pair,
             update_timestamp=dp.parse(updated_order_data["timestamp"]).timestamp(),
@@ -706,16 +746,20 @@ class DexalotExchange(ExchangePyBase):
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             is_auth_required=True,
             limit_id=CONSTANTS.IP_REQUEST_WEIGHT)
+        open_orders = await self._api_get(
+            path_url=CONSTANTS.ORDERS_PATH_URL,
+            is_auth_required=True,
+            limit_id=CONSTANTS.IP_REQUEST_WEIGHT
+        )
 
         balances = account_info
         for balance_entry in balances:
             asset_name = balance_entry["symbol"]
-            # If _account_available_balances exists, use existing value, otherwise use total_balance
-            self._account_available_balances[asset_name] = self._account_available_balances.get(
-                asset_name, Decimal(balance_entry["currentbal"])
-            )
             self._account_balances[asset_name] = Decimal(balance_entry["currentbal"])
+            self._account_available_balances[asset_name] = Decimal(balance_entry["currentbal"])
             remote_asset_names.add(asset_name)
+        for order_msg in open_orders["rows"]:
+            self._calculate_available_balance_from_orders(order_msg)
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
