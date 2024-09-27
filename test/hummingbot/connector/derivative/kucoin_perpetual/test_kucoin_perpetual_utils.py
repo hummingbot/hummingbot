@@ -58,7 +58,6 @@ class TradingPairUtilsTest(unittest.TestCase):
                 "Binance",
                 "Kucoin",
                 "Poloniex",
-                "Hitbtc"
             ],
             "premiumsSymbol1M": ".XBTUSDTMPI",
             "premiumsSymbol8H": ".XBTUSDTMPI8H",
