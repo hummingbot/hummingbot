@@ -2,8 +2,6 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
-import numpy as np
-
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
@@ -74,36 +72,31 @@ class HyperliquidSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
-    async def fetch_candles(self, start_time: Optional[int] = None, end_time: Optional[int] = None,
-                            limit: Optional[int] = None) -> List[List[float]]:
-        if start_time is None and end_time is None:
-            raise ValueError("Either the start time or end time must be specified.")
-
-        if limit is None:
-            limit = self.candles_max_result_per_rest_request - 1
-        candles_to_fetch = min(self.candles_max_result_per_rest_request - 1, limit)
-
-        reqs = {
-            "interval": CONSTANTS.INTERVALS[self.interval],
-            "coin": self._coins_dict[self._base_asset],
-        }
-        if start_time:
-            reqs["startTime"] = start_time * 1000
-        else:
-            reqs["startTime"] = (end_time - candles_to_fetch * self.interval_in_seconds) * 1000
-        payload = {
+    def _rest_payload(self, **kwargs) -> Optional[dict]:
+        return {
             "type": "candleSnapshot",
-            "req": reqs
+            "req": {
+                "interval": CONSTANTS.INTERVALS[self.interval],
+                "coin": self._coins_dict[self._base_asset],
+                "startTime": kwargs.get("start_time", kwargs.get("end_time", 0)) * 1000,
+            }
         }
-        headers = self._get_rest_candles_headers()
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        candles = await rest_assistant.execute_request(url=self.candles_url,
-                                                       throttler_limit_id=self.rest_url,
-                                                       data=payload,
-                                                       headers=headers,
-                                                       method=RESTMethod.POST)
-        arr = self._parse_rest_candles(candles, end_time)
-        return np.array(arr).astype(float)
+
+    @property
+    def _rest_throttler_limit_id(self):
+        return self.rest_url
+
+    @property
+    def _rest_method(self):
+        return RESTMethod.POST
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
 
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
@@ -118,7 +111,7 @@ class HyperliquidSpotCandles(CandlesBase):
         if len(data) > 0:
             return [
                 [self.ensure_timestamp_in_seconds(row["t"]), row["o"], row["h"], row["l"], row["c"], row["v"], 0.,
-                 row["n"], 0., 0.] for row in data if self.ensure_timestamp_in_seconds(row["t"]) < end_time
+                 row["n"], 0., 0.] for row in data
             ]
 
     def ws_subscription_payload(self):
