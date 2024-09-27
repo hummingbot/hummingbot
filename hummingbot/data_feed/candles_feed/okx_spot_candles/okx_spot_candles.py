@@ -64,6 +64,14 @@ class OKXSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair
 
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return True
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return True
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -74,7 +82,10 @@ class OKXSpotCandles(CandlesBase):
 
         This endpoint allows you to return up to 3600 candles ago.
         """
-        params = {"instId": self._ex_trading_pair, "bar": CONSTANTS.INTERVALS[self.interval]}
+        params = {
+            "instId": self._ex_trading_pair,
+            "bar": CONSTANTS.INTERVALS[self.interval]
+        }
         if start_time:
             params["before"] = start_time * 1000
         params["after"] = end_time * 1000

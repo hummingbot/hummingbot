@@ -1,5 +1,4 @@
 import logging
-import time
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -23,7 +22,7 @@ class KucoinPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1min", max_records: int = 150):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         self.symbols_dict = {}
         self.hb_base_asset = trading_pair.split("-")[0]
         self.quote_asset = trading_pair.split("-")[1]
@@ -98,6 +97,14 @@ class KucoinPerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return f"{self.kucoin_base_asset}-{self.quote_asset}"
 
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -106,17 +113,34 @@ class KucoinPerpetualCandles(CandlesBase):
         For API documentation, please refer to:
         https://www.kucoin.com/docs/rest/futures-trading/market-data/get-klines
         """
+        granularity = CONSTANTS.GRANULARITIES[self.interval]
+        now = self._round_timestamp_to_interval_multiple(self._time())
+        granularity_limits = {
+            1: 24,  # 1 minute granularity, 24 hours
+            5: 10 * 24,  # 5 minutes granularity, 10 days
+            15: 30 * 24,  # 15 minutes granularity, 30 days
+            30: 60 * 24,  # 30 minutes granularity, 60 days
+            60: 120 * 24,  # 1 hour granularity, 120 days
+            120: 240 * 24,  # 2 hours granularity, 240 days
+            240: 480 * 24,  # 4 hours granularity, 480 days
+            480: 720 * 24  # 6 hours granularity, 720 days
+        }
+        if granularity in granularity_limits:
+            max_duration = granularity_limits[granularity] * 60  # convert days to minutes
+            if (now - start_time) / 60 >= max_duration:
+                raise ValueError(
+                    f"{granularity}m granularity candles are only available for the last {granularity_limits[granularity] // 24} days.")
+
         params = {
             "symbol": self.symbols_dict[f"{self.kucoin_base_asset}-{self.quote_asset}"],
             "granularity": CONSTANTS.GRANULARITIES[self.interval],
+            "to": end_time * 1000,
         }
-        if end_time:
-            params["to"] = end_time * 1000
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         return [[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], 0., 0., 0., 0.]
-                for row in data['data'] if self.ensure_timestamp_in_seconds(row[0]) < end_time]
+                for row in data['data']]
 
     def ws_subscription_payload(self):
         topic_candle = f"{self.symbols_dict[self._ex_trading_pair]}_{CONSTANTS.INTERVALS[self.interval]}"
@@ -145,10 +169,6 @@ class KucoinPerpetualCandles(CandlesBase):
                 candles_row_dict["taker_buy_base_volume"] = 0.
                 candles_row_dict["taker_buy_quote_volume"] = 0.
                 return candles_row_dict
-
-    @staticmethod
-    def _time():
-        return time.time()
 
     async def initialize_exchange_data(self) -> Dict[str, Any]:
         await self._get_symbols_dict()
