@@ -79,6 +79,14 @@ class GateioPerpetualCandles(CandlesBase):
         self.quanto_multiplier = quanto_multiplier
         return quanto_multiplier
 
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -98,8 +106,6 @@ class GateioPerpetualCandles(CandlesBase):
         new_hb_candles = []
         for i in data:
             timestamp = i.get("t")
-            if timestamp == end_time:
-                continue
             open = i.get("o")
             high = i.get("h")
             low = i.get("l")
