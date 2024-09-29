@@ -691,7 +691,7 @@ class AbstractExchangeConnectorTests:
                 self.is_logged(
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                    f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000')}."
+                    f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000000000')}."
                 )
             )
 
@@ -731,7 +731,7 @@ class AbstractExchangeConnectorTests:
                 self.is_logged(
                     "INFO",
                     f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                    f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000')}."
+                    f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000000000')}."
                 )
             )
 
