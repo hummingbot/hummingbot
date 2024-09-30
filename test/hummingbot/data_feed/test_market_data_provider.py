@@ -1,8 +1,10 @@
 import unittest
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
@@ -13,6 +15,7 @@ from hummingbot.strategy.strategy_v2_base import MarketDataProvider
 class TestMarketDataProvider(unittest.TestCase):
     def setUp(self):
         self.mock_connector = MagicMock()
+        self.mock_connector.trading_rules = {"BTC-USDT": TradingRule("BTC-USDT", 0.01, 0.01, 0.01, 0.01, 0.01, 0.01)}
         self.connectors = {"mock_connector": self.mock_connector}
         self.provider = MarketDataProvider(self.connectors)
 
@@ -118,3 +121,17 @@ class TestMarketDataProvider(unittest.TestCase):
         self.mock_connector.ready = True
         mock_candles_feed.ready = False
         self.assertFalse(self.provider.ready)
+
+    def test_get_trading_rules(self):
+        result = self.provider.get_trading_rules("mock_connector", "BTC-USDT")
+        self.assertEqual(result.min_notional_size, 0.01)
+
+    def test_quantize_order_price(self):
+        self.mock_connector.quantize_order_price.return_value = 100
+        result = self.provider.quantize_order_price("mock_connector", "BTC-USDT", Decimal(100.0001))
+        self.assertEqual(result, 100)
+
+    def test_quantize_order_amount(self):
+        self.mock_connector.quantize_order_amount.return_value = 100
+        result = self.provider.quantize_order_amount("mock_connector", "BTC-USDT", Decimal(100.0001))
+        self.assertEqual(result, 100)
