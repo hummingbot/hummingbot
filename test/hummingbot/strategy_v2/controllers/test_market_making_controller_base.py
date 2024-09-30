@@ -4,6 +4,7 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
@@ -22,11 +23,11 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
             controller_name="market_making_test_controller",
             connector_name="binance_perpetual",
             trading_pair="ETH-USDT",
-            total_amount_quote=100.0,
+            total_amount_quote=Decimal(100.0),
             buy_spreads=[0.01, 0.02],
             sell_spreads=[0.01, 0.02],
-            buy_amounts_pct=[50, 50],
-            sell_amounts_pct=[50, 50],
+            buy_amounts_pct=[Decimal(50), Decimal(50)],
+            sell_amounts_pct=[Decimal(50), Decimal(50)],
             executor_refresh_time=300,
             cooldown_time=15,
             leverage=20,
@@ -131,3 +132,8 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(None, self.mock_controller_config.parse_trailing_stop(""))
         trailing_stop = TrailingStop(activation_price=Decimal("2"), trailing_delta=Decimal(0.5))
         self.assertEqual(trailing_stop, self.mock_controller_config.parse_trailing_stop(trailing_stop))
+
+    def test_balance_requirements(self):
+        self.controller.processed_data["reference_price"] = Decimal("1")
+        self.assertEqual(self.controller.get_balance_requirements(),
+                         [TokenAmount("ETH", Decimal("50")), TokenAmount("USDT", Decimal("50"))])
