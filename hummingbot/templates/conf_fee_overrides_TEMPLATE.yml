@@ -96,7 +96,6 @@ gate_io_maker_percent_fee:
 gate_io_percent_fee_token:
 gate_io_taker_fixed_fees:
 gate_io_taker_percent_fee:
-hitbtc_buy_percent_fee_deducted_from_returns:
 htx_buy_percent_fee_deducted_from_returns:
 htx_maker_fixed_fees:
 htx_maker_percent_fee:
