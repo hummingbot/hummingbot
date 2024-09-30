@@ -20,6 +20,7 @@ USER_ORDERS_PATH_URL = "spot/open_orders"
 TICKER_PATH_URL = "spot/tickers"
 ORDER_BOOK_PATH_URL = "spot/order_book"
 MY_TRADES_PATH_URL = "spot/my_trades"
+SERVER_TIME_URL = "spot/time"
 
 TRADES_ENDPOINT_NAME = "spot.trades"
 ORDER_SNAPSHOT_ENDPOINT_NAME = "spot.order_book"
@@ -64,4 +65,9 @@ RATE_LIMITS = [
     RateLimit(limit_id=TICKER_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
     RateLimit(limit_id=ORDER_BOOK_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
     RateLimit(limit_id=MY_TRADES_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=SERVER_TIME_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
 ]
+
+# ERROR LABELS, see https://www.gate.io/docs/developers/apiv4/#label-list
+ERR_LABEL_ORDER_NOT_FOUND = "ORDER_NOT_FOUND"
+ERR_LABEL_TIME_RELATED_ERROR = "REQUEST_EXPIRED"
