@@ -75,7 +75,7 @@ def main():
         "eth-typing",
         "eth-utils",
         "flake8",
-        "grpc",
+        "grpcio",
         "hexbytes",
         "importlib-metadata",
         "injective-py",
