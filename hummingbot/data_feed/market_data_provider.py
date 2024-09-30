@@ -1,4 +1,5 @@
 import time
+from decimal import Decimal
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -143,6 +144,23 @@ class MarketDataProvider:
         """
         connector = self.get_connector(connector_name)
         return connector.trading_pairs
+
+    def get_trading_rules(self, connector_name: str, trading_pair: str):
+        """
+        Retrieves the trading rules from the specified connector.
+        :param connector_name: str
+        :return: Trading rules.
+        """
+        connector = self.get_connector(connector_name)
+        return connector.trading_rules[trading_pair]
+
+    def quantize_order_price(self, connector_name: str, trading_pair: str, price: Decimal):
+        connector = self.get_connector(connector_name)
+        return connector.quantize_order_price(trading_pair, price)
+
+    def quantize_order_amount(self, connector_name: str, trading_pair: str, amount: Decimal):
+        connector = self.get_connector(connector_name)
+        return connector.quantize_order_amount(trading_pair, amount)
 
     def get_price_for_volume(self, connector_name: str, trading_pair: str, volume: float,
                              is_buy: bool) -> OrderBookQueryResult:
