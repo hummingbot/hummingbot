@@ -86,6 +86,7 @@ class DexalotClient:
 
         """
         async with self.transaction_lock:
+            result = None
             for retry_attempt in range(CONSTANTS.TRANSACTION_REQUEST_ATTEMPTS):
                 try:
                     current_nonce = await self.async_w3.eth.get_transaction_count(self.account.address)
@@ -108,3 +109,6 @@ class DexalotClient:
                     self.last_nonce = int(arg[arg.find('next nonce ') + 11: arg.find(", tx nonce")])
                     await asyncio.sleep(CONSTANTS.RETRY_INTERVAL ** retry_attempt)
                     continue
+            if not result:
+                raise IOError(f"Error fetching data from {function.abi['name']}, msg is {e}.")
+            return result
