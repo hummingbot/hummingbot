@@ -37,8 +37,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @property
     def latest_prices_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_TICKER_PATH)
-        url = f"{url}?instId={self.base_asset}-{self.quote_asset}"
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_TICKERS_PATH)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         return regex_url
 
