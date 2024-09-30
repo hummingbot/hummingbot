@@ -766,19 +766,6 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
-    def _configure_balance_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-
-        url = self.balance_url
-        response = self.balance_request_mock_response_for_base_and_quote
-        mock_api.get(
-            re.compile(f"{url}"),
-            body=json.dumps(response),
-            callback=callback)
-        return url
-
     def configure_erroneous_cancelation_response(
             self,
             order: InFlightOrder,
@@ -1168,29 +1155,33 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             chain_name = "")
         self.assertEqual(exchange.chain, 8453, "Chain should be an base by default for empty domains")
 
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._update_balances", new_callable=AsyncMock)
     @aioresponses()
-    def test_update_balances(
-        self,
-        mock_balance,
-        mock_api
-    ):
-        mock_balance.return_value = self.balance_request_mock_response_for_base_and_quote
+    def test_update_balances(self, mock_api):
         response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("15"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
 
         response = self.balance_request_mock_response_only_base
 
-        url = self._configure_balance_response(mock_api=mock_api)
-        mock_api.get(url, body=json.dumps(response))
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        self.async_run_with_timeout(self.exchange._update_balances())
 
-        ret = self.async_run_with_timeout(coroutine=self.exchange._update_balances())
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
 
         self.assertNotIn(self.quote_asset, available_balances)
         self.assertNotIn(self.quote_asset, total_balances)
-        self.assertEqual(Decimal("15"), ret[0]["balance"])
-        self.assertEqual(Decimal("2000"), ret[1]["balance"])
+        self.assertEqual(Decimal("15"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
 
     def configure_generate_typed_data(
             self,
@@ -1429,24 +1420,17 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @patch('hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.sign_inner')
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._generate_typed_data", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_pairs_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_rules_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_market_list", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_verified_market", new_callable=AsyncMock)
     @aioresponses()
     def test_create_order_fails_and_raises_failure_event(
         self,
-        mock_pair,
-        mock_rule,
         mock_list: AsyncMock,
         mock_verified: AsyncMock,
         mock_typed_data: AsyncMock,
         mock_messaage,
         mock_api,
     ):
-        mock_pair.return_value = self.all_symbols_request_mock_response
-        mock_rule.return_value = self.trading_rules_request_mock_response
-
         mock_list.return_value = self.initialize_market_list_response
         mock_verified.return_value = self.initialize_verified_market_response
 
@@ -1711,23 +1695,17 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @patch('hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.sign_inner')
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._generate_typed_data", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_pairs_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_rules_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_market_list", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_verified_market", new_callable=AsyncMock)
     @aioresponses()
     def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(
         self,
-        mock_pair,
-        mock_rule,
         mock_list: AsyncMock,
         mock_verified: AsyncMock,
         mock_typed_data: AsyncMock,
         mock_messaage,
         mock_api,
     ):
-        mock_pair.return_value = self.all_symbols_request_mock_response
-        mock_rule.return_value = self.trading_rules_request_mock_response
 
         mock_list.return_value = self.initialize_market_list_response
         mock_verified.return_value = self.initialize_verified_market_response
@@ -1974,15 +1952,11 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @patch('hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.sign_inner')
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._generate_typed_data", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_pairs_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_rules_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_market_list", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_verified_market", new_callable=AsyncMock)
     @aioresponses()
     def test_create_buy_limit_order_successfully(
         self,
-        mock_pair,
-        mock_rule,
         mock_list: AsyncMock,
         mock_verified: AsyncMock,
         mock_typed_data: AsyncMock,
@@ -1990,8 +1964,6 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         mock_api,
         # order_res_mock: AsyncMock
     ):
-        mock_pair.return_value = self.all_symbols_request_mock_response
-        mock_rule.return_value = self.trading_rules_request_mock_response
 
         mock_list.return_value = self.initialize_market_list_response
         mock_verified.return_value = self.initialize_verified_market_response
@@ -2060,15 +2032,11 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @patch('hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.sign_inner')
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._generate_typed_data", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_pairs_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_rules_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_market_list", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_verified_market", new_callable=AsyncMock)
     @aioresponses()
     def test_create_sell_limit_order_successfully(
         self,
-        mock_pair,
-        mock_rule,
         mock_list: AsyncMock,
         mock_verified: AsyncMock,
         mock_typed_data: AsyncMock,
@@ -2076,8 +2044,6 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         mock_api,
         # order_res_mock: AsyncMock
     ):
-        mock_pair.return_value = self.all_symbols_request_mock_response
-        mock_rule.return_value = self.trading_rules_request_mock_response
 
         mock_list.return_value = self.initialize_market_list_response
         mock_verified.return_value = self.initialize_verified_market_response
@@ -2302,14 +2268,10 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @patch('hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.sign_inner')
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._generate_typed_data", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_pairs_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_rules_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_market_list", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_verified_market", new_callable=AsyncMock)
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self,
-                                                                     mock_pair,
-                                                                     mock_rule,
                                                                      mock_list: AsyncMock,
                                                                      mock_verified: AsyncMock,
                                                                      mock_typed_data: AsyncMock,
@@ -2318,9 +2280,6 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-        mock_pair.return_value = self.all_symbols_request_mock_response
-        mock_rule.return_value = self.trading_rules_request_mock_response
-
         mock_list.return_value = self.initialize_market_list_response
         mock_verified.return_value = self.initialize_verified_market_response
 
@@ -2345,15 +2304,11 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @patch('hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.sign_inner')
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._generate_typed_data", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_pairs_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange._make_trading_rules_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_market_list", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.tegro.tegro_exchange.TegroExchange.initialize_verified_market", new_callable=AsyncMock)
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_failure(
         self,
-        mock_pair,
-        mock_rule,
         mock_list: AsyncMock,
         mock_verified: AsyncMock,
         mock_typed_data: AsyncMock,
@@ -2363,10 +2318,6 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-
-        mock_pair.return_value = self.all_symbols_request_mock_response
-        mock_rule.return_value = self.trading_rules_request_mock_response
-
         mock_list.return_value = self.initialize_market_list_response
         mock_verified.return_value = self.initialize_verified_market_response
 
