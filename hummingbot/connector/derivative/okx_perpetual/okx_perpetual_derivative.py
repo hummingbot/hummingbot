@@ -129,7 +129,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         :return a list of OrderType supported by this connector
         """
         # TODO: Check if it's market or limit_maker
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
@@ -316,7 +316,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             params=params,
         )
 
-        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"]}
+        last_traded_prices = {ticker["instId"].replace("-SWAP", ""): float(ticker["last"]) for ticker in resp_json["data"]}
         return last_traded_prices
 
     async def _update_balances(self):
