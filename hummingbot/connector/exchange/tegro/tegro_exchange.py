@@ -44,7 +44,7 @@ class TegroExchange(ExchangePyBase):
                  client_config_map: "ClientConfigAdapter",
                  tegro_api_key: str,
                  tegro_api_secret: str,
-                 chain_name: CONSTANTS.DEFAULT_CHAIN,
+                 chain_name: str = CONSTANTS.DEFAULT_CHAIN,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN
