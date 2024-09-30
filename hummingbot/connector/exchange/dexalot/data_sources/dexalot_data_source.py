@@ -110,5 +110,5 @@ class DexalotClient:
                     await asyncio.sleep(CONSTANTS.RETRY_INTERVAL ** retry_attempt)
                     continue
             if not result:
-                raise IOError(f"Error fetching data from {function.abi['name']}, msg is {e}.")
+                raise IOError(f"Error fetching data from {function.abi['name']}.")
             return result
