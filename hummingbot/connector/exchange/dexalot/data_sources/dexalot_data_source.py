@@ -1,3 +1,4 @@
+import asyncio
 from asyncio import Lock
 from typing import List
 
@@ -25,6 +26,7 @@ class DexalotClient:
     ):
         self._private_key = dexalot_api_secret
         self._connector = connector
+        self.last_nonce = 0
         self.transaction_lock = Lock()
 
         self.account: LocalAccount = Account.from_key(dexalot_api_secret)
@@ -84,14 +86,25 @@ class DexalotClient:
 
         """
         async with self.transaction_lock:
-            current_nonce = await self.async_w3.eth.get_transaction_count(self.account.address)
-            tx_params = {
-                'nonce': current_nonce,
-                'gas': gas,
-            }
-            transaction = await function.build_transaction(tx_params)
-            signed_txn = self.async_w3.eth.account.sign_transaction(
-                transaction, private_key=self._private_key
-            )
-            result = await self.async_w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-            return result.hex()
+            for retry_attempt in range(CONSTANTS.TRANSACTION_REQUEST_ATTEMPTS):
+                try:
+                    current_nonce = await self.async_w3.eth.get_transaction_count(self.account.address)
+                    tx_params = {
+                        'nonce': current_nonce if current_nonce > self.last_nonce else self.last_nonce,
+                        'gas': gas,
+                    }
+                    transaction = await function.build_transaction(tx_params)
+                    signed_txn = self.async_w3.eth.account.sign_transaction(
+                        transaction, private_key=self._private_key
+                    )
+                    result = await self.async_w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+                    return result.hex()
+                except ValueError as e:
+                    self._connector.logger().warning(
+                        f"{str(e)} "
+                        f"Attempt {function.abi['name']} {retry_attempt + 1}/{CONSTANTS.TRANSACTION_REQUEST_ATTEMPTS}"
+                    )
+                    arg = str(e)
+                    self.last_nonce = int(arg[arg.find('next nonce ') + 11: arg.find(", tx nonce")])
+                    await asyncio.sleep(CONSTANTS.RETRY_INTERVAL ** retry_attempt)
+                    continue
