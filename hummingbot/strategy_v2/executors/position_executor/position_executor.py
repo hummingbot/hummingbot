@@ -198,6 +198,10 @@ class PositionExecutor(ExecutorBase):
             return self.current_market_price
 
     @property
+    def close_order_side(self):
+        return TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL
+
+    @property
     def trade_pnl_pct(self) -> Decimal:
         """
         Calculate the trade pnl (Pure pnl without fees)
@@ -378,14 +382,16 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         if not self._open_order:
-            if self._is_within_activation_bounds(self.close_price):
+            if self._is_within_activation_bounds(self.config.entry_price, self.config.side,
+                                                 self.config.triple_barrier_config.open_order_type):
                 self.place_open_order()
         else:
             if self._open_order.order and not self._open_order.is_filled and \
-                    not self._is_within_activation_bounds(self.close_price):
+                    not self._is_within_activation_bounds(self.config.entry_price, self.config.side,
+                                                          self.config.triple_barrier_config.open_order_type):
                 self.cancel_open_order()
 
-    def _is_within_activation_bounds(self, close_price: Decimal) -> bool:
+    def _is_within_activation_bounds(self, order_price: Decimal, side: TradeType, order_type: OrderType) -> bool:
         """
         This method is responsible for checking if the close price is within the activation bounds to place the open
         order. If the activation bounds are not set, it returns True. This makes the executor more capital efficient.
@@ -394,22 +400,22 @@ class PositionExecutor(ExecutorBase):
         :return: True if the close price is within the activation bounds, False otherwise.
         """
         activation_bounds = self.config.activation_bounds
-        order_price = self.config.entry_price
+        mid_price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
         if activation_bounds:
-            if self.config.triple_barrier_config.open_order_type.is_limit_type():
-                if self.config.side == TradeType.BUY:
-                    return order_price > close_price * (1 - activation_bounds[0])
+            if order_type.is_limit_type():
+                if side == TradeType.BUY:
+                    return order_price > mid_price * (1 - activation_bounds[0])
                 else:
-                    return order_price < close_price * (1 + activation_bounds[0])
+                    return order_price < mid_price * (1 + activation_bounds[0])
             else:
-                if self.config.side == TradeType.BUY:
+                if side == TradeType.BUY:
                     min_price_to_buy = order_price * (1 - activation_bounds[0])
                     max_price_to_buy = order_price * (1 + activation_bounds[1])
-                    return min_price_to_buy < close_price < max_price_to_buy
+                    return min_price_to_buy < mid_price < max_price_to_buy
                 else:
                     min_price_to_sell = order_price * (1 - activation_bounds[1])
                     max_price_to_sell = order_price * (1 + activation_bounds[0])
-                    return min_price_to_sell < close_price < max_price_to_sell
+                    return min_price_to_sell < mid_price < max_price_to_sell
         else:
             return True
 
@@ -463,7 +469,7 @@ class PositionExecutor(ExecutorBase):
                 order_type=OrderType.MARKET,
                 amount=self.amount_to_close,
                 price=price,
-                side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
+                side=self.close_order_side,
                 position_action=PositionAction.CLOSE,
             )
             self._close_order = TrackedOrder(order_id=order_id)
@@ -504,7 +510,14 @@ class PositionExecutor(ExecutorBase):
         """
         if self.config.triple_barrier_config.take_profit:
             if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
-                self.place_take_profit_limit_order()
+                is_within_activation_bounds = self._is_within_activation_bounds(
+                    self.take_profit_price, self.close_order_side,
+                    self.config.triple_barrier_config.take_profit_order_type)
+                if not self._take_profit_limit_order and is_within_activation_bounds:
+                    self.place_take_profit_limit_order()
+                elif self._take_profit_limit_order.order and not self._take_profit_limit_order.is_filled and \
+                        not is_within_activation_bounds:
+                    self.cancel_take_profit()
             elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
@@ -524,18 +537,17 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if not self._take_profit_limit_order:
-            order_id = self.place_order(
-                connector_name=self.config.connector_name,
-                trading_pair=self.config.trading_pair,
-                amount=self.amount_to_close,
-                price=self.take_profit_price,
-                order_type=self.config.triple_barrier_config.take_profit_order_type,
-                position_action=PositionAction.CLOSE,
-                side=TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL,
-            )
-            self._take_profit_limit_order = TrackedOrder(order_id=order_id)
-            self.logger().debug(f"Executor ID: {self.config.id} - Placing take profit order {order_id}")
+        order_id = self.place_order(
+            connector_name=self.config.connector_name,
+            trading_pair=self.config.trading_pair,
+            amount=self.amount_to_close,
+            price=self.take_profit_price,
+            order_type=self.config.triple_barrier_config.take_profit_order_type,
+            position_action=PositionAction.CLOSE,
+            side=self.close_order_side,
+        )
+        self._take_profit_limit_order = TrackedOrder(order_id=order_id)
+        self.logger().debug(f"Executor ID: {self.config.id} - Placing take profit order {order_id}")
 
     def renew_take_profit_order(self):
         """
