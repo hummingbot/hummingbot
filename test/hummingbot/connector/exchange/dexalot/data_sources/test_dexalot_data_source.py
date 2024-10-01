@@ -1,11 +1,16 @@
 import asyncio
+import json
+import re
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import patch
 
+from aioresponses import aioresponses
+
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source import DexalotClient
 from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -24,7 +29,7 @@ class DexalotClientTests(TestCase):
         self.async_tasks = []
         asyncio.set_event_loop(self.async_loop)
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        self.api_key = "someKey"
+        self.api_key = "0x335e5b9a72A3aBA693B68bDe44FeBA1252e54cFc"
         self.base_asset = "AVAX"
         self.quote_asset = "USDC"  # linear
         self.trading_pair = "AVAX-USDC"
@@ -57,12 +62,33 @@ class DexalotClientTests(TestCase):
         return task
 
     @property
+    def _token_info_request_successful_mock_response(self):
+        return [{
+            'env': 'production-multi-avax', 'symbol': 'AVAX', 'subnet_symbol': 'AVAX', 'name': 'Avalanche',
+            'isnative': True,
+            'address': '0x0000000000000000000000000000000000000000',  # noqa: mock
+            'evmdecimals': 18, 'isvirtual': False,
+            'chain_id': 43114,
+            'status': 'deployed', 'old_symbol': None, 'auctionmode': 0, 'auctionendtime': None,
+            'min_depositamnt': '0.0246467720588235293'
+        }]
+
+    @property
     def _order_cancelation_request_successful_mock_response(self):
         return "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659"  # noqa: mock
 
     @property
     def order_creation_request_successful_mock_response(self):
         return "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659"  # noqa: mock
+
+    @aioresponses()
+    def test_get_token_info(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.TOKEN_INFO_PATH_URL, domain=self.exchange._domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self._token_info_request_successful_mock_response
+        mock_api.get(regex_url, body=json.dumps(resp))
+        result = self.async_run_with_timeout(self._tx_client._get_token_info())
+        self.assertIsNotNone(self._tx_client.balance_evm_params)
 
     @patch(
         "hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
