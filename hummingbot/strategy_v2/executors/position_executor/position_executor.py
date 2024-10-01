@@ -503,7 +503,7 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         if self.config.triple_barrier_config.take_profit:
-            if self.config.triple_barrier_config.take_profit_order_type.is_limit_type() and not self._take_profit_limit_order:
+            if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
                 self.place_take_profit_limit_order()
             elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
@@ -524,17 +524,18 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        order_id = self.place_order(
-            connector_name=self.config.connector_name,
-            trading_pair=self.config.trading_pair,
-            amount=self.amount_to_close,
-            price=self.take_profit_price,
-            order_type=self.config.triple_barrier_config.take_profit_order_type,
-            position_action=PositionAction.CLOSE,
-            side=TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL,
-        )
-        self._take_profit_limit_order = TrackedOrder(order_id=order_id)
-        self.logger().debug(f"Executor ID: {self.config.id} - Placing take profit order {order_id}")
+        if not self._take_profit_limit_order:
+            order_id = self.place_order(
+                connector_name=self.config.connector_name,
+                trading_pair=self.config.trading_pair,
+                amount=self.amount_to_close,
+                price=self.take_profit_price,
+                order_type=self.config.triple_barrier_config.take_profit_order_type,
+                position_action=PositionAction.CLOSE,
+                side=TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL,
+            )
+            self._take_profit_limit_order = TrackedOrder(order_id=order_id)
+            self.logger().debug(f"Executor ID: {self.config.id} - Placing take profit order {order_id}")
 
     def renew_take_profit_order(self):
         """
@@ -653,19 +654,21 @@ class PositionExecutor(ExecutorBase):
         This method is responsible for processing the order failed event. Here we will add the InFlightOrder to the
         failed orders list.
         """
-        self._current_retries += 1
         if self._open_order and event.order_id == self._open_order.order_id:
             self._failed_orders.append(self._open_order)
             self._open_order = None
-            self.logger().error(f"Open order failed. Retrying {self._current_retries}/{self._max_retries}")
+            self.logger().error(f"Open order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
+            self._current_retries += 1
         elif self._close_order and event.order_id == self._close_order.order_id:
             self._failed_orders.append(self._close_order)
             self._close_order = None
-            self.logger().error(f"Close order failed. Retrying {self._current_retries}/{self._max_retries}")
+            self.logger().error(f"Close order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
+            self._current_retries += 1
         elif self._take_profit_limit_order and event.order_id == self._take_profit_limit_order.order_id:
             self._failed_orders.append(self._take_profit_limit_order)
             self._take_profit_limit_order = None
-            self.logger().error(f"Take profit order failed. Retrying {self._current_retries}/{self._max_retries}")
+            self.logger().error(f"Take profit order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
+            self._current_retries += 1
 
     def get_custom_info(self) -> Dict:
         return {
