@@ -87,7 +87,7 @@ class DexalotClientTests(TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self._token_info_request_successful_mock_response
         mock_api.get(regex_url, body=json.dumps(resp))
-        result = self.async_run_with_timeout(self._tx_client._get_token_info())
+        self.async_run_with_timeout(self._tx_client._get_token_info())
         self.assertIsNotNone(self._tx_client.balance_evm_params)
 
     @patch(
