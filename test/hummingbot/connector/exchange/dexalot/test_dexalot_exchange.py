@@ -174,15 +174,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
-        return [
-            {'traderaddress': '0x335e5b9a72a3aba693b68bde44feba1252e54cfc',  # noqa: mock
-             'symbol': 'AVAX', 'trades': '0',
-             'xfers': '0',
-             'fee': '0', 'currentbal': '10'},
-            {'traderaddress': '0x335e5b9a72a3aba693b68bde44feba1252e54cfc',  # noqa: mock
-             'symbol': 'USDC', 'trades': '0',
-             'xfers': '0',
-             'fee': '0', 'currentbal': '2000'}]
+        return {'AVAX': 10, 'USDC': 2000}, {'AVAX': 10, 'USDC': 2000}
 
     @property
     def orders_request_mock_response_for_base_and_quote(self):
@@ -190,11 +182,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     @property
     def balance_request_mock_response_only_base(self):
-        return [
-            {'traderaddress': '0x335e5b9a72a3aba693b68bde44feba1252e54cfc',  # noqa: mock
-             'symbol': 'AVAX', 'trades': '0',
-             'xfers': '0',
-             'fee': '0', 'currentbal': '10'}]
+        return {'AVAX': 10}, {'AVAX': 10}
 
     def test_user_stream_balance_update(self):
         pass
@@ -289,6 +277,10 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "quote_coin": self.quote_asset,
             "base_evmdecimals": Decimal(6),
             "quote_evmdecimals": Decimal(18),
+        }
+        exchange._tx_client.balance_evm_params = {
+            "AVAX": {"token_evmdecimals": "18"},
+            "USDC": {"token_evmdecimals": "6"},
         }
         exchange._account_balances[self.base_asset] = exchange._account_available_balances[self.base_asset] = 10
         exchange._account_balances[self.quote_asset] = exchange._account_available_balances[self.quote_asset] = 10
@@ -434,6 +426,16 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
+    def _configure_balance_response(
+            self, _response=None, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response, callback=callback, response=_response
+        )
+        self.exchange._tx_client._get_balances_responses = mock_queue
+        return ""
+
     def configure_successful_creation_order_status_response(
             self, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
@@ -556,7 +558,8 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     @aioresponses()
     def test_update_balances(self, mock_api):
         response = self.balance_request_mock_response_for_base_and_quote
-        self._configure_balance_response(response=response, mock_api=mock_api)
+        request_sent_event = asyncio.Event()
+        self._configure_balance_response(_response=response, callback=lambda *args, **kwargs: request_sent_event.set())
 
         url = self.orders_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -580,7 +583,9 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         resp = self.orders_request_mock_response_for_base_and_quote
         mock_api.get(regex_url, body=json.dumps(resp))
 
-        self._configure_balance_response(response=response, mock_api=mock_api)
+        request_sent_event = asyncio.Event()
+        self._configure_balance_response(_response=response, callback=lambda *args, **kwargs: request_sent_event.set())
+
         self.async_run_with_timeout(self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances

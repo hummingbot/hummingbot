@@ -214,8 +214,8 @@ class DexalotExchange(ExchangePyBase):
             order_type=order_type,
             amount=amount,
             price=price,
-            base_currency=base_currency,
-            quote_currency=quote_currency
+            base_currency=base_currency.upper(),
+            quote_currency=quote_currency.upper()
         )
         return trade_base_fee
 
@@ -551,10 +551,10 @@ class DexalotExchange(ExchangePyBase):
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=order.trade_type,
-            percent_token=fee_asset,
+            percent_token=fee_asset.upper(),
             flat_fees=[TokenAmount(
                 amount=Decimal(fee_amount),
-                token=fee_asset
+                token=fee_asset.upper()
             )]
         )
 
@@ -629,8 +629,8 @@ class DexalotExchange(ExchangePyBase):
 
     def _calculate_available_balance_from_orders(self, order_msg: Dict):
         if order_msg.get("pair"):
-            base_coin = order_msg["pair"].split("/")[0]
-            quote_coin = order_msg["pair"].split("/")[1]
+            base_coin = order_msg["pair"].split("/")[0].upper()
+            quote_coin = order_msg["pair"].split("/")[1].upper()
             if order_msg["status"] in ["NEW", 0]:
                 if order_msg["side"] == "BUY" or order_msg["side"] == 0:
                     quote_collateral_value = Decimal(order_msg.get("price")) * Decimal(order_msg.get("quantity"))
@@ -682,8 +682,8 @@ class DexalotExchange(ExchangePyBase):
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    percent_token=trade["feeunit"],
-                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeunit"])]
+                    percent_token=trade["feeunit"].upper(),
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeunit"].upper())]
                 )
                 trade_update = TradeUpdate(
                     trade_id=str(trade["execid"]),
@@ -740,36 +740,23 @@ class DexalotExchange(ExchangePyBase):
         return order_update
 
     async def _update_balances(self):
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-        account_info = await self._api_get(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            is_auth_required=True,
-            limit_id=CONSTANTS.IP_REQUEST_WEIGHT)
+        self._account_balances, self._account_available_balances = await self._tx_client.get_balances(
+            self._account_balances, self._account_available_balances
+        )
+
         open_orders = await self._api_get(
             path_url=CONSTANTS.ORDERS_PATH_URL,
             is_auth_required=True,
             limit_id=CONSTANTS.IP_REQUEST_WEIGHT
         )
-
-        balances = account_info
-        for balance_entry in balances:
-            asset_name = balance_entry["symbol"]
-            self._account_balances[asset_name] = Decimal(balance_entry["currentbal"])
-            self._account_available_balances[asset_name] = Decimal(balance_entry["currentbal"])
-            remote_asset_names.add(asset_name)
         for order_msg in open_orders["rows"]:
             self._calculate_available_balance_from_orders(order_msg)
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List):
         mapping = bidict()
         for symbol_data in filter(dexalot_utils.is_exchange_information_valid, exchange_info):
-            mapping[symbol_data["pair"]] = combine_to_hb_trading_pair(base=symbol_data["base"],
-                                                                      quote=symbol_data["quote"])
+            mapping[symbol_data["pair"]] = combine_to_hb_trading_pair(base=symbol_data["base"].upper(),
+                                                                      quote=symbol_data["quote"].upper())
         self._set_trading_pair_symbol_map(mapping)
 
     async def _process_queued_orders(self):
