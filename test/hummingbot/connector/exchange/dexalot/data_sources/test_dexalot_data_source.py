@@ -29,7 +29,7 @@ class DexalotClientTests(TestCase):
         self.async_tasks = []
         asyncio.set_event_loop(self.async_loop)
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        self.api_key = "0x335e5b9a72A3aBA693B68bDe44FeBA1252e54cFc"
+        self.api_key = "0x335e5b9a72A3aBA693B68bDe44FeBA1252e54cFc" # noqa: mock
         self.base_asset = "AVAX"
         self.quote_asset = "USDC"  # linear
         self.trading_pair = "AVAX-USDC"
