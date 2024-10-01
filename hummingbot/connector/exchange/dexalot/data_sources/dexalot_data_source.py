@@ -50,10 +50,10 @@ class DexalotClient:
 
     async def _get_token_info(self):
         token_raw_info_list = await self._connector._api_get(
-                path_url=CONSTANTS.TOKEN_INFO_PATH_URL,
-                params={},
-                is_auth_required=False,
-                limit_id=CONSTANTS.IP_REQUEST_WEIGHT)
+            path_url=CONSTANTS.TOKEN_INFO_PATH_URL,
+            params={},
+            is_auth_required=False,
+            limit_id=CONSTANTS.IP_REQUEST_WEIGHT)
         for token_info in token_raw_info_list:
             self.balance_evm_params[token_info["symbol"]] = {
                 "token_evmdecimals": token_info["evmdecimals"]
