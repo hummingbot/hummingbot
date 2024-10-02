@@ -513,11 +513,13 @@ class PositionExecutor(ExecutorBase):
                 is_within_activation_bounds = self._is_within_activation_bounds(
                     self.take_profit_price, self.close_order_side,
                     self.config.triple_barrier_config.take_profit_order_type)
-                if not self._take_profit_limit_order and is_within_activation_bounds:
-                    self.place_take_profit_limit_order()
-                elif self._take_profit_limit_order.order and not self._take_profit_limit_order.is_filled and \
-                        not is_within_activation_bounds:
-                    self.cancel_take_profit()
+                if not self._take_profit_limit_order:
+                    if is_within_activation_bounds:
+                        self.place_take_profit_limit_order()
+                else:
+                    if self._take_profit_limit_order.is_open and not self._take_profit_limit_order.is_filled and \
+                            not is_within_activation_bounds:
+                        self.cancel_take_profit()
             elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
@@ -660,6 +662,9 @@ class PositionExecutor(ExecutorBase):
         if self._open_order and event.order_id == self._open_order.order_id:
             self._failed_orders.append(self._open_order)
             self._open_order = None
+        if self._take_profit_limit_order and event.order_id == self._take_profit_limit_order.order_id:
+            self._failed_orders.append(self._take_profit_limit_order)
+            self._take_profit_limit_order = None
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         """
