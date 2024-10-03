@@ -10,7 +10,7 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
-class MexcAuth(AuthBase):
+class BitgetAuth(AuthBase):
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key = api_key
         self.secret_key = secret_key
@@ -37,7 +37,7 @@ class MexcAuth(AuthBase):
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
-        This method is intended to configure a websocket request to be authenticated. Mexc does not use this
+        This method is intended to configure a websocket request to be authenticated. Bitget does not use this
         functionality
         """
         return request  # pass-through
@@ -55,7 +55,7 @@ class MexcAuth(AuthBase):
         return request_params
 
     def header_for_authentication(self) -> Dict[str, str]:
-        return {"X-MEXC-APIKEY": self.api_key, "Content-Type": "application/json"}
+        return {"X-Bitget-APIKEY": self.api_key, "Content-Type": "application/json"}
 
     def _generate_signature(self, params: Dict[str, Any]) -> str:
 

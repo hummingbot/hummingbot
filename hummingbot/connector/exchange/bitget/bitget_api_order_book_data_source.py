@@ -2,8 +2,8 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
-from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
+from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS, bitget_web_utils as web_utils
+from hummingbot.connector.exchange.bitget.bitget_order_book import BitgetOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -12,10 +12,10 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
+    from hummingbot.connector.exchange.bitget.bitget_exchange import BitgetExchange
 
 
-class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
@@ -25,7 +25,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 connector: 'MexcExchange',
+                 connector: 'BitgetExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
@@ -112,7 +112,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = MexcOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = BitgetOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
@@ -123,14 +123,14 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if "code" not in raw_message:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
             for sinlge_msg in raw_message['d']['deals']:
-                trade_message = MexcOrderBook.trade_message_from_exchange(
+                trade_message = BitgetOrderBook.trade_message_from_exchange(
                     sinlge_msg, timestamp=raw_message['t'], metadata={"trading_pair": trading_pair})
                 message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "code" not in raw_message:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            order_book_message: OrderBookMessage = MexcOrderBook.diff_message_from_exchange(
+            order_book_message: OrderBookMessage = BitgetOrderBook.diff_message_from_exchange(
                 raw_message, raw_message['t'], {"trading_pair": trading_pair})
             message_queue.put_nowait(order_book_message)
 

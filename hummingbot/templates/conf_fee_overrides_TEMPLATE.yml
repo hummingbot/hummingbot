@@ -132,6 +132,12 @@ mexc_maker_percent_fee:
 mexc_percent_fee_token:
 mexc_taker_fixed_fees:
 mexc_taker_percent_fee:
+bitget_buy_percent_fee_deducted_from_returns:
+bitget_maker_fixed_fees:
+bitget_maker_percent_fee:
+bitget_percent_fee_token:
+bitget_taker_fixed_fees:
+bitget_taker_percent_fee:
 ndax_buy_percent_fee_deducted_from_returns:
 ndax_maker_fixed_fees:
 ndax_maker_percent_fee:

@@ -3,114 +3,178 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "com"
 
-HBOT_ORDER_ID_PREFIX = "HUMBOT"
+HBOT_ORDER_ID_PREFIX = "HBOT"
 MAX_ORDER_ID_LEN = 32
 
-# Base URL
-REST_URL = "https://api.mexc.{}/api/"
-WSS_URL = "wss://wbs.mexc.{}/ws"
+# Base URLs
+REST_URL = "https://api.bitget.{}/api/spot/v1"
+WSS_URL = "wss://ws.bitget.{}/spot/v1/stream"
 
-PUBLIC_API_VERSION = "v3"
-PRIVATE_API_VERSION = "v3"
+# API Versions
+PUBLIC_API_VERSION = "v1"
+PRIVATE_API_VERSION = "v1"
 
-# Public API endpoints or MexcClient function
-TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
-TICKER_BOOK_PATH_URL = "/ticker/bookTicker"
-EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
-SUPPORTED_SYMBOL_PATH_URL = "/defaultSymbols"
-PING_PATH_URL = "/ping"
-SNAPSHOT_PATH_URL = "/depth"
-SERVER_TIME_PATH_URL = "/time"
+# Public API endpoints
+TICKER_PRICE_CHANGE_PATH_URL = "/market/ticker"
+SNAPSHOT_PATH_URL = "/market/depth"
+EXCHANGE_INFO_PATH_URL = "/public/products"
+SERVER_TIME_PATH_URL = "/public/time"
 
-# Private API endpoints or MexcClient function
-ACCOUNTS_PATH_URL = "/account"
-MY_TRADES_PATH_URL = "/myTrades"
-ORDER_PATH_URL = "/order"
-MEXC_USER_STREAM_PATH_URL = "/userDataStream"
+# Private API endpoints
+ACCOUNTS_PATH_URL = "/account/getInfo"
+MY_TRADES_PATH_URL = "/trade/fills"
+ORDER_PATH_URL = "/trade/order"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
-# Mexc params
+# Bitget parameters
+SIDE_BUY = "buy"
+SIDE_SELL = "sell"
 
-SIDE_BUY = "BUY"
-SIDE_SELL = "SELL"
+TIME_IN_FORCE_GTC = "gtc"  # Good till canceled
+TIME_IN_FORCE_IOC = "ioc"  # Immediate or cancel
 
-TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
-TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
-TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
-
-# Rate Limit Type
-IP_REQUEST_WEIGHT = "IP_REQUEST_WEIGHT"
-UID_REQUEST_WEIGHT = "UID_REQUEST_WEIGHT"
+# Rate Limit Types
+IP_REQUEST_RATE_LIMIT = "IP_REQUEST_RATE_LIMIT"
+UID_REQUEST_RATE_LIMIT = "UID_REQUEST_RATE_LIMIT"
 
 # Rate Limit time intervals
 ONE_MINUTE = 60
 ONE_SECOND = 1
 ONE_DAY = 86400
 
-MAX_REQUEST = 5000
+# Rate Limits
+RATE_LIMITS = [
+    RateLimit(limit_id=IP_REQUEST_RATE_LIMIT, limit=60, time_interval=ONE_MINUTE),
+    RateLimit(limit_id=UID_REQUEST_RATE_LIMIT, limit=30, time_interval=ONE_MINUTE),
+    # Public endpoints
+    RateLimit(
+        limit_id=TICKER_PRICE_CHANGE_PATH_URL,
+        limit=60,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)],
+    ),
+    RateLimit(
+        limit_id=SNAPSHOT_PATH_URL,
+        limit=60,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)],
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=60,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)],
+    ),
+    RateLimit(
+        limit_id=SERVER_TIME_PATH_URL,
+        limit=60,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)],
+    ),
+    # Private endpoints
+    RateLimit(
+        limit_id=ACCOUNTS_PATH_URL,
+        limit=30,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(UID_REQUEST_RATE_LIMIT, 1)],
+    ),
+    RateLimit(
+        limit_id=MY_TRADES_PATH_URL,
+        limit=30,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(UID_REQUEST_RATE_LIMIT, 1)],
+    ),
+    RateLimit(
+        limit_id=ORDER_PATH_URL,
+        limit=30,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(UID_REQUEST_RATE_LIMIT, 1)],
+    ),
+]
+
+# Error Codes and Messages
+ORDER_NOT_EXIST_ERROR_CODE = "40009"
+ORDER_NOT_EXIST_MESSAGE = "Order not found"
+UNKNOWN_ORDER_ERROR_CODE = "40009"
+UNKNOWN_ORDER_MESSAGE = "Unknown order"
+TIMESTAMP_RELATED_ERROR_CODE = "40007"
+TIMESTAMP_RELATED_ERROR_MESSAGE = "Timestamp expired"
 
 # Order States
 ORDER_STATE = {
-    "PENDING": OrderState.PENDING_CREATE,
-    "NEW": OrderState.OPEN,
-    "FILLED": OrderState.FILLED,
-    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
-    "PENDING_CANCEL": OrderState.OPEN,
-    "PARTIALLY_CANCELED": OrderState.CANCELED,
-    "CANCELED": OrderState.CANCELED,
-    "REJECTED": OrderState.FAILED,
-    "EXPIRED": OrderState.FAILED,
+    "new": OrderState.OPEN,
+    "partially_filled": OrderState.PARTIALLY_FILLED,
+    "filled": OrderState.FILLED,
+    "canceled": OrderState.CANCELED,
+    "rejected": OrderState.FAILED,
+    "expired": OrderState.FAILED,
 }
 
-# WS Order States
+# WebSocket Order States
 WS_ORDER_STATE = {
-    1: OrderState.OPEN,
-    2: OrderState.FILLED,
-    3: OrderState.PARTIALLY_FILLED,
-    4: OrderState.CANCELED,
-    5: OrderState.OPEN,
+    "1": OrderState.OPEN,
+    "2": OrderState.PARTIALLY_FILLED,
+    "3": OrderState.FILLED,
+    "4": OrderState.CANCELED,
+    "5": OrderState.OPEN,  # Pending cancel
+    "6": OrderState.FAILED,  # Rejected
+    "7": OrderState.FAILED,  # Expired
 }
 
-# Websocket event types
-DIFF_EVENT_TYPE = "increase.depth"
-TRADE_EVENT_TYPE = "public.deals"
+# WebSocket Event Types
+DIFF_EVENT_TYPE = "depth"
+TRADE_EVENT_TYPE = "trade"
 
-USER_TRADES_ENDPOINT_NAME = "spot@private.deals.v3.api"
-USER_ORDERS_ENDPOINT_NAME = "spot@private.orders.v3.api"
-USER_BALANCE_ENDPOINT_NAME = "spot@private.account.v3.api"
+USER_TRADES_ENDPOINT_NAME = "spot/fills"
+USER_ORDERS_ENDPOINT_NAME = "spot/order"
+USER_BALANCE_ENDPOINT_NAME = "spot/account"
 WS_CONNECTION_TIME_INTERVAL = 20
 RATE_LIMITS = [
-    RateLimit(limit_id=IP_REQUEST_WEIGHT, limit=20000, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=UID_REQUEST_WEIGHT, limit=240000, time_interval=ONE_MINUTE),
+    RateLimit(limit_id=IP_REQUEST_RATE_LIMIT, limit=1200, time_interval=ONE_MINUTE),
+    RateLimit(limit_id=UID_REQUEST_RATE_LIMIT, limit=900, time_interval=ONE_MINUTE),
     # Weighted Limits
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 2)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=SUPPORTED_SYMBOL_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 50)]),
-    RateLimit(limit_id=MEXC_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 10)]),
-    RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 2)])
+    RateLimit(
+        limit_id=TICKER_PRICE_CHANGE_PATH_URL,
+        limit=1200,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)]
+    ),
+    RateLimit(
+        limit_id=SNAPSHOT_PATH_URL,
+        limit=1200,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)]
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=1200,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)]
+    ),
+    RateLimit(
+        limit_id=SERVER_TIME_PATH_URL,
+        limit=1200,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(IP_REQUEST_RATE_LIMIT, 1)]
+    ),
+    RateLimit(
+        limit_id=ACCOUNTS_PATH_URL,
+        limit=900,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(UID_REQUEST_RATE_LIMIT, 1)]
+    ),
+    RateLimit(
+        limit_id=MY_TRADES_PATH_URL,
+        limit=900,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(UID_REQUEST_RATE_LIMIT, 1)]
+    ),
+    RateLimit(
+        limit_id=ORDER_PATH_URL,
+        limit=900,
+        time_interval=ONE_MINUTE,
+        linked_limits=[LinkedLimitWeightPair(UID_REQUEST_RATE_LIMIT, 1)]
+    ),
 ]
 
-ORDER_NOT_EXIST_ERROR_CODE = -2013
-ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
-UNKNOWN_ORDER_ERROR_CODE = -2011
-UNKNOWN_ORDER_MESSAGE = "Unknown order sent"
-TIMESTAMP_RELATED_ERROR_CODE = 700003
-TIMESTAMP_RELATED_ERROR_MESSAGE = "Timestamp for this request is outside of the recvWindow"

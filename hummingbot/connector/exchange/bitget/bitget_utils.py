@@ -26,21 +26,21 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
         and exchange_info.get("isSpotTradingAllowed", True) is True
 
 
-class MexcConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="mexc", const=True, client_data=None)
-    mexc_api_key: SecretStr = Field(
+class BitgetConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="bitget", const=True, client_data=None)
+    bitget_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Mexc API key",
+            prompt=lambda cm: "Enter your Bitget API key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         )
     )
-    mexc_api_secret: SecretStr = Field(
+    bitget_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Mexc API secret",
+            prompt=lambda cm: "Enter your Bitget API secret",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -48,7 +48,7 @@ class MexcConfigMap(BaseConnectorConfigMap):
     )
 
     class Config:
-        title = "mexc"
+        title = "bitget"
 
 
-KEYS = MexcConfigMap.construct()
+KEYS = BitgetConfigMap.construct()

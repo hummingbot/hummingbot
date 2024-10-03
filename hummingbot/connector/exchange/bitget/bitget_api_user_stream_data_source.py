@@ -2,8 +2,8 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, List, Optional
 
-from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
-from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
+from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS, bitget_web_utils as web_utils
+from hummingbot.connector.exchange.bitget.bitget_auth import BitgetAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -12,23 +12,23 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
+    from hummingbot.connector.exchange.bitget.bitget_exchange import BitgetExchange
 
 
-class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
 
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
-                 auth: MexcAuth,
+                 auth: BitgetAuth,
                  trading_pairs: List[str],
-                 connector: 'MexcExchange',
+                 connector: 'BitgetExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
-        self._auth: MexcAuth = auth
+        self._auth: BitgetAuth = auth
         self._current_listen_key = None
         self._domain = domain
         self._api_factory = api_factory
@@ -92,9 +92,9 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
+                url=web_utils.public_rest_url(path_url=CONSTANTS.Bitget_USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
-                throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
+                throttler_limit_id=CONSTANTS.Bitget_USER_STREAM_PATH_URL,
                 headers=self._auth.header_for_authentication(),
                 is_auth_required=True
             )
@@ -109,11 +109,11 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
+                url=web_utils.public_rest_url(path_url=CONSTANTS.Bitget_USER_STREAM_PATH_URL, domain=self._domain),
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
                 return_err=True,
-                throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
+                throttler_limit_id=CONSTANTS.Bitget_USER_STREAM_PATH_URL,
                 headers=self._auth.header_for_authentication()
             )
 
