@@ -237,6 +237,17 @@ class OkxExchange(ExchangePyBase):
 
         return final_result
 
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
+        params = {"instType": "SPOT"}
+
+        resp_json = await self._api_get(
+            path_url=CONSTANTS.OKX_TICKERS_PATH,
+            params=params,
+        )
+
+        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"]}
+        return last_traded_prices
+
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {"instId": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
 
