@@ -73,7 +73,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             CreateExecutorAction(executor_config=twap_executor_config, controller_id="test"),
         ]
         self.orchestrator.execute_actions(actions)
-        self.assertEqual(len(self.orchestrator.executors["test"]), 4)
+        self.assertEqual(len(self.orchestrator.active_executors["test"]), 4)
 
     @patch.object(MarketsRecorder, "store_or_update_executor")
     def test_execute_actions_store_executor_active(self, store_or_update_executor_mock: MagicMock):
@@ -83,10 +83,10 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config_mock.id = "test"
         config_mock.controller_id = "test"
         position_executor.config = config_mock
-        self.orchestrator.executors["test"] = [position_executor]
+        self.orchestrator.active_executors["test"] = [position_executor]
         actions = [StoreExecutorAction(executor_id="test", controller_id="test")]
         self.orchestrator.execute_actions(actions)
-        self.assertEqual(len(self.orchestrator.executors["test"]), 1)
+        self.assertEqual(len(self.orchestrator.active_executors["test"]), 1)
         store_or_update_executor_mock.assert_not_called()
 
     @patch.object(MarketsRecorder, "get_instance")
@@ -97,10 +97,10 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config_mock.id = "test"
         config_mock.controller_id = "test"
         position_executor.config = config_mock
-        self.orchestrator.executors["test"] = [position_executor]
+        self.orchestrator.active_executors["test"] = [position_executor]
         actions = [StoreExecutorAction(executor_id="test", controller_id="test")]
         self.orchestrator.execute_actions(actions)
-        self.assertEqual(len(self.orchestrator.executors["test"]), 0)
+        self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
 
     @patch('hummingbot.connector.markets_recorder.MarketsRecorder.get_instance')
     def test_generate_performance_report(self, mock_get_instance):
@@ -142,8 +142,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
             filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
             cum_fees_quote=Decimal(1), is_trading=False, is_active=False, custom_info={"side": TradeType.BUY}
         )
-        self.orchestrator.executors["test"] = [position_executor_non_active, position_executor_active,
-                                               position_executor_failed, position_executor_tp]
+        self.orchestrator.active_executors["test"] = [position_executor_non_active, position_executor_active,
+                                                      position_executor_failed, position_executor_tp]
         report = self.orchestrator.generate_performance_report(controller_id="test")
         self.assertEqual(report.realized_pnl_quote, Decimal(10))
         self.assertEqual(report.unrealized_pnl_quote, Decimal(10))
@@ -186,7 +186,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
                 is_trading=is_trading[i], is_active=is_active[i], custom_info=custom_info[i]
             )
 
-            self.orchestrator.executors[controller_id] = [executor_mock]
+            self.orchestrator.active_executors[controller_id] = [executor_mock]
 
         # Generate the global performance report
         global_report = self.orchestrator.generate_global_performance_report()
