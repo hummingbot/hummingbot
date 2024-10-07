@@ -72,4 +72,5 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(UID_REQUEST_WEIGHT, 1)]),
+    RateLimit(limit_id=WSS_URL, limit=5, time_interval=ONE_SECOND)
 ]
