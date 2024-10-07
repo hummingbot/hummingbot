@@ -320,6 +320,16 @@ class GatewayHttpClient:
             "network": network,
             "fail_silently": fail_silently})
 
+    async def get_solana_assets(
+            self,
+            network: str,
+            fail_silently: bool = True
+    ) -> Dict[str, Any]:
+        return await self.get_tokens(**{
+            "chain": "solana",
+            "network": network,
+            "fail_silently": fail_silently})
+
     async def get_network_status(
             self,
             chain: str = None,
