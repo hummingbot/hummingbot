@@ -63,11 +63,13 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 if config.side == TradeType.BUY:
                     ts_activated_condition = returns_df["close"] >= trailing_stop_activation_price
                     if ts_activated_condition.any():
+                        ts_activated_condition = ts_activated_condition.cumsum() > 0
                         returns_df.loc[ts_activated_condition, "ts_trigger_price"] = (returns_df[ts_activated_condition]["close"] * float(1 - trailing_sl_delta_pct)).cummax()
                         trailing_stop_condition = returns_df['close'] <= returns_df['ts_trigger_price']
                 else:
                     ts_activated_condition = returns_df["close"] <= trailing_stop_activation_price
                     if ts_activated_condition.any():
+                        ts_activated_condition = ts_activated_condition.cumsum() > 0
                         returns_df.loc[ts_activated_condition, "ts_trigger_price"] = (returns_df[ts_activated_condition]["close"] * float(1 + trailing_sl_delta_pct)).cummin()
                         trailing_stop_condition = returns_df['close'] >= returns_df['ts_trigger_price']
                 trailing_sl_timestamp = returns_df[trailing_stop_condition]['timestamp'].min() if trailing_stop_condition is not None else None
@@ -135,6 +137,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         df_filtered['net_pnl_quote'] = sum([df_filtered[f'net_pnl_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
         df_filtered.loc[df_filtered["filled_amount_quote"] > 0, "net_pnl_pct"] = df_filtered["net_pnl_quote"] / df_filtered["filled_amount_quote"]
+        df_filtered.loc[df_filtered.index[-1], "filled_amount_quote"] = df_filtered["filled_amount_quote"].iloc[-1] * 2
 
         if close_type is None:
             close_type = CloseType.FAILED
