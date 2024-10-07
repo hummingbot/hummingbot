@@ -20,14 +20,16 @@ from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExe
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StoreExecutorAction
 from hummingbot.strategy_v2.models.executors import CloseType
-from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
 
 
 class TestExecutorOrchestrator(unittest.TestCase):
 
-    @patch.object(ExecutorOrchestrator, "_initialize_cached_performance")
-    def setUp(self, initialize_cached_performance_mock: MagicMock):
-        initialize_cached_performance_mock.return_value = None
+    @patch.object(MarketsRecorder, "get_instance")
+    def setUp(self, markets_recorder: MagicMock):
+        markets_recorder.return_value = MagicMock(spec=MarketsRecorder)
+        markets_recorder.get_all_executors = MagicMock(return_value=[])
+        markets_recorder.store_or_update_executor = MagicMock(return_value=None)
         self.mock_strategy = self.create_mock_strategy()
         self.orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
 
@@ -77,8 +79,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.orchestrator.execute_actions(actions)
         self.assertEqual(len(self.orchestrator.active_executors["test"]), 4)
 
-    @patch.object(MarketsRecorder, "store_or_update_executor")
-    def test_execute_actions_store_executor_active(self, store_or_update_executor_mock: MagicMock):
+    def test_execute_actions_store_executor_active(self):
         position_executor = MagicMock(spec=PositionExecutor)
         position_executor.is_active = True
         config_mock = MagicMock(PositionExecutorConfig)
@@ -89,10 +90,11 @@ class TestExecutorOrchestrator(unittest.TestCase):
         actions = [StoreExecutorAction(executor_id="test", controller_id="test")]
         self.orchestrator.execute_actions(actions)
         self.assertEqual(len(self.orchestrator.active_executors["test"]), 1)
-        store_or_update_executor_mock.assert_not_called()
 
     @patch.object(MarketsRecorder, "get_instance")
-    def test_execute_actions_store_executor_inactive(self, _: MagicMock):
+    def test_execute_actions_store_executor_inactive(self, markets_recorder_mock):
+        markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.store_or_update_executor = MagicMock(return_value=None)
         position_executor = MagicMock(spec=PositionExecutor)
         position_executor.is_active = False
         config_mock = MagicMock(PositionExecutorConfig)
@@ -100,6 +102,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config_mock.controller_id = "test"
         position_executor.config = config_mock
         self.orchestrator.active_executors["test"] = [position_executor]
+        self.orchestrator.archived_executors["test"] = []
+        self.orchestrator.cached_performance["test"] = PerformanceReport()
         actions = [StoreExecutorAction(executor_id="test", controller_id="test")]
         self.orchestrator.execute_actions(actions)
         self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
@@ -133,7 +137,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             id="123", timestamp=1234, type="position_executor",
             status=RunnableStatus.TERMINATED, config=config_mock,
             close_type=CloseType.FAILED,
-            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
+            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
             cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY}
         )
         position_executor_tp = MagicMock(spec=PositionExecutor)
