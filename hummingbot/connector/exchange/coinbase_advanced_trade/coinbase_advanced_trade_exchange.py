@@ -871,8 +871,10 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             fillable_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(event_message.client_order_id)
             updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
                 event_message.client_order_id)
-
-            new_state: OrderState = constants.ORDER_STATE[event_message.status]
+            state = event_message.status
+            new_state = state
+            if new_state not in ["QUEUED", "CANCEL_QUEUED"]:
+                new_state: OrderState = constants.ORDER_STATE[event_message.status]
             partially: bool = all((event_message.cumulative_base_amount > Decimal("0"),
                                    event_message.remainder_base_amount > Decimal("0"),
                                    new_state == OrderState.OPEN))
