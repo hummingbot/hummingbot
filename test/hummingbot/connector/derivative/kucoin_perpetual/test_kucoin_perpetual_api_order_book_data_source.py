@@ -627,7 +627,6 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
                     "Binance",
                     "Kucoin",
                     "Poloniex",
-                    "Hitbtc"
                 ],
                 "premiumsSymbol1M": ".HBOTUSDTMPI",
                 "premiumsSymbol8H": ".HBOTUSDTMPI8H",
