@@ -769,7 +769,8 @@ class TestVertexExchange(unittest.TestCase):
         self.assertEqual("ABC1", create_event.order_id)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Created LIMIT BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair}.")
+            self._is_logged("INFO", f"Created LIMIT BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
+                                    f"at {Decimal('10000.0000')}.")
         )
 
     @aioresponses()
@@ -821,7 +822,8 @@ class TestVertexExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "INFO", f"Created LIMIT_MAKER BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair}."
+                "INFO", f"Created LIMIT_MAKER BUY order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
+                        f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -873,7 +875,8 @@ class TestVertexExchange(unittest.TestCase):
         self.assertEqual("ABC1", create_event.order_id)
 
         self.assertTrue(
-            self._is_logged("INFO", f"Created MARKET SELL order ABC1 for {Decimal('100.000000')} {self.trading_pair}.")
+            self._is_logged("INFO", f"Created MARKET SELL order ABC1 for {Decimal('100.000000')} {self.trading_pair} "
+                                    f"at {Decimal('10000')}.")
         )
 
     @aioresponses()
@@ -1406,7 +1409,7 @@ class TestVertexExchange(unittest.TestCase):
             self._is_logged(
                 "INFO",
                 f"The {order.trade_type.name} order {order.client_order_id} amounting to "
-                f"{fill_event.amount}/{order.amount} {order.base_asset} has been filled.",
+                f"{fill_event.amount}/{order.amount} {order.base_asset} has been filled at {Decimal('25000')} USDC.",
             )
         )
 
