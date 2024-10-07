@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -16,9 +17,7 @@ class BybitPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str,
-                 interval: str = "1m",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -31,7 +30,8 @@ class BybitPerpetualCandles(CandlesBase):
 
     @property
     def wss_url(self):
-        return CONSTANTS.WSS_URL
+        trading_type = "inverse" if "USDT" not in self._trading_pair else "linear"
+        return os.path.join(CONSTANTS.WSS_URL, trading_type)
 
     @property
     def health_check_url(self):
@@ -46,12 +46,20 @@ class BybitPerpetualCandles(CandlesBase):
         return CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
     @property
     def intervals(self):
         return CONSTANTS.INTERVALS
+
+    @property
+    def is_linear(self):
+        return "USDT" in self._trading_pair
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -73,7 +81,7 @@ class BybitPerpetualCandles(CandlesBase):
         startTime and endTime must be used at the same time.
         """
         params = {
-            "category": "linear",
+            "category": "linear" if "USDT" in self._trading_pair else "inverse",
             "symbol": self._ex_trading_pair,
             "interval": CONSTANTS.INTERVALS[self.interval],
             "limit": limit
