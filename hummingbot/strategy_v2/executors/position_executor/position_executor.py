@@ -208,7 +208,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: The trade pnl percentage.
         """
-        if self.open_filled_amount != Decimal("0"):
+        if self.open_filled_amount != Decimal("0") and self.close_type != CloseType.FAILED:
             if self.config.side == TradeType.BUY:
                 return (self.close_price - self.entry_price) / self.entry_price
             else:
