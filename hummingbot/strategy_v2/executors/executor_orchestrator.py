@@ -186,7 +186,7 @@ class ExecutorOrchestrator:
         active_executors = self.active_executors.get(controller_id, [])
         for executor in active_executors:
             executor_info = executor.executor_info
-            if executor.is_active:
+            if executor_info.is_active:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
             else:
                 report.realized_pnl_quote += executor_info.net_pnl_quote
