@@ -125,8 +125,6 @@ ONE_DAY = 86400
 
 # Order States
 ORDER_STATE = {
-    "QUEUED": OrderState.PENDING_APPROVAL,
-    "CANCEL_QUEUED": OrderState.APPROVED,
     "OPEN": OrderState.OPEN,
     "PENDING": OrderState.PENDING_CREATE,
     "FILLED": OrderState.FILLED,
