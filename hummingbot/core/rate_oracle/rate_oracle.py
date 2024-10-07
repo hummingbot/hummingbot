@@ -93,7 +93,7 @@ class RateOracle(NetworkBase):
 
     @property
     def quote_token(self) -> str:
-        return "USDT" if self._quote_token == "USC" else self._quote_token
+        return "USD" if self._quote_token == "USC" else self._quote_token
 
     @quote_token.setter
     def quote_token(self, new_token: str):
