@@ -25,7 +25,9 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 class TestExecutorOrchestrator(unittest.TestCase):
 
-    def setUp(self):
+    @patch.object(ExecutorOrchestrator, "_initialize_cached_performance")
+    def setUp(self, initialize_cached_performance_mock: MagicMock):
+        initialize_cached_performance_mock.return_value = None
         self.mock_strategy = self.create_mock_strategy()
         self.orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
 
