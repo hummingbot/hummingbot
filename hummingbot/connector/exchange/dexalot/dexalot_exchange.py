@@ -30,6 +30,7 @@ from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -61,8 +62,8 @@ class DexalotExchange(ExchangePyBase):
         self._queued_orders_task = None
 
         self._evm_params = {}
-
-        self._tx_client: DexalotClient = self._create_tx_client()
+        if self._trading_required:
+            self._tx_client: DexalotClient = self._create_tx_client()
 
         super().__init__(client_config_map)
 
@@ -143,6 +144,28 @@ class DexalotExchange(ExchangePyBase):
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
+    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        # pairs_prices = await self._api_get(path_url=CONSTANTS.ALL_TICKERS_PATH_URL)
+        api_factory = self._web_assistants_factory
+        ws = await api_factory.get_ws_assistant()
+        async with api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_URL):
+            await ws.connect(ws_url=CONSTANTS.WSS_URL, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+            payload = {
+                "type": "marketsnapshotsubscribe",
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+            await ws.send(subscribe_orderbook_request)
+        async for msg in ws.iter_messages():
+            data = msg.data
+            if data is not None and data["type"] == "marketSnapShot":
+                price_list = data["data"]
+                payload = {
+                    "type": "marketsnapshotunsubscribe",
+                }
+                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+                await ws.send(subscribe_orderbook_request)
+                return price_list
 
     def _format_evmamount_to_amount(self, trading_pair, base_evm_amount: Decimal, quote_evm_amount: Decimal) -> Tuple:
 
