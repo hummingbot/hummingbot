@@ -33,7 +33,7 @@ class TimeSynchronizer:
     @property
     def time_offset_ms(self) -> float:
         if not self._time_offset_ms:
-            offset = 0.0
+            offset = (self._time() - self._current_seconds_counter()) * 1e3
         else:
             median = numpy.median(self._time_offset_ms)
             weighted_average = numpy.average(self._time_offset_ms, weights=range(1, len(self._time_offset_ms) * 2 + 1, 2))
@@ -52,7 +52,7 @@ class TimeSynchronizer:
         Returns the current time in seconds calculated base on the deviation samples.
         :return: Calculated current time considering the registered deviations
         """
-        return self._time() + self.time_offset_ms * 1e-3
+        return self._current_seconds_counter() + self.time_offset_ms * 1e-3
 
     async def update_server_time_offset_with_time_provider(self, time_provider: Awaitable):
         """
@@ -62,9 +62,9 @@ class TimeSynchronizer:
         :param time_provider: Awaitable object that returns the current time
         """
         try:
-            local_before_ms: float = self._time() * 1e3
+            local_before_ms: float = self._current_seconds_counter() * 1e3
             server_time_ms: float = await time_provider
-            local_after_ms: float = self._time() * 1e3
+            local_after_ms: float = self._current_seconds_counter() * 1e3
             local_server_time_pre_image_ms: float = (local_before_ms + local_after_ms) / 2.0
             time_offset_ms: float = server_time_ms - local_server_time_pre_image_ms
             self.add_time_offset_ms_sample(time_offset_ms)
