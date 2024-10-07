@@ -93,11 +93,11 @@ class RateOracle(NetworkBase):
 
     @property
     def quote_token(self) -> str:
-        return "USD" if self._quote_token == "USC" else self._quote_token
+        return self._quote_token
 
     @quote_token.setter
     def quote_token(self, new_token: str):
-        if new_token != self.quote_token:
+        if new_token != self._quote_token:
             self._quote_token = new_token
             self._prices = {}
 
@@ -121,7 +121,7 @@ class RateOracle(NetworkBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            prices = await self._source.get_prices(quote_token=self.quote_token)
+            prices = await self._source.get_prices(quote_token=self._quote_token)
             if not prices:
                 raise Exception(f"Error fetching new prices from {self._source.name}.")
         except asyncio.CancelledError:
@@ -149,8 +149,8 @@ class RateOracle(NetworkBase):
         :param base_token: The token symbol that we want to price, e.g. BTC
         :return A conversion rate
         """
-        prices = await self._source.get_prices(quote_token=self.quote_token)
-        pair = combine_to_hb_trading_pair(base=base_token, quote=self.quote_token)
+        prices = await self._source.get_prices(quote_token=self._quote_token)
+        pair = combine_to_hb_trading_pair(base=base_token, quote=self._quote_token)
         return find_rate(prices, pair)
 
     def get_pair_rate(self, pair: str) -> Decimal:
@@ -186,7 +186,7 @@ class RateOracle(NetworkBase):
         :param pair: A trading pair, e.g. BTC-USDT
         :return A conversion rate
         """
-        prices = await self._source.get_prices(quote_token=self.quote_token)
+        prices = await self._source.get_prices(quote_token=self._quote_token)
         return find_rate(prices, pair)
 
     def set_price(self, pair: str, price: Decimal):
@@ -198,7 +198,7 @@ class RateOracle(NetworkBase):
     async def _fetch_price_loop(self):
         while True:
             try:
-                new_prices = await self._source.get_prices(quote_token=self.quote_token)
+                new_prices = await self._source.get_prices(quote_token=self._quote_token)
                 self._prices.update(new_prices)
 
                 if self._prices:
