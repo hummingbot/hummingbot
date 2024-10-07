@@ -404,18 +404,18 @@ class PositionExecutor(ExecutorBase):
         if activation_bounds:
             if order_type.is_limit_type():
                 if side == TradeType.BUY:
-                    return order_price > mid_price * (1 - activation_bounds[0])
+                    return order_price >= mid_price * (1 - activation_bounds[0])
                 else:
-                    return order_price < mid_price * (1 + activation_bounds[0])
+                    return order_price <= mid_price * (1 + activation_bounds[0])
             else:
                 if side == TradeType.BUY:
                     min_price_to_buy = order_price * (1 - activation_bounds[0])
                     max_price_to_buy = order_price * (1 + activation_bounds[1])
-                    return min_price_to_buy < mid_price < max_price_to_buy
+                    return min_price_to_buy <= mid_price <= max_price_to_buy
                 else:
                     min_price_to_sell = order_price * (1 - activation_bounds[1])
                     max_price_to_sell = order_price * (1 + activation_bounds[0])
-                    return min_price_to_sell < mid_price < max_price_to_sell
+                    return min_price_to_sell <= mid_price <= max_price_to_sell
         else:
             return True
 
