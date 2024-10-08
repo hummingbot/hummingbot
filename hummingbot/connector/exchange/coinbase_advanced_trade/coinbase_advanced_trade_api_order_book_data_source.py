@@ -63,10 +63,45 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._snapshot_messages_queue_key = "unused_snapshot_queue"
 
     async def _parse_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        """_summary_
+
+        Args:
+            raw_message (Dict[str, Any]): _description_
+            message_queue (asyncio.Queue): _description_
+        :param raw_message: the raw message received from the exchange
+        :param message_queue: the queue to add the parsed message
+        sample raw_message:
+        raw_message = {
+            'channel': 'l2_data',
+            'client_id': '',
+            'timestamp': '2024-10-08T09:10:53.374050957Z',
+            'sequence_num': 345,
+            'events': [
+                {
+                    'type': 'update',
+                    'product_id': 'BTC-USD',
+                    'updates': [
+                        {
+                            'side': 'bid',
+                            'event_time': '2024-10-08T09:10:53.335085Z',
+                            'price_level': '62313.58',
+                            'new_quantity': '0'
+                        },
+                        {
+                            'side': 'bid',
+                            'event_time': '2024-10-08T09:10:53.335085Z',
+                            'price_level': '62265.35',
+                            'new_quantity': '0'
+                        }
+                    ]
+                }
+            ]
+        }
+
+        """
         order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             raw_message,
             self._connector.exchange_symbol_associated_to_pair)
-        self.logger().debug(f"Received level2_and_trade_message from Coinbase Advanced Trade: {raw_message}")
         await message_queue.put(order_book_message)
 
     async def get_last_traded_prices(self,
@@ -182,9 +217,36 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        """_summary_
+        Processes the messages received from the websocket connection.
+        {
+            'channel': 'l2_data',
+            'client_id': '',
+            'timestamp': '2024-10-08T09:10:36.120390407Z',
+            'sequence_num': 14,
+            'events': [
+                {
+                    'type': 'update',
+                    'product_id': 'BTC-USD',
+                    'updates': [
+                        {
+                            'side': 'bid',
+                            'event_time': '2024-10-08T09:10:35.171517Z',
+                            'price_level': '62317.89',
+                            'new_quantity': '0.032355'},
+                        {
+                            'side': 'offer',
+                            'event_time': '2024-10-08T09:10:35.171517Z',
+                            'price_level': '62394.77',
+                            'new_quantity': '0.0170024'
+                        }
+                    ]
+                }
+            ]
+        }
+        """
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
-            self.logger().debug(f"Received message from Coinbase Advanced Trade: {data}")
 
             if data and "type" in data and data["type"] == 'error':
                 self.logger().error(f"Error received from websocket: {ws_response}")

@@ -79,11 +79,9 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         cls._sequence_nums[channel] = msg["sequence_num"] + 1
 
         if channel == "l2_data":
-            cls.logger().debug(f"Received level2 from Coinbase Advanced Trade: {msg}")
             return await cls._level2_order_book_message(msg, symbol_to_pair)
 
         elif channel == "market_trades":
-            cls.logger().debug(f"Received trade_message from Coinbase Advanced Trade: {msg}")
             return await cls._market_trades_order_book_message(msg, symbol_to_pair)
 
         elif channel in ["subscriptions", "heartbeat"]:
@@ -105,8 +103,40 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         :param msg: the response from the exchange when requesting the order book snapshot
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
+        {
+            'channel': 'l2_data',
+            'client_id': '',
+            'timestamp': '2024-10-08T09:10:36.04370306Z',
+            'sequence_num': 9,
+            'events': [
+                {
+                    'type': 'update',
+                    'product_id': 'BTC-USD',
+                    'updates': [
+                        {
+                            'side': 'bid',
+                            'event_time': '2024-10-08T09:10:34.970831Z',
+                            'price_level': '62319.46',
+                            'new_quantity': '0.00169'
+                        },
+                        {
+                            'side': 'bid',
+                            'event_time': '2024-10-08T09:10:34.970831Z',
+                            'price_level': '62318.81',
+                            'new_quantity': '0'
+                        },
+                        {
+                            'side': 'offer'
+                            'event_time': '2024-10-08T09:10:34.970831Z',
+                            'price_level': '62336.65',
+                            'new_quantity': '0.03021537'
+                        }
+                    ]
+                }
+            ]
+        }
         """
-        cls.logger().debug(f"Events Received trade_message from _level2_order_book_message: {msg}")
+
         for event in msg["events"]:
             trading_pair = await symbol_to_pair(event["product_id"])
             obm_content = {"trading_pair": trading_pair,
@@ -144,8 +174,28 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         :param msg: the response from the exchange when requesting the order book snapshot
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a trade message with the trade information received from the exchange
+        {
+            'channel': 'market_trades',
+            'client_id': '',
+            'timestamp': '2024-10-08T09:10:52.425044603Z',
+            'sequence_num': 328,
+            'events': [
+                {
+                    'type': 'update',
+                    'trades': [
+                        {
+                            'product_id': 'BTC-USD',
+                            'trade_id': '699871154',
+                            'price': '62322.43',
+                            'size': '0.00005535',
+                            'time': '2024-10-08T09:10:52.378779Z',
+                            'side': 'BUY'
+                        }
+                    ]
+                }
+            ]
+        }
         """
-        cls.logger().debug(f"Events Received trade_message from _market_trades_order_book_message: {msg}")
         for event in msg["events"]:
             for trade in event["trades"]:
                 ts: float = get_timestamp_from_exchange_time(msg["timestamp"], "s")
