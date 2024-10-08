@@ -756,15 +756,15 @@ class CoinCapRateSourceMode(RateSourceModeBase):
         default=",".join(
             [
                 ":".join(pair) for pair in {
-                "BTC": "bitcoin",
-                "ETH": "ethereum",
-                "USDT": "tether",
-                "CONV": "convergence",
-                "FIRO": "zcoin",
-                "BUSD": "binance-usd",
-                "ONE": "harmony",
-                "PDEX": "polkadex",
-            }.items()
+                    "BTC": "bitcoin",
+                    "ETH": "ethereum",
+                    "USDT": "tether",
+                    "CONV": "convergence",
+                    "FIRO": "zcoin",
+                    "BUSD": "binance-usd",
+                    "ONE": "harmony",
+                    "PDEX": "polkadex",
+                }.items()
             ]
         ),
         description=(
@@ -877,9 +877,9 @@ RATE_SOURCE_MODES = {
     BinanceUSRateSourceMode.Config.title: BinanceUSRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
     CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
+    DexalotRateSourceMode.Config.title: DexalotRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
     GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
-    DexalotRateSourceMode.Config.title: DexalotRateSourceMode,
     CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.Config.title: CubeRateSourceMode,
 }
@@ -997,8 +997,7 @@ class ClientConfigMap(BaseClientModel):
     certs_path: Path = Field(
         default=DEFAULT_GATEWAY_CERTS_PATH,
         client_data=ClientFieldData(
-            prompt=lambda
-                cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
+            prompt=lambda cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
         ),
     )
 
