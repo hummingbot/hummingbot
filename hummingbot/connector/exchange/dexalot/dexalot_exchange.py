@@ -62,8 +62,7 @@ class DexalotExchange(ExchangePyBase):
         self._queued_orders_task = None
 
         self._evm_params = {}
-        if self._trading_required:
-            self._tx_client: DexalotClient = self._create_tx_client()
+        self._tx_client: DexalotClient = self._create_tx_client()
 
         super().__init__(client_config_map)
 
@@ -727,7 +726,7 @@ class DexalotExchange(ExchangePyBase):
         try:
             if not exchange_order_id:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
-        except TimeoutError:
+        except asyncio.TimeoutError:
             self.logger().warning(
                 f"Error fetching status update for the lost order {tracked_order.client_order_id}: TimeoutError.")
             order_update = self._update_order_after_creation_failure(
