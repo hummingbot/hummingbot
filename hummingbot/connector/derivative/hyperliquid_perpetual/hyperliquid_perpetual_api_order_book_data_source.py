@@ -77,12 +77,12 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                         rate=funding_info.rate,
                     )
                     output.put_nowait(funding_info_update)
+                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public funding info updates from exchange")
-            finally:
-                await asyncio.sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
+                await self._sleep(CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -216,4 +216,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         """
         Funding settlement occurs every 1 hours as mentioned in https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
         """
-        return ((time.time() // 3600) + 1) * 3600
+        return int(((time.time() // 3600) + 1) * 3600)
+
+    async def _sleep(self, delay):
+        await asyncio.sleep(delay)
