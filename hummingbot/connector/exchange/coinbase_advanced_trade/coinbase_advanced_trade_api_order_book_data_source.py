@@ -107,7 +107,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
-        await asyncio.sleep(0)
+        # await asyncio.sleep(0)
         return {trading_pair: self._last_traded_prices[trading_pair] or 0.0 for trading_pair in trading_pairs}
 
     # --- Overriding methods from the Base class ---
