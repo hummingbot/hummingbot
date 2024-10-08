@@ -601,7 +601,7 @@ class DexalotExchange(ExchangePyBase):
         try:
             for k, v in all_orders.items():
                 await v.get_exchange_order_id()
-        except Exception as e:
+        except Exception:
             pass
         _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
         if len(_cli_tracked_orders) == 0 or _cli_tracked_orders[0] is None:
