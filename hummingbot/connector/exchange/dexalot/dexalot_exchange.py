@@ -602,8 +602,7 @@ class DexalotExchange(ExchangePyBase):
             for k, v in all_orders.items():
                 await v.get_exchange_order_id()
         except Exception as e:
-            self.logger().info(
-                f"Unable to locate order {exchange_order_id} on exchange. Pending update from blockchain {e}")
+            pass
         _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
         if len(_cli_tracked_orders) == 0 or _cli_tracked_orders[0] is None:
             order_update: OrderUpdate = await self._request_order_status(tracked_order=None,
