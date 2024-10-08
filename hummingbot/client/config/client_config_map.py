@@ -756,15 +756,15 @@ class CoinCapRateSourceMode(RateSourceModeBase):
         default=",".join(
             [
                 ":".join(pair) for pair in {
-                    "BTC": "bitcoin",
-                    "ETH": "ethereum",
-                    "USDT": "tether",
-                    "CONV": "convergence",
-                    "FIRO": "zcoin",
-                    "BUSD": "binance-usd",
-                    "ONE": "harmony",
-                    "PDEX": "polkadex",
-                }.items()
+                "BTC": "bitcoin",
+                "ETH": "ethereum",
+                "USDT": "tether",
+                "CONV": "convergence",
+                "FIRO": "zcoin",
+                "BUSD": "binance-usd",
+                "ONE": "harmony",
+                "PDEX": "polkadex",
+            }.items()
             ]
         ),
         description=(
@@ -849,6 +849,17 @@ class GateIoRateSourceMode(ExchangeRateSourceModeBase):
         title: str = "gate_io"
 
 
+class DexalotRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="dexalot",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title: str = "dexalot"
+
+
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="coinbase_advanced_trade",
@@ -868,6 +879,7 @@ RATE_SOURCE_MODES = {
     CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
     GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
+    DexalotRateSourceMode.Config.title: DexalotRateSourceMode,
     CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.Config.title: CubeRateSourceMode,
 }
@@ -985,7 +997,8 @@ class ClientConfigMap(BaseClientModel):
     certs_path: Path = Field(
         default=DEFAULT_GATEWAY_CERTS_PATH,
         client_data=ClientFieldData(
-            prompt=lambda cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
+            prompt=lambda
+                cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
         ),
     )
 
