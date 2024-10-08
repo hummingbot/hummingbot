@@ -217,6 +217,3 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         Funding settlement occurs every 1 hours as mentioned in https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
         """
         return int(((time.time() // 3600) + 1) * 3600)
-
-    async def _sleep(self, delay):
-        await asyncio.sleep(delay)
