@@ -46,7 +46,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
 
         ob_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"][:10], "s")),
+            "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"], "s")),
             "bids": [[d["price"], d["size"]] for d in msg["pricebook"]["bids"][:10]],
             "asks": [[d["price"], d["size"]] for d in msg["pricebook"]["asks"][:10]]
         }, timestamp=timestamp)
