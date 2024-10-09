@@ -155,14 +155,14 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                 return OrderBookMessage(OrderBookMessageType.DIFF,
                                         obm_content,
                                         timestamp=obm_content['update_id'])
-            if event["type"] == "snapshot":
+            elif event["type"] == "snapshot":
                 # obm_content["first_update_id"] = 0
                 return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
                                         obm_content,
                                         timestamp=obm_content['update_id'])
-
-            cls.logger().warning(f"Unexpected event type: {event['type']}")
-            return None
+            else:
+                cls.logger().warning(f"Unexpected event type: {event['type']}")
+                return None
 
     @classmethod
     async def _market_trades_order_book_message(
