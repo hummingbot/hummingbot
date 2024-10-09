@@ -173,7 +173,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
 
             # Handle the return of messages based on event type
             if event_type == "update":
-                cls.logger().info(f"Received order book update: {obm_content_updates}")
+                # cls.logger().info(f"Received order book update: {obm_content_updates}")
                 return OrderBookMessage(OrderBookMessageType.DIFF,
                                         obm_content_updates,
                                         timestamp=obm_content_updates['update_id'])
