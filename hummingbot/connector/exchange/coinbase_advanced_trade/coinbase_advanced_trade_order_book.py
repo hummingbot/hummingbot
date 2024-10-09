@@ -46,9 +46,9 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
 
         ob_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"], "s")),
-            "bids": ((d["price"], d["size"]) for d in msg["pricebook"]["bids"]),
-            "asks": ((d["price"], d["size"]) for d in msg["pricebook"]["asks"])
+            "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"][:10], "s")),
+            "bids": [[d["price"], d["size"]] for d in msg["pricebook"]["bids"][:10]],
+            "asks": [[d["price"], d["size"]] for d in msg["pricebook"]["asks"][:10]]
         }, timestamp=timestamp)
 
         return ob_msg
@@ -148,28 +148,15 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                 "asks": []
             }
 
-            obm_content_snapshot = {
-                "trading_pair": trading_pair,
-                "update_id": int(get_timestamp_from_exchange_time(msg["timestamp"], "s")),
-                "bids": [],
-                "asks": []
-            }
-
             # Process updates or snapshots
             for update in event.get("updates"):
                 if update["side"] == "bid":
                     if event_type == "update":
                         # For updates, append all entries
                         obm_content_updates["bids"].append([update["price_level"], update["new_quantity"]])
-                    else:  # For snapshots, limit to the first 10 entries
-                        if len(obm_content_snapshot["bids"]) < 8:
-                            obm_content_snapshot["bids"].append([update["price_level"], update["new_quantity"]])
                 else:  # For "ask" side
                     if event_type == "update":
                         obm_content_updates["asks"].append([update["price_level"], update["new_quantity"]])
-                    else:  # For snapshots, limit to the first 10 entries
-                        if len(obm_content_snapshot["asks"]) < 8:
-                            obm_content_snapshot["asks"].append([update["price_level"], update["new_quantity"]])
 
             # Handle the return of messages based on event type
             if event_type == "update":
@@ -179,10 +166,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                                         timestamp=obm_content_updates['update_id'])
 
             elif event_type == "snapshot":
-                # obm_content["first_update_id"] = 0  # Uncomment if needed
-                return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
-                                        obm_content_snapshot,
-                                        timestamp=obm_content_snapshot['update_id'])
+                return
             else:
                 cls.logger().warning(f"Unexpected event type: {event_type}")
                 return None
