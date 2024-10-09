@@ -76,7 +76,7 @@ class BitgetSpotCandles(CandlesBase):
         """
         params = {
             "symbol": self._ex_trading_pair,
-            "interval": CONSTANTS.INTERVALS[self.interval],
+            "granularity": CONSTANTS.INTERVALS[self.interval],
             "limit": limit
         }
         if start_time:
@@ -92,7 +92,7 @@ class BitgetSpotCandles(CandlesBase):
         return [
             [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5], row[7],
              0., 0., 0.]
-            for row in data if self.ensure_timestamp_in_seconds(row[0]) < end_time]
+            for row in data['data'] if self.ensure_timestamp_in_seconds(row[0]) < end_time]
 
     def ws_subscription_payload(self):
         trading_pair = self.get_exchange_trading_pair(self._trading_pair)

@@ -5,7 +5,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 # Base URLs
 REST_URL = "https://api.bitget.com"
 HEALTH_CHECK_ENDPOINT = "/api/spot/v1/public/time"
-CANDLES_ENDPOINT = "/api/spot/v1/market/candles"
+CANDLES_ENDPOINT = "/api/v2/spot/market/candles"
 
 WSS_URL = "wss://ws.bitget.com/spot/v1/stream"
 
