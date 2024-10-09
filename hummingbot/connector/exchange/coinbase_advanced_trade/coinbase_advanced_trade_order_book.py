@@ -162,13 +162,13 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                         # For updates, append all entries
                         obm_content_updates["bids"].append([update["price_level"], update["new_quantity"]])
                     else:  # For snapshots, limit to the first 10 entries
-                        if len(obm_content_snapshot["bids"]) < 10:
+                        if len(obm_content_snapshot["bids"]) < 8:
                             obm_content_snapshot["bids"].append([update["price_level"], update["new_quantity"]])
                 else:  # For "ask" side
                     if event_type == "update":
                         obm_content_updates["asks"].append([update["price_level"], update["new_quantity"]])
                     else:  # For snapshots, limit to the first 10 entries
-                        if len(obm_content_snapshot["asks"]) < 10:
+                        if len(obm_content_snapshot["asks"]) < 8:
                             obm_content_snapshot["asks"].append([update["price_level"], update["new_quantity"]])
 
             # Handle the return of messages based on event type
@@ -177,6 +177,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                 return OrderBookMessage(OrderBookMessageType.DIFF,
                                         obm_content_updates,
                                         timestamp=obm_content_updates['update_id'])
+
             elif event_type == "snapshot":
                 # obm_content["first_update_id"] = 0  # Uncomment if needed
                 return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
