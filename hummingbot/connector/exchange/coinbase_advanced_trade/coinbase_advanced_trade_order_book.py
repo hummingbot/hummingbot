@@ -150,11 +150,11 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                 else:
                     obm_content["asks"].append([update["price_level"], update["new_quantity"]])
 
-            if event["type"] == "snapshot":
-                # obm_content["first_update_id"] = 0
-                return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
-                                        obm_content,
-                                        timestamp=obm_content['update_id'])
+            # if event["type"] == "snapshot":
+            #     # obm_content["first_update_id"] = 0
+            #     return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
+            #                             obm_content,
+            #                             timestamp=obm_content['update_id'])
             if event["type"] == "update":
                 return OrderBookMessage(OrderBookMessageType.DIFF,
                                         obm_content,
@@ -162,6 +162,28 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
 
             cls.logger().warning(f"Unexpected event type: {event['type']}")
             return None
+
+    @classmethod
+    def diff_message_from_exchange(cls,
+                                   msg: Dict[str, any],
+                                   timestamp: Optional[float] = None,
+                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+        """
+        Creates a diff message with the changes in the order book received from the exchange
+        :param msg: the changes in the order book
+        :param timestamp: the timestamp of the difference
+        :param metadata: a dictionary with extra information to add to the difference data
+        :return: a diff message with the changes in the order book notified by the exchange
+        """
+        if metadata:
+            msg.update(metadata)
+        return OrderBookMessage(OrderBookMessageType.DIFF, {
+            "trading_pair": [int(get_timestamp_from_exchange_time(i["timestamp"], "s")) for i in msg["events"]],
+            # "first_update_id": msg["U"],
+            "update_id": [[i['price_level'], i['new_quantity']] for i in msg['events']["update"].get("bids", [])],
+            "bids": [[i['price_level'], i['new_quantity']] for i in msg['events']["update"][0].get("bids", [])],
+            "asks": [[i['price_level'], i['new_quantity']] for i in msg['events']["update"][0].get("asks", [])],
+        }, timestamp=timestamp)
 
     @classmethod
     async def _market_trades_order_book_message(
