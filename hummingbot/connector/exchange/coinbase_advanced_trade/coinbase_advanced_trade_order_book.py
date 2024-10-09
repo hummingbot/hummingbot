@@ -150,13 +150,14 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                 else:
                     obm_content["asks"].append([update["price_level"], update["new_quantity"]])
 
-            # if event["type"] == "snapshot":
-            #     # obm_content["first_update_id"] = 0
-            #     return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
-            #                             obm_content,
-            #                             timestamp=obm_content['update_id'])
             if event["type"] == "update":
+                cls.logger().info(f"Received order book update: {obm_content}")
                 return OrderBookMessage(OrderBookMessageType.DIFF,
+                                        obm_content,
+                                        timestamp=obm_content['update_id'])
+            if event["type"] == "snapshot":
+                # obm_content["first_update_id"] = 0
+                return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
                                         obm_content,
                                         timestamp=obm_content['update_id'])
 
