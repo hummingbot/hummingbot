@@ -658,7 +658,8 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def expected_trading_rule(self):
         return TradingRule(
             trading_pair=self.trading_pair,
-            min_order_size= Decimal(0.01),
+            min_order_size= Decimal(
+                f'1e-{self.trading_rules_request_mock_response[0]["base_precision"]}'),
             min_price_increment=Decimal(
                 f'1e-{self.trading_rules_request_mock_response[0]["quote_precision"]}'),
             min_base_amount_increment=Decimal(
@@ -1828,22 +1829,6 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(1, len(latest_prices))
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 
-    def _simulate_trading_rules_initialized(self):
-        rule = {
-            "quote_precision": 10,
-            "base_precision": 6
-        }
-        min_price_inc = Decimal(f"1e-{rule['quote_precision']}")
-        step_size = Decimal(f'1e-{rule["base_precision"]}')
-        self.exchange._trading_rules = {
-            self.trading_pair: TradingRule(
-                trading_pair=self.trading_pair,
-                min_order_size=Decimal(str(0.01)),
-                min_price_increment=Decimal(min_price_inc),
-                min_base_amount_increment=Decimal(step_size),
-            )
-        }
-
     @aioresponses()
     def test_get_chain_list(self, mock_api):
         request_sent_event = asyncio.Event()
@@ -2007,7 +1992,7 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000000000')}."
+                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000')}."
             )
         )
 
@@ -2087,7 +2072,7 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000000000')}."
+                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000.0000')}."
             )
         )
 

@@ -384,12 +384,12 @@ class TegroExchange(ExchangePyBase):
         for rule in filter(tegro_utils.is_exchange_information_valid, exchange_info):
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
-                min_order_size = Decimal(0.01)
+                min_order_size = Decimal(f'1e-{rule["base_precision"]}')
                 min_price_inc = Decimal(f"1e-{rule['quote_precision']}")
                 step_size = Decimal(f'1e-{rule["base_precision"]}')
                 retval.append(
                     TradingRule(trading_pair,
-                                min_order_size = min_order_size,
+                                min_order_size = Decimal(min_order_size),
                                 min_price_increment = Decimal(min_price_inc),
                                 min_base_amount_increment = Decimal(step_size)))
             except Exception:
