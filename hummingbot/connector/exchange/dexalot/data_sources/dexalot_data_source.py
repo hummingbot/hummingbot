@@ -124,8 +124,8 @@ class DexalotClient:
         async with self.transaction_lock:
             result = None
             for retry_attempt in range(CONSTANTS.TRANSACTION_REQUEST_ATTEMPTS):
+                current_nonce = await self.async_w3.eth.get_transaction_count(self.account.address)
                 try:
-                    current_nonce = await self.async_w3.eth.get_transaction_count(self.account.address)
                     tx_params = {
                         'nonce': current_nonce if current_nonce > self.last_nonce else self.last_nonce,
                         'gas': gas,
@@ -142,7 +142,10 @@ class DexalotClient:
                         f"Attempt {function.abi['name']} {retry_attempt + 1}/{CONSTANTS.TRANSACTION_REQUEST_ATTEMPTS}"
                     )
                     arg = str(e)
-                    self.last_nonce = int(arg[arg.find('next nonce ') + 11: arg.find(", tx nonce")])
+                    if "replacement transaction underpriced" in arg:
+                        self.last_nonce = current_nonce + 1
+                    else:
+                        self.last_nonce = int(arg[arg.find('next nonce ') + 11: arg.find(", tx nonce")])
                     await asyncio.sleep(CONSTANTS.RETRY_INTERVAL ** retry_attempt)
                     continue
             if not result:
