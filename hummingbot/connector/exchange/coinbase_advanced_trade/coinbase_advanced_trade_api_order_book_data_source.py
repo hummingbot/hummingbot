@@ -294,8 +294,46 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # TODO: Implement this method to parse the websocker messages
-        raise
+        """_summary_
+
+        Args:
+            raw_message (Dict[str, Any]): _description_
+            message_queue (asyncio.Queue): _description_
+        :param raw_message: the raw message received from the exchange
+        :param message_queue: the queue to add the parsed message
+        sample raw_message:
+        raw_message = {
+            'channel': 'l2_data',
+            'client_id': '',
+            'timestamp': '2024-10-08T09:10:53.374050957Z',
+            'sequence_num': 345,
+            'events': [
+                {
+                    'type': 'update',
+                    'product_id': 'BTC-USD',
+                    'updates': [
+                        {
+                            'side': 'bid',
+                            'event_time': '2024-10-08T09:10:53.335085Z',
+                            'price_level': '62313.58',
+                            'new_quantity': '0'
+                        },
+                        {
+                            'side': 'bid',
+                            'event_time': '2024-10-08T09:10:53.335085Z',
+                            'price_level': '62265.35',
+                            'new_quantity': '0'
+                        }
+                    ]
+                }
+            ]
+        }
+
+        """
+        order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+            raw_message,
+            self._connector.exchange_symbol_associated_to_pair)
+        await message_queue.put(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
