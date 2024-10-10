@@ -73,25 +73,25 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
     async def symbol_to_pair(self, symbol: str) -> str:
         return "COINALPHA-HBOT"
 
-    # async def test_level2_order_book_snapshot_message(self):
-    #     snapshot_message = await (CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
-    #         msg=self.snapshot_msg,
-    #         symbol_to_pair=self.symbol_to_pair
-    #     ))
+    async def test_level2_order_book_snapshot_message(self):
+        snapshot_message = await (CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
+            msg=self.snapshot_msg,
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
-    #     self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
-    #     self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_message.type)
-    #     self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg["timestamp"], "s")), snapshot_message.timestamp)
-    #     self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.update_id)
-    #     self.assertEqual(-1, snapshot_message.trade_id)
-    #     self.assertEqual(2, len(snapshot_message.bids))
-    #     self.assertEqual(21921.73, snapshot_message.bids[0].price)
-    #     self.assertEqual(0.06317902, snapshot_message.bids[0].amount)
-    #     self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.bids[0].update_id)
-    #     self.assertEqual(1, len(snapshot_message.asks))
-    #     self.assertEqual(2192.3, snapshot_message.asks[0].price)
-    #     self.assertEqual(0.002, snapshot_message.asks[0].amount)
-    #     self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.asks[0].update_id)
+        self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_message.type)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg["timestamp"], "s")), snapshot_message.timestamp)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.update_id)
+        self.assertEqual(-1, snapshot_message.trade_id)
+        self.assertEqual(2, len(snapshot_message.bids))
+        self.assertEqual(21921.73, snapshot_message.bids[0].price)
+        self.assertEqual(0.06317902, snapshot_message.bids[0].amount)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.bids[0].update_id)
+        self.assertEqual(1, len(snapshot_message.asks))
+        self.assertEqual(2192.3, snapshot_message.asks[0].price)
+        self.assertEqual(0.002, snapshot_message.asks[0].amount)
+        self.assertEqual(int(get_timestamp_from_exchange_time(self.snapshot_msg['timestamp'], "s")), snapshot_message.asks[0].update_id)
 
     async def test_level2_order_book_update_message(self):
         update_msg = self.snapshot_msg
@@ -134,19 +134,19 @@ class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, Logger
         self.assertIn(trade_message.content["trade_type"], [TradeType.SELL.value, TradeType.BUY.value])
         self.assertEqual(int(timestamp), trade_message.content["update_id"])
 
-    # async def test_level2_or_trade_message_from_exchange_level2(self):
-    #     snapshot_msg = self.snapshot_msg
-    #     snapshot_msg["sequence_num"] = 1
+    async def test_level2_or_trade_message_from_exchange_level2(self):
+        snapshot_msg = self.snapshot_msg
+        snapshot_msg["sequence_num"] = 1
 
-    #     snapshot_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
-    #         msg=snapshot_msg,
-    #         symbol_to_pair=self.symbol_to_pair
-    #     ))
+        snapshot_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+            msg=snapshot_msg,
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
-    #     self.assertEqual(snapshot_message.type, OrderBookMessageType.SNAPSHOT)
-    #     self.assertEqual(snapshot_message.update_id, int(get_timestamp_from_exchange_time(
-    #         snapshot_msg['timestamp'], "s")))
-    #     self.assertEqual(snapshot_message.timestamp, int(get_timestamp_from_exchange_time(snapshot_msg["timestamp"], "s")))
+        self.assertEqual(snapshot_message.type, OrderBookMessageType.SNAPSHOT)
+        self.assertEqual(snapshot_message.update_id, int(get_timestamp_from_exchange_time(
+            snapshot_msg['timestamp'], "s")))
+        self.assertEqual(snapshot_message.timestamp, int(get_timestamp_from_exchange_time(snapshot_msg["timestamp"], "s")))
 
     async def test_level2_or_trade_message_from_exchange_market_trades(self):
         trade_msg = self.trade_msg
