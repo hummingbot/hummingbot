@@ -475,6 +475,7 @@ class PositionExecutor(ExecutorBase):
             self._close_order = TrackedOrder(order_id=order_id)
             self.logger().debug(f"Executor ID: {self.config.id} - Placing close order {order_id} --> Filled amount: {self.open_filled_amount}")
         self.close_type = close_type
+        self.close_timestamp = self._strategy.current_timestamp
         self._status = RunnableStatus.SHUTTING_DOWN
 
     def cancel_open_orders(self):
