@@ -164,6 +164,7 @@ class DexalotExchange(ExchangePyBase):
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
                 await ws.send(subscribe_orderbook_request)
+                await ws.disconnect()
                 return price_list
 
     def _format_evmamount_to_amount(self, trading_pair, base_evm_amount: Decimal, quote_evm_amount: Decimal) -> Tuple:
@@ -659,7 +660,7 @@ class DexalotExchange(ExchangePyBase):
                 else:
                     base_collateral_value = Decimal(order_msg["quantity"])
                     self._account_available_balances[base_coin] -= base_collateral_value
-            if order_msg["status"] in ["FILLED", "PARTIAL", 3, 2]:
+            if order_msg["status"] in ["FILLED", 3]:
                 if order_msg["side"] == "BUY" or order_msg["side"] == 0:
                     base_collateral_value = Decimal(order_msg["quantityfilled"])
                     self._account_available_balances[quote_coin] += base_collateral_value

@@ -55,7 +55,7 @@ class DexalotClient:
             is_auth_required=False,
             limit_id=CONSTANTS.IP_REQUEST_WEIGHT)
         for token_info in token_raw_info_list:
-            self.balance_evm_params[token_info["symbol"]] = {
+            self.balance_evm_params[token_info["subnet_symbol"]] = {
                 "token_evmdecimals": token_info["evmdecimals"]
             }
 
