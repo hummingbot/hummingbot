@@ -95,6 +95,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
     async def _level2_order_book_message(
             cls,
             msg: Dict[str, any],
+            timestamp: float,
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> Optional[OrderBookMessage]:
         """
         Process messages from the order book or trade channel
@@ -190,6 +191,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
     async def _market_trades_order_book_message(
             cls,
             msg: Dict[str, Any],
+            timestamp: float,
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
         """
         Process messages from the market trades channel

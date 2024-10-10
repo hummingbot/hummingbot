@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -291,11 +292,18 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     # --- Implementation of abstract methods from the Base class ---
     # Unused methods
     async def _parse_order_book_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
+        if "code" not in raw_message:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["product_id"])
+            order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook._market_trades_order_book_message(
+                raw_message, time.time(), {"trading_pair": trading_pair})
+            message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # TODO: Implement this method to parse the websocker messages
-        raise
+        if "code" not in raw_message:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["product_id"])
+            order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
+                raw_message, time.time(), {"trading_pair": trading_pair})
+            message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
