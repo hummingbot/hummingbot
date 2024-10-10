@@ -197,7 +197,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 symbols.append(symbol)
 
-            for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
+            for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_KEYS]:
                 payload = {
                     "type": "subscribe",
                     "product_ids": symbols,
@@ -253,8 +253,8 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise ValueError(f"Error received from websocket: {ws_response}")
 
             if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
-                if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse:
-                    queue_key: str = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse[data["channel"]]
+                if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.keys():
+                    queue_key: str = constants.WS_ORDER_SUBSCRIPTION_CHANNELS[data["channel"]]
                     await self._message_queue[queue_key].put(data)
 
                 elif data["channel"] in ["subscriptions", "heartbeats"]:
@@ -294,7 +294,8 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
+        # TODO: Implement this method to parse the websocker messages
+        raise
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
