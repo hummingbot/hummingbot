@@ -150,8 +150,11 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "code" not in raw_message:
+            events = raw_message["events"][0]
+            for event in events["trades"]:
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=event["product_id"])
             trade_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
-                raw_message)
+                raw_message, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
