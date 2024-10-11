@@ -58,7 +58,7 @@ TRANSACTIONS_SUMMARY_EP = "/brokerage/transaction_summary"
 ACCOUNTS_LIST_EP = "/brokerage/accounts"
 ACCOUNT_EP = "/brokerage/accounts/{account_uuid}"
 ACCOUNT_RATE_LIMIT_ID = "Account"
-SNAPSHOT_EP = "/brokerage/market/product_book"
+SNAPSHOT_EP = "/brokerage/product_book"
 
 PRIVATE_REST_ENDPOINTS = {
     ALL_PAIRS_EP,
