@@ -131,54 +131,10 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().debug(f"Error: {e}")
             raise
 
-    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
-        """_summary_
-        Processes the messages received from the websocket connection.
-        {
-            'channel': 'l2_data',
-            'client_id': '',
-            'timestamp': '2024-10-08T09:10:36.120390407Z',
-            'sequence_num': 14,
-            'events': [
-                {
-                    'type': 'update',
-                    'product_id': 'BTC-USD',
-                    'updates': [
-                        {
-                            'side': 'bid',
-                            'event_time': '2024-10-08T09:10:35.171517Z',
-                            'price_level': '62317.89',
-                            'new_quantity': '0.032355'},
-                        {
-                            'side': 'offer',
-                            'event_time': '2024-10-08T09:10:35.171517Z',
-                            'price_level': '62394.77',
-                            'new_quantity': '0.0170024'
-                        }
-                    ]
-                }
-            ]
-        }
-        """
-        async for ws_response in websocket_assistant.iter_messages():
-            data: Dict[str, Any] = ws_response.data
-
-            if data and "type" in data and data["type"] == 'error':
-                self.logger().error(f"Error received from websocket: {ws_response}")
-                raise ValueError(f"Error received from websocket: {ws_response}")
-
-            if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
-                if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.keys():
-                    queue_key: str = constants.WS_ORDER_SUBSCRIPTION_CHANNELS[data["channel"]]
-                    await self._message_queue[queue_key].put(data)
-
-                elif data["channel"] in ["subscriptions", "heartbeats"]:
-                    self.logger().debug(f"Ignoring message from Coinbase Advanced Trade: {data}")
-                else:
-                    self.logger().debug(
-                        f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
-            else:
-                self.logger().warning(f"Unrecognized websocket message received from Coinbase Advanced Trade: {data}")
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
+        await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain), max_msg_size=constants.WS_MAX_MSG_SIZE)
+        return self._ws_assistant
 
     # --- Implementation of abstract methods from the Base class ---
     # Unused methods
@@ -192,19 +148,16 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         return snapshot_msg
 
-    # --- Implementation of abstract methods from the Base class ---
-    # Unused methods
-    async def _parse_order_book_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+    async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "code" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["product_id"])
-            order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook._market_trades_order_book_message(
-                raw_message, time.time(), {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+            trade_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
+                raw_message)
+            message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "code" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["product_id"])
-            order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["events"][0]["product_id"])
+            order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.diff_message_from_exchange(
                 raw_message, time.time(), {"trading_pair": trading_pair})
             message_queue.put_nowait(order_book_message)
 
