@@ -99,9 +99,12 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }
 
         """
+        self.logger().debug("   '-> processing with level2_or_trade_message_from_exchange")
         order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             raw_message,
             self._connector.exchange_symbol_associated_to_pair)
+        self.logger().debug("   '-> put in message queue")
+
         await message_queue.put(order_book_message)
 
     async def get_last_traded_prices(self,
@@ -122,7 +125,10 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 event = await self._message_queue[self._diff_messages_queue_key].get()
+                self.logger().debug(f"   '-> Q: {self._diff_messages_queue_key} - Event: {event}")
+                self.logger().debug("   '-> Parsing ...")
                 await self._parse_message(raw_message=event, message_queue=output)
+                self.logger().debug("   '-> Parsed into DIFF queue from listen_for_order_book_diffs")
 
             except asyncio.CancelledError:
                 raise
@@ -253,8 +259,11 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise ValueError(f"Error received from websocket: {ws_response}")
 
             if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
+                self.logger().debug(f"Received message from Coinbase Advanced Trade: {data}")
+                self.logger().debug(f" '-> Channel: {data['channel']}")
                 if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse:
                     queue_key: str = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse[data["channel"]]
+                    self.logger().debug(f" '-> Queue: {queue_key}")
                     await self._message_queue[queue_key].put(data)
 
                 elif data["channel"] in ["subscriptions", "heartbeats"]:
