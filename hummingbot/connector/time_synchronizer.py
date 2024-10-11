@@ -73,6 +73,7 @@ class TimeSynchronizer:
         except Exception:
             self.logger().network("Error getting server time.", exc_info=True,
                                   app_warning_msg="Could not refresh server time. Check network connection.")
+            time_provider.close()
 
     async def update_server_time_if_not_initialized(self, time_provider: Awaitable):
         """
