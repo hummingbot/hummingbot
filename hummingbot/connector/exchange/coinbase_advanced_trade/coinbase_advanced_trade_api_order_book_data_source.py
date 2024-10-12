@@ -150,24 +150,28 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if raw_message is not None or "code" not in raw_message:
-            events = raw_message["events"][0]
-            trading_pair = events["trades"][0]["product_id"]
-            # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
-            pair = await self.filter_pair(trading_pair)
-            trade_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
-                raw_message, {"trading_pair": pair})
-            self.logger().debug(f"Order book message: {trade_message}")
-            message_queue.put_nowait(trade_message)
+            event_type = raw_message["events"][0]["type"]
+            if event_type == "update":
+                events = raw_message["events"][0]
+                trading_pair = events["trades"][0]["product_id"]
+                # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
+                pair = await self.filter_pair(trading_pair)
+                trade_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
+                    raw_message, {"trading_pair": pair})
+                self.logger().debug(f"Order book message: {trade_message}")
+                message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if raw_message is not None or "code" not in raw_message:
-            trading_pair = raw_message["events"][0]["product_id"]
-            # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
-            pair = await self.filter_pair(trading_pair)
-            order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": pair})
-            self.logger().debug(f"Order book message: {order_book_message}")
-            message_queue.put_nowait(order_book_message)
+            event_type = raw_message["events"][0]["type"]
+            if event_type == "update":
+                trading_pair = raw_message["events"][0]["product_id"]
+                # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
+                pair = await self.filter_pair(trading_pair)
+                order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.diff_message_from_exchange(
+                    raw_message, time.time(), {"trading_pair": pair})
+                self.logger().debug(f"Order book message: {order_book_message}")
+                message_queue.put_nowait(order_book_message)
 
     async def filter_pair(self, trading_pair):
         pairs = []
