@@ -106,17 +106,16 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             "bids": [],
             "asks": []
         }
-        if event["type"] == "update":
-            for update in event.get("updates", []):
-                if update["side"] == "bid":
-                    obm_content["bids"].append([update["price_level"], update["new_quantity"]])
-                else:
-                    obm_content["asks"].append([update["price_level"], update["new_quantity"]])
+        for update in event.get("updates", []):
+            if update["side"] == "bid":
+                obm_content["bids"].append([update["price_level"], update["new_quantity"]])
+            else:
+                obm_content["asks"].append([update["price_level"], update["new_quantity"]])
 
-            return OrderBookMessage(
-                OrderBookMessageType.DIFF,
-                obm_content,
-                timestamp=obm_content['update_id'])
+        return OrderBookMessage(
+            OrderBookMessageType.DIFF,
+            obm_content,
+            timestamp=obm_content['update_id'])
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
@@ -152,17 +151,16 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             msg.update(metadata)
         event = msg["events"][0]
         ts: float = get_timestamp_from_exchange_time(msg["timestamp"], "s")
-        if event["type"] == "update":
-            update = event["trades"][0]
-            # Return an OrderBookMessage for each trade processed
-            return OrderBookMessage(
-                OrderBookMessageType.TRADE,
-                {
-                    "trading_pair": msg["trading_pair"],
-                    "trade_type": float(TradeType.SELL.value) if update["side"] == "SELL" else float(TradeType.BUY.value),
-                    "trade_id": int(update["trade_id"]),
-                    "update_id": int(ts),
-                    "price": update["price"],
-                    "amount": update["size"]
-                },
-                timestamp=ts)
+        update = event["trades"][0]
+        # Return an OrderBookMessage for each trade processed
+        return OrderBookMessage(
+            OrderBookMessageType.TRADE,
+            {
+                "trading_pair": msg["trading_pair"],
+                "trade_type": float(TradeType.SELL.value) if update["side"] == "SELL" else float(TradeType.BUY.value),
+                "trade_id": int(update["trade_id"]),
+                "update_id": int(ts),
+                "price": update["price"],
+                "amount": update["size"]
+            },
+            timestamp=ts)
