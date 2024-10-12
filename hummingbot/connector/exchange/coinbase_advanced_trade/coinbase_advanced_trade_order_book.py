@@ -96,10 +96,12 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             ]
         }
         """
+        if metadata:
+            msg.update(metadata)
         event = msg["events"][0]
-        trading_pair = event["product_id"]
+        # trading_pair = event["product_id"]
         obm_content = {
-            "trading_pair": trading_pair,
+            "trading_pair": msg["trading_pair"],
             "update_id": int(get_timestamp_from_exchange_time(msg["timestamp"], "s")),
             "bids": [],
             "asks": []
@@ -146,20 +148,21 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             ]
         }
         """
+        if metadata:
+            msg.update(metadata)
         event = msg["events"][0]
         ts: float = get_timestamp_from_exchange_time(msg["timestamp"], "s")
         if event["type"] == "update":
-            for update in event.get("trades", []):
-                # Return an OrderBookMessage for each trade processed
-                trades: OrderBookMessage = OrderBookMessage(
-                    OrderBookMessageType.TRADE,
-                    {
-                        "trading_pair": update["product_id"],
-                        "trade_type": float(TradeType.SELL.value) if update["side"] == "SELL" else float(TradeType.BUY.value),
-                        "trade_id": int(update["trade_id"]),
-                        "update_id": int(ts),
-                        "price": update["price"],
-                        "amount": update["size"]
-                    },
-                    timestamp=ts)
-                return trades
+            update = event["trades"][0]
+            # Return an OrderBookMessage for each trade processed
+            return OrderBookMessage(
+                OrderBookMessageType.TRADE,
+                {
+                    "trading_pair": msg["trading_pair"],
+                    "trade_type": float(TradeType.SELL.value) if update["side"] == "SELL" else float(TradeType.BUY.value),
+                    "trade_id": int(update["trade_id"]),
+                    "update_id": int(ts),
+                    "price": update["price"],
+                    "amount": update["size"]
+                },
+                timestamp=ts)

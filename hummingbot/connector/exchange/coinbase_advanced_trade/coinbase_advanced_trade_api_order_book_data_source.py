@@ -149,26 +149,56 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "code" not in raw_message:
+        if raw_message is not None or "code" not in raw_message:
             events = raw_message["events"][0]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=events["trades"][0]["product_id"])
+            trading_pair = events["trades"][0]["product_id"]
+            # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
+            pair = await self.filter_pair(trading_pair)
             trade_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
-                raw_message, {"trading_pair": trading_pair})
+                raw_message, {"trading_pair": pair})
+            self.logger().debug(f"Order book message: {trade_message}")
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "code" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["events"][0]["product_id"])
+        if raw_message is not None or "code" not in raw_message:
+            trading_pair = raw_message["events"][0]["product_id"]
+            # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
+            pair = await self.filter_pair(trading_pair)
             order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
+                raw_message, time.time(), {"trading_pair": pair})
+            self.logger().debug(f"Order book message: {order_book_message}")
             message_queue.put_nowait(order_book_message)
+
+    async def filter_pair(self, trading_pair):
+        pairs = []
+        for trad_pair in self._trading_pairs:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trad_pair)
+            pairs.append(symbol)
+        new_pair = ""
+        base = trading_pair.split("-")[0]
+        for symbol in pairs:
+            symbol_base, symbol_quote = symbol.split("-")
+            # Check if there's an exact match
+            if symbol == trading_pair:
+                new_pair = symbol
+                break
+
+            elif base == symbol_base and "USD" in symbol_quote:
+                new_quote = "USDC"
+                proposed_pair = f"{base}-{new_quote}"
+                # Only update if the proposed pair exists in pairs
+                if proposed_pair in pairs:
+                    new_pair = proposed_pair
+                    break
+
+        return new_pair
 
     def _channel_originating_message(self, event_message: Dict[str, Any]):
         channel = ""
         if event_message and "channel" in event_message:
             if "events" in event_message:
                 event_type = event_message.get("channel")
-                if event_type in ["level2", "market_trades"]:
+                if event_type in ["l2_data", "market_trades"]:
                     channel = (self._diff_messages_queue_key if event_type == constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]
                                else self._trade_messages_queue_key)
                 return channel
