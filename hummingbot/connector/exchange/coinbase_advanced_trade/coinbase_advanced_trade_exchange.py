@@ -225,6 +225,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def start_network(self):
         await self._initialize_market_assets()
         await self._update_trading_rules()
+        self.logger().info("Coinbbase currently not returning trading pairs for USDC in orderbook public messages. setting to USD currently pending fix.")
         await super().start_network()
 
     def _stop_network(self):
@@ -694,6 +695,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             self.trading_rules[trading_pair] = trading_rule
 
             trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
+        self.logger().info("Coinbbase currently not returning trading pairs for USDC in orderbook public messages. setting to USD currently pending fix.")
         self._set_trading_pair_symbol_map(trading_pair_symbol_map)
 
     async def _initialize_trading_pair_symbol_map(self):
