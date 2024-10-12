@@ -633,18 +633,18 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             completion: Decimal = Decimal(updated_order_data['order']["completion_percentage"])
             if status == "OPEN" and completion < Decimal("100"):
                 status = "PARTIALLY_FILLED"
+        if status not in ["QUEUED", "CANCEL_QUEUED"]:
+            new_state = constants.ORDER_STATE[status]
 
-        new_state = constants.ORDER_STATE[status]
+            order_update = OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=str(updated_order_data['order']["order_id"]),
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.time_synchronizer.time(),
+                new_state=new_state,
+            )
 
-        order_update = OrderUpdate(
-            client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(updated_order_data['order']["order_id"]),
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=self.time_synchronizer.time(),
-            new_state=new_state,
-        )
-
-        return order_update
+            return order_update
 
     # Overwriting this method from ExchangePyBase that seems to force mis-handling data flow
     # as well as duplicating expensive API calls (call for all products)
@@ -874,34 +874,33 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
                 event_message.client_order_id)
             state = event_message.status
-            new_state = state
-            if new_state not in ["QUEUED", "CANCEL_QUEUED"]:
+            if state not in ["QUEUED", "CANCEL_QUEUED"]:
                 new_state: OrderState = constants.ORDER_STATE[event_message.status]
-            partially: bool = all((event_message.cumulative_base_amount > Decimal("0"),
-                                   event_message.remainder_base_amount > Decimal("0"),
-                                   new_state == OrderState.OPEN))
-            new_state = OrderState.PARTIALLY_FILLED if partially else new_state
+                partially: bool = all((event_message.cumulative_base_amount > Decimal("0"),
+                                       event_message.remainder_base_amount > Decimal("0"),
+                                       new_state == OrderState.OPEN))
+                new_state = OrderState.PARTIALLY_FILLED if partially else new_state
 
-            if fillable_order is not None and new_state == OrderState.FILLED:
-                self.logger().debug(
-                    f" '-> Fillable: {event_message.client_order_id}. "
-                    f"Trigger FILL request at :{self.time_synchronizer.time()}")
-                # This fails the tests, but it is not a problem for the connector
-                # safe_ensure_future(self._update_order_fills_from_trades())
-                await self._update_order_fills_from_trades()
+                if fillable_order is not None and new_state == OrderState.FILLED:
+                    self.logger().debug(
+                        f" '-> Fillable: {event_message.client_order_id}. "
+                        f"Trigger FILL request at :{self.time_synchronizer.time()}")
+                    # This fails the tests, but it is not a problem for the connector
+                    # safe_ensure_future(self._update_order_fills_from_trades())
+                    await self._update_order_fills_from_trades()
 
-            if updatable_order is not None:
-                self.logger().debug(f" '-> Updatable order: {event_message.client_order_id}")
-                order_update = OrderUpdate(
-                    trading_pair=updatable_order.trading_pair,
-                    update_timestamp=event_message.fill_timestamp_s,
-                    new_state=new_state,
-                    client_order_id=event_message.client_order_id,
-                    exchange_order_id=event_message.exchange_order_id,
-                )
-                self._order_tracker.process_order_update(order_update)
-            else:
-                self.logger().debug(f"Skipping non-updatable order: {event_message.client_order_id}")
+                if updatable_order is not None:
+                    self.logger().debug(f" '-> Updatable order: {event_message.client_order_id}")
+                    order_update = OrderUpdate(
+                        trading_pair=updatable_order.trading_pair,
+                        update_timestamp=event_message.fill_timestamp_s,
+                        new_state=new_state,
+                        client_order_id=event_message.client_order_id,
+                        exchange_order_id=event_message.exchange_order_id,
+                    )
+                    self._order_tracker.process_order_update(order_update)
+                else:
+                    self.logger().debug(f"Skipping non-updatable order: {event_message.client_order_id}")
 
     async def _update_order_fills_from_trades(self):
         """
