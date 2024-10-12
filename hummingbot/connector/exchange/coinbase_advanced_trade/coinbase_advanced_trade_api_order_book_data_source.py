@@ -156,6 +156,8 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trade_event = await self._message_queue[self._trade_messages_queue_key].get()
+                self.logger().debug(f"   '-> Q: {self._diff_messages_queue_key} - Event: {trade_event}")
+                self.logger().debug("   '-> Parsing ...")
                 await self._parse_message(raw_message=trade_event, message_queue=output_queue)
 
             except asyncio.CancelledError:

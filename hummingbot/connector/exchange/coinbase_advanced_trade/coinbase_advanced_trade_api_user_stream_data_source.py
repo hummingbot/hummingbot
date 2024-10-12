@@ -193,6 +193,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         async for ws_response in websocket_assistant.iter_messages():  # type: ignore # PyCharm doesn't recognize iter_messages
             data: Dict[str, Any] = ws_response.data
+            self.logger().debug(f"UserStream Received message: {data}")
 
             if 'type' in data and data["type"] == "error":
                 if "authentication failure" in data["message"]:
