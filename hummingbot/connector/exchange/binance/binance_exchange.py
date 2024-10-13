@@ -551,3 +551,9 @@ class BinanceExchange(ExchangePyBase):
         )
 
         return float(resp_json["lastPrice"])
+
+    async def get_last_traded_prices(self, *args, **kwargs):
+        tickers = await self._api_get(path_url=CONSTANTS.PRICES_PATH_URL)
+        available_trading_pairs = await self.trading_pair_symbol_map()
+        return {await self.trading_pair_associated_to_exchange_symbol(ticker["symbol"]): float(ticker["price"])
+                for ticker in tickers if ticker["symbol"] in available_trading_pairs.keys()}

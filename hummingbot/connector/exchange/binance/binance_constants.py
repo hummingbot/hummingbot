@@ -16,6 +16,7 @@ PRIVATE_API_VERSION = "v3"
 # Public API endpoints or BinanceClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
 TICKER_BOOK_PATH_URL = "/ticker/bookTicker"
+PRICES_PATH_URL = "/ticker/price"
 EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
 PING_PATH_URL = "/ping"
 SNAPSHOT_PATH_URL = "/depth"
@@ -79,6 +80,9 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=PRICES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
