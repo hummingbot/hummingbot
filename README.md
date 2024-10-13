@@ -6,148 +6,108 @@
 [![Youtube](https://img.shields.io/youtube/channel/subscribers/UCxzzdEnDRbylLMWmaMjywOA)](https://www.youtube.com/@hummingbot)
 [![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot)
 
-Hummingbot is an open source  framework that helps you build automated trading strategies, or **bots** that run on cryptocurrency exchanges.
+Hummingbot is an open source framework that helps you design and deploy automated trading strategies, or **bots**, that can run many centralized or decentralized exchange. Over the past year, Hummingbot users have generated over $34 billion in trading volume across 140+ unique trading venues. 
 
-This code is free and publicly available under the Apache 2.0 open source license!
-
-## Why Hummingbot?
-
-* **Both CEX and DEX connectors**: Hummingbot supports connectors to centralized exchanges like Binance and KuCoin, as well as decentralized exchanges like Uniswap and PancakeSwap on various blockchains (Ethereum, BNB Chain, etc).
-* **Cutting edge strategy framework**: Our new V2 Strategies framework allows you to compose powerful, backtestable, multi-venue, multi-timeframe stategies of any type
-* **Secure local client**: Hummingbot is a local client software that you install and run on your own devices or cloud virtual machines. It encrypts your API keys and private keys and never exposes them to any third parties.
-* **Community focus**: Hummingbot is driven by a global community of quant traders and developers who maintain the connectors and contribute strategies to the codebase.
-
-Help us **democratize high-frequency trading** and make powerful trading algorithms accessible to everyone in the world!
-
+The Hummingbot codebase is free and publicly available under the Apache 2.0 open source license. Our mission is to **democratize high-frequency trading** by creating a global community of algorithmic traders and developers that share knowledge and contribute to the codebase.
 
 ## Quick Links
 
 * [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
 * [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
-* [FAQs](https://hummingbot.org/faq/): Answers to all your burning questions
-* [Botcamp](https://hummingbot.org/botcamp/): Learn how to build your own custom HFT strategy in Hummingbot with our hands-on bootcamp!
-* [Newsletter](https://hummingbot.substack.com): Get our monthly newsletter whenever we ship a new release
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most of of Hummingbot
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
-* [Snapshot](https://snapshot.org/#/hbot-prp.eth): Participate in monthly polls that decide which components should be prioritized 
-
-## Getting Started
-
-### Install with Docker
-
-We recommend installing Hummingbot using Docker if you want the simplest, easiest installation method and don't need to modify the Hummingbot codebase.
+* [Reported Volumes](https://p.datadoghq.com/sb/a96a744f5-a15479d77992ccba0d23aecfd4c87a52): Reported trading volumes across all Hummingbot instances
+* [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
 
 
-**Prerequisites:**
 
-* MacOS 10.12.6+ / Linux (Ubuntu 20.04+, Debian 10+) / Windows 10+
-* Memory: 4 GB RAM per instance
-* Storage: 5 GB HDD space per instance
-* Install [Docker Compose](https://docs.docker.com/compose/)
+## Supported Exchange Connectors
 
-```
-git clone https://github.com/hummingbot/hummingbot
-cd hummingbot
-docker compose up -d
-docker attach hummingbot
-```
+Hummingbot connectors standardize trading logic and order types across different types of exchanges:
 
-### Install from Source
+ * **CLOB Spot**: Connectors to spot markets on central limit order book (CLOB) exchanges
+ * **CLOB Perp**: Connectors to perpetual futures markets on CLOB exchanges
+ * **AMM**: Connectors to spot markets on Automatic Market Maker (AMM) decentralized exchanges
 
-We recommend installing Hummingbot from source if you want to customize or extend the Hummingbot codebase, build new components like connectors or strategies, and/or learn how Hummingbot works at a deeper, technical level.
+### Partners and Sponsors
 
-**Prerequisites:**
+We are grateful for the following exchange partners who support the development and maintenance of Hummingbot.
 
-* MacOS 10.12.6+ / Linux (Ubuntu 20.04+, Debian 10+)
-* Memory: 4 GB RAM per instance
-* Storage: 3 GB HDD space per instance
-* Install [Anaconda](https://www.anaconda.com/download) or [Miniconda](https://docs.anaconda.com/free/miniconda/miniconda-install/)
+| Connector ID | Exchange | Type | Discount |
+|----|------|-------|----------|
+| `binance` | [Binance](https://accounts.binance.com/register?ref=CBWO4LU6) | CLOB Spot | [![Sign up for Binance using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://accounts.binance.com/register?ref=CBWO4LU6) |
+| `binance_perpetual` | [Binance](https://accounts.binance.com/register?ref=CBWO4LU6) | CLOB Perp | [![Sign up for Binance using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://accounts.binance.com/register?ref=CBWO4LU6) |
+| `dydx_v4_perpetual` | [dYdX](https://www.dydx.exchange/) | CLOB Perp | - |
+| `hyperliquid_perpetual` | [Hyperliquid](https://hyperliquid.io/) | CLOB Perp | - |
+| `gate_io` | [Gate.io](https://www.gate.io/referral/invite/HBOTGATE_0_103) | CLOB Spot | [![Sign up for Gate.io using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.gate.io/referral/invite/HBOTGATE_0_103) |
+| `gate_io_perpetual` | [Gate.io](https://www.gate.io/referral/invite/HBOTGATE_0_103) | CLOB Perp | [![Sign up for Gate.io using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.gate.io/referral/invite/HBOTGATE_0_103) |
+| `htx` | [HTX (Huobi)](https://www.htx.com.pk/invite/en-us/1h?invite_code=re4w9223) | CLOB Spot | [![Sign up for HTX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.htx.com.pk/invite/en-us/1h?invite_code=re4w9223) |
+| `kucoin` | [KuCoin](https://www.kucoin.com/) | CLOB Spot | - |
+| `kucoin_perpetual` | [KuCoin](https://www.kucoin.com/) | CLOB Perp | - |
+| `okx` | [OKX](https://www.okx.com/) | CLOB Spot | - |
+| `okx_perpetual` | [OKX](https://www.okx.com/) | CLOB Perp | - |
+| `xrpl` | [XRP Ledger](https://xrpl.org/) | CLOB Spot | - |
 
-```
-git clone https://github.com/hummingbot/hummingbot
-cd hummingbot
-./install
-conda activate hummingbot
-./compile
-./start
-```
+### Other Connectors
 
-See [Installation](https://hummingbot.org/installation/linux/) for detailed guides for each OS.
-
-## Architecture
-
-Hummingbot architecture features modular components that can be maintained and extended by individual community members.
-
-### Strategies and Scripts
-
-A Hummingbot strategy is an ongoing process that executes an algorithmic trading strategy. It is constructed as a user-defined program that uses an underlying framework to abstracts low-level operations:
-
-[V2 Strategies](https://hummingbot.org/v2-strategies/): The latest and most advanced way to create strategies in Hummingbot, V2 strategies are built using composable elements known as Controllers and PositionExecutors. These elements can be mixed and matched, offering a modular approach to strategy creation and making the development process faster and more efficient.
-
-[Scripts](https://hummingbot.org/scripts/): For those who are looking for a lightweight solution, Hummingbot provides scripting support. These are single-file strategies that are quick to implement and can be an excellent starting point for those new to algorithmic trading. Check out the [/scripts](https://github.com/hummingbot/hummingbot/tree/master/scripts) folder for all Script examples included in the codebase.
-
-[V1 Strategies](https://hummingbot.org/v1-strategies/): Templatized programs templates for various algorithmic trading strategies that expose a set of user-defined parameters, allowing you to customize the strategy's behavior. While these V1 strategies were Hummingbot's original method of defining strategies and have been superceded by V2 Strategies and Scripts, the strategies below are still often used:
-
-* [Pure Market Making](https://hummingbot.org/strategies/pure-market-making/)
-* [Avellaneda Market Making](https://hummingbot.org/strategies/avellaneda-market-making/)
-* [Cross-Exchange Market Making](https://hummingbot.org/strategies/cross-exchange-market-making/)
-
-### Connectors
-
-Hummingbot connectors standardize trading logic and order types across different types of exchanges and blockchain networks. Each connector's code is contained in modularized folders in the Hummingbot and/or Gateway codebases.
-
-Currently, the Hummingbot codebase contains 50+ connectors of the following types:
-
-* [CEX](https://hummingbot.org/cex-connectors/): Centralized exchanges take custody of user assets, i.e. Binance, Kucoin, etc.
-* [DEX](https://hummingbot.org/dex-connectors/): Decentralized exchanges are platforms in which user assets are stored non-custodially in smart contracts, i.e. dYdX, Uniswap, etc.
-* [Chain](https://hummingbot.org/chains/): Layer 1 blockchain ecosystems such as Ethereum, BNB Chain, Avalanche, etc.
-
-Each exchange has one or more connectors in the Hummingbot codebase that supports a specific **market type** that the exchange supports:
-
- * **spot**: Connectors to central limit order book (CLOB) exchanges that trade spot markets
- * **perp**: Connectors to central limit order book (CLOB) exchanges that trade perpetual swap markets
- * **amm**: Connectors to decentralized exchanges that use the Automatic Market Maker (AMM) methodology
-
-Quarterly [Polls](https://docs.hummingbot.org/governance/polls/) allow HBOT holders decide how maintenance bandwidth and development bounties are allocated toward the connectors in the codebase.
-
-## Sponsors & Partners
-
-The Hummingbot Foundation, supported by its sponsors, partners and backers, is dedicated to fostering a robust, community-driven ecosystem for algorithmic crypto trading.
-
-### Sponsors
-
-- [Vega Protocol](https://vega.xyz/)
-- [Hyperliquid](https://hyperliquid.xyz/)
-- [CoinAlpha](https://coinalpha.com/)
-
-### Exchange Partners
-
-* [Binance Spot](https://www.binance.com/en/register?ref=FQQNNGCD) | [Binance Futures](https://www.binance.com/en/futures/ref?code=hummingbot)
-* [Kucoin](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
-* [Gate.io](https://www.gate.io/signup/5868285)
-* [AscendEx](https://ascendex.com/register?inviteCode=UEIXNXKW)
-* [Huobi](https://www.htx.com/)
-* [OKX](https://www.okx.com/join/1931920)
-
-For more information about the support provided by these partners, see the financial reports provided in [HBOT Tracker](https://docs.google.com/spreadsheets/d/1UNAumPMnXfsghAAXrfKkPGRH9QlC8k7Cu1FGQVL1t0M/edit#gid=285483484).
+| Connector ID | Exchange | Type | Discount |
+|----|------|-------|----------|
+| `ascend_ex` | AscendEx | CLOB Spot | - |
+| `balancer` | Balancer | AMM | - |
+| `bitfinex` | Bitfinex | CLOB Spot | - |
+| `bitget_perpetual` | Bitget | CLOB Perp | - |
+| `bitmart` | BitMart | CLOB Spot | - |
+| `bitrue` | Bitrue | CLOB Spot | - |
+| `bitstamp` | Bitstamp | CLOB Spot | - |
+| `btc_markets` | BTC Markets | CLOB Spot | - |
+| `bybit` | Bybit | CLOB Spot | - |
+| `bybit_perpetual` | Bybit | CLOB Perp | - |
+| `carbon` | Carbon | AMM | - |
+| `coinbase_advanced_trade` | Coinbase | CLOB Spot | - |
+| `cube` | Cube | CLOB Spot | - |
+| `curve` | Curve | AMM | - |
+| `dexalot` | Dexalot | CLOB Spot | - |
+| `hashkey` | HashKey | CLOB Spot | - |
+| `hashkey_perpetual` | HashKey | CLOB Perp | - |
+| `hitbtc` | HitBTC | CLOB Spot | - |
+| `injective_v2` | Injective Helix | CLOB Spot | - |
+| `injective_v2_perpetual` | Injective Helix | CLOB Perp | - |
+| `kraken` | Kraken | CLOB Spot | - |
+| `mad_meerkat` | Mad Meerkat | AMM | - |
+| `mexc` | MEXC | CLOB Spot | - |
+| `ndax` | NDAX | CLOB Spot | - |
+| `openocean` | OpenOcean | AMM | - |
+| `pancakeswap` | PancakeSwap | AMM | - |
+| `pangolin` | Pangolin | AMM | - |
+| `polkadex` | Polkadex | CLOB Spot | - |
+| `quickswap` | QuickSwap | AMM | - |
+| `sushiswap` | SushiSwap | AMM | - |
+| `tinyman` | Tinyman | AMM | - |
+| `traderjoe` | Trader Joe | AMM | - |
+| `uniswap` | Uniswap | AMM | - |
+| `vertex` | Vertex | CLOB Spot | - |
+| `vvs` | VVS | AMM | - |
+| `xsswap` | XSSwap | AMM | - |
 
 ## Other Hummingbot Repos
 
-* [Dashboard](https://github.com/hummingbot/dashboard): Community pages that help you create, backtest, deploy, and manage Hummingbot instances
-* [Gateway](https://github.com/hummingbot/gateway): API middleware for DEX connectors
-* [Deploy Examples](https://github.com/hummingbot/deploy-examples): Deploy Hummingbot in various configurations with Docker
+* [Deploy](https://github.com/hummingbot/deploy): Deploy Hummingbot in various configurations with Docker
+* [Dashboard](https://github.com/hummingbot/dashboard): Web app that help you create, backtest, deploy, and manage Hummingbot instances
+* [Quants Lab](https://github.com/hummingbot/quants-lab): Juypter notebooks that enable you to fetch data and perform research using Hummingbot
+* [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
 * [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
-* [Awesome Hummingbot](https://github.com/hummingbot/awesome-hummingbot): All the Hummingbot links
-* [Brokers](https://github.com/hummingbot/brokers): Different brokers that can be used to communicate with multiple instances of Hummingbot
 
 ## Contributions
 
-Hummingbot belongs to its community, so we welcome contributions! Please review these [guidelines](./CONTRIBUTING.md) first.
+The Hummingbot architecture features modular components that can be maintained and extended by individual community members.
 
-To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/governance/proposals/). Note that you will need some amount of HBOT tokens in your Ethereum wallet to submit a proposal.
+We welcome contributions from the community! Please review these [guidelines](./CONTRIBUTING.md) before submitting a pull request.
+
+To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/governance/proposals/). Note that you will need some amount of [HBOT tokens](https://etherscan.io/token/0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb) in your Ethereum wallet to submit a proposal.
 
 ## Legal
 
 * **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
-* **Data collection**: read important information regarding [Hummingbot Data Collection](./DATA_COLLECTION.md).
+* **Data collection**: See [Reporting](https://hummingbot.org/reporting/) for information on anonymous data collection and reporting in Hummingbot.
+
