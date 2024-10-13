@@ -618,7 +618,7 @@ class DexalotExchange(ExchangePyBase):
             tracked_order = _cli_tracked_orders[0]
 
         if tracked_order is None:
-            self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
+            self.logger().warning(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
             trade_update = self._create_trade_update_with_order_fill_data(
                 order_fill=trade["data"],
@@ -663,7 +663,7 @@ class DexalotExchange(ExchangePyBase):
             if order_msg["status"] in ["FILLED", 3]:
                 if order_msg["side"] == "BUY" or order_msg["side"] == 0:
                     base_collateral_value = Decimal(order_msg["quantityfilled"])
-                    self._account_available_balances[quote_coin] += base_collateral_value
+                    self._account_available_balances[base_coin] += base_collateral_value
                 else:
                     quote_collateral_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
                     self._account_available_balances[quote_coin] += quote_collateral_value
@@ -675,7 +675,7 @@ class DexalotExchange(ExchangePyBase):
                     self._account_available_balances[quote_coin] -= quote_filled_value
 
                     base_collateral_value = Decimal(order_msg["quantityfilled"])
-                    self._account_available_balances[quote_coin] += base_collateral_value
+                    self._account_available_balances[base_coin] += base_collateral_value
                 else:
                     base_collateral_value = Decimal(order_msg["quantity"])
                     base_filled_value = Decimal(order_msg["quantityfilled"])
@@ -748,6 +748,9 @@ class DexalotExchange(ExchangePyBase):
         client_order_id = updated_order_data.get("clientOrderId")
         tracked_order = self._order_tracker.all_fillable_orders.get(
             client_order_id) if not tracked_order else tracked_order
+        if not tracked_order:
+            self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
+            return
 
         new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
 
