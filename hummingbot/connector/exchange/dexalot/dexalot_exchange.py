@@ -618,7 +618,7 @@ class DexalotExchange(ExchangePyBase):
             tracked_order = _cli_tracked_orders[0]
 
         if tracked_order is None:
-            self.logger().warning(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
+            self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
             trade_update = self._create_trade_update_with_order_fill_data(
                 order_fill=trade["data"],
