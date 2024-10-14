@@ -394,7 +394,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(order.exchange_order_id, str(request_params["order_ids"]))
+        self.assertEqual([order.exchange_order_id], request_params["order_ids"])
 
     def configure_successful_cancelation_response(
             self,
@@ -1021,7 +1021,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+        pairs = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pairs],
                          request_params["product_ids"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
@@ -1073,7 +1074,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+        pairs = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pairs],
                          request_params["product_ids"])
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1088,7 +1090,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[1]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+        pairs = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pairs],
                          request_params["product_ids"])
         # This method uses the TimeSynchronizer to get the current timestamp
         self.assertEqual(set_exchange_time_from_timestamp(10), request_params["start_sequence_timestamp"])
@@ -1130,7 +1133,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+        pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pair],
                          request_params["product_ids"])
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
