@@ -926,7 +926,10 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         async def query_trades(pair: str, timestamp=None) -> List[Dict[str, Any]]:
             """Queries trades for a trading pair."""
-            p = {"product_ids": await self.exchange_symbol_associated_to_pair(trading_pair=pair)}
+            trading_pairs = []
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
+            trading_pairs.append(trading_pair)
+            p = {"product_ids": trading_pairs}
             if timestamp is not None:
                 p["start_sequence_timestamp"] = timestamp
 
@@ -1027,10 +1030,12 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         """
         trade_updates = []
         if order.exchange_order_id is not None:
+            order_ids = []
             order_id: str = order.exchange_order_id
+            order_ids.append(str(order_id))
             # product_id: str = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             params = {
-                "order_ids": order_id
+                "order_ids": order_ids
             }
             all_fills_response: Dict[str, Any] = await self._api_get(
                 path_url=constants.FILLS_EP,
