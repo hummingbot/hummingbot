@@ -159,4 +159,15 @@ amm_arb_config_map = {
         default=Decimal("1"),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
+    "fixed_conversion_rate_dict": ConfigVar(
+        key="fixed_conversion_rate_dict",
+        prompt="",
+        prompt_on_new=False,
+        default={},
+        type_str="decimal"),
+    "rate_conversion_exchange": ConfigVar(
+        key="rate_conversion_exchange",
+        prompt="In case of a needed conversion, which exchange should be used >>> ",
+        default="binance",
+        prompt_on_new=False),
 }
