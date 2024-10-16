@@ -39,8 +39,15 @@ class WSAssistant:
         ping_timeout: float = 10,
         message_timeout: Optional[float] = None,
         ws_headers: Optional[Dict] = {},
+        max_msg_size: Optional[int] = None,
     ):
-        await self._connection.connect(ws_url=ws_url, ws_headers=ws_headers, ping_timeout=ping_timeout, message_timeout=message_timeout)
+        max_msg_size = max_msg_size if max_msg_size else self._connection._MAX_MSG_SIZE
+        await self._connection.connect(
+            ws_url=ws_url,
+            ws_headers=ws_headers,
+            ping_timeout=ping_timeout,
+            message_timeout=message_timeout,
+            max_msg_size=max_msg_size)
 
     async def disconnect(self):
         await self._connection.disconnect()
