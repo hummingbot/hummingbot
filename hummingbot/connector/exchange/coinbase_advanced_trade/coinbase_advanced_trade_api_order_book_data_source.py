@@ -1,7 +1,8 @@
 import asyncio
 import logging
+import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as constants
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils as web_utils
@@ -58,87 +59,37 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._last_traded_prices: Dict[str, float] = defaultdict(lambda: 0.0)
 
         # Override the default base queue keys
-        self._diff_messages_queue_key = constants.WS_ORDER_SUBSCRIPTION_KEYS[0]
-        self._trade_messages_queue_key = constants.WS_ORDER_SUBSCRIPTION_KEYS[1]
-        self._snapshot_messages_queue_key = "unused_snapshot_queue"
-
-    async def _parse_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
-            raw_message,
-            self._connector.exchange_symbol_associated_to_pair)
-        await message_queue.put(order_book_message)
+        self._diff_messages_queue_key = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]
+        self._trade_messages_queue_key = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["trade"]
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
-        await asyncio.sleep(0)
+        # await asyncio.sleep(0)
         return {trading_pair: self._last_traded_prices[trading_pair] or 0.0 for trading_pair in trading_pairs}
 
-    # --- Overriding methods from the Base class ---
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        """
-        Reads the order diffs events queue. For each event creates a diff message instance and adds it to the
-        output queue
-
-        :param ev_loop: the event loop the method will run in
-        :param output: a queue to add the created diff messages
-        """
-        while True:
-            try:
-                event = await self._message_queue[self._diff_messages_queue_key].get()
-                await self._parse_message(raw_message=event, message_queue=output)
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception("Unexpected error when processing public order book updates from exchange")
-
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        """
-        Coinbase Advanced Trade does not provide snapshots messages.
-        The snapshot is retrieved from the first message of the 'level2' channel.
-
-        :param ev_loop: the event loop the method will run in
-        :param output: a queue to add the created snapshot messages
-        """
-        pass
-
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output_queue: asyncio.Queue):
-        """
-        Reads the trade events queue.
-        For each event creates a trade message instance and adds it to the output queue
-
-        :param ev_loop: the event loop the method will run in
-        :param output_queue: a queue to add the created trade messages
-        """
-        while True:
-            try:
-                trade_event = await self._message_queue[self._trade_messages_queue_key].get()
-                await self._parse_message(raw_message=trade_event, message_queue=output_queue)
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception("Unexpected error when processing public trade updates from exchange")
-
-    def _get_messages_queue_keys(self) -> Tuple[str, ...]:
-        return tuple(constants.WS_ORDER_SUBSCRIPTION_KEYS)
-
-    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        if event_message and "channel" in event_message and event_message["channel"]:
-            return constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse[event_message["channel"]]
-
     # Implemented methods
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
-        await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain))
-        return self._ws_assistant
+
+    async def _request_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        params = {
+            "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        }
+
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        snapshot: Dict[str, Any] = await rest_assistant.execute_request(
+            url=web_utils.public_rest_url(path_url=constants.SNAPSHOT_EP, domain=self._domain),
+            params=params,
+            method=RESTMethod.GET,
+            is_auth_required=True,
+            throttler_limit_id=constants.SNAPSHOT_EP,
+        )
+        return snapshot
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the order book events through the provided websocket connection.
         :param ws: the websocket assistant used to connect to the exchange
-        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-best-practices
+        https://docs.cdp.coinbase.com/advanced-trade/docs/ws-best-practices
 
         Recommended to use several subscriptions
         {
@@ -161,7 +112,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 symbols.append(symbol)
 
-            for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
+            for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_KEYS]:
                 payload = {
                     "type": "subscribe",
                     "product_ids": symbols,
@@ -172,50 +123,24 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().info(f"Subscribed to order book channels for: {', '.join(self._trading_pairs)}")
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
             self.logger().error(
                 "Unexpected error occurred subscribing to order book trading and delta streams...",
                 exc_info=True
             )
+            self.logger().debug(f"Error: {e}")
             raise
 
-    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
-        async for ws_response in websocket_assistant.iter_messages():
-            data: Dict[str, Any] = ws_response.data
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
+        await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain), max_msg_size=constants.WS_MAX_MSG_SIZE)
+        return self._ws_assistant
 
-            if data and "type" in data and data["type"] == 'error':
-                self.logger().error(f"Error received from websocket: {ws_response}")
-                raise ValueError(f"Error received from websocket: {ws_response}")
-
-            if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
-                if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse:
-                    queue_key: str = constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse[data["channel"]]
-                    await self._message_queue[queue_key].put(data)
-
-                elif data["channel"] in ["subscriptions", "heartbeats"]:
-                    self.logger().debug(f"Ignoring message from Coinbase Advanced Trade: {data}")
-                else:
-                    self.logger().debug(
-                        f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
-            else:
-                self.logger().warning(f"Unrecognized websocket message received from Coinbase Advanced Trade: {data}")
-
+    # --- Implementation of abstract methods from the Base class ---
+    # Unused methods
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        params = {
-            "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        }
-
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        snapshot: Dict[str, Any] = await rest_assistant.execute_request(
-            url=web_utils.public_rest_url(path_url=constants.SNAPSHOT_EP, domain=self._domain),
-            params=params,
-            method=RESTMethod.GET,
-            is_auth_required=True,
-            throttler_limit_id=constants.SNAPSHOT_EP,
-        )
-
-        snapshot_timestamp: float = self._connector.time_synchronizer.time()
-
+        snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+        snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
@@ -223,13 +148,61 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         return snapshot_msg
 
-    # --- Implementation of abstract methods from the Base class ---
-    # Unused methods
-    async def _parse_order_book_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
+    async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        if raw_message is not None or "code" not in raw_message:
+            event_type = raw_message["events"][0]["type"]
+            if event_type == "update":
+                events = raw_message["events"][0]
+                trading_pair = events["trades"][0]["product_id"]
+                # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
+                pair = await self.filter_pair(trading_pair)
+                trade_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.trade_message_from_exchange(
+                    raw_message, {"trading_pair": pair})
+                self.logger().debug(f"Order book message: {trade_message}")
+                message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
+        if raw_message is not None or "code" not in raw_message:
+            event_type = raw_message["events"][0]["type"]
+            if event_type == "update":
+                trading_pair = raw_message["events"][0]["product_id"]
+                # TODO: This code needs to be removed when Coinbase DIFF channel is fixed for USDC
+                pair = await self.filter_pair(trading_pair)
+                order_book_message: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.diff_message_from_exchange(
+                    raw_message, time.time(), {"trading_pair": pair})
+                self.logger().debug(f"Order book message: {order_book_message}")
+                message_queue.put_nowait(order_book_message)
 
-    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
+    async def filter_pair(self, trading_pair):
+        pairs = []
+        for trad_pair in self._trading_pairs:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trad_pair)
+            pairs.append(symbol)
+        new_pair = ""
+        base = trading_pair.split("-")[0]
+        for symbol in pairs:
+            symbol_base, symbol_quote = symbol.split("-")
+            # Check if there's an exact match
+            if symbol == trading_pair:
+                new_pair = symbol
+                break
+
+            elif base == symbol_base and "USD" in symbol_quote:
+                new_quote = "USDC"
+                proposed_pair = f"{base}-{new_quote}"
+                # Only update if the proposed pair exists in pairs
+                if proposed_pair in pairs:
+                    new_pair = proposed_pair
+                    break
+
+        return new_pair
+
+    def _channel_originating_message(self, event_message: Dict[str, Any]):
+        channel = ""
+        if event_message and "channel" in event_message:
+            if "events" in event_message:
+                event_type = event_message.get("channel")
+                if event_type in ["l2_data", "market_trades"]:
+                    channel = (self._diff_messages_queue_key if event_type == constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]
+                               else self._trade_messages_queue_key)
+                return channel
