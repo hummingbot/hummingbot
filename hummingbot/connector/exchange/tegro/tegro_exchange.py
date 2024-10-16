@@ -281,12 +281,13 @@ class TegroExchange(ExchangePyBase):
             "wallet_address": self.api_key
         }
         data = await self.initialize_verified_market()
-        quote_precision = int(data["quote_precision"])
+        # quote_precision = int(data["quote_precision"])
         base_precision = int(data["base_precision"])
+        price_precision = 18
         params["amount"] = f"{amount:.{base_precision}g}"
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             price_str = price
-            params["price"] = f"{price_str:.{quote_precision}g}"
+            params["price"] = f"{price_str:.{price_precision}g}"
         try:
             return await self._api_request(
                 path_url = CONSTANTS.GENERATE_SIGN_URL,

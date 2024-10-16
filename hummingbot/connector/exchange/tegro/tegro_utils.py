@@ -93,7 +93,7 @@ class TegroConfigMap(BaseConnectorConfigMap):
     chain_name: str = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your preferred chain. (base/ ",
+            prompt=lambda cm: "Enter your preferred chain. (base/ )",
             is_secure=False,
             is_connect_key=True,
             prompt_on_new=True,
