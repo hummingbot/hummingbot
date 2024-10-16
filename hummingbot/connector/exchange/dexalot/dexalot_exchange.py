@@ -703,16 +703,10 @@ class DexalotExchange(ExchangePyBase):
             # Partial status used to update _account_available_balances during update_balance
             if order_msg["status"] in [2]:
                 if order_msg["side"] == 0:  # BUY
-                    base_collateral_value = Decimal(order_msg["quantityfilled"])
-                    self._account_available_balances[base_coin] += base_collateral_value
-
                     quote_collateral_unfilled_value = \
                         Decimal(order_msg["price"]) * Decimal(order_msg["quantity"]) - Decimal(order_msg["totalamount"])
                     self._account_available_balances[quote_coin] -= quote_collateral_unfilled_value
                 else:
-                    quote_collateral_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
-                    self._account_available_balances[quote_coin] += quote_collateral_value
-
                     base_collateral_unfilled_value = Decimal(order_msg["quantity"]) - Decimal(
                         order_msg["quantityfilled"])
                     self._account_available_balances[base_coin] -= base_collateral_unfilled_value
