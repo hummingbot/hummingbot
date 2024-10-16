@@ -599,6 +599,7 @@ class DexalotExchange(ExchangePyBase):
         exchange_order_id = trade["data"].get("makerOrder", "") \
             if trade["data"].get("addressMaker", "") == self.api_key else trade["data"].get("takerOrder", "")
         all_orders = self._order_tracker.all_fillable_orders
+        self._calculate_available_balance_from_trades(trade["data"])
         try:
             for k, v in all_orders.items():
                 await v.get_exchange_order_id()
@@ -649,6 +650,45 @@ class DexalotExchange(ExchangePyBase):
         order_update = self._create_order_update_with_order_status_data(order_status=order_msg, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
 
+    def _calculate_available_balance_from_trades(self, trade_msg: Dict):
+        base_coin = trade_msg["pair"].split("/")[0].upper()
+        quote_coin = trade_msg["pair"].split("/")[1].upper()
+
+        is_maker = True if trade_msg.get("addressMaker", "") == self.api_key else False
+        takerSide = trade_msg.get("takerSide")
+        if is_maker:
+            if takerSide == "BUY":
+                base_collateral_value = Decimal(trade_msg["quantity"])
+                quote_collateral_value = Decimal(trade_msg.get("quantity")) * Decimal(trade_msg.get("price"))
+                self._account_available_balances[quote_coin] += quote_collateral_value
+
+                self._account_balances[quote_coin] += quote_collateral_value
+                self._account_balances[base_coin] -= base_collateral_value
+
+            else:
+                base_collateral_value = Decimal(trade_msg["quantity"])
+                quote_collateral_value = Decimal(trade_msg.get("quantity")) * Decimal(trade_msg.get("price"))
+                self._account_available_balances[base_coin] += base_collateral_value
+
+                self._account_balances[quote_coin] -= quote_collateral_value
+                self._account_balances[base_coin] += base_collateral_value
+        else:
+            if takerSide == "BUY":
+                base_collateral_value = Decimal(trade_msg["quantity"])
+                quote_collateral_value = Decimal(trade_msg.get("quantity")) * Decimal(trade_msg.get("price"))
+                self._account_available_balances[base_coin] += base_collateral_value
+
+                self._account_balances[quote_coin] -= quote_collateral_value
+                self._account_balances[base_coin] += base_collateral_value
+
+            else:
+                base_collateral_value = Decimal(trade_msg["quantity"])
+                quote_collateral_value = Decimal(trade_msg.get("quantity")) * Decimal(trade_msg.get("price"))
+                self._account_available_balances[quote_coin] += quote_collateral_value
+
+                self._account_balances[quote_coin] += quote_collateral_value
+                self._account_balances[base_coin] -= base_collateral_value
+
     def _calculate_available_balance_from_orders(self, order_msg: Dict):
         if order_msg.get("pair"):
             base_coin = order_msg["pair"].split("/")[0].upper()
@@ -660,30 +700,33 @@ class DexalotExchange(ExchangePyBase):
                 else:
                     base_collateral_value = Decimal(order_msg["quantity"])
                     self._account_available_balances[base_coin] -= base_collateral_value
-            if order_msg["status"] in ["FILLED", 3]:
-                if order_msg["side"] == "BUY" or order_msg["side"] == 0:
+            # Partial status used to update _account_available_balances during update_balance
+            if order_msg["status"] in [2]:
+                if order_msg["side"] == 0:  # BUY
                     base_collateral_value = Decimal(order_msg["quantityfilled"])
                     self._account_available_balances[base_coin] += base_collateral_value
+
+                    quote_collateral_unfilled_value = \
+                        Decimal(order_msg["price"]) * Decimal(order_msg["quantity"]) - Decimal(order_msg["totalamount"])
+                    self._account_available_balances[quote_coin] -= quote_collateral_unfilled_value
                 else:
                     quote_collateral_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
                     self._account_available_balances[quote_coin] += quote_collateral_value
+
+                    base_collateral_unfilled_value = Decimal(order_msg["quantity"]) - Decimal(
+                        order_msg["quantityfilled"])
+                    self._account_available_balances[base_coin] -= base_collateral_unfilled_value
             if order_msg["status"] in ["CANCELED", 4]:
                 if order_msg["side"] == "BUY" or order_msg["side"] == 0:
                     quote_collateral_value = Decimal(order_msg.get("price")) * Decimal(order_msg.get("quantity"))
                     quote_filled_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
                     self._account_available_balances[quote_coin] += quote_collateral_value
                     self._account_available_balances[quote_coin] -= quote_filled_value
-
-                    base_collateral_value = Decimal(order_msg["quantityfilled"])
-                    self._account_available_balances[base_coin] += base_collateral_value
                 else:
                     base_collateral_value = Decimal(order_msg["quantity"])
                     base_filled_value = Decimal(order_msg["quantityfilled"])
                     self._account_available_balances[base_coin] += base_collateral_value
                     self._account_available_balances[base_coin] -= base_filled_value
-
-                    quote_collateral_value = Decimal(order_msg.get("totalamount") or order_msg.get("totalAmount"))
-                    self._account_available_balances[quote_coin] += quote_collateral_value
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
