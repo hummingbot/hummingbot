@@ -225,6 +225,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def start_network(self):
         await self._initialize_market_assets()
         await self._update_trading_rules()
+        self.logger().info("Coinbbase currently not returning trading pairs for USDC in orderbook public messages. setting to USD currently pending fix.")
         await super().start_network()
 
     def _stop_network(self):
@@ -313,7 +314,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         """
         Places an order with the exchange and returns the order ID and the timestamp of the order.
-        reference: https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_postorder
+        reference: https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_postorder
         Maximum open orders: 500
         """
         amount_str: str = f"{amount:f}"
@@ -370,7 +371,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         )
 
         if order_result["success"]:
-            o_id = str(order_result["order_id"])
+            o_id = str(order_result["success_response"]["order_id"])
             transact_time = self.time_synchronizer.time()
             self.logger().debug(f"Placed {type_str} order {side_str} {amount_str} {symbol} @ {price_str}")
             return o_id, transact_time
@@ -492,7 +493,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_cancelorders
 
         :param order_id: str
         :param tracked_order: InFlightOrder
@@ -531,7 +532,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _place_cancels(self, order_ids: List[str], max_size: int = 100) -> List[Dict[str, Any]]:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_cancelorders
         MAX_ORDERS is 100 (ChangeLog: 2024-JAN-16)
 
         :param order_ids: List[str]
@@ -574,7 +575,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         """
         Get a list of bids/asks for a single product.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getproductbook
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproductbook
 
         :param trading_pair: str
         :return: OrderBookMessage
@@ -602,7 +603,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
         Queries Order status by order_id.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_gethistoricalorder
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_gethistoricalorder
 
         :param tracked_order: InFlightOrder
         :return: OrderUpdate
@@ -632,18 +633,18 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             completion: Decimal = Decimal(updated_order_data['order']["completion_percentage"])
             if status == "OPEN" and completion < Decimal("100"):
                 status = "PARTIALLY_FILLED"
+        if status not in ["QUEUED", "CANCEL_QUEUED"]:
+            new_state = constants.ORDER_STATE[status]
 
-        new_state = constants.ORDER_STATE[status]
+            order_update = OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=str(updated_order_data['order']["order_id"]),
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.time_synchronizer.time(),
+                new_state=new_state,
+            )
 
-        order_update = OrderUpdate(
-            client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(updated_order_data['order']["order_id"]),
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=self.time_synchronizer.time(),
-            new_state=new_state,
-        )
-
-        return order_update
+            return order_update
 
     # Overwriting this method from ExchangePyBase that seems to force mis-handling data flow
     # as well as duplicating expensive API calls (call for all products)
@@ -694,6 +695,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             self.trading_rules[trading_pair] = trading_rule
 
             trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
+        self.logger().info("Coinbbase currently not returning trading pairs for USDC in orderbook public messages. setting to USD currently pending fix.")
         self._set_trading_pair_symbol_map(trading_pair_symbol_map)
 
     async def _initialize_trading_pair_symbol_map(self):
@@ -759,7 +761,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _list_one_page_of_accounts(self, cursor: str) -> Dict[str, Any]:
         """
         List one page of accounts with maximum of 250 accounts per page.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getaccounts
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getaccounts
         """
         params = {"limit": 250}
         if cursor != "0":
@@ -871,33 +873,34 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             fillable_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(event_message.client_order_id)
             updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
                 event_message.client_order_id)
+            state = event_message.status
+            if state not in ["QUEUED", "CANCEL_QUEUED"]:
+                new_state: OrderState = constants.ORDER_STATE[event_message.status]
+                partially: bool = all((event_message.cumulative_base_amount > Decimal("0"),
+                                       event_message.remainder_base_amount > Decimal("0"),
+                                       new_state == OrderState.OPEN))
+                new_state = OrderState.PARTIALLY_FILLED if partially else new_state
 
-            new_state: OrderState = constants.ORDER_STATE[event_message.status]
-            partially: bool = all((event_message.cumulative_base_amount > Decimal("0"),
-                                   event_message.remainder_base_amount > Decimal("0"),
-                                   new_state == OrderState.OPEN))
-            new_state = OrderState.PARTIALLY_FILLED if partially else new_state
+                if fillable_order is not None and new_state == OrderState.FILLED:
+                    self.logger().debug(
+                        f" '-> Fillable: {event_message.client_order_id}. "
+                        f"Trigger FILL request at :{self.time_synchronizer.time()}")
+                    # This fails the tests, but it is not a problem for the connector
+                    # safe_ensure_future(self._update_order_fills_from_trades())
+                    await self._update_order_fills_from_trades()
 
-            if fillable_order is not None and new_state == OrderState.FILLED:
-                self.logger().debug(
-                    f" '-> Fillable: {event_message.client_order_id}. "
-                    f"Trigger FILL request at :{self.time_synchronizer.time()}")
-                # This fails the tests, but it is not a problem for the connector
-                # safe_ensure_future(self._update_order_fills_from_trades())
-                await self._update_order_fills_from_trades()
-
-            if updatable_order is not None:
-                self.logger().debug(f" '-> Updatable order: {event_message.client_order_id}")
-                order_update = OrderUpdate(
-                    trading_pair=updatable_order.trading_pair,
-                    update_timestamp=event_message.fill_timestamp_s,
-                    new_state=new_state,
-                    client_order_id=event_message.client_order_id,
-                    exchange_order_id=event_message.exchange_order_id,
-                )
-                self._order_tracker.process_order_update(order_update)
-            else:
-                self.logger().debug(f"Skipping non-updatable order: {event_message.client_order_id}")
+                if updatable_order is not None:
+                    self.logger().debug(f" '-> Updatable order: {event_message.client_order_id}")
+                    order_update = OrderUpdate(
+                        trading_pair=updatable_order.trading_pair,
+                        update_timestamp=event_message.fill_timestamp_s,
+                        new_state=new_state,
+                        client_order_id=event_message.client_order_id,
+                        exchange_order_id=event_message.exchange_order_id,
+                    )
+                    self._order_tracker.process_order_update(order_update)
+                else:
+                    self.logger().debug(f"Skipping non-updatable order: {event_message.client_order_id}")
 
     async def _update_order_fills_from_trades(self):
         """
@@ -923,7 +926,10 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         async def query_trades(pair: str, timestamp=None) -> List[Dict[str, Any]]:
             """Queries trades for a trading pair."""
-            p = {"product_id": await self.exchange_symbol_associated_to_pair(trading_pair=pair)}
+            trading_pairs = []
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
+            trading_pairs.append(trading_pair)
+            p = {"product_ids": trading_pairs}
             if timestamp is not None:
                 p["start_sequence_timestamp"] = timestamp
 
@@ -1020,15 +1026,16 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         """
         Queries all trades for an order.
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getfills
+        https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getfills
         """
         trade_updates = []
         if order.exchange_order_id is not None:
+            order_ids = []
             order_id: str = order.exchange_order_id
-            product_id: str = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            order_ids.append(str(order_id))
+            # product_id: str = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             params = {
-                "product_id": product_id,
-                "order_id": order_id
+                "order_ids": order_ids
             }
             all_fills_response: Dict[str, Any] = await self._api_get(
                 path_url=constants.FILLS_EP,
