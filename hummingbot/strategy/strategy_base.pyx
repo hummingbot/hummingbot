@@ -501,18 +501,21 @@ cdef class StrategyBase(TimeIterator):
                                  order_type=OrderType.MARKET,
                                  price=s_decimal_nan,
                                  expiration_seconds=NaN,
-                                 position_action=PositionAction.OPEN):
+                                 position_action=PositionAction.OPEN,
+                                 **kwargs):
         return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
                                                order_type,
                                                price,
                                                expiration_seconds,
-                                               position_action)
+                                               position_action,
+                                               kwargs=kwargs)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
                                         object price=s_decimal_nan,
                                         double expiration_seconds=NaN,
-                                        position_action=PositionAction.OPEN):
+                                        position_action=PositionAction.OPEN,
+                                        dict kwargs={}):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -520,10 +523,10 @@ cdef class StrategyBase(TimeIterator):
             raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
-            kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
-                      "position_action": position_action}
             ConnectorBase market = market_trading_pair_tuple.market
 
+        kwargs |= {"expiration_ts": self._current_timestamp + expiration_seconds,
+                  "position_action": position_action}
         if market not in self._sb_markets:
             raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
 
@@ -546,18 +549,21 @@ cdef class StrategyBase(TimeIterator):
                                   order_type=OrderType.MARKET,
                                   price=s_decimal_nan,
                                   expiration_seconds=NaN,
-                                  position_action=PositionAction.OPEN):
+                                  position_action=PositionAction.OPEN,
+                                  **kwargs):
         return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
                                                 order_type,
                                                 price,
                                                 expiration_seconds,
-                                                position_action)
+                                                position_action,
+                                                kwargs=kwargs)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,
                                          object price=s_decimal_nan,
                                          double expiration_seconds=NaN,
-                                         position_action=PositionAction.OPEN):
+                                         position_action=PositionAction.OPEN,
+                                         dict kwargs={}):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -565,9 +571,10 @@ cdef class StrategyBase(TimeIterator):
             raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
-            kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
-                      "position_action": position_action}
             ConnectorBase market = market_trading_pair_tuple.market
+
+        kwargs |= {"expiration_ts": self._current_timestamp + expiration_seconds,
+                  "position_action": position_action}
 
         if market not in self._sb_markets:
             raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")

@@ -25,6 +25,11 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         last_timestamp = df['timestamp'].max()
         tl = config.time_limit if config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
+
+        # Trailing stop parameters
+        trailing_sl_trigger_pct = config.trailing_stop.activation_price if config.trailing_stop else None
+        trailing_sl_delta_pct = config.trailing_stop.trailing_delta if config.trailing_stop else None
+
         # Filter dataframe based on the conditions
         df_filtered = df[df['timestamp'] <= tl_timestamp].copy()
         df_filtered['net_pnl_pct'] = 0.0
@@ -48,28 +53,52 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
             cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
             take_profit_timestamp = None
             stop_loss_timestamp = None
+            trailing_sl_timestamp = None
             next_order_timestamp = None
+
+            # Trailing stop logic
+            if trailing_sl_trigger_pct is not None and trailing_sl_delta_pct is not None:
+                trailing_stop_activation_price = break_even_price * (1 + trailing_sl_trigger_pct * side_multiplier)
+                trailing_stop_condition = None
+                if config.side == TradeType.BUY:
+                    ts_activated_condition = returns_df["close"] >= trailing_stop_activation_price
+                    if ts_activated_condition.any():
+                        returns_df.loc[ts_activated_condition, "ts_trigger_price"] = (returns_df[ts_activated_condition]["close"] * float(1 - trailing_sl_delta_pct)).cummax()
+                        trailing_stop_condition = returns_df['close'] <= returns_df['ts_trigger_price']
+                else:
+                    ts_activated_condition = returns_df["close"] <= trailing_stop_activation_price
+                    if ts_activated_condition.any():
+                        returns_df.loc[ts_activated_condition, "ts_trigger_price"] = (returns_df[ts_activated_condition]["close"] * float(1 + trailing_sl_delta_pct)).cummin()
+                        trailing_stop_condition = returns_df['close'] >= returns_df['ts_trigger_price']
+                trailing_sl_timestamp = returns_df[trailing_stop_condition]['timestamp'].min() if trailing_stop_condition is not None else None
+
             if config.take_profit:
                 take_profit_price = break_even_price * (1 + config.take_profit * side_multiplier)
                 take_profit_condition = returns_df['close'] >= take_profit_price if config.side == TradeType.BUY else returns_df['close'] <= take_profit_price
                 take_profit_timestamp = returns_df[take_profit_condition]['timestamp'].min()
+
             if is_last_order and config.stop_loss:
                 stop_loss_price = break_even_price * (1 - config.stop_loss * side_multiplier)
-                stop_loss_condition = returns_df['close'] <= stop_loss_price if config.side == TradeType.BUY else returns_df['close'] >= stop_loss_price
+                stop_loss_condition = returns_df['low'] <= stop_loss_price if config.side == TradeType.BUY else returns_df['high'] >= stop_loss_price
                 stop_loss_timestamp = returns_df[stop_loss_condition]['timestamp'].min()
             else:
                 next_order_condition = returns_df['close'] <= config.prices[i + 1] if config.side == TradeType.BUY else returns_df['close'] >= config.prices[i + 1]
                 next_order_timestamp = returns_df[next_order_condition]['timestamp'].min()
+
             close_timestamp = min([timestamp for timestamp in [take_profit_timestamp, stop_loss_timestamp,
-                                                               last_timestamp, next_order_timestamp] if not pd.isna(timestamp)])
+                                                               trailing_sl_timestamp, last_timestamp, next_order_timestamp] if not pd.isna(timestamp)])
+
             if close_timestamp == take_profit_timestamp:
                 close_type = CloseType.TAKE_PROFIT
             elif close_timestamp == stop_loss_timestamp:
                 close_type = CloseType.STOP_LOSS
+            elif close_timestamp == trailing_sl_timestamp:
+                close_type = CloseType.TRAILING_STOP
             elif close_timestamp == next_order_timestamp:
                 close_type = None
             else:
                 close_type = CloseType.TIME_LIMIT
+
             df_filtered[f'filled_amount_quote_{i}'] = 0.0
             df_filtered[f'net_pnl_quote_{i}'] = 0.0
             potential_dca_stages.append({
@@ -82,8 +111,10 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 'close_type': close_type,
                 'cumulative_returns': cumulative_returns
             })
+
         if len(potential_dca_stages) == 0:
             return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT)
+
         close_type = None
 
         for i, dca_stage in enumerate(potential_dca_stages):
@@ -98,6 +129,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 close_type = dca_stage['close_type']
                 last_timestamp = dca_stage['close_timestamp']
                 break
+
         df_filtered = df_filtered[df_filtered['timestamp'] <= last_timestamp].copy()
         df_filtered['filled_amount_quote'] = sum([df_filtered[f'filled_amount_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['net_pnl_quote'] = sum([df_filtered[f'net_pnl_quote_{i}'] for i in range(len(potential_dca_stages))])

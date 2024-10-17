@@ -19,7 +19,6 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         # Set up barriers
         tp = Decimal(config.triple_barrier_config.take_profit) if config.triple_barrier_config.take_profit else None
-        sl = Decimal(config.triple_barrier_config.stop_loss) if config.triple_barrier_config.stop_loss else None
         trailing_sl_trigger_pct = None
         trailing_sl_delta_pct = None
         if config.triple_barrier_config.trailing_stop:
@@ -58,7 +57,11 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         # Determine the earliest close event
         first_tp_timestamp = df_filtered[df_filtered['net_pnl_pct'] > tp]['timestamp'].min() if tp else None
-        first_sl_timestamp = df_filtered[df_filtered['net_pnl_pct'] < -sl]['timestamp'].min() if sl else None
+        if config.triple_barrier_config.stop_loss:
+            sl = Decimal(config.triple_barrier_config.stop_loss)
+            sl_price = entry_price * (1 - sl * side_multiplier)
+            sl_condition = df_filtered['low'] <= sl_price if config.side == TradeType.BUY else df_filtered['high'] >= sl_price
+        first_sl_timestamp = df_filtered[sl_condition]['timestamp'].min() if sl else None
         first_trailing_sl_timestamp = df_filtered[(~df_filtered['ts'].isna()) & (df_filtered['net_pnl_pct'] < df_filtered['ts'])]['timestamp'].min() if trailing_sl_delta_pct and trailing_sl_trigger_pct else None
         close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp, first_trailing_sl_timestamp] if not pd.isna(timestamp)])
 
