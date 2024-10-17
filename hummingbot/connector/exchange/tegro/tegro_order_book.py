@@ -13,27 +13,30 @@ class TegroOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        def ensure_price_and_quantity(entry: Dict[str, any]):
-            price = entry.get('price', 0.0)
-            quantity = entry.get('quantity', 0)
-            return [price, quantity]
+        def accumulate_quantities(entries, reverse=False):
+            cumulative_quantity = 0.0
+            cumulative_data = []
 
-        trading_pair = msg.get("trading_pair", "")
-        time = msg.get("timestamp", "")
+            # If reverse is True, process from the lowest price to the highest
+            entries = entries[::-1] if reverse else entries
 
-        bid_res = msg.get("bids", [])
-        ask_res = msg.get("asks", [])
-        bids = []
-        asks = []
+            for entry in entries:
+                price = float(entry['price'])  # Keep price unchanged
+                quantity = float(entry['quantity'])
+                cumulative_quantity += quantity  # Only accumulate the quantity
+                cumulative_data.append([price, cumulative_quantity])  # Price remains the same
 
-        if ask_res is not None and len(ask_res) > 0:
-            asks = [ensure_price_and_quantity(entry) for entry in msg.get("asks", [])]
-        if bid_res is not None and len(bid_res) > 0:
-            bids = [ensure_price_and_quantity(entry) for entry in msg.get("bids", [])]
+            # Reverse again if asks were reversed to maintain order in the result
+            return cumulative_data[::-1] if reverse else cumulative_data
+
+        # For asks, reverse the order of accumulation (because lower prices come first)
+        asks = accumulate_quantities(msg.get('asks', []), reverse=True)
+        # For bids, accumulate as usual
+        bids = accumulate_quantities(msg.get('bids', []), reverse=False)
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": time,
+            "trading_pair": msg["trading_pair"],
+            "update_id": msg["timestamp"],
             "bids": bids,
             "asks": asks
         }, timestamp=timestamp)
@@ -53,20 +56,26 @@ class TegroOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        def ensure_price_and_quantity(entry: Dict[str, any]):
-            price = entry.get('price', 0.0)
-            quantity = entry.get('quantity', 0)
-            return [price, quantity]
-        # Ensure 'price' and 'quantity' keys exist in each entry, defaulting to 0 if missing
-        bid_res = msg["data"].get("bids", [])
-        ask_res = msg["data"].get("asks", [])
-        bids = []
-        asks = []
+        def accumulate_quantities(entries, reverse=False):
+            cumulative_quantity = 0.0
+            cumulative_data = []
 
-        if ask_res is not None and len(ask_res) > 0:
-            asks = [ensure_price_and_quantity(entry) for entry in msg["data"].get("asks", [])]
-        if bid_res is not None and len(bid_res) > 0:
-            bids = [ensure_price_and_quantity(entry) for entry in msg["data"].get("bids", [])]
+            # If reverse is True, process from the lowest price to the highest
+            entries = entries[::-1] if reverse else entries
+
+            for entry in entries:
+                price = float(entry['price'])  # Keep price unchanged
+                quantity = float(entry['quantity'])
+                cumulative_quantity += quantity  # Only accumulate the quantity
+                cumulative_data.append([price, cumulative_quantity])  # Price remains the same
+
+            # Reverse again if asks were reversed to maintain order in the result
+            return cumulative_data[::-1] if reverse else cumulative_data
+
+        # For asks, reverse the order of accumulation (because lower prices come first)
+        asks = accumulate_quantities(msg["data"].get('asks', []), reverse=True)
+        # For bids, accumulate as usual
+        bids = accumulate_quantities(msg["data"].get('bids', []), reverse=False)
 
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
