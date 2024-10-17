@@ -7,6 +7,10 @@ class OrderType(Enum):
     MARKET = 1
     LIMIT = 2
     LIMIT_MAKER = 3
+    # New order types
+    STOP_LOSS = 4
+    TAKE_PROFIT = 5
+    TRAILING_STOP = 6
 
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
