@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import time
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
@@ -57,14 +59,16 @@ class RateConversionOracle:
 
     def __init__(self, asset_set, client_config_map, paper_trade_market="binance"):
         self._paper_trade_market = paper_trade_market
-        self._paper_trade_market_prio_list = [paper_trade_market, "binance", "ascend_ex", "mexc"]
+        self._paper_trade_market_prio_list = [paper_trade_market, "binance", "gate_io", "mexc"]
         self._asset_set = asset_set
         self._rates = {}
         self._fixed_rates = {}
+        self._exchange_to_trading_pairs = {}
         self._trading_pair_fetcher = TradingPairFetcher.get_instance()
         self._legacy_rate_oracle = RateOracle.get_instance()
         self._markets = {}
         self._client_config_map = client_config_map
+        self.ready = False
         self.init_rates()
 
     @property
@@ -75,10 +79,28 @@ class RateConversionOracle:
     def fixed_rates(self):
         return self._fixed_rates
 
+    def get_trading_pairs(self):
+        """Fetches trading pairs for all exchanges."""
+        while "binance" not in self._trading_pair_fetcher.trading_pairs.keys() or "gate_io" not in self._trading_pair_fetcher.trading_pairs.keys():
+            time.sleep(3)
+            self.logger().info("Waiting for trading pairs to be fetched...")
+
+        for exchange in self._paper_trade_market_prio_list:
+            trading_pairs = self._trading_pair_fetcher.trading_pairs.get(exchange, [])
+            self._exchange_to_trading_pairs[exchange] = trading_pairs
+
     def init_rates(self):
         """Initializes rates for the asset set."""
+        self.get_trading_pairs()
+
         for asset in self._asset_set:
             self.add_asset_price_delegate(asset)
+
+        self.ready = True
+
+    async def wait_ready(self):
+        while not self.ready:
+            await asyncio.sleep(1)
 
     def add_asset_price_delegate(self, asset):
         """Add an OrderBookAssetPriceDelegate to self._rates"""
@@ -97,24 +119,27 @@ class RateConversionOracle:
             return
 
         use_legacy_oracle = False
+        use_inverse = False
 
         for i, exchange in enumerate(self._paper_trade_market_prio_list):
-            if self._trading_pair_fetcher.ready:
-                trading_pairs = self._trading_pair_fetcher.trading_pairs.get(f"{exchange}_paper_trade", [])
-                if conversion_pair not in trading_pairs:
-                    if inverse_conversion_pair not in trading_pairs:
-                        if i == len(self._paper_trade_market_prio_list) - 1:
-                            self.logger().info(f"WARNING: The conversion pair {conversion_pair} is unavailable on {exchange}. Resort to legacy Oracle.")
-                            use_legacy_oracle = True
-                        else:
-                            self.logger().info(f"WARNING: The conversion pair {conversion_pair} is unavailable on {exchange}. Try on {self._paper_trade_market_prio_list[i + 1]}.")
+            trading_pairs = self._exchange_to_trading_pairs.get(exchange, [])
+            if conversion_pair not in trading_pairs:
+                if inverse_conversion_pair not in trading_pairs:
+                    if i == len(self._paper_trade_market_prio_list) - 1:
+                        self.logger().info(f"WARNING: The conversion pair {conversion_pair} is unavailable on {exchange}. Resort to legacy Oracle.")
+                        use_legacy_oracle = True
                     else:
-                        break
+                        self.logger().info(f"WARNING: The conversion pair {conversion_pair} is unavailable on {exchange}. Try on {self._paper_trade_market_prio_list[i + 1]}.")
                 else:
+                    use_inverse = True
                     break
+            else:
+                break
 
         if not use_legacy_oracle:
-            ext_market = create_paper_trade_market(self._paper_trade_market, self._client_config_map, [conversion_pair])
+            self.logger().info(f"Using {exchange} for conversion pair {conversion_pair}.")
+            trading_pair = conversion_pair if not use_inverse else inverse_conversion_pair
+            ext_market = create_paper_trade_market(exchange, self._client_config_map, [trading_pair])
             self._markets[conversion_pair]: ExchangeBase = ext_market
             conversion_asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, conversion_pair)
             return conversion_asset_price_delegate
