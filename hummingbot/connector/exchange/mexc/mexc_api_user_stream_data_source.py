@@ -95,7 +95,6 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
                 throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication(),
                 is_auth_required=True
             )
         except asyncio.CancelledError:
@@ -114,7 +113,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 method=RESTMethod.PUT,
                 return_err=True,
                 throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
+                is_auth_required=True
             )
 
             if "code" in data:
