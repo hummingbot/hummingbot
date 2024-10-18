@@ -185,32 +185,31 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
     def test_build_jwt(self, mock_encode):
         self.auth.secret_key = pem_private_key_str
         mock_encode.return_value = 'test_jwt_token'
-        result = self.auth._build_jwt(service='test_service', uri='test_uri')
+        result = self.auth._build_jwt(uri='test_uri')
         self.assertEqual('test_jwt_token', result, )
         mock_encode.assert_called_once()
 
     def test_build_jwt_invalid_secret_key(self):
         self.auth.secret_key = 'invalid_secret_key'
         with self.assertRaises(ValueError):
-            self.auth._build_jwt(service='test_service', uri='test_uri')
+            self.auth._build_jwt(uri='test_uri')
 
     @patch('jwt.encode')
     def test_build_jwt_fields(self, mock_encode):
         self.auth.secret_key = pem_private_key_str
         mock_encode.return_value = 'test_jwt_token'
-        self.auth._build_jwt(service='test_service', uri='test_uri')
+        self.auth._build_jwt(uri='test_uri')
         args, kwargs = mock_encode.call_args
         jwt_data = args[0]
         self.assertEqual(self.auth.api_key, jwt_data['sub'])
-        self.assertEqual('coinbase-cloud', jwt_data['iss'], )
-        self.assertEqual(['test_service'], jwt_data['aud'], )
+        self.assertEqual('cdp', jwt_data['iss'], )
         self.assertEqual('test_uri', jwt_data['uri'], )
 
     @patch('jwt.encode')
     def test_build_jwt_algorithm_and_headers(self, mock_encode):
         self.auth.secret_key = pem_private_key_str
         mock_encode.return_value = 'test_jwt_token'
-        self.auth._build_jwt(service='test_service', uri='test_uri')
+        self.auth._build_jwt(uri='test_uri')
         args, kwargs = mock_encode.call_args
         self.assertEqual('ES256', kwargs['algorithm'], )
         self.assertEqual(self.auth.api_key, kwargs['headers']['kid'])
