@@ -20,7 +20,7 @@ class ChainflipLpDataSourceTests(TestCase):
         cls.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
         cls.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
         cls.base_asset = "ETH"
-        cls.quote_asset = "USDC"
+        cls.quote_asset = "USDC/Ethereum"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
@@ -38,8 +38,6 @@ class ChainflipLpDataSourceTests(TestCase):
             client_config_map=client_config_map,
             chainflip_lp_api_url="http://localhost:80",
             chainflip_lp_address=self.address,
-            chainflip_eth_chain="Ethereum",
-            chainflip_usdc_chain="Ethereum",
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )

@@ -17,8 +17,8 @@ class RPCQueryExecutorTests(TestCase):
         super().setUpClass()
         cls.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
         cls.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
-        cls.base_asset = "ETH"
-        cls.quote_asset = "USDC"
+        cls.base_asset = "ETH/Ethereum"
+        cls.quote_asset = "USDC/Ethereum"
 
     def setUp(self) -> None:
         super().setUp()
@@ -154,7 +154,7 @@ class RPCQueryExecutorTests(TestCase):
         rpc_executor._rpc_instance = Mock()
         data = self.async_run_with_timeout(rpc_executor.all_assets())
         self.assertTrue(isinstance(data, list))
-        self.assertEqual(len(data), 6)
+        self.assertEqual(len(data), 8)
 
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
     def test_all_asset_exception_returns_empty_list(self, mock_response: MagicMock):
@@ -278,7 +278,7 @@ class RPCQueryExecutorTests(TestCase):
         data = self.async_run_with_timeout(rpc_executor.get_all_balances())
         self.assertEqual(type(data), dict)
         self.assertEqual(len(data), 3)
-        self.assertEqual(type(data[f"{self.base_asset_dict['asset']}"]), Decimal)
+        self.assertEqual(type(data[f"{self.base_asset}"]), Decimal)
 
     @patch("hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor.RPCQueryExecutor.run_in_thread")
     def test_all_balances_exception_returns_empty_list(self, mock_response: MagicMock):

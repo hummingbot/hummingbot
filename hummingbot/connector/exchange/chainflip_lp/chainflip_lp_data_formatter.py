@@ -78,7 +78,7 @@ class DataFormatter:
         return {"asks": asks, "bids": bids}
 
     @classmethod
-    def format_balance_response(cls, response, chain_config: dict = CONSTANTS.DEFAULT_CHAIN_CONFIG):
+    def format_balance_response(cls, response):
         data = response["result"]
 
         chains = data.keys()
@@ -87,11 +87,10 @@ class DataFormatter:
         for chain in chains:
             assets = data[chain].keys()
             for asset in assets:
-                if asset in chain_config:
-                    if chain_config[asset] != chain:
-                        continue  # skip asset balance
-                token = f"{asset}"
-                balance_map[token] = Decimal(cls.format_hex_balance(data[chain][asset], {"chain": chain, "asset": asset}))
+                asset_combo = {"chain": chain, "asset": asset}
+                converted_asset = cls.format_same_chain_asset_join(asset_combo)
+                token = f"{converted_asset}"
+                balance_map[token] = Decimal(cls.format_hex_balance(data[chain][asset], asset_combo))
 
         return balance_map
 
@@ -117,16 +116,9 @@ class DataFormatter:
         return format_list
 
     @classmethod
-    def format_all_assets_response(cls, response: Dict, chain_config=CONSTANTS.DEFAULT_CHAIN_CONFIG):
-        def filter_method(value):
-            if value["asset"] in chain_config:
-                if value["chain"] != chain_config[value["asset"]]:  # :)
-                    return False
-            return True
-
+    def format_all_assets_response(cls, response: Dict):
         result = response["result"]
-        formatted_asset_list = list(filter(filter_method, result))
-        return formatted_asset_list
+        return result
 
     @classmethod
     def format_error_response(cls, response: Dict):
@@ -185,19 +177,31 @@ class DataFormatter:
         """
         format a trading pair from {base_asset}-{quote_asset}
         to the format needed for lp rpc calls
-        e.g ETH-USDT =>
+        e.g ETH-USDT/Ethereum =>
         {
             "base_asset":{"chain":"Ethereum","asset":"ETH"},
             "quote_asset":{"chain":"Ethereum","asset":"USDT"},
         }
         """
+        def asset_filter(data: str | dict[str, str]):
+            if isinstance(data, str):
+                asset_list = list(filter(lambda x: x["asset"].upper() == data.upper(), all_assets))
+                return asset_list[0] if asset_list else None
+            elif isinstance(data, dict):
+                asset_list = list(
+                    filter(
+                        lambda x: x["asset"].upper() == data["asset"].upper() and x["chain"] == data["chain"],
+                        all_assets
+                    )
+                )
+                return asset_list[0] if asset_list else None
+
         data = {}
         base_asset, quote_asset = pair.split("-")
-        base_asset_list = list(filter(lambda x: x["asset"].upper() == base_asset.upper(), all_assets))
-        quote_asset_list = list(filter(lambda x: x["asset"].upper() == quote_asset.upper(), all_assets))
-        data["base_asset"] = base_asset_list[0] if base_asset_list else None
-        data["quote_asset"] = quote_asset_list[0] if quote_asset_list else None
-
+        base_asset = cls.format_same_chain_asset_split(base_asset)
+        quote_asset = cls.format_same_chain_asset_split(quote_asset)
+        data["base_asset"] = asset_filter(base_asset)
+        data["quote_asset"] = asset_filter(quote_asset)
         return data
 
     @classmethod
@@ -220,6 +224,20 @@ class DataFormatter:
         return format_list
 
     @classmethod
+    def format_same_chain_asset_split(cls, asset: str):
+        split_assets = asset.split("/")
+        if len(split_assets) > 1:
+            return {"chain": split_assets[1], "asset": split_assets[0]}
+        return split_assets[0]
+
+    @classmethod
+    def format_same_chain_asset_join(cls, asset: Dict[str, str]):
+        if asset["asset"] in CONSTANTS.SAME_CHAINS:
+            if asset["chain"] in CONSTANTS.SAME_CHAINS[asset["asset"]]:
+                return f"{asset['asset']}/{asset['chain']}"
+        return asset["asset"]
+
+    @classmethod
     def format_market_price(cls, response: Dict[str, Any]):
         """
         return the float formatted price
@@ -240,11 +258,11 @@ class DataFormatter:
         if isinstance(base_asset, str):
             base = base_asset
         else:
-            base = base_asset["asset"]
+            base = cls.format_same_chain_asset_join(base_asset)
         if isinstance(quote_asset, str):
             quote = quote_asset
         else:
-            quote = quote_asset["asset"]
+            quote = cls.format_same_chain_asset_join(quote_asset)
         return f"{base}-{quote}"
 
     @classmethod

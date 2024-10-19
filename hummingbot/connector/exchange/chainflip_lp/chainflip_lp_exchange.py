@@ -39,8 +39,6 @@ class ChainflipLpExchange(ExchangePyBase):
         client_config_map: "ClientConfigAdapter",
         chainflip_lp_api_url: str,
         chainflip_lp_address: str,
-        chainflip_eth_chain: str,
-        chainflip_usdc_chain: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -48,17 +46,13 @@ class ChainflipLpExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
-        self.chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG.copy()
-        self.chain_config["ETH"] = chainflip_eth_chain
-        self.chain_config["USDC"] = chainflip_usdc_chain
         self._data_source = ChainflipLpDataSource(
             connector=self,
             address=chainflip_lp_address,
             rpc_api_url=chainflip_lp_api_url,
             domain=self._domain,
             trading_pairs=trading_pairs,
-            trading_required=trading_required,
-            chain_config=self.chain_config,
+            trading_required=trading_required
         )
         super().__init__(client_config_map=client_config_map)
         self._data_source.configure_throttler(throttler=self._throttler)
