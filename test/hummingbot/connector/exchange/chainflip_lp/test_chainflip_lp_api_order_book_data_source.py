@@ -26,8 +26,8 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
         super().setUpClass()
         cls.base_asset = {"chain": "Ethereum", "asset": "ETH"}
         cls.quote_asset = {"chain": "Ethereum", "asset": "USDC"}
-        cls.trading_pair = f'{cls.base_asset["asset"]}-{cls.quote_asset["asset"]}'
-        cls.ex_trading_pair = f'{cls.base_asset["asset"]}-{cls.quote_asset["asset"]}'
+        cls.trading_pair = f'{cls.base_asset["asset"]}-{cls.quote_asset["asset"]}/{cls.quote_asset["chain"]}'
+        cls.ex_trading_pair = f'{cls.base_asset["asset"]}-{cls.quote_asset["asset"]}/{cls.quote_asset["chain"]}'
 
     def setUp(self) -> None:
         super().setUp()
@@ -43,8 +43,6 @@ class TestChanflipLPAPIOrderBookDataSource(TestCase):
             client_config_map=client_config_map,
             chainflip_lp_api_url="http://localhost:80",
             chainflip_lp_address=self.address,
-            chainflip_eth_chain="Ethereum",
-            chainflip_usdc_chain="Ethereum",
             trading_pairs=[self.trading_pair],
             trading_required=False,
         )

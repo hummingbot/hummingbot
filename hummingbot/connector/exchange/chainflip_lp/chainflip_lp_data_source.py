@@ -44,8 +44,7 @@ class ChainflipLpDataSource:
         rpc_api_url: str,
         domain: Optional[str] = CONSTANTS.DEFAULT_DOMAIN,
         trading_required: bool = True,
-        trading_pairs: list = [],
-        chain_config: Dict = CONSTANTS.DEFAULT_CHAIN_CONFIG,
+        trading_pairs: list = []
     ):
         self._connector = connector
         self._domain = domain
@@ -60,14 +59,12 @@ class ChainflipLpDataSource:
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self._events_listening_tasks = []
         self._assets_list: List[Dict[str, str]] = []
-        self._chain_config = chain_config
 
         self._rpc_executor = RPCQueryExecutor(
             throttler=self._throttler,
             chainflip_lp_api_url=self._lp_api_url,
             lp_account_address=address,
             domain=self._domain,
-            chain_config=self._chain_config,
         )
 
     async def start(self):

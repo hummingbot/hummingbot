@@ -436,8 +436,6 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             client_config_map=client_config_map,
             chainflip_lp_api_url="",
             chainflip_lp_address=self._address,
-            chainflip_eth_chain=self._eth_chain,
-            chainflip_usdc_chain=self._usdc_chain,
             trading_pairs=[self.trading_pair],
         )
         exchange._data_source._rpc_executor = MockRPCExecutor()
@@ -524,8 +522,8 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         cls._usdc_chain = CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]
         cls.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
         cls.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
-        cls.base_asset = "ETH"
-        cls.quote_asset = "USDC"
+        cls.base_asset = "ETH/Ethereum"
+        cls.quote_asset = "USDC/Ethereum"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 

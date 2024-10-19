@@ -22,7 +22,7 @@ MAX_ID_LEN = (2**64) - 1
 
 # Public chainflip lp rpc methods
 ACTIVE_POOLS_METHOD = "cf_pool_environment"
-ASSET_BALANCE_METHOD = "lp_asset_balances"
+ASSET_BALANCE_METHOD = "lp_free_balances"
 PING_METHOD = ""
 OPEN_ORDERS_METHOD = "cf_pool_orders"
 PLACE_LIMIT_ORDER_METHOD = "lp_set_limit_order"
@@ -58,7 +58,7 @@ ASSET_PRECISIONS = {
     "Arbitrum": {"USDC": 1e6, "USDT": 1e6, "ETH": 1e18},
     "Bitcoin": {"BTC": 1e8},
     "Polkadot": {"DOT": 1e12},
-    "Solana": {"SOL": 1e9},
+    "Solana": {"SOL": 1e9, "USDC": 1e6},
 }
 
 FRACTIONAL_BITS = 128
@@ -66,5 +66,5 @@ SQRT_PRICE_FRACTIONAL_BITS = 96
 LOWER_TICK_BOUND = -887272
 UPPER_TICK_BOUND = 887272
 
-SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum"]}
+SAME_CHAINS = {"ETH": ["Arbitrum", "Ethereum"], "USDC": ["Arbitrum", "Ethereum", "Solana"]}
 DEFAULT_CHAIN_CONFIG = {"ETH": "Ethereum", "USDC": "Ethereum"}

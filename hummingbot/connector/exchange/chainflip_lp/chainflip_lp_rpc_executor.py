@@ -93,7 +93,6 @@ class RPCQueryExecutor(BaseRPCExecutor):
         chainflip_lp_api_url: str,
         lp_account_address: str,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
-        chain_config=CONSTANTS.DEFAULT_CHAIN_CONFIG,
     ) -> None:
         super().__init__()
         self._lp_account_address = lp_account_address
@@ -103,7 +102,6 @@ class RPCQueryExecutor(BaseRPCExecutor):
         self._throttler = throttler
         self._rpc_instance = None
         self._lp_api_instance = None
-        self._chain_config = chain_config
 
     async def start(self):
         self._lp_api_instance = self._start_instance(self._lp_api_url)
@@ -124,7 +122,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not response["status"]:
             return []
 
-        return DataFormatter.format_all_assets_response(response["data"], chain_config=self._chain_config)
+        return DataFormatter.format_all_assets_response(response["data"])
 
     async def all_markets(self):
         response = await self._execute_rpc_request(CONSTANTS.ACTIVE_POOLS_METHOD)
@@ -177,7 +175,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not response["status"]:
             return []
 
-        return DataFormatter.format_balance_response(response["data"], self._chain_config)
+        return DataFormatter.format_balance_response(response["data"])
 
     async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         params = {"base_asset": base_asset, "quote_asset": quote_asset}

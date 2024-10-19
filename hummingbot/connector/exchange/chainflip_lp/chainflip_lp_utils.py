@@ -4,19 +4,14 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import validate_with_regex
-from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
-EXAMPLE_PAIR = "FLIP-USDT"
+EXAMPLE_PAIR = "FLIP-USDT/Ethereum"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.00"),
     taker_percent_fee_decimal=Decimal("0.00"),
 )
-
-
-def chains_as_str(asset: str):
-    return ",".join(CONSTANTS.SAME_CHAINS[asset])
 
 
 class ChainflipLpConfigMap(BaseConnectorConfigMap):
@@ -39,24 +34,6 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    chainflip_eth_chain: str = Field(
-        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
-        client_data=ClientFieldData(
-            prompt=lambda cm: f'Enter the ETH chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"]}',
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
-    chainflip_usdc_chain: str = Field(
-        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"],
-        client_data=ClientFieldData(
-            prompt=lambda cm: f'Enter the USDC chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]}',
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
 
     class Config:
         title = "chainflip_lp"
@@ -70,26 +47,12 @@ class ChainflipLpConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("chainflip_eth_chain", pre=True)
-    def validate_chainflip_eth_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str('ETH')}"
-        if v not in CONSTANTS.SAME_CHAINS["ETH"]:
-            raise ValueError(error_message)
-        return v
-
-    @validator("chainflip_usdc_chain", pre=True)
-    def validate_chainflip_usdc_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str('USDC')}"
-        if v not in CONSTANTS.SAME_CHAINS["USDC"]:
-            raise ValueError(error_message)
-        return v
-
 
 KEYS = ChainflipLpConfigMap.construct()
 
 OTHER_DOMAINS = ["chainflip_lp_testnet"]
 OTHER_DOMAINS_PARAMETER = {"chainflip_lp_testnet": "chainflip_lp_testnet"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"chainflip_lp_testnet": "FLIP-USDT"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"chainflip_lp_testnet": "FLIP-USDT/Ethereum"}
 OTHER_DOMAINS_DEFAULT_FEES = {"chainflip_lp_testnet": DEFAULT_FEES}
 
 
@@ -113,24 +76,6 @@ class ChainflipLpTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    chainflip_eth_chain: str = Field(
-        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"],
-        client_data=ClientFieldData(
-            prompt=lambda cm: f'Enter the ETH chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"]}',
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
-    chainflip_usdc_chain: str = Field(
-        default=CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"],
-        client_data=ClientFieldData(
-            prompt=lambda cm: f'Enter the USDC chain you will like to use for this session. default: {CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]}',
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
 
     class Config:
         title = "chainflip_lp_testnet"
@@ -142,20 +87,6 @@ class ChainflipLpTestnetConfigMap(BaseConnectorConfigMap):
         ret = validate_with_regex(v, pattern, error_message)
         if ret is not None:
             raise ValueError(ret)
-        return v
-
-    @validator("chainflip_eth_chain", pre=True)
-    def validate_chainflip_eth_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str('ETH')}"
-        if v not in CONSTANTS.SAME_CHAINS["ETH"]:
-            raise ValueError(error_message)
-        return v
-
-    @validator("chainflip_usdc_chain", pre=True)
-    def validate_chainflip_usdc_chain(cls, v: str):
-        error_message = f"valid options are: {chains_as_str('USDC')}"
-        if v not in CONSTANTS.SAME_CHAINS["USDC"]:
-            raise ValueError(error_message)
         return v
 
 

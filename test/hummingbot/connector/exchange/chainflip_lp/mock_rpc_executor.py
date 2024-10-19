@@ -1,7 +1,6 @@
 import asyncio
 from typing import Any, Callable, Dict, Literal
 
-from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_rpc_executor import BaseRPCExecutor
 
@@ -19,7 +18,6 @@ class MockRPCExecutor(BaseRPCExecutor):
         self._get_market_price_responses = asyncio.Queue()
 
         self._listen_to_market_price_responses = asyncio.Queue()
-        self._chain_config = CONSTANTS.DEFAULT_CHAIN_CONFIG
         self._address = ""  # look for an address in the response
         self._check_connection_response = asyncio.Queue()
 
@@ -32,7 +30,7 @@ class MockRPCExecutor(BaseRPCExecutor):
 
     async def all_assets(self):
         response = await self._all_assets_responses.get()
-        data = DataFormatter.format_all_assets_response(response, chain_config=self._chain_config)
+        data = DataFormatter.format_all_assets_response(response)
         return data
 
     async def all_markets(self):

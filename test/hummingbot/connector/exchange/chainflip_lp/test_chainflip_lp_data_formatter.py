@@ -8,10 +8,10 @@ class DataFormatterTests(TestCase):
     def setUp(self):
         self.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
         self.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
-        self.base_asset = "ETH"
-        self.quote_asset = "USDC"
-        self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
-        self.ex_trading_pair = f"{self.base_asset}-{self.quote_asset}"
+        self.base_asset = "ETH/Ethereum"
+        self.quote_asset = "USDC/Ethereum"
+        self.trading_pair = f"{self.base_asset}-{self.quote_asset}/{self.quote_asset_dict['chain']}"
+        self.ex_trading_pair = f"{self.base_asset}-{self.quote_asset}/{self.quote_asset_dict['chain']}"
 
     def test_hex_str_to_int(self):
         string = "0x759a614014"  # noqa: mock
@@ -84,7 +84,7 @@ class DataFormatterTests(TestCase):
         balances = DataFormatter.format_balance_response(response)
         self.assertEqual(type(balances), dict)
         self.assertEqual(len(balances), 3)
-        self.assertEqual(type(balances[f"{self.base_asset_dict['asset']}"]), Decimal)
+        self.assertEqual(type(balances[f"{self.base_asset}"]), Decimal)
 
     def test_format_all_market_response(self):
         response = {
@@ -136,7 +136,7 @@ class DataFormatterTests(TestCase):
             ]
         }
         all_assets = DataFormatter.format_all_assets_response(response)
-        self.assertEqual(len(all_assets), 6)
+        self.assertEqual(len(all_assets), 8)
 
     def test_format_orderbook_response(self):
         response = {
@@ -166,7 +166,7 @@ class DataFormatterTests(TestCase):
             {"chain": "Polkadot", "asset": "DOT"},
             {"chain": "Bitcoin", "asset": "BTC"},
         ]
-        pair = "ETH-USDC"
+        pair = "ETH-USDC/Ethereum"
         asset = DataFormatter.format_trading_pair(pair, all_assets)
         self.assertIn("base_asset", asset)
         self.assertIn("quote_asset", asset)
