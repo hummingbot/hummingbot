@@ -529,7 +529,7 @@ class GlobalTokenConfigMap(BaseClientModel):
         default="$",
         client_data=ClientFieldData(
             prompt=lambda
-                cm: "What is your default display token symbol? (e.g. $,€)",
+                cm: "What is your default display token symbol? (e.g. $, €, ₿, ¤)",
         ),
     )
 
@@ -572,6 +572,23 @@ class CommandsTimeoutConfigMap(BaseClientModel):
             ),
         ),
     )
+    graphene_timeout: Decimal = Field(
+        default=Decimal("120"),
+        gt=Decimal("0"),
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Network timeout to apply to the starting and status checking of graphene"
+            ),
+        )
+    )
+    use_graphene: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Use longer timeout during balance check for Graphene exchanges (Yes/No)"
+            ),
+        )
+    )
 
     class Config:
         title = "commands_timeout"
@@ -579,11 +596,21 @@ class CommandsTimeoutConfigMap(BaseClientModel):
     @validator(
         "create_command_timeout",
         "other_commands_timeout",
+        "graphene_timeout",
         pre=True,
     )
     def validate_decimals(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         return super().validate_decimal(v, field)
+
+    @validator("use_graphene", pre=True)
+    def validate_bool(cls, v: str):
+        """Used for client-friendly error output."""
+        if isinstance(v, str):
+            ret = validate_bool(v)
+            if ret is not None:
+                raise ValueError(ret)
+        return v
 
 
 class AnonymizedMetricsMode(BaseClientModel, ABC):

@@ -299,9 +299,9 @@ class ConnectorSetting(NamedTuple):
 
     def base_name(self) -> str:
         if self.is_sub_domain:
-            return self.parent_name
+            return self.parent_name if self.parent_name not in ["peerplays", "bitshares", "peerplays_testnet", "bitshares_testnet"] else "graphene"
         else:
-            return self.name
+            return self.name if self.name not in ["peerplays", "bitshares", "peerplays_testnet", "bitshares_testnet"] else "graphene"
 
     def non_trading_connector_instance_with_default_configuration(
             self,
@@ -393,12 +393,13 @@ class AllConnectorSettings:
                     util_module = importlib.import_module(util_module_path)
                 except ModuleNotFoundError:
                     continue
+                name = "peerplays" if connector_dir.name == "graphene" else connector_dir.name
                 trade_fee_settings: List[float] = getattr(util_module, "DEFAULT_FEES", None)
                 trade_fee_schema: TradeFeeSchema = cls._validate_trade_fee_schema(
-                    connector_dir.name, trade_fee_settings
+                    name, trade_fee_settings
                 )
-                cls.all_connector_settings[connector_dir.name] = ConnectorSetting(
-                    name=connector_dir.name,
+                cls.all_connector_settings[name] = ConnectorSetting(
+                    name=name,
                     type=ConnectorType[type_dir.name.capitalize()],
                     centralised=getattr(util_module, "CENTRALIZED", True),
                     example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
@@ -415,7 +416,7 @@ class AllConnectorSettings:
                 for domain in other_domains:
                     trade_fee_settings = getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain]
                     trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_settings)
-                    parent = cls.all_connector_settings[connector_dir.name]
+                    parent = cls.all_connector_settings[name]
                     cls.all_connector_settings[domain] = ConnectorSetting(
                         name=domain,
                         type=parent.type,

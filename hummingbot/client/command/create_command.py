@@ -357,7 +357,15 @@ class CreateCommand:
     ):
         try:
             timeout = float(self.client_config_map.commands_timeout.create_command_timeout)
-            all_status_go = await asyncio.wait_for(self.status_check_all(), timeout)
+            graphene_timeout = float(self.client_config_map.commands_timeout.graphene_timeout)
+            all_status_go = await asyncio.wait_for(self.status_check_all(), timeout if not any(
+                [
+                    i in ["bitshares", "peerplays", "bitshares_testnet", "peerplays_testnet"]
+                    for i in required_exchanges
+                ]
+            )
+                else graphene_timeout
+            )
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the connection check to complete. See logs for more details.")
             self.strategy_file_name = None
