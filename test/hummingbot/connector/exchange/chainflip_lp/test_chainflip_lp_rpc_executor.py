@@ -172,7 +172,7 @@ class RPCQueryExecutorTests(TestCase):
             "result": {
                 "fees": {
                     "Ethereum": {
-                        self.base_asset: {
+                        "ETH": {
                             "limit_order_fee_hundredth_pips": 500,
                             "range_order_fee_hundredth_pips": 500,
                             "range_order_total_fees_earned": {
@@ -191,7 +191,7 @@ class RPCQueryExecutorTests(TestCase):
                                 "base": "0x369c2e5bafeffddab46",  # noqa: mock
                                 "quote": "0x2be491b4d31d",  # noqa: mock
                             },
-                            "quote_asset": {"chain": "Ethereum", "asset": self.quote_asset},
+                            "quote_asset": {"chain": "Ethereum", "asset": "USDC"},
                         },
                     }
                 }

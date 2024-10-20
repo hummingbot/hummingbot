@@ -10,8 +10,8 @@ class DataFormatterTests(TestCase):
         self.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
         self.base_asset = "ETH/Ethereum"
         self.quote_asset = "USDC/Ethereum"
-        self.trading_pair = f"{self.base_asset}-{self.quote_asset}/{self.quote_asset_dict['chain']}"
-        self.ex_trading_pair = f"{self.base_asset}-{self.quote_asset}/{self.quote_asset_dict['chain']}"
+        self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
+        self.ex_trading_pair = f"{self.base_asset}-{self.quote_asset}"
 
     def test_hex_str_to_int(self):
         string = "0x759a614014"  # noqa: mock
@@ -91,7 +91,7 @@ class DataFormatterTests(TestCase):
             "result": {
                 "fees": {
                     "Ethereum": {
-                        self.base_asset: {
+                        "ETH": {
                             "limit_order_fee_hundredth_pips": 500,
                             "range_order_fee_hundredth_pips": 500,
                             "range_order_total_fees_earned": {
@@ -110,7 +110,7 @@ class DataFormatterTests(TestCase):
                                 "base": "0x369c2e5bafeffddab46",  # noqa: mock
                                 "quote": "0x2be491b4d31d",  # noqa: mock
                             },
-                            "quote_asset": {"chain": "Ethereum", "asset": self.quote_asset},
+                            "quote_asset": {"chain": "Ethereum", "asset": "USDC"},
                         },
                     }
                 }
