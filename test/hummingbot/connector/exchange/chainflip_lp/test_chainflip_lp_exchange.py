@@ -12,7 +12,6 @@ from substrateinterface import Keypair
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.chainflip_lp import chainflip_lp_constants as CONSTANTS
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_data_formatter import DataFormatter
 from hummingbot.connector.exchange.chainflip_lp.chainflip_lp_exchange import ChainflipLpExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -518,8 +517,6 @@ class ChainflipLpExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         cls._address = Keypair.create_from_mnemonic(
             "hollow crack grain grab equal rally ceiling manage goddess grass negative canal"  # noqa: mock
         ).ss58_address
-        cls._eth_chain = CONSTANTS.DEFAULT_CHAIN_CONFIG["ETH"]
-        cls._usdc_chain = CONSTANTS.DEFAULT_CHAIN_CONFIG["USDC"]
         cls.base_asset_dict = {"chain": "Ethereum", "asset": "ETH"}
         cls.quote_asset_dict = {"chain": "Ethereum", "asset": "USDC"}
         cls.base_asset = "ETH/Ethereum"

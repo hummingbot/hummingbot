@@ -200,20 +200,22 @@ class DataFormatterTests(TestCase):
     def test_format_order_fills_response(self):
         response = {
             "result": {
-                "fills": {
-                    "limit_orders": {
-                        "lp": "cFPdef3hF5zEwbWUG6ZaCJ3X7mTvEeAog7HxZ8QyFcCgDVGDM",  # noqa: mock
-                        "base_asset": "FLIP",
-                        "quote_asset": "USDC",
-                        "side": "buy",
-                        "id": "0x0",  # noqa: mock
-                        "tick": 0,
-                        "sold": "0x1200",  # noqa: mock
-                        "bought": "0x1200",  # noqa: mock
-                        "fees": "0x100",  # noqa: mock
-                        "remaining": "0x100000",  # noqa: mock
+                "fills": [
+                    {
+                        "limit_order": {
+                            "lp": "cFPdef3hF5zEwbWUG6ZaCJ3X7mTvEeAog7HxZ8QyFcCgDVGDM",  # noqa: mock
+                            "base_asset": "FLIP",
+                            "quote_asset": "USDC",
+                            "side": "buy",
+                            "id": "0x0",  # noqa: mock
+                            "tick": 0,
+                            "sold": "0x1200",  # noqa: mock
+                            "bought": "0x1200",  # noqa: mock
+                            "fees": "0x100",  # noqa: mock
+                            "remaining": "0x100000",  # noqa: mock
+                        }
                     }
-                }
+                ]
             }
         }
         all_assets = [

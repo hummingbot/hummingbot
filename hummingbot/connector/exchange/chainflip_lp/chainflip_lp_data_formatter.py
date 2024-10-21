@@ -127,6 +127,13 @@ class DataFormatter:
 
     @classmethod
     def format_asset_precision(cls, asset: Dict[str, str]):
+        # NOTE: asset precision needs to be added to chainflip lp constanst when new asset is added to chainflip
+        if asset["chain"] not in CONSTANTS.ASSET_PRECISIONS:
+            cls.logger().error(f"Asset Precision for chain: {asset['chain']} not found in CONSTANTS.ASSET_PRECISIONS")
+            raise Exception(f"Asset Precision for chain: {asset['chain']} not found in CONSTANTS.ASSET_PRECISIONS")
+        elif asset["asset"] not in CONSTANTS.ASSET_PRECISIONS[asset["chain"]]:
+            cls.logger().error(f"Asset Precision for asset: {asset['asset']} not found in CONSTANST.ASSET_PRECISIONS['{asset['chain']}']")
+            raise Exception(f"Asset Precision for asset: {asset['asset']} not found in CONSTANST.ASSET_PRECISIONS['{asset['chain']}']")
         return CONSTANTS.ASSET_PRECISIONS[asset["chain"]][asset["asset"]]
 
     @classmethod
@@ -265,6 +272,7 @@ class DataFormatter:
     @classmethod
     def format_order_fills_response(cls, response: Dict, address: str, all_assets: List[Dict[str, str]]):
         def format_single_order_fill(order):
+            order = order["limit_order"]
             trading_pair = cls.format_assets_to_market_symbol(order["base_asset"], order["quote_asset"])
             asset = cls.format_trading_pair(trading_pair, all_assets)
             data = {
@@ -282,15 +290,14 @@ class DataFormatter:
         if len(fills) == 0:
             return []
         # filter the fills to return only limit orders
-        limit_orders_fills = list(filter(lambda x: x[0] == "limit_orders", fills.items()))
+        limit_orders_fills = list(filter(lambda x: list(x.keys())[0] == "limit_order", fills))
         if not limit_orders_fills:
             return []
         # filter the limit orders fill by the user address
-        user_orders = list(filter(lambda x: x[1]["lp"] == address, limit_orders_fills))
+        user_orders = list(filter(lambda x: x["limit_order"]["lp"] == address, limit_orders_fills))
         if not user_orders:
             return []
-        main_data = list(map(lambda x: x[1], user_orders))
-        formatted_data = list(map(format_single_order_fill, main_data))
+        formatted_data = list(map(format_single_order_fill, user_orders))
         return formatted_data
 
     @classmethod
