@@ -243,7 +243,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         response = await self._execute_api_request(CONSTANTS.ORDER_FILLS_METHOD)
         if not response["status"]:
             return []
-        return DataFormatter.format_order_fills_response(response, self._lp_account_address, all_assets)
+        return DataFormatter.format_order_fills_response(response["data"], self._lp_account_address, all_assets)
 
     async def listen_to_market_price_updates(self, events_handler: Callable, market_symbol: str):  # pragma: no cover
         all_assets = await self.all_assets()
