@@ -394,9 +394,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["product_id"])
-        self.assertEqual(order.exchange_order_id, str(request_params["order_id"]))
+        self.assertEqual([order.exchange_order_id], request_params["order_ids"])
 
     def configure_successful_cancelation_response(
             self,
@@ -1023,8 +1021,9 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["product_id"])
+        pairs = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pairs],
+                         request_params["product_ids"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1075,8 +1074,9 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["product_id"])
+        pairs = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pairs],
+                         request_params["product_ids"])
 
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
@@ -1090,8 +1090,9 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[1]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["product_id"])
+        pairs = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pairs],
+                         request_params["product_ids"])
         # This method uses the TimeSynchronizer to get the current timestamp
         self.assertEqual(set_exchange_time_from_timestamp(10), request_params["start_sequence_timestamp"])
 
@@ -1132,8 +1133,9 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["product_id"])
+        pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        self.assertEqual([pair],
+                         request_params["product_ids"])
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
@@ -1874,7 +1876,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_limit_successful(self, mock_time, mock_pair, mock_post):
         """Test successful limit order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '12345'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '12345'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 
@@ -1895,7 +1897,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_limit_maker_successful(self, mock_time, mock_pair, mock_post):
         """Test successful limit maker order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '67890'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '67890'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 
@@ -1916,7 +1918,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_market_buy_successful(self, mock_time, mock_pair, mock_post):
         """Test successful market buy order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '54321'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '54321'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 
@@ -1940,7 +1942,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
     @patch.object(TimeSynchronizer, "time", new_callable=MagicMock)
     def test_place_order_market_sell_successful(self, mock_time, mock_pair, mock_post):
         """Test successful market sell order placement."""
-        mock_post.return_value = {'success': True, 'order_id': '98765'}
+        mock_post.return_value = {'success': True, 'success_response': {'order_id': '98765'}}
         mock_pair.return_value = 'BTC-USD'
         mock_time.return_value = 1234567890.0
 

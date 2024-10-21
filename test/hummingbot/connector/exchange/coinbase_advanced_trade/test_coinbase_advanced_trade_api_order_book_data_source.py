@@ -99,7 +99,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             "sequence_num": 0,
             "events": [
                 {
-                    "type": "snapshot",
+                    "type": "update",
                     "trades": [
                         {
                             "trade_id": "12345",
@@ -110,7 +110,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
                             "time": "2019-08-14T20:42:27.265Z",
                         },
                         {
-                            "trade_id": "67890",
+                            "trade_id": "12345",
                             "product_id": self.ex_trading_pair,
                             "price": "1260.01",
                             "size": "0.3",
@@ -311,7 +311,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_KEYS[1]] = mock_queue
+        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["trade"]] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -324,7 +324,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_KEYS[1]] = mock_queue
+        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["trade"]] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -338,7 +338,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_KEYS[0]] = mock_queue
+        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -352,7 +352,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         mock_queue = AsyncMock()
         diff_event = self._order_diff_event()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_KEYS[0]] = mock_queue
+        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -371,6 +371,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         mock_api.get(regex_url, exception=asyncio.CancelledError, repeat=True)
 
         # with self.assertRaises(asyncio.CancelledError):
-        self.async_run_with_timeout(
-            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
-        )
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(
+                self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
+            )
