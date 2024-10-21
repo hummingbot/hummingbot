@@ -58,13 +58,6 @@ class ScriptStrategyBase(StrategyPyBase):
         self.add_markets(list(connectors.values()))
         self.config = config
 
-    @property
-    def current_timestamp(self) -> float:
-        """
-        Returns the current timestamp.
-        """
-        return super().current_timestamp
-
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).

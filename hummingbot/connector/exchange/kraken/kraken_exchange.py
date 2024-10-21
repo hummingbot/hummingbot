@@ -126,7 +126,14 @@ class KrakenExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [
+            OrderType.LIMIT,
+            OrderType.LIMIT_MAKER,
+            OrderType.MARKET,
+            OrderType.STOP_LOSS,
+            OrderType.TAKE_PROFIT,
+            OrderType.TRAILING_STOP,
+        ]
 
     def _build_async_throttler(self, api_tier: KrakenAPITier) -> AsyncThrottler:
         limits_pct = self._client_config.rate_limits_share_pct
@@ -238,13 +245,17 @@ class KrakenExchange(ExchangePyBase):
             nonce_creator=self._client_order_id_nonce_provider,
             max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
         ))
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                kwargs=kwargs,
+            )
+        )
         return order_id
 
     def sell(self,
@@ -265,13 +276,17 @@ class KrakenExchange(ExchangePyBase):
             nonce_creator=self._client_order_id_nonce_provider,
             max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
         ))
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                kwargs=kwargs,
+            )
+        )
         return order_id
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
@@ -295,23 +310,47 @@ class KrakenExchange(ExchangePyBase):
         data = {
             "pair": trading_pair,
             "type": "buy" if trade_type is TradeType.BUY else "sell",
-            "ordertype": "market" if order_type is OrderType.MARKET else "limit",
             "volume": str(amount),
-            "userref": order_id,
+            "userref": order_id,  # This is a non-unique field, useful to group batches of orders
+            # "cl_order_id": order_id, # Kraken supports unique client order id
             "price": str(price)
         }
 
+        self.logger().debug(f"  '-> Placing order {order_id} for {amount} {trading_pair} at {price} {trade_type.name} {order_type}")
+
         if order_type is OrderType.MARKET:
+            data["ordertype"] = "market"
             del data["price"]
-        if order_type is OrderType.LIMIT_MAKER:
+
+        elif order_type is OrderType.LIMIT:
+            data["ordertype"] = "limit"
+
+        elif order_type is OrderType.LIMIT_MAKER:
+            data["ordertype"] = "limit"
             data["oflags"] = "post"
+
+        elif order_type is OrderType.STOP_LOSS:
+            data["ordertype"] = "stop-loss"
+
+        elif order_type is OrderType.TAKE_PROFIT:
+            data["ordertype"] = "take-profit"
+
+        elif order_type is OrderType.TRAILING_STOP:
+            data["ordertype"] = "trailing-stop"
+            pct: str = str(kwargs.get("price_pct_offset", "0.01"))
+            pct.replace("%", "")
+            data["price"] = f"{pct}%"
+        else:
+            raise ValueError(f"Order type {order_type.name} not supported")
+
         order_result = await self._api_request_with_retry(RESTMethod.POST,
                                                           CONSTANTS.ADD_ORDER_PATH_URL,
                                                           data=data,
                                                           is_auth_required=True)
 
         o_id = order_result["txid"][0]
-        return (o_id, self.current_timestamp)
+        self.logger().debug("  '-> Placed")
+        return o_id, self.current_timestamp
 
     async def _api_request_with_retry(self,
                                       method: RESTMethod,
