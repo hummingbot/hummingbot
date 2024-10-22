@@ -340,8 +340,10 @@ class KrakenExchange(ExchangePyBase):
             pct: str = str(kwargs.get("price_pct_offset", "0.01"))
             pct.replace("%", "")
             data["price"] = f"{pct}%"
-        else:
+        elif hasattr(order_type, "name"):
             raise ValueError(f"Order type {order_type.name} not supported")
+        else:
+            raise ValueError(f"Order type {order_type} is invalid")
 
         order_result = await self._api_request_with_retry(RESTMethod.POST,
                                                           CONSTANTS.ADD_ORDER_PATH_URL,
