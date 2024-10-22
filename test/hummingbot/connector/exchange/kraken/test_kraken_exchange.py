@@ -422,7 +422,14 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [
+            OrderType.LIMIT,
+            OrderType.LIMIT_MAKER,
+            OrderType.MARKET,
+            OrderType.STOP_LOSS,
+            OrderType.TAKE_PROFIT,
+            OrderType.TRAILING_STOP,
+        ]
 
     @property
     def expected_trading_rule(self):

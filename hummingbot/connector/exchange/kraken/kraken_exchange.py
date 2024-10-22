@@ -236,7 +236,7 @@ class KrakenExchange(ExchangePyBase):
 
         :param trading_pair: the token pair to operate with
         :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP)
         :param price: the order price
 
         :return: the id assigned by the connector to the order (the client id)
@@ -268,7 +268,7 @@ class KrakenExchange(ExchangePyBase):
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
         :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP)
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
