@@ -189,7 +189,7 @@ amm_arb_config_map = {
         type_str="decimal"),
     "rate_conversion_exchanges": ConfigVar(
         key="rate_conversion_exchange",
-        prompt="In case of a needed conversion, which exchange should be used in List Format: ['binance', 'gate_io', 'mexc'] >>> ",
+        prompt="In case of a needed conversion, which exchanges should be used in List Format (sorted by priority) bsp: ['binance', 'gate_io', 'mexc'] >>> ",
         prompt_on_new=True,
         default=[],
         required_if=lambda: amm_arb_config_map.get("rate_oracle_enabled").value,
