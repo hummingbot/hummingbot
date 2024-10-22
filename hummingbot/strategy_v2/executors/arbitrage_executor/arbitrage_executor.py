@@ -4,7 +4,8 @@ from decimal import Decimal
 from typing import Union
 
 from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
+from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
@@ -14,7 +15,7 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import (
     ArbitrageExecutorStatus,
 )
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
-from hummingbot.strategy_v2.models.executors import TrackedOrder
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class ArbitrageExecutor(ExecutorBase):
@@ -59,6 +60,7 @@ class ArbitrageExecutor(ExecutorBase):
         self.min_profitability = config.min_profitability
         self.order_amount = config.order_amount
         self.max_retries = config.max_retries
+        self.amm_slippage_buffer = config.amm_slippage_buffer
         self.arbitrage_status = ArbitrageExecutorStatus.NOT_STARTED
 
         # Order tracking
@@ -71,8 +73,36 @@ class ArbitrageExecutor(ExecutorBase):
         self._cumulative_failures = 0
 
     def validate_sufficient_balance(self):
-        # TODO: Implement this method checking balances in the two exchanges
-        pass
+        mid_price = self.get_price(self.buying_market.connector_name, self.buying_market.trading_pair,
+                                   price_type=PriceType.MidPrice)
+        adjusted_buy_price = (
+            mid_price * (1 - self.amm_slippage_buffer)
+            if self.is_amm_connector(exchange=self.buying_market.connector_name)
+            else mid_price
+        )
+        adjusted_sell_price = (
+            mid_price * (1 + self.amm_slippage_buffer)
+            if self.is_amm_connector(exchange=self.selling_market.connector_name)
+            else mid_price
+        )
+        buy_order_candidate = OrderCandidate(
+            trading_pair=self.buying_market.trading_pair,
+            order_type=OrderType.MARKET,
+            order_side=TradeType.BUY,
+            amount=self.order_amount,
+            price=adjusted_buy_price,)
+        sell_order_candidate = OrderCandidate(
+            trading_pair=self.selling_market.trading_pair,
+            order_type=OrderType.MARKET,
+            order_side=TradeType.SELL,
+            amount=self.order_amount,
+            price=adjusted_sell_price,)
+        buy_order_candidate = self.adjust_order_candidates(self.buying_market.connector_name, [buy_order_candidate])[0]
+        sell_order_candidate = self.adjust_order_candidates(self.selling_market.connector_name, [sell_order_candidate])[0]
+        if buy_order_candidate.amount == Decimal("0") or sell_order_candidate.amount == Decimal("0"):
+            self.close_type = CloseType.INSUFFICIENT_BALANCE
+            self.logger().error("Not enough budget to execute arbs.")
+            self.stop()
 
     def is_arbitrage_valid(self, pair1, pair2):
         base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
@@ -145,6 +175,9 @@ class ArbitrageExecutor(ExecutorBase):
         self.place_sell_arbitrage_order()
 
     def place_buy_arbitrage_order(self):
+        # apply slippage buffer to price for AMMs only
+        if self.is_amm_connector(exchange=self.buying_market.connector_name):
+            self._last_buy_price = self._last_buy_price * (1 - self.amm_slippage_buffer)
         self.buy_order.order_id = self.place_order(
             connector_name=self.buying_market.connector_name,
             trading_pair=self.buying_market.trading_pair,
@@ -155,6 +188,9 @@ class ArbitrageExecutor(ExecutorBase):
         )
 
     def place_sell_arbitrage_order(self):
+        # apply slippage buffer to price for AMMs only
+        if self.is_amm_connector(exchange=self.selling_market.connector_name):
+            self._last_sell_price = self._last_sell_price * (1 + self.amm_slippage_buffer)
         self.sell_order.order_id = self.place_order(
             connector_name=self.selling_market.connector_name,
             trading_pair=self.selling_market.trading_pair,
@@ -247,21 +283,24 @@ class ArbitrageExecutor(ExecutorBase):
             self._cumulative_failures += 1
 
     def to_format_status(self):
-        lines = []
         if self._last_buy_price and self._last_sell_price:
             trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
             tx_cost_pct = self._last_tx_cost / self.order_amount
             base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
-            lines.extend([f"""
-    Arbitrage Status: {self.arbitrage_status}
-    - BUY: {self.buying_market.connector_name}:{self.buying_market.trading_pair}  --> SELL: {self.selling_market.connector_name}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
-    - Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
-    -------------------------------------------------------------------------------
-    """])
-            if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-                lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl_quote:.4f}"])
-            return lines
+
+            return f"""
+-------------------------------------------------------------------------------
+Arbitrage Status: {self.arbitrage_status}
+- Buy: {self.buying_market.connector_name} {self.buying_market.trading_pair} | Sell: {self.selling_market.connector_name} {self.selling_market.trading_pair}
+- Order Amount: {self.order_amount:.2f} | Min profitability: {self.config.min_profitability*100:.2f}%
+- Trade PnL (%): {trade_pnl_pct * 100:.2f} % | Tx Cost (%): -{tx_cost_pct * 100:.2f}% | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f}%
+- Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl_quote:.4f}
+-------------------------------------------------------------------------------
+"""
         else:
-            msg = ["There was an error while formatting the status for the executor."]
-            self.logger().warning(msg)
-            return lines.extend(msg)
+            return "There was an error while formatting the status for the executor."
+
+    def early_stop(self):
+        self.logger().info(f"Stopping Buy: {self.buying_market.connector_name} {self.buying_market.trading_pair} + Sell: {self.selling_market.connector_name} {self.selling_market.trading_pair}. Status: {self.arbitrage_status}.")
+        self.close_type = CloseType.EARLY_STOP
+        self.stop()
