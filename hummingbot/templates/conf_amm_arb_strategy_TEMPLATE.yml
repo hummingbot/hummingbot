@@ -52,4 +52,4 @@ pool_id: null
 fixed_conversion_rate_dict: null
 
 # The Exchange used to convert quote assets
-rate_conversion_exchange: null
+rate_conversion_exchanges: null

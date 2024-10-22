@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
@@ -57,9 +56,11 @@ class RateConversionOracle:
     A class to convert rates between different asset pairs using market data.
     """
 
-    def __init__(self, asset_set, client_config_map, paper_trade_market="binance"):
-        self._paper_trade_market = paper_trade_market
-        self._paper_trade_market_prio_list = [paper_trade_market, "binance", "gate_io", "mexc"]
+    def __init__(self, asset_set, client_config_map, rate_conversion_exchanges=None):
+        if rate_conversion_exchanges is None or len(rate_conversion_exchanges) == 0:
+            raise ValueError("rate_conversion_exchanges must be a non-empty list.")
+
+        self._paper_trade_market_prio_list = rate_conversion_exchanges
         self._asset_set = asset_set
         self._rates = {}
         self._fixed_rates = {}
@@ -81,12 +82,10 @@ class RateConversionOracle:
 
     def get_trading_pairs(self):
         """Fetches trading pairs for all exchanges."""
-        while "binance" not in self._trading_pair_fetcher.trading_pairs.keys() or "gate_io" not in self._trading_pair_fetcher.trading_pairs.keys():
-            time.sleep(3)
-            self.logger().info("Waiting for trading pairs to be fetched...")
 
         for exchange in self._paper_trade_market_prio_list:
-            trading_pairs = self._trading_pair_fetcher.trading_pairs.get(exchange, [])
+            trading_pairs = self._trading_pair_fetcher.trading_pairs.get(exchange, []) if exchange in self._trading_pair_fetcher.trading_pairs.keys() else self._trading_pair_fetcher.trading_pairs.get(
+                f"{exchange}_paper_trade", [])
             self._exchange_to_trading_pairs[exchange] = trading_pairs
 
     def init_rates(self):

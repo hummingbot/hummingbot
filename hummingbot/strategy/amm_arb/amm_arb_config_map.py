@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Optional
 
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -9,6 +10,7 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import AllConnectorSettings, required_exchanges, requried_connector_trading_pairs
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 def exchange_on_validated(value: str) -> None:
@@ -37,20 +39,40 @@ def market_1_prompt() -> str:
     connector = amm_arb_config_map.get("connector_1").value
     example = AllConnectorSettings.get_example_pairs().get(connector)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
-           % (connector, f" (e.g. {example})" if example else "")
+        % (connector, f" (e.g. {example})" if example else "")
 
 
 def market_2_prompt() -> str:
     connector = amm_arb_config_map.get("connector_2").value
     example = AllConnectorSettings.get_example_pairs().get(connector)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
-           % (connector, f" (e.g. {example})" if example else "")
+        % (connector, f" (e.g. {example})" if example else "")
 
 
 def order_amount_prompt() -> str:
     trading_pair = amm_arb_config_map["market_1"].value
     base_asset, quote_asset = trading_pair.split("-")
     return f"What is the amount of {base_asset} per order? >>> "
+
+
+def validate_rate_conversion_exchanges(value) -> Optional[str]:
+    """
+    Validate the rate conversion exchanges and fetch trading pairs of the exchanges
+    """
+    from hummingbot.client.settings import AllConnectorSettings
+    from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+
+    exchange_list = amm_arb_config_map.get("rate_conversion_exchanges").value
+    trading_pair_fetcher = TradingPairFetcher.get_instance()
+    if not exchange_list:
+        return "Please provide at least one exchange for rate conversion"
+
+    for exchange in exchange_list:
+        if (exchange not in AllConnectorSettings.get_connector_settings()
+                and exchange not in AllConnectorSettings.paper_trade_connectors_names):
+            return f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}"
+
+    safe_ensure_future(trading_pair_fetcher.fetch_all_list(exchange_list))
 
 
 amm_arb_config_map = {
@@ -165,9 +187,13 @@ amm_arb_config_map = {
         prompt_on_new=False,
         default={},
         type_str="decimal"),
-    "rate_conversion_exchange": ConfigVar(
+    "rate_conversion_exchanges": ConfigVar(
         key="rate_conversion_exchange",
-        prompt="In case of a needed conversion, which exchange should be used >>> ",
-        default="binance",
-        prompt_on_new=False),
+        prompt="In case of a needed conversion, which exchange should be used in List Format: ['binance', 'gate_io', 'mexc'] >>> ",
+        prompt_on_new=True,
+        default=[],
+        required_if=lambda: amm_arb_config_map.get("rate_oracle_enabled").value,
+        validator=validate_rate_conversion_exchanges,
+        type_str="list",
+    ),
 }

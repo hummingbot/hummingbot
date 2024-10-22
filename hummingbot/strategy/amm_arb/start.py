@@ -1,3 +1,5 @@
+import asyncio
+import time
 from decimal import Decimal
 from typing import cast
 
@@ -21,6 +23,33 @@ async def get_native_chain_token(market):
     return gas_token
 
 
+async def await_trading_pairs_fetcher(self, exchange_list):
+    """
+    Wait for the TradingPairFetcher to fetch all trading pairs from the exchanges in exchange_list
+    :param exchange_list: List of exchanges to fetch trading pairs from
+    """
+    from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+    trading_pair_fetcher = TradingPairFetcher.get_instance()
+
+    # Fetch all trading pairs from the exchanges in exchange_list
+    if not all(exchange in trading_pair_fetcher.trading_pairs.keys() for exchange in exchange_list):
+        safe_ensure_future(trading_pair_fetcher.fetch_all_list(exchange_list))
+
+    start_time = time.time()
+    timeout = 120  # 2 minutes
+
+    while not all(exchange in trading_pair_fetcher.trading_pairs.keys() for exchange in exchange_list):
+        missing_exchanges = set(exchange_list) - set(trading_pair_fetcher.trading_pairs.keys())
+        self.logger().info(f"Waiting for trading pairs to be fetched from {missing_exchanges}, don't start the bot yet...")
+
+        # Check if the timeout has been reached
+        if time.time() - start_time > timeout:
+            self.logger().warning("Timeout of 2 minutes reached. Proceeding without all trading pairs.")
+            break
+
+        await asyncio.sleep(3)
+
+
 async def async_start(self):
     connector_1 = amm_arb_config_map.get("connector_1").value.lower()
     market_1 = amm_arb_config_map.get("market_1").value
@@ -37,7 +66,7 @@ async def async_start(self):
     rate_oracle_enabled = amm_arb_config_map.get("rate_oracle_enabled").value
     quote_conversion_rate = amm_arb_config_map.get("quote_conversion_rate").value
     fixed_conversion_rate_dict = dict(amm_arb_config_map.get("fixed_conversion_rate_dict").value)
-    rate_conversion_exchange = amm_arb_config_map.get("rate_conversion_exchange").value
+    rate_conversion_exchanges = amm_arb_config_map.get("rate_conversion_exchanges").value
 
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
@@ -79,6 +108,9 @@ async def async_start(self):
         )
 
     if rate_oracle_enabled:
+        # await the initialization of the markets in rate_conversion_exchanges on the TradingPairFetcher
+        await await_trading_pairs_fetcher(self, rate_conversion_exchanges)
+
         base_1, quote_1 = market_1.split("-")
         base_2, quote_2 = market_2.split("-")
 
@@ -98,7 +130,7 @@ async def async_start(self):
                 native_token = await get_native_chain_token(market_info.market)
                 asset_set.add(native_token)
 
-        rate_source = RateConversionOracle(asset_set, self.client_config_map, rate_conversion_exchange)
+        rate_source = RateConversionOracle(asset_set, self.client_config_map, rate_conversion_exchanges)
 
         for pair, rate in fixed_conversion_rate_dict.items():
             rate_source.add_fixed_asset_price_delegate(pair, Decimal(rate))

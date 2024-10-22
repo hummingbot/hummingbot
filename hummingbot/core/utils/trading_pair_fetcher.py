@@ -64,6 +64,24 @@ class TradingPairFetcher:
                                         "Please check the logs")
         self.ready = True
 
+    async def fetch_all_list(self, exchange_list: List[str]):
+        connector_settings = self._all_connector_settings()
+        for conn_setting in connector_settings.values():
+            if conn_setting.name in exchange_list:
+                try:
+                    if conn_setting.base_name().endswith("paper_trade"):
+                        self._fetch_pairs_from_connector_setting(
+                            connector_setting=connector_settings[conn_setting.parent_name],
+                            connector_name=conn_setting.name
+                        )
+                    else:
+                        self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
+                except ModuleNotFoundError:
+                    continue
+                except Exception:
+                    self.logger().exception(f"An error occurred when fetching trading pairs for {conn_setting.name}."
+                                            "Please check the logs")
+
     async def call_fetch_pairs(self, fetch_fn: Callable[[], Awaitable[List[str]]], exchange_name: str):
         try:
             pairs = await fetch_fn
