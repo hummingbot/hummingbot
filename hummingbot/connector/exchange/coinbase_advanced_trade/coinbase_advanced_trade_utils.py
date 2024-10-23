@@ -12,7 +12,6 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
 
 DEFAULT_FEES = TradeFeeSchema(
-    percent_fee_token="USD",
     maker_percent_fee_decimal=Decimal("0.004"),
     taker_percent_fee_decimal=Decimal("0.006"),
     buy_percent_fee_deducted_from_returns=False
