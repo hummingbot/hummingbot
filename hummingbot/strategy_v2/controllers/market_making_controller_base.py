@@ -5,6 +5,7 @@ from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
@@ -88,7 +89,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
             prompt_on_new=True))
     time_limit: Optional[int] = Field(
-        default=60 * 45, gt=0,
+        default=None, gt=0,
         client_data=ClientFieldData(
             is_updatable=True,
             prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
@@ -330,3 +331,13 @@ class MarketMakingControllerBase(ControllerBase):
         sell_ids_missing = [self.get_level_id_from_side(TradeType.SELL, level) for level in range(len(self.config.sell_spreads))
                             if self.get_level_id_from_side(TradeType.SELL, level) not in active_levels_ids]
         return buy_ids_missing + sell_ids_missing
+
+    def get_balance_requirements(self) -> List[TokenAmount]:
+        """
+        Get the balance requirements for the controller.
+        """
+        base_asset, quote_asset = self.config.trading_pair.split("-")
+        _, amounts_quote = self.config.get_spreads_and_amounts_in_quote(TradeType.BUY)
+        _, amounts_base = self.config.get_spreads_and_amounts_in_quote(TradeType.SELL)
+        return [TokenAmount(base_asset, Decimal(sum(amounts_base) / self.processed_data["reference_price"])),
+                TokenAmount(quote_asset, Decimal(sum(amounts_quote)))]

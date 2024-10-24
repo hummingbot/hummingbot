@@ -4,11 +4,14 @@ from json import JSONDecodeError
 from typing import Any, Dict, Mapping, Optional
 
 import aiohttp
+from aiohttp import WebSocketError, WSCloseCode
 
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 
 
 class WSConnection:
+    _MAX_MSG_SIZE = 4 * 1024 * 1024  # default aiohttp: 4 * 1024 * 1024
+
     def __init__(self, aiohttp_client_session: aiohttp.ClientSession):
         self._client_session = aiohttp_client_session
         self._connection: Optional[aiohttp.ClientWebSocketResponse] = None
@@ -30,6 +33,7 @@ class WSConnection:
         ping_timeout: float = 10,
         message_timeout: Optional[float] = None,
         ws_headers: Optional[Dict] = {},
+        max_msg_size: Optional[int] = None
     ):
         self._ensure_not_connected()
         self._connection = await self._client_session.ws_connect(
@@ -37,6 +41,7 @@ class WSConnection:
             headers=ws_headers,
             autoping=False,
             heartbeat=ping_timeout,
+            max_msg_size=max_msg_size,
         )
         self._message_timeout = message_timeout
         self._connected = True
@@ -86,9 +91,20 @@ class WSConnection:
         return msg
 
     async def _check_msg_types(self, msg: aiohttp.WSMessage) -> Optional[aiohttp.WSMessage]:
+        msg = await self._check_msg_too_big_type(msg)
         msg = await self._check_msg_closed_type(msg)
         msg = await self._check_msg_ping_type(msg)
         msg = await self._check_msg_pong_type(msg)
+        return msg
+
+    async def _check_msg_too_big_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
+        if msg is not None and msg.type in [aiohttp.WSMsgType.ERROR]:
+            if isinstance(msg.data, WebSocketError) and msg.data.code == WSCloseCode.MESSAGE_TOO_BIG:
+                await self.disconnect()
+                raise WebSocketError(f"The WS message is too big: {msg.data}")
+            else:
+                await self.disconnect()
+                raise ConnectionError(f"WS error: {msg.data}")
         return msg
 
     async def _check_msg_closed_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:

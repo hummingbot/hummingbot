@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -29,7 +30,8 @@ class BybitPerpetualCandles(CandlesBase):
 
     @property
     def wss_url(self):
-        return CONSTANTS.WSS_URL
+        trading_type = "inverse" if "USDT" not in self._trading_pair else "linear"
+        return os.path.join(CONSTANTS.WSS_URL, trading_type)
 
     @property
     def health_check_url(self):
@@ -55,6 +57,10 @@ class BybitPerpetualCandles(CandlesBase):
     def intervals(self):
         return CONSTANTS.INTERVALS
 
+    @property
+    def is_linear(self):
+        return "USDT" in self._trading_pair
+
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
         await rest_assistant.execute_request(url=self.health_check_url,
@@ -63,6 +69,14 @@ class BybitPerpetualCandles(CandlesBase):
 
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
 
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
@@ -75,7 +89,7 @@ class BybitPerpetualCandles(CandlesBase):
         startTime and endTime must be used at the same time.
         """
         params = {
-            "category": "linear",
+            "category": "linear" if "USDT" in self._trading_pair else "inverse",
             "symbol": self._ex_trading_pair,
             "interval": CONSTANTS.INTERVALS[self.interval],
             "limit": limit
@@ -91,7 +105,7 @@ class BybitPerpetualCandles(CandlesBase):
             candles = data["result"].get("list")
             if candles is not None:
                 return [[self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
-                         0., 0., 0., 0.] for row in candles if self.ensure_timestamp_in_seconds(row[0]) < end_time][::-1]
+                         0., 0., 0., 0.] for row in candles][::-1]
 
     def ws_subscription_payload(self):
         interval = CONSTANTS.INTERVALS[self.interval]

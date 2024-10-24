@@ -231,7 +231,7 @@ class HummingbotCompleter(Completer):
         return "spot" in self.prompt_text
 
     def _complete_lp_connector(self, document: Document) -> bool:
-        return "LP" in self.prompt_text
+        return " LP" in self.prompt_text
 
     def _complete_trading_timeframe(self, document: Document) -> bool:
         return any(x for x in ("trading timeframe", "execution timeframe")
