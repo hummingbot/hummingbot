@@ -83,17 +83,20 @@ class AmmV3LpStrategy(StrategyPyBase):
         data = []
         if len(self.active_positions) > 0:
             for position in self.active_positions:
+                lower_price = position.adjusted_lower_price if position.adjusted_lower_price > Decimal(0) else position.lower_price
+                upper_price = position.adjusted_upper_price if position.adjusted_upper_price > Decimal(0) else position.upper_price
+
                 data.append([
                     position.token_id,
                     position.fee_tier,
                     position.trading_pair,
-                    f"{PerformanceMetrics.smart_round(position.adjusted_lower_price, 8)} - "
-                    f"{PerformanceMetrics.smart_round(position.adjusted_upper_price, 8)}",
+                    f"{PerformanceMetrics.smart_round(lower_price, 8)} - "
+                    f"{PerformanceMetrics.smart_round(upper_price, 8)}",
                     f"{PerformanceMetrics.smart_round(position.amount_0, 8)} / "
                     f"{PerformanceMetrics.smart_round(position.amount_1, 8)}",
                     f"{PerformanceMetrics.smart_round(position.unclaimed_fee_0, 8)} / "
                     f"{PerformanceMetrics.smart_round(position.unclaimed_fee_1, 8)}",
-                    "[In range]" if self._last_price >= position.adjusted_lower_price and self._last_price <= position.adjusted_upper_price else "[Out of range]"
+                    "[In range]" if self._last_price >= lower_price and self._last_price <= upper_price else "[Out of range]"
                 ])
         return pd.DataFrame(data=data, columns=columns)
 
