@@ -14,6 +14,7 @@ from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRate
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source import CoinbaseAdvancedTradeRateSource
 from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
+from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 from hummingbot.core.rate_oracle.sources.graphene_rate_source import GrapheneRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
@@ -35,6 +36,7 @@ RATE_ORACLE_SOURCES = {
     # lambdas so that when hummingbot later instantiates/runs this, it can run it without core changes
     "peerplays": lambda: GrapheneRateSource("peerplays"),
     "bitshares": lambda: GrapheneRateSource("bitshares"),
+    "dexalot": DexalotRateSource,
 }
 
 

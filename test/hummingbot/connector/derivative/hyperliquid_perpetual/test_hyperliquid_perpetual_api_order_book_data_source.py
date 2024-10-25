@@ -514,19 +514,21 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         }
 
     @aioresponses()
-    def test_listen_for_funding_info_cancelled_error_raised(self, mock_api):
+    @patch.object(HyperliquidPerpetualAPIOrderBookDataSource, "_sleep")
+    def test_listen_for_funding_info_cancelled_error_raised(self, mock_api, sleep_mock):
+        sleep_mock.side_effect = [asyncio.CancelledError()]
         endpoint = CONSTANTS.EXCHANGE_INFO_URL
         url = web_utils.public_rest_url(endpoint)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp), exception=asyncio.CancelledError)
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         mock_queue: asyncio.Queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue),
-                                        timeout=CONSTANTS.FUNDING_RATE_UPDATE_INTERNAL_SECOND + 10)
+                                        timeout=1)
 
-        self.assertEqual(0, mock_queue.qsize())
+        self.assertEqual(1, mock_queue.qsize())
 
     @aioresponses()
     def test_listen_for_funding_info_logs_exception(self, mock_api):

@@ -123,6 +123,6 @@ class V2XEMM(StrategyV2Base):
     def format_status(self) -> str:
         original_status = super().format_status()
         xemm_data = []
-        for ex in self.executor_orchestrator.executors["main"]:
+        for ex in self.executor_orchestrator.active_executors["main"]:
             xemm_data.append(ex.to_format_status())
         return f"{original_status}\n\n" + '\n'.join(xemm_data)

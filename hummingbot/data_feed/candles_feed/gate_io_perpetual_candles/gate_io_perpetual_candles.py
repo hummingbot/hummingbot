@@ -17,8 +17,7 @@ class GateioPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
         self.quanto_multiplier = None
 
@@ -45,6 +44,10 @@ class GateioPerpetualCandles(CandlesBase):
     @property
     def candles_endpoint(self):
         return CONSTANTS.CANDLES_ENDPOINT
+
+    @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
 
     @property
     def rate_limits(self):
@@ -76,6 +79,14 @@ class GateioPerpetualCandles(CandlesBase):
         self.quanto_multiplier = quanto_multiplier
         return quanto_multiplier
 
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -95,8 +106,6 @@ class GateioPerpetualCandles(CandlesBase):
         new_hb_candles = []
         for i in data:
             timestamp = i.get("t")
-            if timestamp == end_time:
-                continue
             open = i.get("o")
             high = i.get("h")
             low = i.get("l")

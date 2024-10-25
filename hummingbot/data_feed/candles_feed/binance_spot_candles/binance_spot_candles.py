@@ -16,8 +16,7 @@ class BinanceSpotCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -45,6 +44,10 @@ class BinanceSpotCandles(CandlesBase):
         return CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
@@ -70,8 +73,6 @@ class BinanceSpotCandles(CandlesBase):
             "interval": self.interval,
             "limit": limit
         }
-        if start_time:
-            params["startTime"] = start_time * 1000
         if end_time:
             params["endTime"] = end_time * 1000
         return params
@@ -80,7 +81,8 @@ class BinanceSpotCandles(CandlesBase):
         return [
             [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
              row[7], row[8], row[9], row[10]]
-            for row in data if self.ensure_timestamp_in_seconds(row[0]) < end_time]
+            for row in data
+        ]
 
     def ws_subscription_payload(self):
         candle_params = [f"{self._ex_trading_pair.lower()}@kline_{self.interval}"]

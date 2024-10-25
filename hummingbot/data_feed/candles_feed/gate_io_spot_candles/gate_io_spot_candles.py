@@ -17,8 +17,7 @@ class GateioSpotCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -46,6 +45,10 @@ class GateioSpotCandles(CandlesBase):
         return CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
@@ -62,6 +65,14 @@ class GateioSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "_")
 
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -72,10 +83,6 @@ class GateioSpotCandles(CandlesBase):
 
         This API only accepts a limit of 10000 candles ago.
         """
-        if start_time is None:
-            start_time = end_time
-        if end_time is None:
-            end_time = start_time
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Gate.io REST API does not support fetching more than 10000 candles ago.")
@@ -90,8 +97,6 @@ class GateioSpotCandles(CandlesBase):
         new_hb_candles = []
         for i in data:
             timestamp = self.ensure_timestamp_in_seconds(i[0])
-            if timestamp == end_time:
-                continue
             open = i[5]
             high = i[3]
             low = i[4]
@@ -123,8 +128,8 @@ class GateioSpotCandles(CandlesBase):
             candles_row_dict["high"] = data["result"]["h"]
             candles_row_dict["low"] = data["result"]["l"]
             candles_row_dict["close"] = data["result"]["c"]
-            candles_row_dict["volume"] = data["result"]["v"]
-            candles_row_dict["quote_asset_volume"] = data["result"]["a"]
+            candles_row_dict["volume"] = data["result"]["a"]
+            candles_row_dict["quote_asset_volume"] = data["result"]["v"]
             candles_row_dict["n_trades"] = 0
             candles_row_dict["taker_buy_base_volume"] = 0
             candles_row_dict["taker_buy_quote_volume"] = 0
