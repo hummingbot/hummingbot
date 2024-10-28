@@ -143,7 +143,6 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "Binance",
                         "Kucoin",
                         "Poloniex",
-                        "Hitbtc"
                     ],
                     "lowPrice": 38040,
                     "highPrice": 44948,
@@ -212,7 +211,6 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "Binance",
                         "Kucoin",
                         "Poloniex",
-                        "Hitbtc"
                     ],
                     "premiumsSymbol1M": self.exchange_trading_pair,
                     "premiumsSymbol8H": self.exchange_trading_pair,
@@ -281,7 +279,6 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "Binance",
                         "Kucoin",
                         "Poloniex",
-                        "Hitbtc"
                     ],
                     "lowPrice": 38040,
                     "highPrice": 44948,
@@ -337,7 +334,6 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "Binance",
                         "Kucoin",
                         "Poloniex",
-                        "Hitbtc"
                     ],
                     "lowPrice": 38040,
                     "highPrice": 44948,

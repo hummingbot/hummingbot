@@ -6,6 +6,6 @@ from hummingbot.strategy_v2.backtesting.backtesting_engine_base import Backtesti
 
 
 class MarketMakingBacktesting(BacktestingEngineBase):
-    def update_processed_data(self, row: pd.Series):
+    async def update_processed_data(self, row: pd.Series):
         self.controller.processed_data["reference_price"] = Decimal(row["reference_price"])
         self.controller.processed_data["spread_multiplier"] = Decimal(row["spread_multiplier"])
