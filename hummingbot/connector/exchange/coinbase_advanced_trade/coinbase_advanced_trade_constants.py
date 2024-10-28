@@ -8,9 +8,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "Coinbase Advanced Trade"
 
-CHANGELOG_URL = "https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog"
-LATEST_UPDATE = "2024-FEB-22"
-# curl https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog | md5sum
+CHANGELOG_URL = "https://docs.cdp.coinbase.com/advanced-trade/docs/changelog"
+LATEST_UPDATE = "2024-SEP-04"
+# curl https://docs.cdp.coinbase.com/advanced-trade/docs/changelog | md5sum
 CHANGELOG_HASH = "4825e9a0e67b58f6be38f7e411637b87"
 
 COINBASE_ADVANCED_TRADE_CLASS_PREFIX = "CoinbaseAdvancedTrade"
@@ -25,6 +25,7 @@ HBOT_BROKER_ID = "Hummingbot"
 SIGNIN_URL = "https://api.coinbase.{domain}/v2"
 REST_URL = "https://api.coinbase.{domain}/api/v3"
 WSS_URL = "wss://advanced-trade-ws.coinbase.{domain}"
+USER_WSS_URL = "wss://advanced-trade-ws-user.coinbase.{domain}"
 
 # Coinbase Signin API endpoints
 EXCHANGE_RATES_USD_EP = "/exchange-rates"
@@ -86,10 +87,11 @@ class WebsocketAction(Enum):
     UNSUBSCRIBE = "unsubscribe"
 
 
-# https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels
+# https://docs.cdp.coinbase.com/advanced-trade/docs/ws-channels
+# TODO: this is not exclusively ORDER SUBSCRIPTION, please review the naming
 WS_ORDER_SUBSCRIPTION_KEYS: Tuple[str, ...] = ("level2", "market_trades")
-WS_ORDER_SUBSCRIPTION_CHANNELS: bidict[str, str] = bidict({k: k for k in WS_ORDER_SUBSCRIPTION_KEYS})
-WS_ORDER_SUBSCRIPTION_CHANNELS["level2"] = "l2_data"
+WS_ORDER_SUBSCRIPTION_CHANNELS: bidict[str, str] = bidict({"l2_data": "order_book_diff", "market_trades": "trade"})
+WS_MAX_MSG_SIZE = 8 * 1024 * 1024
 
 WS_USER_SUBSCRIPTION_KEYS: str = "user"
 # WS_USER_SUBSCRIPTION_KEYS: Tuple[str, ...] = ("user",)

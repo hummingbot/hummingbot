@@ -9,6 +9,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState, OrderType
 EXCHANGE_NAME = "xrpl"
 DOMAIN = "xrpl"  # This just a placeholder since we don't use domain in xrpl connect at the moment
 
+HBOT_SOURCE_TAG_ID = 19089388
 HBOT_ORDER_ID_PREFIX = "hbot"
 MAX_ORDER_ID_LEN = 64
 
