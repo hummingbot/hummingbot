@@ -16,9 +16,7 @@ if TYPE_CHECKING:
 class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: XRPLAuth,
-                 connector: 'XrplExchange'):
+    def __init__(self, auth: XRPLAuth, connector: "XrplExchange"):
         super().__init__()
         self._connector = connector
         self._auth = auth
@@ -48,6 +46,8 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 subscribe = Subscribe(accounts=[self._auth.get_account()])
 
                 async with self._xrpl_client as client:
+                    client._websocket.max_size = 2**23
+
                     # set up a listener task
                     listener = asyncio.create_task(self.on_message(client, output_queue=output))
 
@@ -66,8 +66,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except ConnectionError as connection_exception:
                 self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except TimeoutError:
-                self.logger().warning(
-                    "Timeout error occurred while listening to user stream. Retrying...")
+                self.logger().warning("Timeout error occurred while listening to user stream. Retrying...")
             except Exception:
                 self.logger().exception("Unexpected error while listening to user stream. Retrying...")
             finally:
