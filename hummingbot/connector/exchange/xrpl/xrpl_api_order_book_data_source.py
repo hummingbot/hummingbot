@@ -52,6 +52,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if not self._xrpl_client.is_open():
                     await self._xrpl_client.open()
 
+                self._xrpl_client._websocket.max_size = 2**23
+
                 orderbook_asks_task = self.fetch_order_book_side(
                     self._xrpl_client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
                 )
@@ -179,6 +181,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         subscribe = Subscribe(books=[subscribe_book_request])
 
         async with self._get_client() as client:
+            client._websocket.max_size = 2**23
             await client.send(subscribe)
 
             async for message in client:
