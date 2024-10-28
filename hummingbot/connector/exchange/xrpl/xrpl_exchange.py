@@ -1625,8 +1625,6 @@ class XrplExchange(ExchangePyBase):
         *,
         fail_hard: bool = False,
     ) -> Response:
-
-        transaction.source_tag = CONSTANTS.HBOT_SOURCE_TAG_ID
         transaction_blob = encode(transaction.to_xrpl())
         response = await client._request_impl(
             SubmitOnly(tx_blob=transaction_blob, fail_hard=fail_hard), timeout=CONSTANTS.REQUEST_TIMEOUT
