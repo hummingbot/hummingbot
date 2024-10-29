@@ -457,7 +457,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.get_last_traded_prices([self.trading_pair])
         )
         self.assertEqual(2, len(last_traded_prices))
-        self.assertEqual(9999.99, last_traded_prices[self.ex_trading_pair])
+        self.assertEqual(9999.99, last_traded_prices[self.trading_pair])
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):

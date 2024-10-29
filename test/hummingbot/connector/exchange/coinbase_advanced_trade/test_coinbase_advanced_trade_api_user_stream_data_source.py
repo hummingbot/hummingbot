@@ -202,7 +202,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
         self.api_factory.get_ws_assistant.call_count = 2
         self.data_source._ws_assistant.connect.assert_called_once()
         self.data_source._ws_assistant.connect.assert_called_with(
-            ws_url=CONSTANTS.WSS_URL.format(domain=self.domain),
+            ws_url=CONSTANTS.USER_WSS_URL.format(domain=self.domain),
             ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
         )
 

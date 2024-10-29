@@ -108,26 +108,18 @@ class GateIoExchange(ExchangePyBase):
         return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        # API documentation does not clarify the error message for timestamp related problems
-        return False
+        return CONSTANTS.ERR_LABEL_TIME_RELATED_ERROR in str(request_exception)
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        return CONSTANTS.ERR_LABEL_ORDER_NOT_FOUND in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        return CONSTANTS.ERR_LABEL_ORDER_NOT_FOUND in str(cancelation_exception)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
