@@ -419,28 +419,21 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls REST API to update total and available balances
         """
-        unified_wallet_response, contract_wallet_response = await asyncio.gather(
-            self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL, params={"accountType": "UNIFIED"},
-                          is_auth_required=True),
-            self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL, params={"accountType": "CONTRACT"},
-                          is_auth_required=True)
-        )
-        for wallet_balance in [unified_wallet_response, contract_wallet_response]:
-            if wallet_balance["retCode"] != CONSTANTS.RET_CODE_OK:
-                formatted_ret_code = self._format_ret_code_for_print(wallet_balance['retCode'])
-                raise IOError(f"{formatted_ret_code} - {wallet_balance['retMsg']}")
+        unified_wallet_response = await self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL, params={"accountType": "UNIFIED"},
+                                                      is_auth_required=True)
+        if unified_wallet_response["retCode"] != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(unified_wallet_response['retCode'])
+            raise IOError(f"{formatted_ret_code} - {unified_wallet_response['retMsg']}")
 
-        unified_wallet_balance = [{**d, "type": "unified"} for d in unified_wallet_response["result"]["list"][0]["coin"] if Decimal(d["equity"]) > 0]
-        contract_wallet_balance = [{**d, "type": "contract"} for d in contract_wallet_response["result"]["list"][0]["coin"] if Decimal(d["equity"]) > 0]
-        all_wallets = unified_wallet_balance + contract_wallet_balance
+        unified_wallet_balance = [d for d in unified_wallet_response["result"]["list"][0]["coin"] if
+                                  Decimal(d["equity"]) > 0]
 
         self._account_available_balances.clear()
         self._account_balances.clear()
 
-        if len(all_wallets) > 0:
-            for asset in all_wallets:
-                self._account_balances[asset["coin"]] = Decimal(asset["equity"])
-                self._account_available_balances[asset["coin"]] = Decimal(asset["availableToWithdraw"])
+        for asset in unified_wallet_balance:
+            self._account_balances[asset["coin"]] = Decimal(asset["equity"])
+            self._account_available_balances[asset["coin"]] = Decimal(asset["availableToWithdraw"])
 
     async def _update_positions(self):
         """

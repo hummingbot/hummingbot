@@ -401,19 +401,11 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             response: Dict[str, Any],
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-
         linear_url = self.balance_url
-        non_linear_url = linear_url.replace("UNIFIED", "CONTRACT")
-        mock_api.side_effect = [
-            mock_api.get(
-                re.compile(f"^{linear_url}".replace(".", r"\.").replace("?", r"\?")),
-                body=json.dumps(response),
-                callback=callback),
-            mock_api.get(
-                re.compile(f"^{non_linear_url}".replace(".", r"\.").replace("?", r"\?")),
-                body=json.dumps(response),
-                callback=callback),
-        ]
+        mock_api.get(
+            re.compile(f"^{linear_url}".replace(".", r"\.").replace("?", r"\?")),
+            body=json.dumps(response),
+            callback=callback),
         return linear_url
 
     def configure_trade_fills_response(
@@ -593,7 +585,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                         }
                     ],
                     "accountLTV": "0",
-                    "accountType": "CONTRACT"
+                    "accountType": "UNIFIED"
                 }
             ]
         }
