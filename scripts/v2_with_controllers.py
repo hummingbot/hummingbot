@@ -26,7 +26,7 @@ class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
     performance_report_interval: int = 1
     rebalance_interval: Optional[int] = None
     extra_inventory: Optional[float] = 0.02
-    min_amount_to_rebalance_usd: Decimal = Decimal("10")
+    min_amount_to_rebalance_usd: Decimal = Decimal("8")
     asset_to_rebalance: str = "USDT"
 
 
