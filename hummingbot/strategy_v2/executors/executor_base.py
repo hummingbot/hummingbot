@@ -272,6 +272,7 @@ class ExecutorBase(RunnableBase):
                     amount: Decimal,
                     position_action: PositionAction = PositionAction.NIL,
                     price=Decimal("NaN"),
+                    **kwargs,
                     ):
         """
         Places an order with the specified parameters.
