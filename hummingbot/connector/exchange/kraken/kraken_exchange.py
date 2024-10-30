@@ -318,6 +318,9 @@ class KrakenExchange(ExchangePyBase):
 
         self.logger().debug(f"  '-> Placing order {order_id} for {amount} {trading_pair} at {price} {trade_type.name} {order_type}")
 
+        if kwargs.get("price_in_percent", False):
+            data["price"] = f"{price}%"
+
         if order_type is OrderType.MARKET:
             data["ordertype"] = "market"
             del data["price"]
@@ -331,15 +334,19 @@ class KrakenExchange(ExchangePyBase):
 
         elif order_type is OrderType.STOP_LOSS:
             data["ordertype"] = "stop-loss"
+            if "price_in_percent" not in kwargs:
+                raise ValueError("Stop loss order requires to clarify if price is in percent")
 
         elif order_type is OrderType.TAKE_PROFIT:
             data["ordertype"] = "take-profit"
+            if "price_in_percent" not in kwargs:
+                raise ValueError("Take profit order requires to clarify if price is in percent")
 
         elif order_type is OrderType.TRAILING_STOP:
             data["ordertype"] = "trailing-stop"
-            pct: str = str(kwargs.get("price_pct_offset", "0.01"))
-            pct.replace("%", "")
-            data["price"] = f"{pct}%"
+            if "price_in_percent" not in kwargs:
+                raise ValueError("Trailing stop order requires to clarify if price is in percent")
+
         elif hasattr(order_type, "name"):
             raise ValueError(f"Order type {order_type.name} not supported")
         else:
