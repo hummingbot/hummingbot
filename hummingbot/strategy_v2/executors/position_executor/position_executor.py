@@ -198,13 +198,17 @@ class PositionExecutor(ExecutorBase):
             return self.current_market_price
 
     @property
+    def close_order_side(self):
+        return TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL
+
+    @property
     def trade_pnl_pct(self) -> Decimal:
         """
         Calculate the trade pnl (Pure pnl without fees)
 
         :return: The trade pnl percentage.
         """
-        if self.open_filled_amount != Decimal("0"):
+        if self.open_filled_amount != Decimal("0") and self.close_type != CloseType.FAILED:
             if self.config.side == TradeType.BUY:
                 return (self.close_price - self.entry_price) / self.entry_price
             else:
@@ -378,14 +382,16 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         if not self._open_order:
-            if self._is_within_activation_bounds(self.close_price):
+            if self._is_within_activation_bounds(self.config.entry_price, self.config.side,
+                                                 self.config.triple_barrier_config.open_order_type):
                 self.place_open_order()
         else:
             if self._open_order.order and not self._open_order.is_filled and \
-                    not self._is_within_activation_bounds(self.close_price):
+                    not self._is_within_activation_bounds(self.config.entry_price, self.config.side,
+                                                          self.config.triple_barrier_config.open_order_type):
                 self.cancel_open_order()
 
-    def _is_within_activation_bounds(self, close_price: Decimal) -> bool:
+    def _is_within_activation_bounds(self, order_price: Decimal, side: TradeType, order_type: OrderType) -> bool:
         """
         This method is responsible for checking if the close price is within the activation bounds to place the open
         order. If the activation bounds are not set, it returns True. This makes the executor more capital efficient.
@@ -394,22 +400,22 @@ class PositionExecutor(ExecutorBase):
         :return: True if the close price is within the activation bounds, False otherwise.
         """
         activation_bounds = self.config.activation_bounds
-        order_price = self.config.entry_price
+        mid_price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
         if activation_bounds:
-            if self.config.triple_barrier_config.open_order_type.is_limit_type():
-                if self.config.side == TradeType.BUY:
-                    return order_price > close_price * (1 - activation_bounds[0])
+            if order_type.is_limit_type():
+                if side == TradeType.BUY:
+                    return order_price >= mid_price * (1 - activation_bounds[0])
                 else:
-                    return order_price < close_price * (1 + activation_bounds[0])
+                    return order_price <= mid_price * (1 + activation_bounds[0])
             else:
-                if self.config.side == TradeType.BUY:
+                if side == TradeType.BUY:
                     min_price_to_buy = order_price * (1 - activation_bounds[0])
                     max_price_to_buy = order_price * (1 + activation_bounds[1])
-                    return min_price_to_buy < close_price < max_price_to_buy
+                    return min_price_to_buy <= mid_price <= max_price_to_buy
                 else:
                     min_price_to_sell = order_price * (1 - activation_bounds[1])
                     max_price_to_sell = order_price * (1 + activation_bounds[0])
-                    return min_price_to_sell < close_price < max_price_to_sell
+                    return min_price_to_sell <= mid_price <= max_price_to_sell
         else:
             return True
 
@@ -463,12 +469,13 @@ class PositionExecutor(ExecutorBase):
                 order_type=OrderType.MARKET,
                 amount=self.amount_to_close,
                 price=price,
-                side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
+                side=self.close_order_side,
                 position_action=PositionAction.CLOSE,
             )
             self._close_order = TrackedOrder(order_id=order_id)
             self.logger().debug(f"Executor ID: {self.config.id} - Placing close order {order_id} --> Filled amount: {self.open_filled_amount}")
         self.close_type = close_type
+        self.close_timestamp = self._strategy.current_timestamp
         self._status = RunnableStatus.SHUTTING_DOWN
 
     def cancel_open_orders(self):
@@ -503,8 +510,17 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         if self.config.triple_barrier_config.take_profit:
-            if self.config.triple_barrier_config.take_profit_order_type.is_limit_type() and not self._take_profit_limit_order:
-                self.place_take_profit_limit_order()
+            if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
+                is_within_activation_bounds = self._is_within_activation_bounds(
+                    self.take_profit_price, self.close_order_side,
+                    self.config.triple_barrier_config.take_profit_order_type)
+                if not self._take_profit_limit_order:
+                    if is_within_activation_bounds:
+                        self.place_take_profit_limit_order()
+                else:
+                    if self._take_profit_limit_order.is_open and not self._take_profit_limit_order.is_filled and \
+                            not is_within_activation_bounds:
+                        self.cancel_take_profit()
             elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
@@ -531,7 +547,7 @@ class PositionExecutor(ExecutorBase):
             price=self.take_profit_price,
             order_type=self.config.triple_barrier_config.take_profit_order_type,
             position_action=PositionAction.CLOSE,
-            side=TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL,
+            side=self.close_order_side,
         )
         self._take_profit_limit_order = TrackedOrder(order_id=order_id)
         self.logger().debug(f"Executor ID: {self.config.id} - Placing take profit order {order_id}")
@@ -647,25 +663,30 @@ class PositionExecutor(ExecutorBase):
         if self._open_order and event.order_id == self._open_order.order_id:
             self._failed_orders.append(self._open_order)
             self._open_order = None
+        if self._take_profit_limit_order and event.order_id == self._take_profit_limit_order.order_id:
+            self._failed_orders.append(self._take_profit_limit_order)
+            self._take_profit_limit_order = None
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         """
         This method is responsible for processing the order failed event. Here we will add the InFlightOrder to the
         failed orders list.
         """
-        self._current_retries += 1
         if self._open_order and event.order_id == self._open_order.order_id:
             self._failed_orders.append(self._open_order)
             self._open_order = None
-            self.logger().error(f"Open order failed. Retrying {self._current_retries}/{self._max_retries}")
+            self.logger().error(f"Open order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
+            self._current_retries += 1
         elif self._close_order and event.order_id == self._close_order.order_id:
             self._failed_orders.append(self._close_order)
             self._close_order = None
-            self.logger().error(f"Close order failed. Retrying {self._current_retries}/{self._max_retries}")
+            self.logger().error(f"Close order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
+            self._current_retries += 1
         elif self._take_profit_limit_order and event.order_id == self._take_profit_limit_order.order_id:
             self._failed_orders.append(self._take_profit_limit_order)
             self._take_profit_limit_order = None
-            self.logger().error(f"Take profit order failed. Retrying {self._current_retries}/{self._max_retries}")
+            self.logger().error(f"Take profit order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
+            self._current_retries += 1
 
     def get_custom_info(self) -> Dict:
         return {
