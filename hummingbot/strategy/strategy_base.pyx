@@ -508,7 +508,7 @@ cdef class StrategyBase(TimeIterator):
                                                price,
                                                expiration_seconds,
                                                position_action,
-                                               kwargs=kwargs)
+                                               **kwargs)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
@@ -556,7 +556,7 @@ cdef class StrategyBase(TimeIterator):
                                                 price,
                                                 expiration_seconds,
                                                 position_action,
-                                                kwargs=kwargs)
+                                                **kwargs)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,

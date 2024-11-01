@@ -112,7 +112,7 @@ class ScriptStrategyBase(StrategyPyBase):
             order_type,
             price,
             position_action=position_action,
-            kwargs=kwargs)
+            **kwargs)
 
     def sell(self,
              connector_name: str,
@@ -142,7 +142,7 @@ class ScriptStrategyBase(StrategyPyBase):
             order_type,
             price,
             position_action=position_action,
-            kwargs=kwargs)
+            **kwargs)
 
     def cancel(self,
                connector_name: str,
