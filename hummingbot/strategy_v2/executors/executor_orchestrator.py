@@ -11,7 +11,6 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor impo
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
-from hummingbot.strategy_v2.executors.position_exchange_executor.data_types import PositionExchangeExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
@@ -120,8 +119,6 @@ class ExecutorOrchestrator:
 
         if isinstance(executor_config, PositionExecutorConfig):
             executor = PositionExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, PositionExchangeExecutorConfig):
-            executor = PositionExchangeExecutorConfig(self.strategy, executor_config, self.executors_update_interval)
         elif isinstance(executor_config, DCAExecutorConfig):
             executor = DCAExecutor(self.strategy, executor_config, self.executors_update_interval)
         elif isinstance(executor_config, ArbitrageExecutorConfig):
