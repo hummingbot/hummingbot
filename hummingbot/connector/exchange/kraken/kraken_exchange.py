@@ -344,7 +344,7 @@ class KrakenExchange(ExchangePyBase):
 
         elif order_type is OrderType.TRAILING_STOP:
             data["ordertype"] = "trailing-stop"
-            data["price"].replace("#", "+")
+            data["price"] = data["price"].replace("#", "+")
             if "price_in_percent" not in kwargs:
                 self.logger().debug(f"kwargs: {kwargs}")
                 raise ValueError("Trailing stop order requires to clarify if price is in percent: {'price_in_percent': True/False}")

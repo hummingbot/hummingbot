@@ -1325,7 +1325,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
                 "type": "buy",
                 "volume": "1.0",
                 "userref": order_id,
-                "price": "0.05%",
+                "price": "+0.05%",
                 "ordertype": "trailing-stop"
             },
             is_auth_required=True
@@ -1349,7 +1349,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
                 "type": "buy",
                 "volume": "1.0",
                 "userref": order_id,
-                "price": "0.05%",
+                "price": "#0.05%",
                 "ordertype": "stop-loss"
             },
             is_auth_required=True
@@ -1373,7 +1373,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
                 "type": "buy",
                 "volume": "1.0",
                 "userref": order_id,
-                "price": "0.05%",
+                "price": "#0.05%",
                 "ordertype": "take-profit"
             },
             is_auth_required=True
@@ -1413,7 +1413,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(ValueError) as context:
             await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
-        self.assertEqual(str(context.exception), "Trailing stop order requires to clarify if price is in percent")
+        self.assertEqual(str(context.exception), "Trailing stop order requires to clarify if price is in percent: {'price_in_percent': True/False}")
 
     async def test_place_order_fail_no_percent_stop_loss(self):
         order_id = "order4"
@@ -1425,7 +1425,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(ValueError) as context:
             await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
-        self.assertEqual(str(context.exception), "Stop loss order requires to clarify if price is in percent")
+        self.assertEqual(str(context.exception), "Stop loss order requires to clarify if price is in percent: {'price_in_percent': True/False}")
 
     async def test_place_order_fail_no_percent_take_profit(self):
         order_id = "order4"
@@ -1437,7 +1437,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(ValueError) as context:
             await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
-        self.assertEqual(str(context.exception), "Take profit order requires to clarify if price is in percent")
+        self.assertEqual(str(context.exception), "Take profit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
 
     async def test_place_order_error_invalid_order_type(self):
         order_id = "order5"
