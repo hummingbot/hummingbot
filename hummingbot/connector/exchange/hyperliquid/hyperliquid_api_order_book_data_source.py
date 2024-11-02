@@ -32,7 +32,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  domain: str = CONSTANTS.DOMAIN):
         super().__init__(trading_pairs)
         self._connector = connector
-        # self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
+        self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = "order_book_snapshot"
         self._domain = domain

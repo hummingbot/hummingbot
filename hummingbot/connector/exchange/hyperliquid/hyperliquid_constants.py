@@ -36,7 +36,7 @@ ACCOUNT_TRADE_LIST_URL = "/info"
 ORDER_URL = "/info"
 ACCOUNT_INFO_URL = "/info"
 POSITION_INFORMATION_URL = "/info"
-SET_LEVERAGE_URL = "/exchange"
+MY_TRADES_PATH_URL = "/info"
 GET_LAST_FUNDING_RATE_PATH_URL = "/info"
 PING_URL = "/info"
 
@@ -48,6 +48,7 @@ USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
 USEREVENT_ENDPOINT_NAME = "user"
 
 DIFF_EVENT_TYPE = "order_book_snapshot"
+TRADE_EVENT_TYPE = "trades"
 
 # Order Statuses
 ORDER_STATE = {
@@ -84,7 +85,7 @@ RATE_LIMITS = [
 
     RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=60,
               linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=60,
+    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=60,
               linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
     RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=60,
               linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
