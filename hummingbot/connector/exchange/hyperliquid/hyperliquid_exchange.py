@@ -777,8 +777,8 @@ class HyperliquidExchange(ExchangePyBase):
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
-                    "symbol": trading_pair,
-                    "orderId": exchange_order_id
+                    "type": "userFills",
+                    'user': self.hyperliquid_api_key,
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)
@@ -812,7 +812,8 @@ class HyperliquidExchange(ExchangePyBase):
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
                                         data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         price = 0
-        for index, i in enumerate(response[0]['universe']):
+        for index, i in enumerate(response[0]['tokens']):
+            new_index = index - 1
             if i['name'] == coin:
-                price = float(response[1][index]['markPx'])
+                price = float(response[1][new_index]['markPx'])
         return price
