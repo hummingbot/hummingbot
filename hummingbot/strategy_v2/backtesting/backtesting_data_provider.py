@@ -9,6 +9,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_con
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import PriceType
+from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig, HistoricalCandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
@@ -100,11 +101,12 @@ class BacktestingDataProvider(MarketDataProvider):
                 return existing_feed
         # Create a new feed or restart the existing one with updated max_records
         candle_feed = CandlesFactory.get_candle(config)
+        candles_buffer = config.max_records * CandlesBase.interval_to_seconds[config.interval]
         candles_df = await candle_feed.get_historical_candles(config=HistoricalCandlesConfig(
             connector_name=config.connector,
             trading_pair=config.trading_pair,
             interval=config.interval,
-            start_time=self.start_time,
+            start_time=self.start_time - candles_buffer,
             end_time=self.end_time,
         ))
         self.candles_feeds[key] = candles_df
