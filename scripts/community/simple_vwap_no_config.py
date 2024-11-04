@@ -25,7 +25,7 @@ class VWAPExample(ScriptStrategyBase):
     """
     last_ordered_ts = 0
     vwap: Dict = {"connector_name": "binance_paper_trade", "trading_pair": "ETH-USDT", "is_buy": True,
-                  "total_volume_usd": 1000, "price_spread": 0.001, "volume_perc": 0.001, "order_delay_time": 10}
+                  "total_volume_usd": 10000, "price_spread": 0.001, "volume_perc": 0.001, "order_delay_time": 10}
     markets = {vwap["connector_name"]: {vwap["trading_pair"]}}
 
     def on_tick(self):
@@ -38,7 +38,7 @@ class VWAPExample(ScriptStrategyBase):
          - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
          - Lastly, execute the proposal on the exchange
          """
-        if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]):
+        if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]) and RateOracle.get_instance().started:
             if self.vwap.get("status") is None:
                 self.init_vwap_stats()
             elif self.vwap.get("status") == "ACTIVE":
