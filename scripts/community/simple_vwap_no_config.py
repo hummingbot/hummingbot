@@ -73,6 +73,7 @@ class VWAPExample(ScriptStrategyBase):
         quote_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_quote_asset)
         if base_conversion_rate is None or quote_conversion_rate is None:
             self.logger().info("Rate is not ready, please wait for the rate oracle to be ready.")
+            return
         vwap["start_price"] = vwap["connector"].get_price(vwap["trading_pair"], vwap["is_buy"])
         vwap["target_base_volume"] = vwap["total_volume_usd"] / base_conversion_rate
         vwap["ideal_quote_volume"] = vwap["total_volume_usd"] / quote_conversion_rate
