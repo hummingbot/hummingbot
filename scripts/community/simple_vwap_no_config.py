@@ -6,7 +6,6 @@ from typing import Dict
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -39,8 +38,7 @@ class VWAPExample(ScriptStrategyBase):
          - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
          - Lastly, execute the proposal on the exchange
          """
-        if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]) and \
-                RateOracle.get_instance().network_status == NetworkStatus.CONNECTED:
+        if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]):
             if self.vwap.get("status") is None:
                 self.init_vwap_stats()
             elif self.vwap.get("status") == "ACTIVE":
@@ -73,6 +71,8 @@ class VWAPExample(ScriptStrategyBase):
         conversion_quote_asset = f"{quote_asset}-USD"
         base_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_base_asset)
         quote_conversion_rate = RateOracle.get_instance().get_pair_rate(conversion_quote_asset)
+        if base_conversion_rate is None or quote_conversion_rate is None:
+            self.logger().info("Rate is not ready, please wait for the rate oracle to be ready.")
         vwap["start_price"] = vwap["connector"].get_price(vwap["trading_pair"], vwap["is_buy"])
         vwap["target_base_volume"] = vwap["total_volume_usd"] / base_conversion_rate
         vwap["ideal_quote_volume"] = vwap["total_volume_usd"] / quote_conversion_rate
