@@ -6,6 +6,7 @@ from typing import Dict
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -38,7 +39,8 @@ class VWAPExample(ScriptStrategyBase):
          - Check the account balance and adjust the proposal accordingly (lower order amount if needed)
          - Lastly, execute the proposal on the exchange
          """
-        if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]) and RateOracle.get_instance().started:
+        if self.last_ordered_ts < (self.current_timestamp - self.vwap["order_delay_time"]) and \
+                RateOracle.get_instance().network_status == NetworkStatus.CONNECTED:
             if self.vwap.get("status") is None:
                 self.init_vwap_stats()
             elif self.vwap.get("status") == "ACTIVE":
