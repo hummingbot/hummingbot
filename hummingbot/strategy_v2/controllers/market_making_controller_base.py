@@ -89,7 +89,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
             prompt_on_new=True))
     time_limit: Optional[int] = Field(
-        default=60 * 45, gt=0,
+        default=None, gt=0,
         client_data=ClientFieldData(
             is_updatable=True,
             prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",

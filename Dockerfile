@@ -23,7 +23,6 @@ COPY scripts/ scripts-copy/
 COPY setup.py .
 COPY LICENSE .
 COPY README.md .
-COPY DATA_COLLECTION.md .
 
 # activate hummingbot env when entering the CT
 SHELL [ "/bin/bash", "-lc" ]

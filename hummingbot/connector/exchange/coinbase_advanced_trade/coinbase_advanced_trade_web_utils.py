@@ -97,7 +97,7 @@ async def get_current_server_time_s(
     :return: the current server time in seconds
     """
     """
-    https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getservertime
+    https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getservertime
     """
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
@@ -169,7 +169,7 @@ def symbol_to_pair(symbol: str) -> str:
 class CoinbaseAdvancedTradeWSSMessage(NamedTuple):
     """
     Coinbase Advanced Trade Websocket API message
-    https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels
+    https://docs.cdp.coinbase.com/advanced-trade/docs/ws-channels
     ```json
     {
       "channel": "market_trades",
