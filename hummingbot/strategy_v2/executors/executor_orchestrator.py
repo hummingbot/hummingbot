@@ -194,7 +194,7 @@ class ExecutorOrchestrator:
                         if side == TradeType.BUY else -executor_info.filled_amount_quote
                 if executor_info.type == "dca_executor":
                     report.open_order_volume += sum(
-                        executor_info.configbuild.amounts_quote) - executor_info.filled_amount_quote
+                        executor_info.config.amounts_quote) - executor_info.filled_amount_quote
                 elif executor_info.type == "position_executor":
                     report.open_order_volume += (executor_info.config.amount *
                                                  executor_info.config.entry_price) - executor_info.filled_amount_quote
