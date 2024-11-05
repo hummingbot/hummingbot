@@ -19,6 +19,7 @@ OKX_BASE_URL = "https://www.okx.com/"
 OKX_SERVER_TIME_PATH = '/api/v5/public/time'
 OKX_INSTRUMENTS_PATH = '/api/v5/public/instruments'
 OKX_TICKER_PATH = '/api/v5/market/ticker'
+OKX_TICKERS_PATH = '/api/v5/market/tickers'
 OKX_ORDER_BOOK_PATH = '/api/v5/market/books'
 
 # Auth required
@@ -64,17 +65,18 @@ ORDER_TYPE_MAP = {
 NO_LIMIT = sys.maxsize
 
 RATE_LIMITS = [
-    RateLimit(WS_CONNECTION_LIMIT_ID, limit=1, time_interval=1),
+    RateLimit(WS_CONNECTION_LIMIT_ID, limit=3, time_interval=1),
     RateLimit(WS_REQUEST_LIMIT_ID, limit=100, time_interval=10),
     RateLimit(WS_SUBSCRIPTION_LIMIT_ID, limit=240, time_interval=60 * 60),
     RateLimit(WS_LOGIN_LIMIT_ID, limit=1, time_interval=15),
     RateLimit(limit_id=OKX_SERVER_TIME_PATH, limit=10, time_interval=2),
     RateLimit(limit_id=OKX_INSTRUMENTS_PATH, limit=20, time_interval=2),
     RateLimit(limit_id=OKX_TICKER_PATH, limit=20, time_interval=2),
+    RateLimit(limit_id=OKX_TICKERS_PATH, limit=20, time_interval=2),
     RateLimit(limit_id=OKX_ORDER_BOOK_PATH, limit=20, time_interval=2),
-    RateLimit(limit_id=OKX_PLACE_ORDER_PATH, limit=60, time_interval=2),
-    RateLimit(limit_id=OKX_ORDER_DETAILS_PATH, limit=60, time_interval=2),
-    RateLimit(limit_id=OKX_ORDER_CANCEL_PATH, limit=60, time_interval=2),
+    RateLimit(limit_id=OKX_PLACE_ORDER_PATH, limit=20, time_interval=2),
+    RateLimit(limit_id=OKX_ORDER_DETAILS_PATH, limit=20, time_interval=2),
+    RateLimit(limit_id=OKX_ORDER_CANCEL_PATH, limit=20, time_interval=2),
     RateLimit(limit_id=OKX_BATCH_ORDER_CANCEL_PATH, limit=300, time_interval=2),
     RateLimit(limit_id=OKX_BALANCE_PATH, limit=10, time_interval=2),
     RateLimit(limit_id=OKX_TRADE_FILLS_PATH, limit=60, time_interval=2),

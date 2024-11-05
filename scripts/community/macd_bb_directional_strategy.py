@@ -18,10 +18,6 @@ from hummingbot.strategy_v2.executors.position_executor.position_executor import
 
 
 class MACDBBDirectionalStrategy(ScriptStrategyBase):
-    """
-    A simple trading strategy that uses RSI in one timeframe to determine whether to go long or short.
-    IMPORTANT: Binance perpetual has to be in Single Asset Mode, soon we are going to support Multi Asset Mode.
-    """
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair = "APE-BUSD"
     exchange = "binance_perpetual"
@@ -112,7 +108,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
         indicators = [bbp, macdh, macd]
         return signal_value, take_profit, stop_loss, indicators
 
-    def on_stop(self):
+    async def on_stop(self):
         """
         Without this functionality, the network iterator will continue running forever after stopping the strategy
         That's why is necessary to introduce this new feature to make a custom stop with the strategy.

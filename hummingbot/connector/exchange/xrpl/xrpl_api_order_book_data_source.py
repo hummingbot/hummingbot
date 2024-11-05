@@ -31,7 +31,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = CONSTANTS.SNAPSHOT_EVENT_TYPE
-        self._xrpl_client = AsyncWebsocketClient(self._connector.node_url)
+        self._xrpl_client = self._connector.order_book_data_client
         self._open_client_lock = asyncio.Lock()
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
@@ -51,6 +51,8 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 if not self._xrpl_client.is_open():
                     await self._xrpl_client.open()
+
+                self._xrpl_client._websocket.max_size = 2**23
 
                 orderbook_asks_task = self.fetch_order_book_side(
                     self._xrpl_client, "current", base_currency, quote_currency, CONSTANTS.ORDER_BOOK_DEPTH
@@ -78,22 +80,37 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return order_book
 
-    async def fetch_order_book_side(self, client: AsyncWebsocketClient, ledger_index, taker_gets, taker_pays, limit):
-        response = await client.request(
-            BookOffers(
-                ledger_index=ledger_index,
-                taker_gets=taker_gets,
-                taker_pays=taker_pays,
-                limit=limit,
+    async def fetch_order_book_side(
+        self, client: AsyncWebsocketClient, ledger_index, taker_gets, taker_pays, limit, try_count: int = 0
+    ):
+        try:
+            response = await client.request(
+                BookOffers(
+                    ledger_index=ledger_index,
+                    taker_gets=taker_gets,
+                    taker_pays=taker_pays,
+                    limit=limit,
+                )
             )
-        )
-        if response.status != "success":
-            error = response.to_dict().get("error", "")
-            error_message = response.to_dict().get("error_message", "")
-            exception_msg = f"Error fetching order book snapshot: {error} - {error_message}"
-            self.logger().error(exception_msg)
-            raise ValueError(exception_msg)
-        return response
+            if response.status != "success":
+                error = response.to_dict().get("error", "")
+                error_message = response.to_dict().get("error_message", "")
+                exception_msg = f"Error fetching order book snapshot: {error} - {error_message}"
+                self.logger().error(exception_msg)
+                raise ValueError(exception_msg)
+            return response
+        except (TimeoutError, asyncio.exceptions.TimeoutError) as e:
+            self.logger().debug(
+                f"Verify transaction timeout error, Attempt {try_count + 1}/{CONSTANTS.FETCH_ORDER_BOOK_MAX_RETRY}"
+            )
+            if try_count < CONSTANTS.FETCH_ORDER_BOOK_MAX_RETRY:
+                await self._sleep(CONSTANTS.FETCH_ORDER_BOOK_RETRY_INTERVAL)
+                return await self.fetch_order_book_side(
+                    client, ledger_index, taker_gets, taker_pays, limit, try_count + 1
+                )
+            else:
+                self.logger().error("Max retries reached. Fetching order book failed due to timeout.")
+                raise e
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -108,12 +125,12 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 await self._request_order_book_snapshots(output=output)
-                await self._sleep(2.0)
+                await self._sleep(CONSTANTS.REQUEST_ORDERBOOK_INTERVAL)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error when processing public order book snapshots from exchange")
-                await self._sleep(2.0)
+                await self._sleep(CONSTANTS.REQUEST_ORDERBOOK_INTERVAL)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
@@ -164,6 +181,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
         subscribe = Subscribe(books=[subscribe_book_request])
 
         async with self._get_client() as client:
+            client._websocket.max_size = 2**23
             await client.send(subscribe)
 
             async for message in client:

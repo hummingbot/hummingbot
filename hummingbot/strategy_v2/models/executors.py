@@ -54,6 +54,20 @@ class TrackedOrder:
             return Decimal("0")
 
     @property
+    def fee_asset(self):
+        if self.order and len(self.order.order_fills) > 0:
+            return list(self.order.order_fills.values())[0].fee_asset
+        else:
+            return None
+
+    @property
+    def cum_fees_base(self):
+        if self.order:
+            return self.order.cumulative_fee_paid(token=self.order.base_asset)
+        else:
+            return Decimal("0")
+
+    @property
     def cum_fees_quote(self):
         if self.order:
             return self.order.cumulative_fee_paid(token=self.order.quote_asset)
@@ -64,5 +78,19 @@ class TrackedOrder:
     def is_done(self):
         if self.order:
             return self.order.is_done
+        else:
+            return False
+
+    @property
+    def is_open(self):
+        if self.order:
+            return self.order.is_open
+        else:
+            return False
+
+    @property
+    def is_filled(self):
+        if self.order:
+            return self.order.is_filled
         else:
             return False

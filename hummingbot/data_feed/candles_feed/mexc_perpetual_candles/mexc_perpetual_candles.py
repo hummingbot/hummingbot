@@ -16,9 +16,7 @@ class MexcPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str,
-                 interval: str = "1m",
-                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -46,6 +44,10 @@ class MexcPerpetualCandles(CandlesBase):
         return CONSTANTS.CANDLES_ENDPOINT
 
     @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+
+    @property
     def rate_limits(self):
         return CONSTANTS.RATE_LIMITS
 
@@ -61,6 +63,14 @@ class MexcPerpetualCandles(CandlesBase):
 
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "_")
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return True
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
 
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
@@ -86,7 +96,7 @@ class MexcPerpetualCandles(CandlesBase):
         if content is not None:
             ohlc = list(zip(content["time"], content["open"], content["high"], content["low"], content["close"],
                             content["vol"], content["amount"]))
-            return [[self.ensure_timestamp_in_seconds(c[0]), c[1], c[2], c[3], c[4], c[5], c[6], 0., 0., 0.] for c in ohlc if c[0] < end_time]
+            return [[self.ensure_timestamp_in_seconds(c[0]), c[1], c[2], c[3], c[4], c[5], c[6], 0., 0., 0.] for c in ohlc]
 
     def ws_subscription_payload(self):
         return {

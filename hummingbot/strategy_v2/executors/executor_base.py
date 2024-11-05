@@ -107,7 +107,7 @@ class ExecutorBase(RunnableBase):
         """
         Returns the executor info.
         """
-        return ExecutorInfo(
+        ei = ExecutorInfo(
             id=self.config.id,
             timestamp=self.config.timestamp,
             type=self.config.type,
@@ -124,6 +124,11 @@ class ExecutorBase(RunnableBase):
             custom_info=self.get_custom_info(),
             controller_id=self.config.controller_id,
         )
+        ei.filled_amount_quote = ei.filled_amount_quote if not ei.filled_amount_quote.is_nan() else Decimal("0")
+        ei.net_pnl_quote = ei.net_pnl_quote if not ei.net_pnl_quote.is_nan() else Decimal("0")
+        ei.cum_fees_quote = ei.cum_fees_quote if not ei.cum_fees_quote.is_nan() else Decimal("0")
+        ei.net_pnl_pct = ei.net_pnl_pct if not ei.net_pnl_pct.is_nan() else Decimal("0")
+        return ei
 
     def get_custom_info(self) -> Dict:
         """
@@ -160,6 +165,7 @@ class ExecutorBase(RunnableBase):
         """
         Stops the executor and unregisters the events.
         """
+        self.close_timestamp = self._strategy.current_timestamp
         super().stop()
         self.unregister_events()
 
@@ -234,9 +240,7 @@ class ExecutorBase(RunnableBase):
         :param order_id: The ID of the order.
         :return: The in-flight order.
         """
-        connector = self.connectors[connector_name]
-        order = connector._order_tracker.fetch_order(client_order_id=order_id)
-        return order
+        return self.connectors[connector_name]._order_tracker.fetch_order(client_order_id=order_id)
 
     def register_events(self):
         """

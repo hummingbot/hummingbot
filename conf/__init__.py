@@ -52,11 +52,6 @@ binance_perpetuals_api_secret = os.getenv("BINANCE_PERPETUALS_API_SECRET")
 coinbase_advanced_trade_api_key = os.getenv("COINBASE_ADVANCED_TRADE_API_KEY")
 coinbase_advanced_trade_secret_key = os.getenv("COINBASE_ADVANCED_TRADE_SECRET_KEY")
 
-# Coinbase Pro Tests
-coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
-coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
-coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
-
 
 # Htx Tests
 htx_api_key = os.getenv("HTX_API_KEY")
@@ -90,10 +85,6 @@ bitmart_memo = os.getenv("BITMART_MEMO")
 # BTC Markets Test
 btc_markets_api_key = os.getenv("BTC_MARKETS_API_KEY")
 btc_markets_secret_key = os.getenv("BTC_MARKETS_SECRET_KEY")
-
-# HitBTC Tests
-hitbtc_api_key = os.getenv("HITBTC_API_KEY")
-hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
 
 # Gate.io Tests
 gate_io_api_key = os.getenv("GATE_IO_API_KEY")

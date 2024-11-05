@@ -74,6 +74,9 @@ class InjectiveSpotMarket:
     def taker_fee_rate(self) -> Decimal:
         return self.native_market.taker_fee_rate
 
+    def min_notional(self) -> Decimal:
+        return self.quote_token.value_from_chain_format(chain_value=self.native_market.min_notional)
+
 
 @dataclass(frozen=True)
 class InjectiveDerivativeMarket:
@@ -82,11 +85,11 @@ class InjectiveDerivativeMarket:
     native_market: DerivativeMarket
 
     def base_token_symbol(self):
-        ticker_base, _ = self.native_market.ticker.split("/")
+        ticker_base, _ = self.native_market.ticker.split("/") if "/" in self.native_market.ticker else (self.native_market.ticker, 0)
         return ticker_base
 
     def trading_pair(self):
-        ticker_base, _ = self.native_market.ticker.split("/")
+        ticker_base, _ = self.native_market.ticker.split("/") if "/" in self.native_market.ticker else (self.native_market.ticker, 0)
         return combine_to_hb_trading_pair(ticker_base, self.quote_token.unique_symbol)
 
     def quantity_from_chain_format(self, chain_quantity: Decimal) -> Decimal:
@@ -124,3 +127,6 @@ class InjectiveDerivativeMarket:
 
     def oracle_type(self) -> str:
         return self.native_market.oracle_type
+
+    def min_notional(self) -> Decimal:
+        return self.quote_token.value_from_chain_format(chain_value=self.native_market.min_notional)
