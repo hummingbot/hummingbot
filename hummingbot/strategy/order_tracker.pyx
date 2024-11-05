@@ -15,6 +15,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.stop_loss_order import StopLossOrder
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 NaN = float("nan")
@@ -30,6 +31,7 @@ cdef class OrderTracker(TimeIterator):
         super().__init__()
         self._tracked_limit_orders = {}
         self._tracked_market_orders = {}
+        self._tracked_stop_loss_orders = {}
         self._order_id_to_market_pair = {}
         self._shadow_tracked_limit_orders = {}
         self._shadow_order_id_to_market_pair = {}
@@ -116,6 +118,21 @@ cdef class OrderTracker(TimeIterator):
         return pd.DataFrame(data=market_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
 
     @property
+    def tracked_stop_loss_orders(self) -> List[Tuple[ConnectorBase, StopLossOrder]]:
+        return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map
+                in self._tracked_stop_loss_orders.items() for order in order_map.values()]
+
+    @property
+    def tracked_stop_loss_orders_data_frame(self) -> List[pd.DataFrame]:
+        stop_loss_orders = [[market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair,
+                          order_id, order.amount,
+                          pd.Timestamp(order.timestamp, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')]
+                         for market_trading_pair_tuple, order_map in self._tracked_stop_loss_orders.items()
+                         for order_id, order in order_map.items()]
+
+        return pd.DataFrame(data=stop_loss_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
+
+    @property
     def in_flight_cancels(self) -> Dict[str, float]:
         return self._in_flight_cancels
 
@@ -138,6 +155,12 @@ cdef class OrderTracker(TimeIterator):
 
     def get_market_orders(self):
         return self.c_get_market_orders()
+
+    cdef dict c_get_stop_loss_orders(self):
+        return self._tracked_stop_loss_orders
+
+    def get_stop_loss_orders(self):
+        return self.c_get_stop_loss_orders()
 
     cdef dict c_get_shadow_limit_orders(self):
         return self._shadow_tracked_limit_orders
@@ -202,6 +225,12 @@ cdef class OrderTracker(TimeIterator):
 
     def get_market_order(self, market_pair, order_id: str) -> MarketOrder:
         return self.c_get_market_order(market_pair, order_id)
+
+    cdef object c_get_stop_loss_order(self, object market_pair, str order_id):
+        return self._tracked_stop_loss_orders.get(market_pair, {}).get(order_id)
+
+    def get_stop_loss_order(self, market_pair, order_id: str) -> StopLossOrder:
+        return self.c_get_stop_loss_order(market_pair, order_id)
 
     cdef LimitOrder c_get_shadow_limit_order(self, str order_id):
         cdef:
@@ -283,6 +312,36 @@ cdef class OrderTracker(TimeIterator):
 
     def stop_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
         return self.c_stop_tracking_market_order(market_pair, order_id)
+
+    cdef c_start_tracking_stop_loss_order(self, object market_pair, str order_id, bint is_buy, object placed_price, object trigger_price, object quantity):
+        if market_pair not in self._tracked_stop_loss_orders:
+            self._tracked_stop_loss_orders[market_pair] = {}
+        self._tracked_stop_loss_orders[market_pair][order_id] = StopLossOrder(
+            order_id,
+            market_pair.trading_pair,
+            is_buy,
+            market_pair.base_asset,
+            market_pair.quote_asset,
+            placed_price,
+            trigger_price,
+            float(quantity),
+            self._current_timestamp
+        )
+        self._order_id_to_market_pair[order_id] = market_pair
+
+    def start_tracking_stop_loss_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, placed_price: Decimal, trigger_price: Decimal, quantity: Decimal):
+        return self.c_start_tracking_stop_loss_order(market_pair, order_id, is_buy, placed_price, trigger_price, quantity)
+
+    cdef c_stop_tracking_stop_loss_order(self, object market_pair, str order_id):
+        if market_pair in self._tracked_stop_loss_orders and order_id in self._tracked_stop_loss_orders[market_pair]:
+            del self._tracked_stop_loss_orders[market_pair][order_id]
+            if len(self._tracked_stop_loss_orders[market_pair]) < 1:
+                del self._tracked_stop_loss_orders[market_pair]
+        if order_id in self._order_id_to_market_pair:
+            del self._order_id_to_market_pair[order_id]
+
+    def stop_tracking_stop_loss_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        return self.c_stop_tracking_stop_loss_order(market_pair, order_id)
 
     cdef c_check_and_cleanup_shadow_records(self):
         cdef:

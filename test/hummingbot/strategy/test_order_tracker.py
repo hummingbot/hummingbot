@@ -12,6 +12,7 @@ from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExcha
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.stop_loss_order import StopLossOrder
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
 
@@ -29,7 +30,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
         cls.trading_pair = "COINALPHA-HBOT"
 
         cls.limit_orders: List[LimitOrder] = [
-            LimitOrder(client_order_id=f"LIMIT//-{i}-{int(time.time()*1e6)}",
+            LimitOrder(client_order_id=f"LIMIT//-{i}-{int(time.time() * 1e6)}",
                        trading_pair=cls.trading_pair,
                        is_buy=True if i % 2 == 0 else False,
                        base_currency=cls.trading_pair.split("-")[0],
@@ -41,7 +42,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
             for i in range(20)
         ]
         cls.market_orders: List[MarketOrder] = [
-            MarketOrder(order_id=f"MARKET//-{i}-{int(time.time()*1e3)}",
+            MarketOrder(order_id=f"MARKET//-{i}-{int(time.time() * 1e3)}",
                         trading_pair=cls.trading_pair,
                         is_buy=True if i % 2 == 0 else False,
                         base_asset=cls.trading_pair.split("-")[0],
@@ -49,6 +50,19 @@ class OrderTrackerUnitTests(unittest.TestCase):
                         amount=float(f"{10 * (i + 1)}"),
                         timestamp=time.time()
                         )
+            for i in range(20)
+        ]
+        cls.stop_loss_orders: List[StopLossOrder] = [
+            StopLossOrder(order_id=f"MARKET//-{i}-{int(time.time() * 1e3)}",
+                          trading_pair=cls.trading_pair,
+                          is_buy=True if i % 2 == 0 else False,
+                          base_asset=cls.trading_pair.split("-")[0],
+                          quote_asset=cls.trading_pair.split("-")[1],
+                          placed_price=Decimal(f"{100 - i}") if i % 2 == 0 else Decimal(f"{100 + i}"),
+                          trigger_price=Decimal(f"{100 - 2 * i}") if i % 2 == 0 else Decimal(f"{100 + 2 * i}"),
+                          amount=float(f"{10 * (i + 1)}"),
+                          timestamp=time.time()
+                          )
             for i in range(20)
         ]
 
@@ -66,7 +80,11 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp)
 
     @staticmethod
-    def simulate_place_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple):
+    def simulate_place_order(
+            order_tracker: OrderTracker,
+            order: Union[LimitOrder, MarketOrder, StopLossOrder],
+            market_info: MarketTradingPairTuple
+    ):
         """
         Simulates an order being successfully placed.
         """
@@ -78,21 +96,31 @@ class OrderTrackerUnitTests(unittest.TestCase):
                                                      price=order.price,
                                                      quantity=order.quantity
                                                      )
-        else:
+        elif isinstance(order, MarketOrder):
             order_tracker.add_create_order_pending(order.order_id)
             order_tracker.start_tracking_market_order(market_pair=market_info,
                                                       order_id=order.order_id,
                                                       is_buy=order.is_buy,
-                                                      quantity=order.amount
+                                                      quantity=Decimal(order.amount)
                                                       )
+        elif isinstance(order, StopLossOrder):
+            order_tracker.add_create_order_pending(order.order_id)
+            order_tracker.start_tracking_stop_loss_order(market_pair=market_info,
+                                                         order_id=order.order_id,
+                                                         is_buy=order.is_buy,
+                                                         placed_price=Decimal(order.placed_price),
+                                                         trigger_price=Decimal(order.trigger_price),
+                                                         quantity=Decimal(order.amount)
+                                                         )
 
     @staticmethod
-    def simulate_order_created(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder]):
+    def simulate_order_created(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, StopLossOrder]):
         order_id = order.client_order_id if isinstance(order, LimitOrder) else order.order_id
         order_tracker.remove_create_order_pending(order_id)
 
     @staticmethod
-    def simulate_stop_tracking_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple):
+    def simulate_stop_tracking_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, StopLossOrder],
+                                     market_info: MarketTradingPairTuple):
         """
         Simulates an order being cancelled or filled completely.
         """
@@ -100,13 +128,13 @@ class OrderTrackerUnitTests(unittest.TestCase):
             order_tracker.stop_tracking_limit_order(market_pair=market_info,
                                                     order_id=order.client_order_id,
                                                     )
-        else:
+        elif isinstance(order, (MarketOrder, StopLossOrder)):
             order_tracker.stop_tracking_market_order(market_pair=market_info,
                                                      order_id=order.order_id
                                                      )
 
     @staticmethod
-    def simulate_cancel_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder]):
+    def simulate_cancel_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, StopLossOrder]):
         """
         Simulates order being cancelled.
         """
@@ -157,7 +185,8 @@ class OrderTrackerUnitTests(unittest.TestCase):
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        self.assertTrue(len(self.order_tracker.market_pair_to_active_orders[self.market_info]) == len(self.limit_orders))
+        self.assertTrue(
+            len(self.order_tracker.market_pair_to_active_orders[self.market_info]) == len(self.limit_orders))
 
     def test_active_bids(self):
         # Check initial output
@@ -257,6 +286,44 @@ class OrderTrackerUnitTests(unittest.TestCase):
         # Hence it should not differ from initial list of orders
         self.assertTrue(len(self.order_tracker.tracked_market_orders_data_frame) == len(self.market_orders))
 
+    def test_tracked_stop_loss_orders(self):
+        # Check initial output
+        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders) == 0)
+
+        # Simulate orders being placed and tracked
+        for order in self.stop_loss_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+            self.simulate_order_created(self.order_tracker, order)
+
+        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders) == len(self.stop_loss_orders))
+
+        # Simulates order cancellation request being sent to exchange
+        order_to_cancel = self.stop_loss_orders[0]
+        self.simulate_cancel_order(self.order_tracker, order_to_cancel)
+
+        # Note: This includes all orders(open, cancelled, filled, partially filled).
+        # Hence it should not differ from initial list of orders
+        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders) == len(self.stop_loss_orders))
+
+    def test_tracked_stop_loss_order_data_frame(self):
+        # Check initial output
+        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders_data_frame) == 0)
+
+        # Simulate orders being placed and tracked
+        for order in self.stop_loss_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+            self.simulate_order_created(self.order_tracker, order)
+
+        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders_data_frame) == len(self.stop_loss_orders))
+
+        # Simulates order cancellation request being sent to exchange
+        order_to_cancel = self.stop_loss_orders[0]
+        self.simulate_cancel_order(self.order_tracker, order_to_cancel)
+
+        # Note: This includes all orders(open, cancelled, filled, partially filled).
+        # Hence it should not differ from initial list of orders
+        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders_data_frame) == len(self.stop_loss_orders))
+
     def test_in_flight_cancels(self):
         # Check initial output
         self.assertTrue(len(self.order_tracker.in_flight_cancels) == 0)
@@ -306,6 +373,17 @@ class OrderTrackerUnitTests(unittest.TestCase):
             self.simulate_place_order(self.order_tracker, order, self.market_info)
 
         self.assertTrue(len(self.order_tracker.get_market_orders()[self.market_info].keys()) == len(self.market_orders))
+
+    def test_get_stop_loss_orders(self):
+        # Check initial output
+        self.assertTrue(len(list(self.order_tracker.get_stop_loss_orders().values())) == 0)
+
+        # Simulate orders being placed and tracked
+        for order in self.stop_loss_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+
+        self.assertTrue(
+            len(self.order_tracker.get_stop_loss_orders()[self.market_info].keys()) == len(self.stop_loss_orders))
 
     def test_get_shadow_limit_orders(self):
         # Check initial output
@@ -389,11 +467,13 @@ class OrderTrackerUnitTests(unittest.TestCase):
     def test_get_shadow_market_pair_from_order_id(self):
         # Simulate order being placed and tracked
         order: LimitOrder = self.limit_orders[0]
-        self.assertNotEqual(self.market_info, self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id))
+        self.assertNotEqual(self.market_info,
+                            self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id))
 
         self.simulate_place_order(self.order_tracker, order, self.market_info)
 
-        self.assertEqual(self.market_info, self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id))
+        self.assertEqual(self.market_info,
+                         self.order_tracker.get_shadow_market_pair_from_order_id(order.client_order_id))
 
     def test_get_limit_order(self):
         # Initial validation
@@ -437,6 +517,32 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         # Matching Order
         self.assertEqual(str(order), str(self.order_tracker.get_market_order(self.market_info, order.order_id)))
+
+    def test_get_stop_loss_order(self):
+        # Initial validation
+        order: StopLossOrder = StopLossOrder(
+            order_id=f"STOP-LOSS//-{self.clock.current_timestamp}",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_asset=self.trading_pair.split("-")[0],
+            quote_asset=self.trading_pair.split("-")[1],
+            placed_price=Decimal("100"),
+            trigger_price=Decimal("90"),
+            amount=float(10),
+            timestamp=self.clock.current_timestamp
+        )
+
+        # Order not yet placed
+        self.assertNotEqual(order, self.order_tracker.get_stop_loss_order(self.market_info, order.order_id))
+
+        # Simulate order being placed and tracked
+        self.simulate_place_order(self.order_tracker, order, self.market_info)
+
+        # Unrecognized Order
+        self.assertNotEqual(order, self.order_tracker.get_stop_loss_order(self.market_info, "UNRECOGNIZED_ORDER"))
+
+        # Matching Order
+        self.assertEqual(str(order), str(self.order_tracker.get_stop_loss_order(self.market_info, order.order_id)))
 
     def test_get_shadow_limit_order(self):
         # Initial validation
