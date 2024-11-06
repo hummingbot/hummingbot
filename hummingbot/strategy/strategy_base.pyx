@@ -465,6 +465,8 @@ cdef class StrategyBase(TimeIterator):
             self.c_stop_tracking_limit_order(market_pair, order_id)
         elif order_type == OrderType.MARKET:
             self.c_stop_tracking_market_order(market_pair, order_id)
+        elif order_type == OrderType.STOP_LOSS:
+            self.c_stop_tracking_stop_loss_order(market_pair, order_id)
 
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event):
         cdef:
@@ -487,6 +489,8 @@ cdef class StrategyBase(TimeIterator):
                 self.c_stop_tracking_limit_order(market_pair, order_id)
             elif order_type == OrderType.MARKET:
                 self.c_stop_tracking_market_order(market_pair, order_id)
+            elif order_type == OrderType.STOP_LOSS:
+                self.c_stop_tracking_stop_loss_order(market_pair, order_id)
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
         self.c_did_complete_buy_order_tracker(order_completed_event)
@@ -545,6 +549,10 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
+        elif order_type == OrderType.STOP_LOSS:
+            placed_price = Decimal(kwargs.get("placed_price", s_decimal_nan))
+            trigger_price = Decimal(kwargs.get("trigger_price", s_decimal_nan))
+            self.c_start_tracking_stop_loss_order(market_trading_pair_tuple, order_id, True, placed_price, trigger_price, amount)
 
         return order_id
 
@@ -594,6 +602,10 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)
+        elif order_type == OrderType.STOP_LOSS:
+            placed_price = Decimal(kwargs.get("placed_price", s_decimal_nan))
+            trigger_price = Decimal(kwargs.get("trigger_price", s_decimal_nan))
+            self.c_start_tracking_stop_loss_order(market_trading_pair_tuple, order_id, False, placed_price, trigger_price, amount)
 
         return order_id
 
@@ -643,6 +655,18 @@ cdef class StrategyBase(TimeIterator):
 
     def stop_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
         self.c_stop_tracking_market_order(market_pair, order_id)
+
+    cdef c_start_tracking_stop_loss_order(self, object market_pair, str order_id, bint is_buy, object placed_price, object trigger_price, object quantity):
+        self._sb_order_tracker.c_start_tracking_stop_loss_order(market_pair, order_id, is_buy, placed_price, trigger_price, quantity)
+
+    def start_tracking_stop_loss_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, placed_price: Decimal, trigger_price: Decimal, quantity: Decimal):
+        self.c_start_tracking_stop_loss_order(market_pair, order_id, is_buy, placed_price, trigger_price, quantity)
+
+    cdef c_stop_tracking_stop_loss_order(self, object market_pair, str order_id):
+        self._sb_order_tracker.c_stop_tracking_stop_loss_order(market_pair, order_id)
+
+    def stop_tracking_stop_loss_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        self.c_stop_tracking_stop_loss_order(market_pair, order_id)
 
     cdef c_track_restored_orders(self, object market_pair):
         cdef:

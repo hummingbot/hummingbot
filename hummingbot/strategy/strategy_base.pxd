@@ -65,6 +65,8 @@ cdef class StrategyBase(TimeIterator):
     cdef c_stop_tracking_limit_order(self, object market_pair, str order_id)
     cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity)
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id)
+    cdef c_start_tracking_stop_loss_order(self, object market_pair, str order_id, bint is_buy, object placed_price, object trigger_price, object quantity)
+    cdef c_stop_tracking_stop_loss_order(self, object market_pair, str order_id)
     cdef c_track_restored_orders(self, object market_pair)
     cdef object c_sum_flat_fees(self,
                                 str quote_currency,

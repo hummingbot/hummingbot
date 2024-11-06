@@ -34,6 +34,7 @@ cdef class OrderTracker(TimeIterator):
         self._tracked_stop_loss_orders = {}
         self._order_id_to_market_pair = {}
         self._shadow_tracked_limit_orders = {}
+        self._shadow_tracked_stop_loss_orders = {}
         self._shadow_order_id_to_market_pair = {}
         self._shadow_gc_requests = deque()
         self._in_flight_pending_created = set()
@@ -60,17 +61,50 @@ cdef class OrderTracker(TimeIterator):
         return limit_orders
 
     @property
-    def market_pair_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
-        market_pair_to_orders = {}
-        market_pairs = self._tracked_limit_orders.keys()
-        for market_pair in market_pairs:
-            limit_orders = []
-            for limit_order in self._tracked_limit_orders[market_pair].values():
-                if self.c_has_in_flight_cancel(limit_order.client_order_id):
+    def active_stop_loss_orders(self) -> List[Tuple[ConnectorBase, StopLossOrder]]:
+        stop_loss_orders = []
+        for market_pair, orders_map in self._tracked_stop_loss_orders.items():
+            for stop_loss_order in orders_map.values():
+                if self.c_has_in_flight_cancel(stop_loss_order.order_id):
                     continue
-                limit_orders.append(limit_order)
-            market_pair_to_orders[market_pair] = limit_orders
-        return market_pair_to_orders
+                stop_loss_orders.append((market_pair.market, stop_loss_order))
+        return stop_loss_orders
+
+    @property
+    def shadow_stop_loss_orders(self) -> List[Tuple[ConnectorBase, StopLossOrder]]:
+        stop_loss_orders = []
+        for market_pair, orders_map in self._shadow_tracked_stop_loss_orders.items():
+            for stop_loss_order in orders_map.values():
+                if self.c_has_in_flight_cancel(stop_loss_order.order_id):
+                    continue
+                stop_loss_orders.append((market_pair.market, stop_loss_order))
+        return stop_loss_orders
+
+    @property
+    def market_pair_to_active_orders(self) -> tuple[
+        dict[MarketTradingPairTuple, list[LimitOrder | LimitOrder]], dict[MarketTradingPairTuple, list[StopLossOrder]]]:
+        market_pair_to_limit_orders: Dict[MarketTradingPairTuple, List[LimitOrder]] = {}
+        market_pair_to_stop_loss_orders: Dict[MarketTradingPairTuple, List[StopLossOrder]] = {}
+        market_pairs: List[MarketTradingPairTuple] = list(self._tracked_limit_orders.keys())
+        for market_pair in market_pairs:
+            limit_orders: List[LimitOrder] = [
+                limit_order
+                for limit_order in self._tracked_limit_orders[market_pair].values()
+                if not self.c_has_in_flight_cancel(limit_order.client_order_id)
+            ]
+            market_pair_to_limit_orders: Dict[MarketTradingPairTuple, List[LimitOrder]] = {market_pair: limit_orders}
+
+        market_pairs: List[MarketTradingPairTuple] = list(self._tracked_stop_loss_orders.keys())
+        for market_pair in market_pairs:
+            stop_loss_orders: List[StopLossOrder] = [
+                stop_loss_order
+                for stop_loss_order in self._tracked_stop_loss_orders[
+                    market_pair
+                ].values()
+                if not self.c_has_in_flight_cancel(stop_loss_order.order_id)
+            ]
+            market_pair_to_stop_loss_orders: Dict[MarketTradingPairTuple, List[StopLossOrder]] = {market_pair: stop_loss_orders}
+        return market_pair_to_limit_orders, market_pair_to_stop_loss_orders
 
     @property
     def active_bids(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
@@ -168,6 +202,12 @@ cdef class OrderTracker(TimeIterator):
     def get_shadow_limit_orders(self) -> Dict[MarketTradingPairTuple, Dict[str, LimitOrder]]:
         return self.c_get_shadow_limit_orders()
 
+    cdef dict c_get_shadow_stop_loss_orders(self):
+        return self._shadow_tracked_stop_loss_orders
+
+    def get_shadow_stop_loss_orders(self) -> Dict[MarketTradingPairTuple, Dict[str, StopLossOrder]]:
+        return self.c_get_shadow_stop_loss_orders()
+
     cdef bint c_has_in_flight_cancel(self, str order_id):
         return self._in_flight_cancels.get(order_id, NaN) + self.CANCEL_EXPIRY_DURATION > self._current_timestamp
 
@@ -240,6 +280,15 @@ cdef class OrderTracker(TimeIterator):
 
     def get_shadow_limit_order(self, order_id: str) -> LimitOrder:
         return self.c_get_shadow_limit_order(order_id)
+
+    cdef object c_get_shadow_stop_loss_order(self, str order_id):
+        cdef:
+            object market_pair = self._shadow_order_id_to_market_pair.get(order_id)
+
+        return self._shadow_tracked_stop_loss_orders.get(market_pair, {}).get(order_id)
+
+    def get_shadow_stop_loss_order(self, order_id: str) -> StopLossOrder:
+        return self.c_get_shadow_stop_loss_order(order_id)
 
     cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
                                       object quantity):
@@ -316,7 +365,9 @@ cdef class OrderTracker(TimeIterator):
     cdef c_start_tracking_stop_loss_order(self, object market_pair, str order_id, bint is_buy, object placed_price, object trigger_price, object quantity):
         if market_pair not in self._tracked_stop_loss_orders:
             self._tracked_stop_loss_orders[market_pair] = {}
-        self._tracked_stop_loss_orders[market_pair][order_id] = StopLossOrder(
+        if market_pair not in self._shadow_tracked_stop_loss_orders:
+            self._shadow_tracked_stop_loss_orders[market_pair] = {}
+        stop_loss_order = StopLossOrder(
             order_id,
             market_pair.trading_pair,
             is_buy,
@@ -327,7 +378,11 @@ cdef class OrderTracker(TimeIterator):
             float(quantity),
             self._current_timestamp
         )
+
+        self._tracked_stop_loss_orders[market_pair][order_id] = stop_loss_order
+        self._shadow_tracked_stop_loss_orders[market_pair][order_id] = stop_loss_order
         self._order_id_to_market_pair[order_id] = market_pair
+        self._shadow_order_id_to_market_pair[order_id] = market_pair
 
     def start_tracking_stop_loss_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, placed_price: Decimal, trigger_price: Decimal, quantity: Decimal):
         return self.c_start_tracking_stop_loss_order(market_pair, order_id, is_buy, placed_price, trigger_price, quantity)
@@ -337,8 +392,16 @@ cdef class OrderTracker(TimeIterator):
             del self._tracked_stop_loss_orders[market_pair][order_id]
             if len(self._tracked_stop_loss_orders[market_pair]) < 1:
                 del self._tracked_stop_loss_orders[market_pair]
+            self._shadow_gc_requests.append((
+                self._current_timestamp + self.SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION,
+                market_pair,
+                order_id
+            ))
+
         if order_id in self._order_id_to_market_pair:
             del self._order_id_to_market_pair[order_id]
+        if order_id in self._in_flight_cancels:
+            del self._in_flight_cancels[order_id]
 
     def stop_tracking_stop_loss_order(self, market_pair: MarketTradingPairTuple, order_id: str):
         return self.c_stop_tracking_stop_loss_order(market_pair, order_id)
@@ -354,6 +417,13 @@ cdef class OrderTracker(TimeIterator):
                 del self._shadow_tracked_limit_orders[market_pair][order_id]
                 if len(self._shadow_tracked_limit_orders[market_pair]) < 1:
                     del self._shadow_tracked_limit_orders[market_pair]
+
+            if (market_pair in self._shadow_tracked_stop_loss_orders and
+                    order_id in self._shadow_tracked_stop_loss_orders[market_pair]):
+                del self._shadow_tracked_stop_loss_orders[market_pair][order_id]
+                if len(self._shadow_tracked_stop_loss_orders[market_pair]) < 1:
+                    del self._shadow_tracked_stop_loss_orders[market_pair]
+
             if order_id in self._shadow_order_id_to_market_pair:
                 del self._shadow_order_id_to_market_pair[order_id]
 

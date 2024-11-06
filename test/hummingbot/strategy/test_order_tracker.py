@@ -53,7 +53,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
             for i in range(20)
         ]
         cls.stop_loss_orders: List[StopLossOrder] = [
-            StopLossOrder(order_id=f"MARKET//-{i}-{int(time.time() * 1e3)}",
+            StopLossOrder(order_id=f"STOP-LOSS//-{i}-{int(time.time() * 1e3)}",
                           trading_pair=cls.trading_pair,
                           is_buy=True if i % 2 == 0 else False,
                           base_asset=cls.trading_pair.split("-")[0],
@@ -176,17 +176,58 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.shadow_limit_orders) == len(self.limit_orders) - 1)
 
+    def test_active_stop_loss_orders(self):
+        # Check initial output
+        self.assertTrue(len(self.order_tracker.active_stop_loss_orders) == 0)
+
+        # Simulate orders being placed and tracked
+        for order in self.stop_loss_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+            self.simulate_order_created(self.order_tracker, order)
+
+        self.assertTrue(len(self.order_tracker.active_stop_loss_orders) == len(self.stop_loss_orders))
+
+        # Simulates order cancellation request being sent to exchange
+        order_to_cancel = self.stop_loss_orders[0]
+        self.simulate_cancel_order(self.order_tracker, order_to_cancel)
+
+        self.assertTrue(len(self.order_tracker.active_stop_loss_orders) == len(self.stop_loss_orders) - 1)
+
+    def test_shadow_stop_loss_orders(self):
+        # Check initial output
+        self.assertTrue(len(self.order_tracker.shadow_stop_loss_orders) == 0)
+
+        # Simulate orders being placed and tracked
+        for order in self.stop_loss_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+            self.simulate_order_created(self.order_tracker, order)
+
+        self.assertTrue(len(self.order_tracker.shadow_stop_loss_orders) == len(self.stop_loss_orders))
+
+        # Simulates order cancellation request being sent to exchange
+        order_to_cancel = self.stop_loss_orders[0]
+        self.simulate_cancel_order(self.order_tracker, order_to_cancel)
+
+        self.assertTrue(len(self.order_tracker.shadow_stop_loss_orders) == len(self.stop_loss_orders) - 1)
+
     def test_market_pair_to_active_orders(self):
         # Check initial output
-        self.assertTrue(len(self.order_tracker.market_pair_to_active_orders) == 0)
+        print(self.order_tracker.market_pair_to_active_orders)
+        self.assertTrue(self.order_tracker.market_pair_to_active_orders == ({}, {}))
 
         # Simulate orders being placed and tracked
         for order in self.limit_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
+        for order in self.stop_loss_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+            self.simulate_order_created(self.order_tracker, order)
+
         self.assertTrue(
-            len(self.order_tracker.market_pair_to_active_orders[self.market_info]) == len(self.limit_orders))
+            len(self.order_tracker.market_pair_to_active_orders[0][self.market_info]) == len(self.limit_orders))
+        self.assertTrue(
+            len(self.order_tracker.market_pair_to_active_orders[1][self.market_info]) == len(self.stop_loss_orders))
 
     def test_active_bids(self):
         # Check initial output
@@ -338,6 +379,17 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
         self.assertTrue(len(self.order_tracker.in_flight_cancels) == 1)
+
+        # Simulate orders being placed and tracked
+        for order in self.stop_loss_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+            self.simulate_order_created(self.order_tracker, order)
+
+        # Simulates order cancellation request being sent to exchange
+        order_to_cancel = self.stop_loss_orders[0]
+        self.simulate_cancel_order(self.order_tracker, order_to_cancel)
+
+        self.assertTrue(len(self.order_tracker.in_flight_cancels) == 2)
 
     def test_in_flight_pending_created(self):
         # Check initial output
