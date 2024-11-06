@@ -22,7 +22,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import BuyOrderCreatedEvent, OrderFilledEvent, SellOrderCreatedEvent
 from hummingbot.core.network_iterator import NetworkStatus
 
 
@@ -79,10 +79,6 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def balance_url(self):
         url = web_utils.public_rest_url(CONSTANTS.ACCOUNT_INFO_URL)
         return url
-
-    @property
-    def funding_payment_url(self):
-        pass
 
     @property
     def balance_request_mock_response_only_base(self):
@@ -311,14 +307,14 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         mock_response = {
             "balances": [
                 {
-                    "coin": "USDC",
+                    "coin": self.base_asset,
                     "token": 0,
                     "hold": "0.0",
                     "total": "2000",
                     "entryNtl": "0.0"
                 },
                 {
-                    "coin": "PURR",
+                    "coin": self.quote_asset,
                     "token": 1,
                     "hold": "0",
                     "total": "2000",
@@ -1087,6 +1083,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 "closedPnl": "0.0",
                 "coin": self.base_asset,
                 "crossed": False,
+                "dir": "Open Long",
                 "hash": self.expected_fill_trade_id,  # noqa: mock
                 "oid": order.exchange_order_id,
                 "cloid": order.client_order_id,
@@ -1545,3 +1542,190 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000')}."
             )
         )
+
+    @aioresponses()
+    def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="100234",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        trade_fill = {
+            "closedPnl": "0.0",
+            "coin": self.base_asset,
+            "crossed": False,
+            "dir": "Open Long",
+            'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
+            "oid": int(order.exchange_order_id),
+            "px": "9999",
+            "side": "B",
+            "sz": "1",
+            "time": 1499865549590,
+            "fee": "10.10000000",
+            "feeToken": self.quote_asset,
+            "builderFee": "0.01",
+            "tid": 30000
+        }
+
+        trade_fill_non_tracked_order = {
+            "closedPnl": "0.0",
+            "coin": self.base_asset,
+            "crossed": False,
+            "dir": "Open Long",
+            'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
+            "oid": 99999,
+            "px": "9999",
+            "side": "B",
+            "sz": "12.00000000",
+            "time": 1499865549590,
+            "fee": "10.10000000",
+            "feeToken": self.quote_asset,
+            "builderFee": "0.01",
+            "tid": 30000
+        }
+
+        mock_response = [trade_fill, trade_fill_non_tracked_order]
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.exchange.add_exchange_order_ids_from_market_recorder(
+            {str(trade_fill_non_tracked_order["oid"]): "OID99"})
+
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(request)
+        request_params = request.kwargs["params"]
+        self.assertEqual(self.api_key, request_params["user"])
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(order.trade_type, fill_event.trade_type)
+        self.assertEqual(order.order_type, fill_event.order_type)
+        self.assertEqual(Decimal(trade_fill["px"]), fill_event.price)
+        self.assertEqual(Decimal(trade_fill["sz"]), fill_event.amount)
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(trade_fill["feeToken"], Decimal(trade_fill["fee"]))],
+                         fill_event.trade_fee.flat_fees)
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
+        self.assertEqual(float(trade_fill_non_tracked_order["time"]) * 1e-3, fill_event.timestamp)
+        self.assertEqual("OID99", fill_event.order_id)
+        self.assertEqual(self.trading_pair, fill_event.trading_pair)
+        self.assertEqual(TradeType.BUY, fill_event.trade_type)
+        self.assertEqual(OrderType.LIMIT_MAKER, fill_event.order_type)
+        self.assertEqual(Decimal(trade_fill_non_tracked_order["px"]), fill_event.price)
+        self.assertEqual(Decimal(trade_fill_non_tracked_order["sz"]), fill_event.amount)
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([
+            TokenAmount(
+                trade_fill_non_tracked_order["feeToken"],
+                Decimal(trade_fill_non_tracked_order["fee"]))],
+            fill_event.trade_fee.flat_fees)
+        self.assertTrue(self.is_logged(
+            "INFO",
+            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
+        ))
+
+    @aioresponses()
+    def test_update_order_fills_request_parameters(self, mock_api):
+        self.exchange._set_current_timestamp(0)
+        self.exchange._last_poll_timestamp = -1
+
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = []
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(request)
+        request_params = request.kwargs["params"]
+        self.assertNotIn("startTime", request_params)
+
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        self.exchange._last_trades_poll_timestamp = 10
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        request = self._all_executed_requests(mock_api, url)[1]
+        self.validate_auth_credentials_present(request)
+        request_params = request.kwargs["params"]
+        self.assertEqual(10 * 1e3, request_params["startTime"])
+
+    @aioresponses()
+    def test_update_order_fills_from_trades_with_repeated_fill_triggers_only_one_event(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        trade_fill_non_tracked_order = {
+            "closedPnl": "0.0",
+            "coin": self.base_asset,
+            "crossed": False,
+            "dir": "Open Long",
+            'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
+            "oid": 99999,
+            "px": "9999",
+            "side": "B",
+            "sz": "12.00000000",
+            "time": 1499865549590,
+            "fee": "10.10000000",
+            "feeToken": self.quote_asset,
+            "builderFee": "0.01",
+            "tid": 30000
+        }
+
+        mock_response = [trade_fill_non_tracked_order, trade_fill_non_tracked_order]
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.exchange.add_exchange_order_ids_from_market_recorder(
+            {str(trade_fill_non_tracked_order["oid"]): "OID99"})
+
+        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
+
+        request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(request)
+        request_params = request.kwargs["params"]
+        self.assertEqual(self.api_key, request_params["user"])
+
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(float(trade_fill_non_tracked_order["time"]) * 1e-3, fill_event.timestamp)
+        self.assertEqual("OID99", fill_event.order_id)
+        self.assertEqual(self.trading_pair, fill_event.trading_pair)
+        self.assertEqual(TradeType.BUY, fill_event.trade_type)
+        self.assertEqual(OrderType.LIMIT_MAKER, fill_event.order_type)
+        self.assertEqual(Decimal(trade_fill_non_tracked_order["px"]), fill_event.price)
+        self.assertEqual(Decimal(trade_fill_non_tracked_order["sz"]), fill_event.amount)
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([
+            TokenAmount(trade_fill_non_tracked_order["feeToken"],
+                        Decimal(trade_fill_non_tracked_order["fee"]))],
+            fill_event.trade_fee.flat_fees)
+        self.assertTrue(self.is_logged(
+            "INFO",
+            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
+        ))
