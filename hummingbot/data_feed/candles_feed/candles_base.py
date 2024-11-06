@@ -172,7 +172,7 @@ class CandlesBase(NetworkBase):
                 candles = await self.fetch_candles(start_time=current_start_time,
                                                    end_time=current_end_time,
                                                    limit=missing_records)
-                if candles.size <= 1 or missing_records == 0:
+                if len(candles) <= 1 or missing_records == 0:
                     break
                 candles = candles[candles[:, 0] <= current_end_time]
                 current_end_time = self.ensure_timestamp_in_seconds(candles[0][0])
