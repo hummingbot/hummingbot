@@ -60,6 +60,7 @@ class HyperliquidExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._last_trade_history_timestamp = None
+        self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
         super().__init__(client_config_map)
 
@@ -660,6 +661,8 @@ class HyperliquidExchange(ExchangePyBase):
                 "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
             })
         current_state = order_update["order"]["status"]
+        if current_state == "rejected":
+            print("rejected")
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
@@ -685,8 +688,8 @@ class HyperliquidExchange(ExchangePyBase):
 
         if (long_interval_current_tick > long_interval_last_tick
                 or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = int(self._last_trades_poll_binance_timestamp * 1e3)
-            self._last_trades_poll_binance_timestamp = self._time_synchronizer.time()
+            query_time = int(self._last_trades_poll_timestamp * 1e3)
+            self._last_trades_poll_timestamp = self._time_synchronizer.time()
             order_by_exchange_id_map = {}
             for order in self._order_tracker.all_fillable_orders.values():
                 order_by_exchange_id_map[order.exchange_order_id] = order
@@ -740,7 +743,7 @@ class HyperliquidExchange(ExchangePyBase):
                             fill_timestamp=trade["time"] * 1e-3,
                         )
                         self._order_tracker.process_trade_update(trade_update)
-                    elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
+                    elif self.is_confirmed_new_order_filled_event(str(trade["tid"]), exchange_order_id, trading_pair):
                         # This is a fill of an order registered in the DB but not tracked any more
                         self._current_trade_fills.add(TradeFillOrderDetails(
                             market=self.display_name,
@@ -750,7 +753,7 @@ class HyperliquidExchange(ExchangePyBase):
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
                                 timestamp=float(trade["time"]) * 1e-3,
-                                order_id=self._exchange_order_ids.get(str(trade["aid"]), None),
+                                order_id=self._exchange_order_ids.get(str(trade["oid"]), None),
                                 trading_pair=trading_pair,
                                 trade_type=TradeType.BUY if trade["side"] == 'B' else TradeType.SELL,
                                 order_type=OrderType.LIMIT_MAKER if "Open" in trade["dir"] else OrderType.LIMIT,
@@ -764,7 +767,7 @@ class HyperliquidExchange(ExchangePyBase):
                                         )
                                     ]
                                 ),
-                                exchange_trade_id=str(trade["id"])
+                                exchange_trade_id=str(trade["tid"])
                             ))
                         self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 

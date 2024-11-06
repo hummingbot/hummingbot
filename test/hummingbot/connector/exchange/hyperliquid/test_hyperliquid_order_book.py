@@ -9,7 +9,7 @@ class HyperliquidOrderBookTests(TestCase):
     def test_snapshot_message_from_exchange(self):
         snapshot_message = HyperliquidOrderBook.snapshot_message_from_exchange(
             msg={
-                "coin": "COINALPHA", "levels": [
+                "coin": "COINALPHA/USDC", "levels": [
                     [
                         {'px': '2080.3', 'sz': '74.6923', 'n': 2}
                     ],
@@ -40,7 +40,7 @@ class HyperliquidOrderBookTests(TestCase):
     def test_diff_message_from_exchange(self):
         diff_msg = HyperliquidOrderBook.diff_message_from_exchange(
             msg= {
-                'coin': 'COINALPHA', 'time': 1700687397642, 'levels': [
+                'coin': 'COINALPHA/USDC', 'time': 1700687397642, 'levels': [
                     [
                         {'px': '2080.3', 'sz': '74.6923', 'n': 2}
                     ],
@@ -70,7 +70,7 @@ class HyperliquidOrderBookTests(TestCase):
 
     def test_trade_message_from_exchange(self):
         trade_update = {
-            'coin': 'COINALPHA',
+            'coin': 'COINALPHA/USDC',
             'side': 'A',
             'px': '2009.0',
             'sz': '0.0079',

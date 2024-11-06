@@ -92,7 +92,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
     def get_rest_snapshot_msg(self) -> Dict:
         return {
-            "coin": "COINALPHA", "levels": [
+            "coin": "COINALPHA/USDC", "levels": [
                 [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
                  {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
                 [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
@@ -101,21 +101,21 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         }
 
     def get_ws_snapshot_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA', 'time': 1700687397641, 'levels': [
+        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA/USDC', 'time': 1700687397641, 'levels': [
             [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
              {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
              {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
 
     def get_ws_diff_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA', 'time': 1700687397642, 'levels': [
+        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA/USDC', 'time': 1700687397642, 'levels': [
             [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
              {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
              {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
 
     def get_ws_diff_msg_2(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA', 'time': 1700687397642, 'levels': [
+        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA/USDC', 'time': 1700687397642, 'levels': [
             [{'px': '2080.4', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
              {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
@@ -217,11 +217,11 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription_channel = CONSTANTS.TRADES_ENDPOINT_NAME
-        expected_trade_subscription_payload = self.ex_trading_pair.split("-")[0]
+        expected_trade_subscription_payload = self.ex_trading_pair.replace("-", "/")
         self.assertEqual(expected_trade_subscription_channel, sent_subscription_messages[0]["subscription"]["type"])
         self.assertEqual(expected_trade_subscription_payload, sent_subscription_messages[0]["subscription"]["coin"])
         expected_depth_subscription_channel = CONSTANTS.DEPTH_ENDPOINT_NAME
-        expected_depth_subscription_payload = self.ex_trading_pair.split("-")[0]
+        expected_depth_subscription_payload = self.ex_trading_pair.replace("-", "/")
         self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[1]["subscription"]["type"])
         self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[1]["subscription"]["coin"])
 
@@ -358,7 +358,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
         trade_event = {'channel': 'trades', 'data': [
-            {'coin': 'COINALPHA', 'side': 'A', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156061468,
+            {'coin': 'COINALPHA/USDC', 'side': 'A', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156061468,
              'hash': '0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902'}]}  # noqa: mock
 
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
