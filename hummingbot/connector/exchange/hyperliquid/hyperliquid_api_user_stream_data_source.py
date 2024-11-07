@@ -84,18 +84,18 @@ class HyperliquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 payload=orders_change_payload,
                 is_auth_required=True)
 
-            positions_payload = {
+            trades_payload = {
                 "method": "subscribe",
                 "subscription": {
                     "type": "user",
                     "user": self._connector.hyperliquid_api_key,
                 }
             }
-            subscribe_positions_request: WSJSONRequest = WSJSONRequest(
-                payload=positions_payload,
+            subscribe_trades_request: WSJSONRequest = WSJSONRequest(
+                payload=trades_payload,
                 is_auth_required=True)
             await websocket_assistant.send(subscribe_order_change_request)
-            await websocket_assistant.send(subscribe_positions_request)
+            await websocket_assistant.send(subscribe_trades_request)
 
             self.logger().info("Subscribed to private order and trades changes channels...")
         except asyncio.CancelledError:
