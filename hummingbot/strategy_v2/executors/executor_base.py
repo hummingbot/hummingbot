@@ -107,7 +107,7 @@ class ExecutorBase(RunnableBase):
         """
         Returns the executor info.
         """
-        return ExecutorInfo(
+        ei = ExecutorInfo(
             id=self.config.id,
             timestamp=self.config.timestamp,
             type=self.config.type,
@@ -124,6 +124,11 @@ class ExecutorBase(RunnableBase):
             custom_info=self.get_custom_info(),
             controller_id=self.config.controller_id,
         )
+        ei.filled_amount_quote = ei.filled_amount_quote if not ei.filled_amount_quote.is_nan() else Decimal("0")
+        ei.net_pnl_quote = ei.net_pnl_quote if not ei.net_pnl_quote.is_nan() else Decimal("0")
+        ei.cum_fees_quote = ei.cum_fees_quote if not ei.cum_fees_quote.is_nan() else Decimal("0")
+        ei.net_pnl_pct = ei.net_pnl_pct if not ei.net_pnl_pct.is_nan() else Decimal("0")
+        return ei
 
     def get_custom_info(self) -> Dict:
         """

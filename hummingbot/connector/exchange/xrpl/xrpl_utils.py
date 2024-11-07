@@ -211,6 +211,8 @@ async def autofill(
         if "last_ledger_sequence" not in transaction_json:
             ledger_sequence = await get_latest_validated_ledger_sequence(client)
             transaction_json["last_ledger_sequence"] = ledger_sequence + _LEDGER_OFFSET
+        if "source_tag" not in transaction_json:
+            transaction_json["source_tag"] = CONSTANTS.HBOT_SOURCE_TAG_ID
         return Transaction.from_dict(transaction_json)
     except Exception as e:
         if try_count < CONSTANTS.VERIFY_TRANSACTION_MAX_RETRY:

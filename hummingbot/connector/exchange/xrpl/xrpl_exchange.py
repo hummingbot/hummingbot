@@ -1625,7 +1625,6 @@ class XrplExchange(ExchangePyBase):
         *,
         fail_hard: bool = False,
     ) -> Response:
-
         transaction_blob = encode(transaction.to_xrpl())
         response = await client._request_impl(
             SubmitOnly(tx_blob=transaction_blob, fail_hard=fail_hard), timeout=CONSTANTS.REQUEST_TIMEOUT
@@ -1652,6 +1651,7 @@ class XrplExchange(ExchangePyBase):
     ) -> Response:
         try:
             await client.open()
+            client._websocket.max_size = 2**23
 
             if lock is not None:
                 async with lock:
