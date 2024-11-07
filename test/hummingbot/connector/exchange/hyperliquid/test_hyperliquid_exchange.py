@@ -22,7 +22,12 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent, OrderFilledEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    SellOrderCreatedEvent,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 
 
@@ -1460,6 +1465,50 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    @aioresponses()
+    def test_create_order_fails_and_raises_failure_event(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        url = self.order_creation_url
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id = self.place_buy_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        order_to_validate_request = InFlightOrder(
+            client_order_id=order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            creation_timestamp=self.exchange.current_timestamp,
+            price=Decimal("10000")
+        )
+        self.validate_order_creation_request(
+            order=order_to_validate_request,
+            request_call=order_request)
+
+        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order_id, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+            )
+        )
 
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):

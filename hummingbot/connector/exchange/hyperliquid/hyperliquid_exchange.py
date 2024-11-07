@@ -661,8 +661,6 @@ class HyperliquidExchange(ExchangePyBase):
                 "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
             })
         current_state = order_update["order"]["status"]
-        if current_state == "rejected":
-            print("rejected")
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
