@@ -28,7 +28,6 @@ from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, Tok
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -218,18 +217,8 @@ class HyperliquidExchange(ExchangePyBase):
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = is_maker or False
-        fee = build_trade_fee(
-            self.name,
-            is_maker,
-            base_currency=base_currency,
-            quote_currency=quote_currency,
-            order_type=order_type,
-            order_side=order_side,
-            amount=amount,
-            price=price,
-        )
-        return fee
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _update_trading_fees(self):
         """
@@ -416,7 +405,7 @@ class HyperliquidExchange(ExchangePyBase):
         exchange_order_id = str(order_fill.get("oid"))
         fillable_order = all_fillable_order.get(exchange_order_id)
         if fillable_order is not None:
-            fee_asset = fillable_order.quote_asset
+            fee_asset = order_fill["feeToken"]
 
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
@@ -509,7 +498,7 @@ class HyperliquidExchange(ExchangePyBase):
             tracked_order = _cli_tracked_orders[0]
         trading_pair_base_coin = tracked_order.base_asset
         if trade["coin"] == trading_pair_base_coin:
-            fee_asset = tracked_order.quote_asset
+            fee_asset = trade["feeToken"]
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=tracked_order.trade_type,

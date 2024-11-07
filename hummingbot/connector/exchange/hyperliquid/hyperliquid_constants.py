@@ -12,8 +12,8 @@ TESTNET_DOMAIN = "hyperliquid_testnet"
 
 BASE_URL = "https://api.hyperliquid.xyz"
 TESTNET_BASE_URL = "https://api.hyperliquid-testnet.xyz"
-WS_URL = "wss://api.hyperliquid.xyz/ws"
-TESTNET_WS_URL = "wss://api.hyperliquid-testnet.xyz/ws"
+WS_URL = "wss://api-ui.hyperliquid.xyz/ws"
+TESTNET_WS_URL = "wss://api-ui.hyperliquid-testnet.xyz/ws"
 
 
 FUNDING_RATE_UPDATE_INTERNAL_SECOND = 60

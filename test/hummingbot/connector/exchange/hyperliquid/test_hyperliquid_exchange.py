@@ -713,7 +713,8 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
              'tid': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
              'oid': order.exchange_order_id or "EOID1",
              'cloid': order.client_order_id or "",
-             'crossed': True, 'fee': str(self.expected_fill_fee.flat_fees[0].amount), 'liquidationMarkPx': None}]}}
+             'crossed': True, 'fee': str(self.expected_fill_fee.flat_fees[0].amount),
+             'feeToken': str(self.expected_fill_fee.flat_fees[0].token), 'liquidationMarkPx': None}]}}
 
     def test_user_stream_update_for_new_order(self):
         self.exchange._set_current_timestamp(1640780000)
