@@ -86,6 +86,14 @@ class KrakenSpotCandles(CandlesBase):
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
 
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return True
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
     def _get_rest_candles_params(self,
                                  start_time: Optional[int] = None,
                                  end_time: Optional[int] = None,
@@ -119,7 +127,7 @@ class KrakenSpotCandles(CandlesBase):
             new_hb_candles.append([timestamp, open, high, low, close, volume,
                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                    taker_buy_quote_volume])
-        return [candle for candle in new_hb_candles if candle[0] < end_time]
+        return [candle for candle in new_hb_candles]
 
     def ws_subscription_payload(self):
         return {

@@ -682,3 +682,36 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             initial_state=OrderState.OPEN
         )
         await position_executor.control_task()
+
+    @patch.object(PositionExecutor, "get_price")
+    def test_is_within_activation_bounds_long(self, mock_price):
+        mock_price.return_value = Decimal("100")
+        position_config = self.get_position_config_market_long()
+        position_config.activation_bounds = [Decimal("0.001"), Decimal("0.01")]
+        position_config.triple_barrier_config.open_order_type = OrderType.MARKET
+        executor = PositionExecutor(self.strategy, position_config)
+        self.assertTrue(executor._is_within_activation_bounds(Decimal("100.0"), TradeType.BUY, OrderType.MARKET))
+        self.assertFalse(executor._is_within_activation_bounds(Decimal("101.0"), TradeType.BUY, OrderType.MARKET))
+        self.assertTrue(executor._is_within_activation_bounds(Decimal("99.9"), TradeType.BUY, OrderType.LIMIT))
+        self.assertFalse(executor._is_within_activation_bounds(Decimal("99.7"), TradeType.BUY, OrderType.LIMIT))
+
+    @patch.object(PositionExecutor, "get_price")
+    def test_is_within_activation_bounds_market_short(self, mock_price):
+        mock_price.return_value = Decimal("100")
+        position_config = self.get_position_config_market_short()
+        position_config.activation_bounds = [Decimal("0.001"), Decimal("0.01")]
+        position_config.triple_barrier_config.open_order_type = OrderType.MARKET
+        executor = PositionExecutor(self.strategy, position_config)
+        self.assertTrue(executor._is_within_activation_bounds(Decimal("100"), TradeType.SELL, OrderType.MARKET))
+        self.assertFalse(executor._is_within_activation_bounds(Decimal("99.9"), TradeType.SELL, OrderType.MARKET))
+        self.assertTrue(executor._is_within_activation_bounds(Decimal("100.1"), TradeType.SELL, OrderType.LIMIT))
+        self.assertFalse(executor._is_within_activation_bounds(Decimal("100.3"), TradeType.SELL, OrderType.LIMIT))
+
+    def test_failed_executor_info(self):
+        position_config = self.get_position_config_market_short()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor.close_type = CloseType.FAILED
+        type(position_executor).filled_amount_quote = PropertyMock(return_value=Decimal("0"))
+        executor_info = position_executor.executor_info
+        self.assertEqual(executor_info.close_type, CloseType.FAILED)
+        self.assertEqual(executor_info.net_pnl_pct, Decimal("0"))
