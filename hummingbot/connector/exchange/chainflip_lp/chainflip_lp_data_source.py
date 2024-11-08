@@ -173,6 +173,21 @@ class ChainflipLpDataSource:
             raise ValueError(f"Error placing order {order_id} in Chainflip LP")
         return place_order_response["order_id"], timestamp
 
+    def quantize_order_price(self, trading_pair: str, price: Decimal):
+        asset = DataFormatter.format_trading_pair(trading_pair, self._assets_list)
+        tick_converted = self._rpc_executor._calculate_tick(
+            float(Decimal(price)),
+            asset["base_asset"],
+            asset["quote_asset"]
+        )
+        price_from_tick = DataFormatter.convert_tick_to_price(
+            tick_converted,
+            asset["base_asset"],
+            asset["quote_asset"]
+        )
+        str_order_price = f"{price_from_tick:.5f}"
+        return Decimal(str_order_price)
+
     async def place_cancel(self, order_id: str, trading_pair: str, tracked_order: InFlightOrder):
         asset_list = await self.assets_list()
         asset = DataFormatter.format_trading_pair(trading_pair, asset_list)
