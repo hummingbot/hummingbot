@@ -197,6 +197,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         sell_amount: Decimal,
     ):
         tick = self._calculate_tick(float(order_price), base_asset, quote_asset)
+        self.logger().info(f"tick: {tick}")
         if side == CONSTANTS.SIDE_BUY:
             amount = DataFormatter.format_amount(float(sell_amount), quote_asset)
         else:
@@ -215,7 +216,8 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not response["status"]:
             self.logger().error("Could not place order")
             return False
-        return DataFormatter.format_place_order_response(response["data"])
+        return_data = DataFormatter.format_place_order_response(response["data"])
+        return return_data
 
     async def cancel_order(
         self,
@@ -392,13 +394,11 @@ class RPCQueryExecutor(BaseRPCExecutor):
         """
         calculate ticks
         """
-        base_precision = DataFormatter.format_asset_precision(base_asset)
-        quote_precision = DataFormatter.format_asset_precision(quote_asset)
-        full_price = (price * quote_precision) / base_precision
-        log_price = math.log(full_price) / math.log(1.0001)
-        bounded_price = max(CONSTANTS.LOWER_TICK_BOUND, min(log_price, CONSTANTS.UPPER_TICK_BOUND))
-        tick_price = round(bounded_price)
-        return tick_price
+        base_decimal = DataFormatter.format_asset_decimal(base_asset)
+        quote_decimal = DataFormatter.format_asset_decimal(quote_asset)
+        quote = price * pow(10, quote_decimal - base_decimal)
+        tick = round(math.log(quote) / math.log(1.0001))
+        return min(max(tick, -887272), 887272)
 
     def _get_current_rpc_url(self, domain: str):
         return CONSTANTS.REST_RPC_URLS[domain]

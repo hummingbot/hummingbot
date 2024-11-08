@@ -1,4 +1,5 @@
 import logging
+import math
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -135,6 +136,12 @@ class DataFormatter:
             cls.logger().error(f"Asset Precision for asset: {asset['asset']} not found in CONSTANST.ASSET_PRECISIONS['{asset['chain']}']")
             raise Exception(f"Asset Precision for asset: {asset['asset']} not found in CONSTANST.ASSET_PRECISIONS['{asset['chain']}']")
         return CONSTANTS.ASSET_PRECISIONS[asset["chain"]][asset["asset"]]
+
+    @classmethod
+    def format_asset_decimal(cls, asset: Dict[str, str]):
+        precision = cls.format_asset_precision(asset)
+        decimal = int(math.log10(precision))
+        return decimal
 
     @classmethod
     def format_orderbook_response(cls, response: Dict, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
@@ -312,11 +319,10 @@ class DataFormatter:
 
     @classmethod
     def convert_tick_to_price(cls, tick: int, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
-        base_precision = cls.format_asset_precision(base_asset)
-        quote_precision = cls.format_asset_precision(quote_asset)
-        raw_price = 1.0001**tick
-        price = (raw_price * base_precision) / quote_precision
-        return price
+        base_decimal = cls.format_asset_decimal(base_asset)
+        quote_decimal = cls.format_asset_decimal(quote_asset)
+        quote = pow(1.0001, tick)
+        return quote * pow(10, base_decimal - quote_decimal)
 
     @classmethod
     def convert_bot_id_to_int(cls, id: str):
