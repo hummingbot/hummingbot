@@ -21,9 +21,9 @@ class DCAExample(ScriptStrategyBase):
     #: The last time the strategy places a buy order
     last_ordered_ts = 0.
     #: Buying interval (in seconds)
-    buy_interval = 60.
+    buy_interval = 120.
     #: Buying amount (in dollars - USDT)
-    buy_quote_amount = Decimal("100")
+    buy_quote_amount = Decimal("10")
 
     def on_tick(self):
         # Check if it is time to buy
@@ -32,9 +32,9 @@ class DCAExample(ScriptStrategyBase):
             price = self.connectors["kraken"].get_price("BTC-USD", False)
             amount = self.buy_quote_amount / price
             self.buy("kraken", "BTC-USD", amount, OrderType.LIMIT, price)
-            self.sell("kraken", "BTC-USD", amount * Decimal("0.5"), OrderType.STOP_LOSS, Decimal("2"), price_in_percent=True)
-            self.sell("kraken", "BTC-USD", amount * Decimal("0.5"), OrderType.TAKE_PROFIT, Decimal("10"), price_in_percent=True)
-            self.sell("kraken", "BTC-USD", amount * Decimal("0.5"), OrderType.TRAILING_STOP, Decimal("1"), price_in_percent=True)
+            self.sell("kraken", "BTC-USD", amount * Decimal("0.5"), OrderType.STOP_LOSS, Decimal("0.1"), price_in_percent=True)
+            # self.sell("kraken", "BTC-USD", amount * Decimal("0.5"), OrderType.TAKE_PROFIT, Decimal("10"), price_in_percent=True)
+            # self.sell("kraken", "BTC-USD", amount * Decimal("0.5"), OrderType.TRAILING_STOP, Decimal("1"), price_in_percent=True)
             self.last_ordered_ts = self.current_timestamp
 
     def did_create_buy_order(self, event: BuyOrderCreatedEvent):

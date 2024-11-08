@@ -14,9 +14,9 @@ from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import Quant
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.delayed_market_order import DelayedMarketOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
-from hummingbot.core.data_type.stop_loss_order import StopLossOrder
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
@@ -36,7 +36,18 @@ class ExtendedMockPaperExchange(MockPaperExchange):
     def limit_orders(self) -> List[LimitOrder]:
         return [
             in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
+            for in_flight_order in self._in_flight_orders.values() if in_flight_order.order_type == OrderType.LIMIT
+        ]
+
+    @property
+    def delayed_market_orders(self) -> List[DelayedMarketOrder]:
+        return [
+            in_flight_order.to_delayed_market_order()
+            for in_flight_order in self._in_flight_orders.values() if (
+                in_flight_order.order_type == OrderType.STOP_LOSS
+                or in_flight_order.order_type == OrderType.TAKE_PROFIT
+                or in_flight_order.order_type == OrderType.TRAILING_STOP
+            )
         ]
 
     def restored_market_states(self, saved_states: Dict[str, any]):
@@ -89,7 +100,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.strategy.order_tracker._set_current_timestamp(1640001112.223)
 
     @staticmethod
-    def simulate_order_filled(market_info: MarketTradingPairTuple, order: Union[LimitOrder, MarketOrder, StopLossOrder]):
+    def simulate_order_filled(market_info: MarketTradingPairTuple, order: Union[LimitOrder, MarketOrder, DelayedMarketOrder]):
 
         if isinstance(order, LimitOrder):
             order_type = OrderType.LIMIT
@@ -99,7 +110,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
             order_type = OrderType.MARKET
             quantity = order.amount
             price = None
-        elif isinstance(order, StopLossOrder):
+        elif isinstance(order, DelayedMarketOrder):
             order_type = OrderType.STOP_LOSS
             quantity = order.amount
             price = order.trigger_price
@@ -222,13 +233,14 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.assertEqual(market_order.trading_pair, tracked_market_order.trading_pair)
         self.assertEqual(market_order.amount, tracked_market_order.amount)
 
-        stop_loss_order: StopLossOrder = StopLossOrder(
-            order_id="market_test",
+        stop_loss_order: DelayedMarketOrder = DelayedMarketOrder(
+            order_id="stop_loss_test",
+            order_type=OrderType.STOP_LOSS.value,
             trading_pair=self.trading_pair,
             is_buy=True,
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
-            placed_price=Decimal("90"),
+            reference_price=Decimal("90"),
             trigger_price=Decimal("100"),
             amount=Decimal("100"),
             timestamp =int(time.time() * 1e3)
@@ -239,11 +251,11 @@ class StrategyBaseUnitTests(unittest.TestCase):
             market_trading_pair_tuple=self.market_info,
             order_type=OrderType.STOP_LOSS,
             amount=stop_loss_order.amount,
-            placed_price=stop_loss_order.placed_price,
+            reference_price=stop_loss_order.reference_price,
             trigger_price=stop_loss_order.trigger_price,
         )
 
-        tracked_stop_loss_order: StopLossOrder = self.strategy.order_tracker.get_stop_loss_order(self.market_info, stop_loss_order_id)
+        tracked_stop_loss_order: DelayedMarketOrder = self.strategy.order_tracker.get_delayed_market_order(self.market_info, stop_loss_order_id)
 
         # Note: order_id generate here is random
         self.assertIsNotNone(stop_loss_order_id)
@@ -251,7 +263,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.assertEqual(stop_loss_order.is_buy, tracked_stop_loss_order.is_buy)
         self.assertEqual(stop_loss_order.trading_pair, tracked_stop_loss_order.trading_pair)
         self.assertEqual(stop_loss_order.amount, tracked_stop_loss_order.amount)
-        self.assertEqual(stop_loss_order.placed_price, tracked_stop_loss_order.placed_price)
+        self.assertEqual(stop_loss_order.reference_price, tracked_stop_loss_order.reference_price)
         self.assertEqual(stop_loss_order.trigger_price, tracked_stop_loss_order.trigger_price)
 
     def test_sell_with_specific_market(self):
@@ -307,13 +319,14 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.assertEqual(market_order.trading_pair, tracked_market_order.trading_pair)
         self.assertEqual(market_order.amount, tracked_market_order.amount)
 
-        stop_loss_order: StopLossOrder = StopLossOrder(
+        stop_loss_order: DelayedMarketOrder = DelayedMarketOrder(
             order_id="market_test",
+            order_type=OrderType.STOP_LOSS.value,
             trading_pair=self.trading_pair,
             is_buy=False,
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
-            placed_price=Decimal("100"),
+            reference_price=Decimal("100"),
             trigger_price=Decimal("90"),
             amount=Decimal("100"),
             timestamp =int(time.time() * 1e3)
@@ -324,11 +337,11 @@ class StrategyBaseUnitTests(unittest.TestCase):
             market_trading_pair_tuple=self.market_info,
             order_type=OrderType.STOP_LOSS,
             amount=stop_loss_order.amount,
-            placed_price=stop_loss_order.placed_price,
+            reference_price=stop_loss_order.reference_price,
             trigger_price=stop_loss_order.trigger_price,
         )
 
-        tracked_stop_loss_order: StopLossOrder = self.strategy.order_tracker.get_stop_loss_order(self.market_info, stop_loss_order_id)
+        tracked_stop_loss_order: DelayedMarketOrder = self.strategy.order_tracker.get_delayed_market_order(self.market_info, stop_loss_order_id)
 
         # Note: order_id generate here is random
         self.assertIsNotNone(stop_loss_order_id)
@@ -336,7 +349,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.assertEqual(stop_loss_order.is_buy, tracked_stop_loss_order.is_buy)
         self.assertEqual(stop_loss_order.trading_pair, tracked_stop_loss_order.trading_pair)
         self.assertEqual(stop_loss_order.amount, tracked_stop_loss_order.amount)
-        self.assertEqual(stop_loss_order.placed_price, tracked_stop_loss_order.placed_price)
+        self.assertEqual(stop_loss_order.reference_price, tracked_stop_loss_order.reference_price)
         self.assertEqual(stop_loss_order.trigger_price, tracked_stop_loss_order.trigger_price)
 
     def test_cancel_order(self):
@@ -361,13 +374,14 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.strategy.cancel_order(self.market_info, limit_order_id)
         self.assertEqual(0, len(self.strategy.order_tracker.in_flight_cancels))
 
-        stop_loss_order: StopLossOrder = StopLossOrder(
+        stop_loss_order: DelayedMarketOrder = DelayedMarketOrder(
             order_id="stop_loss_test",
+            order_type=OrderType.STOP_LOSS.value,
             trading_pair=self.trading_pair,
             is_buy=True,
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
-            placed_price=Decimal("90"),
+            reference_price=Decimal("90"),
             trigger_price=Decimal("100"),
             amount=Decimal("50"),
             timestamp =int(time.time() * 1e3))
@@ -375,13 +389,13 @@ class StrategyBaseUnitTests(unittest.TestCase):
         stop_loss_order_id: str = self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
             order_type=OrderType.STOP_LOSS,
-            placed_price=stop_loss_order.placed_price,
+            reference_price=stop_loss_order.reference_price,
             trigger_price=stop_loss_order.trigger_price,
             amount=stop_loss_order.quantity,
         )
 
         self.strategy.cancel_order(self.market_info, stop_loss_order_id)
-        self.assertEqual(1, len(self.strategy.order_tracker.in_flight_cancels))
+        self.assertEqual(0, len(self.strategy.order_tracker.in_flight_cancels))
 
     def test_start_tracking_limit_order(self):
         self.assertEqual(0, len(self.strategy.order_tracker.tracked_limit_orders))
@@ -403,6 +417,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
         )
 
         self.assertEqual(1, len(self.strategy.order_tracker.tracked_limit_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_limit_orders))
 
     def test_stop_tracking_limit_order(self):
         self.assertEqual(0, len(self.strategy.order_tracker.tracked_limit_orders))
@@ -424,6 +439,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
         )
 
         self.assertEqual(1, len(self.strategy.order_tracker.tracked_limit_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_limit_orders))
 
         self.strategy.cancel_order(self.market_info, limit_order_id)
         self.assertEqual(0, len(self.strategy.order_tracker.tracked_limit_orders))
@@ -473,16 +489,17 @@ class StrategyBaseUnitTests(unittest.TestCase):
         # Note: MarketOrder is assumed to be filled once placed.
         self.assertEqual(1, len(self.strategy.order_tracker.tracked_market_orders))
 
-    def test_start_tracking_stop_loss_order(self):
-        self.assertEqual(0, len(self.strategy.order_tracker.tracked_limit_orders))
+    def test_start_tracking_delayed_market_order(self):
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
 
-        stop_loss_order: StopLossOrder = StopLossOrder(
-            order_id="market_test",
+        delayed_market_order: DelayedMarketOrder = DelayedMarketOrder(
+            order_id="stop_loss_test",
+            order_type=OrderType.STOP_LOSS.value,
             trading_pair=self.trading_pair,
             is_buy=True,
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
-            placed_price=Decimal("90"),
+            reference_price=Decimal("90"),
             trigger_price=Decimal("100"),
             amount=Decimal("100"),
             timestamp =int(time.time() * 1e3),
@@ -492,42 +509,160 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
             order_type=OrderType.STOP_LOSS,
-            amount=stop_loss_order.amount,
-            placed_price=stop_loss_order.placed_price,
-            trigger_price=stop_loss_order.trigger_price
+            amount=delayed_market_order.amount,
+            reference_price=delayed_market_order.reference_price,
+            trigger_price=delayed_market_order.trigger_price
         )
 
-        self.assertEqual(1, len(self.strategy.order_tracker.tracked_stop_loss_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_delayed_market_orders))
 
-    def test_stop_tracking_stop_loss_order(self):
-        self.assertEqual(0, len(self.strategy.order_tracker.tracked_limit_orders))
+    def test_stop_tracking_delayed_market_order(self):
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
 
-        stop_loss_order: StopLossOrder = StopLossOrder(
-            order_id="market_test",
+        delayed_market_order: DelayedMarketOrder = DelayedMarketOrder(
+            order_id="stop_loss_test",
+            order_type=OrderType.STOP_LOSS.value,
             trading_pair=self.trading_pair,
             is_buy=True,
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
-            placed_price=Decimal("90"),
+            reference_price=Decimal("90"),
             trigger_price=Decimal("100"),
             amount=Decimal("100"),
             timestamp =int(time.time() * 1e3)
         )
 
         # Note: order_id generate here is random
-        stop_loss_order_id: str = self.strategy.buy_with_specific_market(
+        delayed_market_order_id: str = self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
             order_type=OrderType.STOP_LOSS,
-            amount=stop_loss_order.amount,
-            placed_price=stop_loss_order.placed_price,
-            trigger_price=stop_loss_order.trigger_price
+            amount=delayed_market_order.amount,
+            reference_price=delayed_market_order.reference_price,
+            trigger_price=delayed_market_order.trigger_price
         )
-        self.strategy.cancel_order(self.market_info, stop_loss_order_id)
-        # Note: Stop-loss is assumed NOT to be filled once placed.
-        self.assertEqual(1, len(self.strategy.order_tracker.tracked_stop_loss_orders))
 
-        self.strategy.cancel_order(self.market_info, stop_loss_order_id)
-        self.assertEqual(0, len(self.strategy.order_tracker.tracked_limit_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_delayed_market_orders))
+
+        self.strategy.cancel_order(self.market_info, delayed_market_order_id)
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+
+    def test_start_tracking_take_profit_order(self):
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+
+        take_profit_order: DelayedMarketOrder = DelayedMarketOrder(
+            order_id="take_profit_test",
+            order_type=OrderType.TAKE_PROFIT.value,
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_asset=self.trading_pair.split("-")[0],
+            quote_asset=self.trading_pair.split("-")[1],
+            reference_price=Decimal("90"),
+            trigger_price=Decimal("100"),
+            amount=Decimal("100"),
+            timestamp =int(time.time() * 1e3),
+        )
+
+        # Note: order_id generate here is random
+        self.strategy.buy_with_specific_market(
+            market_trading_pair_tuple=self.market_info,
+            order_type=OrderType.TAKE_PROFIT,
+            amount=take_profit_order.amount,
+            reference_price=take_profit_order.reference_price,
+            trigger_price=take_profit_order.trigger_price
+        )
+
+        self.assertEqual(1, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_delayed_market_orders))
+
+    def test_stop_tracking_take_profit_order(self):
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+
+        take_profit_order: DelayedMarketOrder = DelayedMarketOrder(
+            order_id="take_profit_test",
+            order_type=OrderType.TAKE_PROFIT.value,
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_asset=self.trading_pair.split("-")[0],
+            quote_asset=self.trading_pair.split("-")[1],
+            reference_price=Decimal("90"),
+            trigger_price=Decimal("100"),
+            amount=Decimal("100"),
+            timestamp =int(time.time() * 1e3)
+        )
+
+        # Note: order_id generate here is random
+        take_profit_order_id: str = self.strategy.buy_with_specific_market(
+            market_trading_pair_tuple=self.market_info,
+            order_type=OrderType.TAKE_PROFIT,
+            amount=take_profit_order.amount,
+            reference_price=take_profit_order.reference_price,
+            trigger_price=take_profit_order.trigger_price
+        )
+        self.assertEqual(1, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_delayed_market_orders))
+
+        self.strategy.cancel_order(self.market_info, take_profit_order_id)
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+
+    def test_start_tracking_trailing_stop_order(self):
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+
+        trailing_stop_order: DelayedMarketOrder = DelayedMarketOrder(
+            order_id="trailing_stop_test",
+            order_type=OrderType.TRAILING_STOP.value,
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_asset=self.trading_pair.split("-")[0],
+            quote_asset=self.trading_pair.split("-")[1],
+            reference_price=Decimal("90"),
+            trigger_price=Decimal("100"),
+            amount=Decimal("100"),
+            timestamp =int(time.time() * 1e3),
+        )
+
+        # Note: order_id generate here is random
+        self.strategy.buy_with_specific_market(
+            market_trading_pair_tuple=self.market_info,
+            order_type=OrderType.TRAILING_STOP,
+            amount=trailing_stop_order.amount,
+            reference_price=trailing_stop_order.reference_price,
+            trigger_price=trailing_stop_order.trigger_price
+        )
+
+        self.assertEqual(1, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_delayed_market_orders))
+
+    def test_stop_tracking_trailing_stop_order(self):
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+
+        trailing_stop_order: DelayedMarketOrder = DelayedMarketOrder(
+            order_id="trailing_stop_test",
+            order_type=OrderType.TRAILING_STOP.value,
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_asset=self.trading_pair.split("-")[0],
+            quote_asset=self.trading_pair.split("-")[1],
+            reference_price=Decimal("90"),
+            trigger_price=Decimal("100"),
+            amount=Decimal("100"),
+            timestamp =int(time.time() * 1e3)
+        )
+
+        # Note: order_id generate here is random
+        trailing_stop_order_id: str = self.strategy.buy_with_specific_market(
+            market_trading_pair_tuple=self.market_info,
+            order_type=OrderType.TRAILING_STOP,
+            amount=trailing_stop_order.amount,
+            reference_price=trailing_stop_order.reference_price,
+            trigger_price=trailing_stop_order.trigger_price
+        )
+        self.assertEqual(1, len(self.strategy.order_tracker.tracked_delayed_market_orders))
+        self.assertEqual(1, len(self.strategy.order_tracker.shadow_delayed_market_orders))
+
+        self.strategy.cancel_order(self.market_info, trailing_stop_order_id)
+        self.assertEqual(0, len(self.strategy.order_tracker.tracked_delayed_market_orders))
 
     def test_track_restored_order(self):
 

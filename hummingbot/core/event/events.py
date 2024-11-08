@@ -108,12 +108,14 @@ class SellOrderCompletedEvent:
 class OrderCancelledEvent:
     timestamp: float
     order_id: str
+    order_type: Optional[OrderType] = None
     exchange_order_id: Optional[str] = None
 
 
 class OrderExpiredEvent(NamedTuple):
     timestamp: float
     order_id: str
+    order_type: Optional[OrderType] = None
 
 
 @dataclass

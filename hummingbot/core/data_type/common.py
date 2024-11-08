@@ -15,6 +15,9 @@ class OrderType(Enum):
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
+    def is_delayed_market_type(self):
+        return self in (OrderType.STOP_LOSS, OrderType.TAKE_PROFIT, OrderType.TRAILING_STOP)
+
 
 class OpenOrder(NamedTuple):
     client_order_id: str

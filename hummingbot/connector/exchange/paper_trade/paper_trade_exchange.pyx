@@ -5,7 +5,7 @@ import math
 import random
 from collections import defaultdict, deque
 from decimal import Decimal, ROUND_DOWN
-from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Any
 
 from cpython cimport PyObject
 from cython.operator cimport address, dereference as deref, postincrement as inc
@@ -110,6 +110,23 @@ cdef class QueuedOrder:
                 f"{self.amount})")
 
 
+cdef class DelayedOrder(QueuedOrder):
+    cdef:
+        object _order_type
+
+    def __init__(self, create_timestamp: float, order_id: str, order_type: int, is_buy: bool, trading_pair: str, amount: Decimal):
+        super().__init__(create_timestamp, order_id, is_buy, trading_pair, amount)
+        self._order_type = order_type
+
+    @property
+    def order_type(self) -> str:
+        return self._order_type
+
+    def __repr__(self) -> str:
+        return (f"DelayedOrder({self.create_timestamp}, '{self.order_id}', '{self.order_type}', {self.is_buy}, '{self.trading_pair}', "
+                f"{self.amount})")
+
+
 cdef class OrderBookTradeListener(EventListener):
     cdef:
         ExchangeBase _market
@@ -168,6 +185,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._paper_trade_market_initialized = False
         self._trading_pairs = {}
         self._queued_orders = deque()
+        self._delayed_market_orders = deque()
         self._quantization_params = {}
         self._order_book_trade_listener = OrderBookTradeListener(self)
         self._target_market = target_market
@@ -241,6 +259,10 @@ cdef class PaperTradeExchange(ExchangeBase):
     @property
     def queued_orders(self) -> List[QueuedOrder]:
         return self._queued_orders
+
+    @property
+    def delayed_market_orders(self) -> deque[Any]:
+        return self._delayed_market_orders
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -347,6 +369,10 @@ cdef class PaperTradeExchange(ExchangeBase):
         quantized_amount = self.c_quantize_order_amount(trading_pair_str, amount)
         if order_type is OrderType.MARKET:
             self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, trading_pair_str,
+                                                   quantized_amount))
+        elif order_type in (OrderType.STOP_LOSS, OrderType.TAKE_PROFIT, OrderType.TRAILING_STOP):
+            self._delayed_market_orders.append(DelayedOrder(
+                self._current_timestamp, order_id, order_type,True, trading_pair_str,
                                                    quantized_amount))
         elif order_type is OrderType.LIMIT:
 
@@ -998,6 +1024,26 @@ cdef class PaperTradeExchange(ExchangeBase):
         except Exception as err:
             self.logger().error(f"Error canceling order.", exc_info=True)
 
+    cdef object c_cancel_order_from_delayed_market_orders(self,
+                                               object delayed_market_orders,
+                                               str trading_pair_str,
+                                               bint cancel_all=False,
+                                               str client_order_id=None):
+        cdef:
+            list cancellation_results = []
+        try:
+            for order in delayed_market_orders:
+                if (not cancel_all and order.order_id == client_order_id) or cancel_all:
+                    cancellation_results.append(CancellationResult(order.order_id, True))
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
+                                         OrderCancelledEvent(self._current_timestamp,
+                                                             order.order_id,
+                                                             order.order_type)
+                                         )
+            return cancellation_results
+        except Exception as err:
+            self.logger().error(f"Error canceling order.", exc_info=True)
+
     cdef c_cancel(self, str trading_pair_str, str client_order_id):
         cdef:
             string cpp_trading_pair = trading_pair_str.encode("utf8")
@@ -1008,6 +1054,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                                  if is_maker_buy
                                                  else address(self._ask_limit_orders))
         self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, False, client_order_id)
+        self.c_cancel_order_from_delayed_market_orders(self._delayed_market_orders, trading_pair_str, False, client_order_id)
 
     cdef object c_get_fee(self,
                           str base_asset,

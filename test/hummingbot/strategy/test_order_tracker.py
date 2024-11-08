@@ -10,9 +10,10 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExchange
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.delayed_market_order import DelayedMarketOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
-from hummingbot.core.data_type.stop_loss_order import StopLossOrder
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker import OrderTracker
 
@@ -52,17 +53,19 @@ class OrderTrackerUnitTests(unittest.TestCase):
                         )
             for i in range(20)
         ]
-        cls.stop_loss_orders: List[StopLossOrder] = [
-            StopLossOrder(order_id=f"STOP-LOSS//-{i}-{int(time.time() * 1e3)}",
-                          trading_pair=cls.trading_pair,
-                          is_buy=True if i % 2 == 0 else False,
-                          base_asset=cls.trading_pair.split("-")[0],
-                          quote_asset=cls.trading_pair.split("-")[1],
-                          placed_price=Decimal(f"{100 - i}") if i % 2 == 0 else Decimal(f"{100 + i}"),
-                          trigger_price=Decimal(f"{100 - 2 * i}") if i % 2 == 0 else Decimal(f"{100 + 2 * i}"),
-                          amount=float(f"{10 * (i + 1)}"),
-                          timestamp=time.time()
-                          )
+        cls.delayed_market_orders: List[DelayedMarketOrder] = [
+            DelayedMarketOrder(
+                order_id=f"STOP-LOSS//-{i}-{int(time.time() * 1e3)}",
+                order_type=OrderType.STOP_LOSS.value,
+                trading_pair=cls.trading_pair,
+                is_buy=True if i % 2 == 0 else False,
+                base_asset=cls.trading_pair.split("-")[0],
+                quote_asset=cls.trading_pair.split("-")[1],
+                reference_price=float(f"{100 - i}") if i % 2 == 0 else f"{100 + i}",
+                trigger_price=float(f"{100 - i - 10}") if i % 2 == 0 else f"{100 + i + 10}",
+                amount=float(f"{10 * (i + 1)}"),
+                timestamp=time.time()
+            )
             for i in range(20)
         ]
 
@@ -82,7 +85,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
     @staticmethod
     def simulate_place_order(
             order_tracker: OrderTracker,
-            order: Union[LimitOrder, MarketOrder, StopLossOrder],
+            order: Union[LimitOrder, MarketOrder, DelayedMarketOrder],
             market_info: MarketTradingPairTuple
     ):
         """
@@ -103,23 +106,26 @@ class OrderTrackerUnitTests(unittest.TestCase):
                                                       is_buy=order.is_buy,
                                                       quantity=Decimal(order.amount)
                                                       )
-        elif isinstance(order, StopLossOrder):
+        elif isinstance(order, DelayedMarketOrder):
             order_tracker.add_create_order_pending(order.order_id)
-            order_tracker.start_tracking_stop_loss_order(market_pair=market_info,
-                                                         order_id=order.order_id,
-                                                         is_buy=order.is_buy,
-                                                         placed_price=Decimal(order.placed_price),
-                                                         trigger_price=Decimal(order.trigger_price),
-                                                         quantity=Decimal(order.amount)
-                                                         )
+            order_tracker.start_tracking_delayed_market_order(
+                market_pair=market_info,
+                order_id=order.order_id,
+                order_type=order.order_type,
+                is_buy=order.is_buy,
+                reference_price=Decimal(order.reference_price),
+                trigger_price=Decimal(order.trigger_price),
+                quantity=Decimal(order.amount)
+            )
 
     @staticmethod
-    def simulate_order_created(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, StopLossOrder]):
+    def simulate_order_created(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, DelayedMarketOrder]):
         order_id = order.client_order_id if isinstance(order, LimitOrder) else order.order_id
         order_tracker.remove_create_order_pending(order_id)
 
     @staticmethod
-    def simulate_stop_tracking_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, StopLossOrder],
+    def simulate_stop_tracking_order(order_tracker: OrderTracker,
+                                     order: Union[LimitOrder, MarketOrder, DelayedMarketOrder],
                                      market_info: MarketTradingPairTuple):
         """
         Simulates an order being cancelled or filled completely.
@@ -128,13 +134,17 @@ class OrderTrackerUnitTests(unittest.TestCase):
             order_tracker.stop_tracking_limit_order(market_pair=market_info,
                                                     order_id=order.client_order_id,
                                                     )
-        elif isinstance(order, (MarketOrder, StopLossOrder)):
+        elif isinstance(order, MarketOrder):
             order_tracker.stop_tracking_market_order(market_pair=market_info,
                                                      order_id=order.order_id
                                                      )
+        elif isinstance(order, DelayedMarketOrder):
+            order_tracker.stop_tracking_delayed_market_order(market_pair=market_info,
+                                                             order_id=order.order_id
+                                                             )
 
     @staticmethod
-    def simulate_cancel_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, StopLossOrder]):
+    def simulate_cancel_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder, DelayedMarketOrder]):
         """
         Simulates order being cancelled.
         """
@@ -176,43 +186,42 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.shadow_limit_orders) == len(self.limit_orders) - 1)
 
-    def test_active_stop_loss_orders(self):
+    def test_active_delayed_market_orders(self):
         # Check initial output
-        self.assertTrue(len(self.order_tracker.active_stop_loss_orders) == 0)
+        self.assertTrue(len(self.order_tracker.active_delayed_market_orders) == 0)
 
         # Simulate orders being placed and tracked
-        for order in self.stop_loss_orders:
+        for order in self.delayed_market_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        self.assertTrue(len(self.order_tracker.active_stop_loss_orders) == len(self.stop_loss_orders))
+        self.assertTrue(len(self.order_tracker.active_delayed_market_orders) == len(self.delayed_market_orders))
 
         # Simulates order cancellation request being sent to exchange
-        order_to_cancel = self.stop_loss_orders[0]
+        order_to_cancel = self.delayed_market_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
-        self.assertTrue(len(self.order_tracker.active_stop_loss_orders) == len(self.stop_loss_orders) - 1)
+        self.assertTrue(len(self.order_tracker.active_delayed_market_orders) == len(self.delayed_market_orders) - 1)
 
-    def test_shadow_stop_loss_orders(self):
+    def test_shadow_delayed_market_orders(self):
         # Check initial output
-        self.assertTrue(len(self.order_tracker.shadow_stop_loss_orders) == 0)
+        self.assertTrue(len(self.order_tracker.shadow_delayed_market_orders) == 0)
 
         # Simulate orders being placed and tracked
-        for order in self.stop_loss_orders:
+        for order in self.delayed_market_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        self.assertTrue(len(self.order_tracker.shadow_stop_loss_orders) == len(self.stop_loss_orders))
+        self.assertTrue(len(self.order_tracker.shadow_delayed_market_orders) == len(self.delayed_market_orders))
 
         # Simulates order cancellation request being sent to exchange
-        order_to_cancel = self.stop_loss_orders[0]
+        order_to_cancel = self.delayed_market_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
-        self.assertTrue(len(self.order_tracker.shadow_stop_loss_orders) == len(self.stop_loss_orders) - 1)
+        self.assertTrue(len(self.order_tracker.shadow_delayed_market_orders) == len(self.delayed_market_orders) - 1)
 
     def test_market_pair_to_active_orders(self):
         # Check initial output
-        print(self.order_tracker.market_pair_to_active_orders)
         self.assertTrue(self.order_tracker.market_pair_to_active_orders == ({}, {}))
 
         # Simulate orders being placed and tracked
@@ -220,14 +229,15 @@ class OrderTrackerUnitTests(unittest.TestCase):
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        for order in self.stop_loss_orders:
+        for order in self.delayed_market_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
         self.assertTrue(
             len(self.order_tracker.market_pair_to_active_orders[0][self.market_info]) == len(self.limit_orders))
         self.assertTrue(
-            len(self.order_tracker.market_pair_to_active_orders[1][self.market_info]) == len(self.stop_loss_orders))
+            len(self.order_tracker.market_pair_to_active_orders[1][self.market_info]) == len(
+                self.delayed_market_orders))
 
     def test_active_bids(self):
         # Check initial output
@@ -327,43 +337,45 @@ class OrderTrackerUnitTests(unittest.TestCase):
         # Hence it should not differ from initial list of orders
         self.assertTrue(len(self.order_tracker.tracked_market_orders_data_frame) == len(self.market_orders))
 
-    def test_tracked_stop_loss_orders(self):
+    def test_tracked_delayed_market_orders(self):
         # Check initial output
-        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders) == 0)
+        self.assertTrue(len(self.order_tracker.tracked_delayed_market_orders) == 0)
 
         # Simulate orders being placed and tracked
-        for order in self.stop_loss_orders:
+        for order in self.delayed_market_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders) == len(self.stop_loss_orders))
+        self.assertTrue(len(self.order_tracker.tracked_delayed_market_orders) == len(self.delayed_market_orders))
 
         # Simulates order cancellation request being sent to exchange
-        order_to_cancel = self.stop_loss_orders[0]
+        order_to_cancel = self.delayed_market_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
         # Note: This includes all orders(open, cancelled, filled, partially filled).
         # Hence it should not differ from initial list of orders
-        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders) == len(self.stop_loss_orders))
+        self.assertTrue(len(self.order_tracker.tracked_delayed_market_orders) == len(self.delayed_market_orders))
 
-    def test_tracked_stop_loss_order_data_frame(self):
+    def test_tracked_delayed_market_order_data_frame(self):
         # Check initial output
-        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders_data_frame) == 0)
+        self.assertTrue(len(self.order_tracker.tracked_delayed_market_orders_data_frame) == 0)
 
         # Simulate orders being placed and tracked
-        for order in self.stop_loss_orders:
+        for order in self.delayed_market_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
-        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders_data_frame) == len(self.stop_loss_orders))
+        self.assertTrue(
+            len(self.order_tracker.tracked_delayed_market_orders_data_frame) == len(self.delayed_market_orders))
 
         # Simulates order cancellation request being sent to exchange
-        order_to_cancel = self.stop_loss_orders[0]
+        order_to_cancel = self.delayed_market_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
         # Note: This includes all orders(open, cancelled, filled, partially filled).
         # Hence it should not differ from initial list of orders
-        self.assertTrue(len(self.order_tracker.tracked_stop_loss_orders_data_frame) == len(self.stop_loss_orders))
+        self.assertTrue(
+            len(self.order_tracker.tracked_delayed_market_orders_data_frame) == len(self.delayed_market_orders))
 
     def test_in_flight_cancels(self):
         # Check initial output
@@ -381,12 +393,12 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.assertTrue(len(self.order_tracker.in_flight_cancels) == 1)
 
         # Simulate orders being placed and tracked
-        for order in self.stop_loss_orders:
+        for order in self.delayed_market_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
             self.simulate_order_created(self.order_tracker, order)
 
         # Simulates order cancellation request being sent to exchange
-        order_to_cancel = self.stop_loss_orders[0]
+        order_to_cancel = self.delayed_market_orders[0]
         self.simulate_cancel_order(self.order_tracker, order_to_cancel)
 
         self.assertTrue(len(self.order_tracker.in_flight_cancels) == 2)
@@ -402,6 +414,17 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.assertTrue(len(self.order_tracker.in_flight_pending_created) == len(self.limit_orders))
 
         for order in self.limit_orders:
+            self.simulate_order_created(self.order_tracker, order)
+
+        self.assertTrue(len(self.order_tracker.in_flight_pending_created) == 0)
+
+        # Simulate orders being placed and tracked
+        for order in self.delayed_market_orders:
+            self.simulate_place_order(self.order_tracker, order, self.market_info)
+
+        self.assertTrue(len(self.order_tracker.in_flight_pending_created) == len(self.limit_orders))
+
+        for order in self.delayed_market_orders:
             self.simulate_order_created(self.order_tracker, order)
 
         self.assertTrue(len(self.order_tracker.in_flight_pending_created) == 0)
@@ -426,16 +449,17 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         self.assertTrue(len(self.order_tracker.get_market_orders()[self.market_info].keys()) == len(self.market_orders))
 
-    def test_get_stop_loss_orders(self):
+    def test_get_delayed_market_orders(self):
         # Check initial output
-        self.assertTrue(len(list(self.order_tracker.get_stop_loss_orders().values())) == 0)
+        self.assertTrue(len(list(self.order_tracker.get_delayed_market_orders().values())) == 0)
 
         # Simulate orders being placed and tracked
-        for order in self.stop_loss_orders:
+        for order in self.delayed_market_orders:
             self.simulate_place_order(self.order_tracker, order, self.market_info)
 
         self.assertTrue(
-            len(self.order_tracker.get_stop_loss_orders()[self.market_info].keys()) == len(self.stop_loss_orders))
+            len(self.order_tracker.get_delayed_market_orders()[self.market_info].keys()) == len(
+                self.delayed_market_orders))
 
     def test_get_shadow_limit_orders(self):
         # Check initial output
@@ -469,6 +493,39 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         # Check that check_and_cleanup_shadow_records clears shadow_limit_orders
         self.assertTrue(self.market_info not in self.order_tracker.get_shadow_limit_orders())
+
+    def test_get_shadow_delayed_market_orders(self):
+        # Check initial output
+        self.assertTrue(self.market_info not in self.order_tracker.get_shadow_delayed_market_orders())
+
+        # Simulates order being placed and tracked
+        order: DelayedMarketOrder = self.delayed_market_orders[0]
+        self.simulate_place_order(self.order_tracker, order, self.market_info)
+
+        # Compare order details and output
+        other_order = self.order_tracker.get_shadow_delayed_market_orders()[self.market_info][order.client_order_id]
+        self.assertEqual(order.trading_pair, other_order.trading_pair)
+        self.assertEqual(order.price, other_order.price)
+        self.assertEqual(order.quantity, other_order.quantity)
+        self.assertEqual(order.is_buy, other_order.is_buy)
+
+        # Simulate order being cancelled
+        self.simulate_cancel_order(self.order_tracker, order)
+        self.simulate_stop_tracking_order(self.order_tracker, order, self.market_info)
+
+        # Check that order is not yet removed from shadow_delayed_market_orders
+        other_order = self.order_tracker.get_shadow_delayed_market_orders()[self.market_info][order.client_order_id]
+        self.assertEqual(order.trading_pair, other_order.trading_pair)
+        self.assertEqual(order.price, other_order.price)
+        self.assertEqual(order.quantity, other_order.quantity)
+        self.assertEqual(order.is_buy, other_order.is_buy)
+
+        # Simulates current_timestamp > SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION
+        self.clock.backtest_til(self.start_timestamp + OrderTracker.SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION + 10)
+        self.order_tracker.check_and_cleanup_shadow_records()
+
+        # Check that check_and_cleanup_shadow_records clears shadow_delayed_market_orders
+        self.assertTrue(self.market_info not in self.order_tracker.get_shadow_delayed_market_orders())
 
     def test_has_in_flight_cancel(self):
         # Check initial output
@@ -570,31 +627,32 @@ class OrderTrackerUnitTests(unittest.TestCase):
         # Matching Order
         self.assertEqual(str(order), str(self.order_tracker.get_market_order(self.market_info, order.order_id)))
 
-    def test_get_stop_loss_order(self):
+    def test_get_delayed_market_order(self):
         # Initial validation
-        order: StopLossOrder = StopLossOrder(
+        order: DelayedMarketOrder = DelayedMarketOrder(
             order_id=f"STOP-LOSS//-{self.clock.current_timestamp}",
+            order_type=OrderType.STOP_LOSS.value,
             trading_pair=self.trading_pair,
             is_buy=True,
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
-            placed_price=Decimal("100"),
+            reference_price=Decimal(100),
             trigger_price=Decimal("90"),
-            amount=float(10),
+            amount=10.0,
             timestamp=self.clock.current_timestamp
         )
 
         # Order not yet placed
-        self.assertNotEqual(order, self.order_tracker.get_stop_loss_order(self.market_info, order.order_id))
+        self.assertNotEqual(order, self.order_tracker.get_delayed_market_order(self.market_info, order.order_id))
 
         # Simulate order being placed and tracked
         self.simulate_place_order(self.order_tracker, order, self.market_info)
 
         # Unrecognized Order
-        self.assertNotEqual(order, self.order_tracker.get_stop_loss_order(self.market_info, "UNRECOGNIZED_ORDER"))
+        self.assertNotEqual(order, self.order_tracker.get_delayed_market_order(self.market_info, "UNRECOGNIZED_ORDER"))
 
         # Matching Order
-        self.assertEqual(str(order), str(self.order_tracker.get_stop_loss_order(self.market_info, order.order_id)))
+        self.assertEqual(str(order), str(self.order_tracker.get_delayed_market_order(self.market_info, order.order_id)))
 
     def test_get_shadow_limit_order(self):
         # Initial validation
@@ -620,6 +678,31 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.simulate_cancel_order(self.order_tracker, order)
 
         self.assertNotEqual(order, self.order_tracker.get_shadow_limit_order(order.client_order_id))
+
+    def test_get_shadow_delayed_market_order(self):
+        # Initial validation
+        order: DelayedMarketOrder = self.delayed_market_orders[0]
+
+        # Order not yet placed
+        self.assertNotEqual(order, self.order_tracker.get_shadow_delayed_market_order(order.client_order_id))
+
+        # Simulate order being placed and tracked
+        self.simulate_place_order(self.order_tracker, order, self.market_info)
+
+        # Unrecognized Order
+        self.assertNotEqual(order, self.order_tracker.get_shadow_delayed_market_order("UNRECOGNIZED_ORDER"))
+
+        # Matching Order
+        shadow_order = self.order_tracker.get_shadow_delayed_market_order(order.client_order_id)
+        self.assertEqual(order.trading_pair, shadow_order.trading_pair)
+        self.assertEqual(order.price, shadow_order.price)
+        self.assertEqual(order.quantity, shadow_order.quantity)
+        self.assertEqual(order.is_buy, shadow_order.is_buy)
+
+        # Simulate order cancel
+        self.simulate_cancel_order(self.order_tracker, order)
+
+        self.assertNotEqual(order, self.order_tracker.get_shadow_delayed_market_order(order.client_order_id))
 
     def test_check_and_cleanup_shadow_records(self):
         order: LimitOrder = self.limit_orders[0]

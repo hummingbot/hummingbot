@@ -9,6 +9,7 @@ from typing import Any, Dict, NamedTuple, Optional, Tuple
 from async_timeout import timeout
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.delayed_market_order import DelayedMarketOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 
@@ -282,6 +283,24 @@ class InFlightOrder:
             quantity=self.amount,
             filled_quantity=self.executed_amount_base,
             creation_timestamp=int(self.creation_timestamp * 1e6)
+        )
+
+    def to_delayed_market_order(self) -> DelayedMarketOrder:
+        """
+        Returns this InFlightOrder as a DelayedMarketOrder object.
+        :return: DelayedMarketOrder object.
+        """
+        return DelayedMarketOrder(
+            order_id=self.client_order_id,
+            order_type=self.order_type,
+            trading_pair=self.trading_pair,
+            is_buy=self.trade_type is TradeType.BUY,
+            base_asset=self.base_asset,
+            quote_asset=self.quote_asset,
+            reference_price=float(self.price),
+            trigger_price=float(self.price),
+            amount=float(self.amount),
+            timestamp=self.creation_timestamp,
         )
 
     def update_exchange_order_id(self, exchange_order_id: str):

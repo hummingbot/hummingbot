@@ -362,7 +362,7 @@ class KrakenExchange(ExchangePyBase):
                                                           is_auth_required=True)
 
         o_id = order_result["txid"][0]
-        self.logger().debug(f"  '-> Placed {order_type}")
+        self.logger().debug(f"  '-> Placed {order_type} {order_result} with id {o_id}")
         return o_id, self.current_timestamp
 
     async def _api_request_with_retry(self,
@@ -385,7 +385,7 @@ class KrakenExchange(ExchangePyBase):
                                         "and if needed reset your API key.")
                 result = response_json.get("result")
                 if not result or response_json.get("error"):
-                    self.logger().error(f"Error fetching data from {path_url}, msg is {response_json}")
+                    self.logger().error(f"Error fetching data from {path_url}, msg is {response_json} for {data}")
                     raise IOError({"error": response_json})
                 break
             except IOError as e:
