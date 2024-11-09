@@ -1,6 +1,7 @@
 import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+# from bidict import bidict
 from hummingbot.connector.exchange.hyperliquid import (
     hyperliquid_constants as CONSTANTS,
     hyperliquid_web_utils as web_utils,
@@ -45,10 +46,10 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        coin = ex_trading_pair.split("-")[0]
+        coin = ex_trading_pair.replace("-", "/")
         params = {
             "type": 'l2Book',
-            "coin": coin
+            "coin": self._connector.name_to_coin[coin]
         }
 
         data = await self._connector._api_post(
@@ -82,12 +83,12 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                coin = symbol.split("-")[0]
+                coin = symbol.replace("-", "/")
                 trades_payload = {
                     "method": "subscribe",
                     "subscription": {
                         "type": CONSTANTS.TRADES_ENDPOINT_NAME,
-                        "coin": f"{coin}/{CONSTANTS.CURRENCY}",
+                        "coin": self._connector.name_to_coin[coin],
                     }
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
@@ -96,7 +97,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "method": "subscribe",
                     "subscription": {
                         "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
-                        "coin": f"{coin}/{CONSTANTS.CURRENCY}",
+                        "coin": self._connector.name_to_coin[coin],
                     }
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
@@ -114,7 +115,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = raw_message["data"]["time"] * 1e-3
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"].replace("/", "-"))
+            raw_message["data"]["coin"])
         data = raw_message["data"]
         order_book_message: OrderBookMessage = HyperliquidOrderBook.diff_message_from_exchange(
             data, timestamp, {"trading_pair": trading_pair})
@@ -122,7 +123,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["data"]["coin"].replace("/", "-"))
+            raw_message["data"]["coin"])
         data = raw_message["data"]
         timestamp: float = raw_message["data"]["time"] * 1e-3
         trade_message: OrderBookMessage = HyperliquidOrderBook.snapshot_message_from_exchange(
@@ -133,7 +134,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         data = raw_message["data"]
         for trade_data in data:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                trade_data["coin"].replace("/", "-"))
+                trade_data["coin"])
             trade_message: OrderBookMessage = HyperliquidOrderBook.trade_message_from_exchange(
                 trade_data, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)

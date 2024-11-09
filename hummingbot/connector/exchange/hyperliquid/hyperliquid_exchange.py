@@ -61,6 +61,7 @@ class HyperliquidExchange(ExchangePyBase):
         self._last_trade_history_timestamp = None
         self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
+        self.name_to_coin: Dict[str, str] = {}
         super().__init__(client_config_map)
 
     SHORT_POLL_INTERVAL = 5.0
@@ -228,12 +229,11 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        coin = symbol.split("-")[0]
-
+        coin = symbol.replace("-", "/")
         api_params = {
             "type": "cancel",
             "cancels": {
-                "asset": self.coin_to_asset[coin] + 9999,
+                "asset": self.coin_to_asset[self.name_to_coin[coin]],
                 "cloid": order_id
             },
         }
@@ -345,7 +345,7 @@ class HyperliquidExchange(ExchangePyBase):
     ) -> Tuple[str, float]:
 
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        coin = symbol.split("-")[0]
+        coin = symbol.replace("-", "/")
         param_order_type = {"limit": {"tif": "Gtc"}}
         if order_type is OrderType.LIMIT_MAKER:
             param_order_type = {"limit": {"tif": "Alo"}}
@@ -356,7 +356,7 @@ class HyperliquidExchange(ExchangePyBase):
             "type": "order",
             "grouping": "na",
             "orders": {
-                "asset": self.coin_to_asset[coin] + 9999,
+                "asset": self.coin_to_asset[self.name_to_coin[coin]],
                 "isBuy": True if trade_type is TradeType.BUY else False,
                 "limitPx": float(price),
                 "sz": float(amount),
@@ -550,22 +550,29 @@ class HyperliquidExchange(ExchangePyBase):
         exchange_info_dict:
             Trading rules dictionary response from the exchange
         """
-        # rules: list = exchange_info_dict[0]
-        lists = exchange_info_dict[0]["tokens"]
+        self.coin_to_asset = {}
+        self.name_to_coin = {}
 
-        self.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
-                              enumerate(lists)}
-        quote = CONSTANTS.CURRENCY
-        token_infos: list = exchange_info_dict[0]['tokens'][1:]
+        self.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in enumerate(exchange_info_dict[0]["universe"])}
+        self.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in exchange_info_dict[0]["universe"]}
 
+        coin_infos: list = exchange_info_dict[0]["universe"]
         price_infos: list = exchange_info_dict[1]
+
+        for spot_info in filter(web_utils.is_exchange_information_valid, exchange_info_dict[0]["universe"]):
+            self.coin_to_asset[spot_info["name"]] = spot_info["index"] + 10000
+            self.name_to_coin[spot_info["name"]] = spot_info["name"]
+
         return_val: list = []
-        for price_info, token_info in zip(price_infos, token_infos):
-            base = token_info["name"]
+        for coin_info, price_info in zip(coin_infos, price_infos):
+            base, quote = coin_info["tokens"]
             try:
-                ex_symbol = f"{base}-{quote}"
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_symbol)
-                step_size = Decimal(str(10 ** -token_info.get("szDecimals")))
+                ex_name = f'{exchange_info_dict[0]["tokens"][base]["name"].replace(" ", "").upper()}/{exchange_info_dict[0]["tokens"][quote]["name"].replace(" ", "").upper()}'
+                if ex_name not in self.name_to_coin:
+                    self.name_to_coin[ex_name] = coin_info["name"]
+
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_info["name"])
+                step_size = Decimal(str(10 ** -exchange_info_dict[0]["tokens"][base].get("szDecimals")))
                 price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
                 return_val.append(
                     TradingRule(
@@ -580,20 +587,30 @@ class HyperliquidExchange(ExchangePyBase):
         return return_val
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List):
-        quote = CONSTANTS.CURRENCY
         mapping = bidict()
-        tokens = exchange_info[0].get("tokens", [])[1:]
+        self.coin_to_asset = {}
+        self.name_to_coin = {}
 
-        for symbol_data in filter(web_utils.is_exchange_information_valid, tokens):
-            if quote == symbol_data["name"]:
-                continue
-            base = symbol_data["name"]
-            exchange_symbol = f"{base}-{quote}"
-            trading_pair = combine_to_hb_trading_pair(base, quote)
+        self.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in enumerate(exchange_info[0]["universe"])}
+
+        self.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in exchange_info[0]["universe"]}
+
+        for spot_info in filter(web_utils.is_exchange_information_valid, exchange_info[0]["universe"]):
+            self.coin_to_asset[spot_info["name"]] = spot_info["index"] + 10000
+            self.name_to_coin[spot_info["name"]] = spot_info["name"]
+            base, quote = spot_info["tokens"]
+            name = f'{exchange_info[0]["tokens"][base]["name"].replace(" ", "").upper()}/{exchange_info[0]["tokens"][quote]["name"].replace(" ", "").upper()}'
+            ex_name = spot_info["name"]
+
+            if name not in self.name_to_coin:
+                self.name_to_coin[name] = spot_info["name"]
+
+            new_base, new_quote = name.split("/")
+            trading_pair = combine_to_hb_trading_pair(new_base, new_quote)
             if trading_pair in mapping.inverse:
-                self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
+                self._resolve_trading_pair_symbols_duplicate(mapping, ex_name, new_base, new_quote)
             else:
-                mapping[exchange_symbol] = trading_pair
+                mapping[ex_name] = trading_pair
         self._set_trading_pair_symbol_map(mapping)
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
@@ -662,10 +679,10 @@ class HyperliquidExchange(ExchangePyBase):
     async def _update_order_fills_from_trades(self):
         """
         This is intended to be a backup measure to get filled events with trade ID for orders,
-        in case Binance's user stream events are not working.
+        in case hyperliquid's user stream events are not working.
         NOTE: It is not required to copy this functionality in other connectors.
         This is separated from _update_order_status which only updates the order status without producing filled
-        events, since Binance's get order endpoint does not return trade IDs.
+        events, since hyperliquid's get order endpoint does not return trade IDs.
         The minimum poll interval for order status is 10 seconds.
         """
         small_interval_last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
@@ -798,12 +815,11 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        coin = exchange_symbol.split("-")[0]
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
                                         data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         price = 0
-        for index, i in enumerate(response[0]['tokens']):
-            new_index = index - 1
-            if i['name'] == coin:
-                price = float(response[1][new_index]['markPx'])
+        for token in response[1]:
+            if token['coin'] == exchange_symbol:
+                price = token['markPx']
+                break
         return price
