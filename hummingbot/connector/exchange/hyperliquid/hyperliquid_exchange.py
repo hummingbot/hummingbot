@@ -608,7 +608,7 @@ class HyperliquidExchange(ExchangePyBase):
             new_base, new_quote = name.split("/")
             trading_pair = combine_to_hb_trading_pair(new_base, new_quote)
             if trading_pair in mapping.inverse:
-                self._resolve_trading_pair_symbols_duplicate(mapping, ex_name, new_base, new_quote)
+                self._resolve_trading_pair_symbols_duplicate(mapping, name, new_base, new_quote)
             else:
                 mapping[ex_name] = trading_pair
         self._set_trading_pair_symbol_map(mapping)
