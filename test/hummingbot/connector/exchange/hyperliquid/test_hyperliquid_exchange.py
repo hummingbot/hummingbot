@@ -277,7 +277,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     "midPx": "0.209265",
                     "prevDayPx": "0.20432",
                     'circulatingSupply': '997372.88712882',
-                    'coin': '@1'
+                    'coin': 'COINALPHA/USDC"'
                 }
             ]
         ]
@@ -818,74 +818,6 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         pass
-
-    # @aioresponses()
-    # def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_first_is_good(self, mock_api):
-    #     self.exchange._set_current_timestamp(1000)
-
-    #     url = self.trading_rules_url
-
-    #     response = self.trading_rules_request_mock_response
-    #     results = response[0]["tokens"]
-    #     duplicate = deepcopy(results[1])
-    #     duplicate["name"] = f"{self.base_asset}"
-    #     duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
-    #     results.append(duplicate)
-    #     mock_api.post(url, body=json.dumps(response))
-
-    #     self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-    #     self.assertEqual(1, len(self.exchange.trading_rules))
-    #     self.assertIn(self.trading_pair, self.exchange.trading_rules)
-    #     self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
-
-    # @aioresponses()
-    # def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_second_is_good(self, mock_api):
-    #     self.exchange._set_current_timestamp(1000)
-
-    #     url = self.trading_rules_url
-
-    #     response = self.trading_rules_request_mock_response
-    #     results = response[0]["tokens"]
-    #     duplicate = deepcopy(results[1])
-    #     duplicate["name"] = f"{self.quote_asset}_12345"
-    #     duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
-    #     results.insert(0, duplicate)
-    #     mock_api.post(url, body=json.dumps(response))
-
-    #     self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-    #     self.assertEqual(1, len(self.exchange.trading_rules))
-    #     self.assertIn(self.trading_pair, self.exchange.trading_rules)
-    #     self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
-
-    # @aioresponses()
-    # def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_cannot_resolve(self, mock_api):
-    #     self.exchange._set_current_timestamp(1000)
-
-    #     url = self.trading_rules_url
-
-    #     response = self.trading_rules_request_mock_response
-    #     results = response[0]["tokens"]
-    #     first_duplicate = deepcopy(results[1])
-    #     first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-    #     first_duplicate["szDecimals"] = (
-    #         str(float(first_duplicate["szDecimals"]) + 1)
-    #     )
-    #     second_duplicate = deepcopy(results[0])
-    #     second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
-    #     second_duplicate["szDecimals"] = (
-    #         str(float(second_duplicate["szDecimals"]) + 2)
-    #     )
-    #     results.pop(0)
-    #     results.append(first_duplicate)
-    #     results.append(second_duplicate)
-    #     mock_api.post(url, body=json.dumps(response))
-
-    #     self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-    #     self.assertEqual(0, len(self.exchange.trading_rules))
-    #     self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
 
     @aioresponses()
     def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
