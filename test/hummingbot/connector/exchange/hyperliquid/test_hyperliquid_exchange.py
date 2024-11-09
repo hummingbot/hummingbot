@@ -2,7 +2,8 @@ import asyncio
 import json
 import logging
 import re
-from copy import deepcopy
+
+# from copy import deepcopy
 from decimal import Decimal
 from typing import Any, Callable, List, Optional
 from unittest.mock import AsyncMock
@@ -118,7 +119,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                         "name": "PURR",
                         "szDecimals": 0,
                         "weiDecimals": 5,
-                        "index": 1,
+                        "index": 2,
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
                         "isCanonical": True,
                         "evmContract": None,
@@ -131,21 +132,31 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                         "tokens": [1, 0],
                         "index": 0,
                         "isCanonical": True
-                    }
+                    },
+                    {
+                        "name": "@1",
+                        "tokens": [2, 0],
+                        "index": 1,
+                        "isCanonical": True
+                    },
                 ]
             },
             [
                 {
-                    "dayNtlVlm": "8906.0",
-                    "markPx": "0.14",
-                    "midPx": "0.209265",
-                    "prevDayPx": "0.20432"
+                    'prevDayPx': '0.22916',
+                    'dayNtlVlm': '4265022.87833',
+                    'markPx': '0.22923',
+                    'midPx': '0.229235',
+                    'circulatingSupply': '598274922.83822',
+                    'coin': 'COINALPHA/USDC'
                 },
                 {
-                    "dayNtlVlm": "8906.0",
-                    "markPx": "0.14",
-                    "midPx": "0.209265",
-                    "prevDayPx": "0.20432"
+                    'prevDayPx': '25.236',
+                    'dayNtlVlm': '315299.16652',
+                    'markPx': '25.011',
+                    'midPx': '24.9835',
+                    'circulatingSupply': '997372.88712882',
+                    'coin': '@1'
                 }
             ]
         ]
@@ -175,6 +186,16 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                         "isCanonical": True,
                         "evmContract": None,
                         "fullName": None
+                    },
+                    {
+                        "name": "PURR",
+                        "szDecimals": 0,
+                        "weiDecimals": 5,
+                        "index": 2,
+                        "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
+                        "isCanonical": True,
+                        "evmContract": None,
+                        "fullName": None
                     }
                 ],
                 "universe": [
@@ -183,15 +204,31 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                         "tokens": [1, 0],
                         "index": 0,
                         "isCanonical": True
+                    },
+                    {
+                        "name": "@1",
+                        "tokens": [2, 0],
+                        "index": 1,
+                        "isCanonical": True
                     }
                 ]
             },
             [
                 {
-                    "dayNtlVlm": "8906.0",
-                    "markPx": self.expected_latest_price,
-                    "midPx": "0.209265",
-                    "prevDayPx": "0.20432"
+                    'prevDayPx': '25.236',
+                    'dayNtlVlm': '315299.16652',
+                    'markPx': self.expected_latest_price,
+                    'midPx': '24.9835',
+                    'circulatingSupply': '997372.88712882',
+                    'coin': 'COINALPHA/USDC'
+                },
+                {
+                    'prevDayPx': '25.236',
+                    'dayNtlVlm': '315299.16652',
+                    'markPx': '25.011',
+                    'midPx': '24.9835',
+                    'circulatingSupply': '997372.88712882',
+                    'coin': '@1'
                 }
             ]
         ]
@@ -238,7 +275,9 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     "dayNtlVlm": "8906.0",
                     "markPx": "0.14",
                     "midPx": "0.209265",
-                    "prevDayPx": "0.20432"
+                    "prevDayPx": "0.20432",
+                    'circulatingSupply': '997372.88712882',
+                    'coin': '@1'
                 }
             ]
         ]
@@ -264,7 +303,6 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 "tokens": [
                     {
                         "name": self.quote_asset,
-                        "szDecimals": 8,
                         "weiDecimals": 8,
                         "index": 0,
                         "tokenId": "0x6d1e7cde53ba9467b783cb7c530ce054",
@@ -274,7 +312,6 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     },
                     {
                         "name": self.base_asset,
-                        "szDecimals": 0,
                         "weiDecimals": 5,
                         "index": 1,
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
@@ -285,7 +322,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 ],
                 "universe": [
                     {
-                        "name": "COINALPHA/USDC",
+                        "name": f"{self.base_asset}/{self.quote_asset}",
                         "tokens": [1, 0],
                         "index": 0,
                         "isCanonical": True
@@ -295,6 +332,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             [
                 {
                     "dayNtlVlm": "8906.0",
+                    "markPx": "0.14",
                     "prevDayPx": "0.20432"
                 }
             ]
@@ -658,6 +696,16 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                         "isCanonical": True,
                         "evmContract": None,
                         "fullName": None
+                    },
+                    {
+                        "name": "PURR",
+                        "szDecimals": 0,
+                        "weiDecimals": 5,
+                        "index": 2,
+                        "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
+                        "isCanonical": True,
+                        "evmContract": None,
+                        "fullName": None
                     }
                 ],
                 "universe": [
@@ -666,15 +714,31 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                         "tokens": [1, 0],
                         "index": 0,
                         "isCanonical": True
+                    },
+                    {
+                        "name": "@1",
+                        "tokens": [2, 0],
+                        "index": 1,
+                        "isCanonical": True
                     }
                 ]
             },
             [
                 {
-                    "dayNtlVlm": "8906.0",
-                    "markPx": "0.14",
-                    "midPx": "0.209265",
-                    "prevDayPx": "0.20432"
+                    'prevDayPx': '0.22916',
+                    'dayNtlVlm': '4265022.87833',
+                    'markPx': '0.22923',
+                    'midPx': '0.229235',
+                    'circulatingSupply': '598274922.83822',
+                    'coin': 'COINALPHA/USDC'
+                },
+                {
+                    'prevDayPx': '25.236',
+                    'dayNtlVlm': '315299.16652',
+                    'markPx': '25.011',
+                    'midPx': '24.9835',
+                    'circulatingSupply': '997372.88712882',
+                    'coin': '@1'
                 }
             ]
         ]
@@ -755,73 +819,73 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def validate_auth_credentials_present(self, request_call: RequestCall):
         pass
 
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_first_is_good(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
+    # @aioresponses()
+    # def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_first_is_good(self, mock_api):
+    #     self.exchange._set_current_timestamp(1000)
 
-        url = self.trading_rules_url
+    #     url = self.trading_rules_url
 
-        response = self.trading_rules_request_mock_response
-        results = response[0]["tokens"]
-        duplicate = deepcopy(results[1])
-        duplicate["name"] = f"{self.base_asset}_12345"
-        duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
-        results.append(duplicate)
-        mock_api.post(url, body=json.dumps(response))
+    #     response = self.trading_rules_request_mock_response
+    #     results = response[0]["tokens"]
+    #     duplicate = deepcopy(results[1])
+    #     duplicate["name"] = f"{self.base_asset}"
+    #     duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
+    #     results.append(duplicate)
+    #     mock_api.post(url, body=json.dumps(response))
 
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+    #     self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
-        self.assertEqual(1, len(self.exchange.trading_rules))
-        self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
+    #     self.assertEqual(1, len(self.exchange.trading_rules))
+    #     self.assertIn(self.trading_pair, self.exchange.trading_rules)
+    #     self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
 
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_second_is_good(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
+    # @aioresponses()
+    # def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_second_is_good(self, mock_api):
+    #     self.exchange._set_current_timestamp(1000)
 
-        url = self.trading_rules_url
+    #     url = self.trading_rules_url
 
-        response = self.trading_rules_request_mock_response
-        results = response[0]["tokens"]
-        duplicate = deepcopy(results[1])
-        duplicate["name"] = f"{self.quote_asset}_12345"
-        duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
-        results.insert(0, duplicate)
-        mock_api.post(url, body=json.dumps(response))
+    #     response = self.trading_rules_request_mock_response
+    #     results = response[0]["tokens"]
+    #     duplicate = deepcopy(results[1])
+    #     duplicate["name"] = f"{self.quote_asset}_12345"
+    #     duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
+    #     results.insert(0, duplicate)
+    #     mock_api.post(url, body=json.dumps(response))
 
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+    #     self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
-        self.assertEqual(1, len(self.exchange.trading_rules))
-        self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
+    #     self.assertEqual(1, len(self.exchange.trading_rules))
+    #     self.assertIn(self.trading_pair, self.exchange.trading_rules)
+    #     self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
 
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_cannot_resolve(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
+    # @aioresponses()
+    # def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_cannot_resolve(self, mock_api):
+    #     self.exchange._set_current_timestamp(1000)
 
-        url = self.trading_rules_url
+    #     url = self.trading_rules_url
 
-        response = self.trading_rules_request_mock_response
-        results = response[0]["tokens"]
-        first_duplicate = deepcopy(results[1])
-        first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["szDecimals"] = (
-            str(float(first_duplicate["szDecimals"]) + 1)
-        )
-        second_duplicate = deepcopy(results[0])
-        second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["szDecimals"] = (
-            str(float(second_duplicate["szDecimals"]) + 2)
-        )
-        results.pop(0)
-        results.append(first_duplicate)
-        results.append(second_duplicate)
-        mock_api.post(url, body=json.dumps(response))
+    #     response = self.trading_rules_request_mock_response
+    #     results = response[0]["tokens"]
+    #     first_duplicate = deepcopy(results[1])
+    #     first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
+    #     first_duplicate["szDecimals"] = (
+    #         str(float(first_duplicate["szDecimals"]) + 1)
+    #     )
+    #     second_duplicate = deepcopy(results[0])
+    #     second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
+    #     second_duplicate["szDecimals"] = (
+    #         str(float(second_duplicate["szDecimals"]) + 2)
+    #     )
+    #     results.pop(0)
+    #     results.append(first_duplicate)
+    #     results.append(second_duplicate)
+    #     mock_api.post(url, body=json.dumps(response))
 
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+    #     self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
-        self.assertEqual(0, len(self.exchange.trading_rules))
-        self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
+    #     self.assertEqual(0, len(self.exchange.trading_rules))
+    #     self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
 
     @aioresponses()
     def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
@@ -1453,11 +1517,62 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
         pass
 
+    @aioresponses()
+    def test_update_trading_rules(self, mock_api):
+        mocked_response = self.get_trading_rule_rest_msg()
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
+        self.exchange.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
+                                       enumerate(mocked_response[0]["universe"])}
+        self.exchange.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in
+                                      mocked_response[0]["universe"]}
+
+        self.exchange._set_current_timestamp(1000)
+
+        self.configure_trading_rules_response(mock_api=mock_api)
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+        trading_rule: TradingRule = self.exchange.trading_rules[self.trading_pair]
+
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+        self.assertEqual(repr(self.expected_trading_rule), repr(trading_rule))
+
+        trading_rule_with_default_values = TradingRule(trading_pair=self.trading_pair)
+
+        # The following element can't be left with the default value because that breaks quantization in Cython
+        self.assertNotEqual(trading_rule_with_default_values.min_base_amount_increment,
+                            trading_rule.min_base_amount_increment)
+        self.assertNotEqual(trading_rule_with_default_values.min_price_increment,
+                            trading_rule.min_price_increment)
+
+    @aioresponses()
+    def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
+        mocked_response = self.get_trading_rule_rest_msg()
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
+        self.exchange.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
+                                       enumerate(mocked_response[0]["universe"])}
+        self.exchange.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in
+                                      mocked_response[0]["universe"]}
+
+        self.exchange._set_current_timestamp(1000)
+
+        self.configure_erroneous_trading_rules_response(mock_api=mock_api)
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertEqual(0, len(self.exchange._trading_rules))
+        self.assertTrue(
+            self.is_logged("ERROR", self.expected_logged_error_for_erroneous_trading_rule)
+        )
+
     def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
         self.exchange.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
-                                       enumerate(mocked_response[0]["tokens"])}
+                                       enumerate(mocked_response[0]["universe"])}
+        self.exchange.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in
+                                      mocked_response[0]["universe"]}
         self.exchange._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,

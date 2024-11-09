@@ -33,7 +33,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}/{cls.quote_asset}"
 
     def setUp(self) -> None:
         super().setUp()
@@ -144,29 +144,56 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
                         "isCanonical": True,
                         "evmContract": None,
                         "fullName": None
+                    },
+                    {
+                        "name": "PURR",
+                        "szDecimals": 0,
+                        "weiDecimals": 5,
+                        "index": 2,
+                        "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
+                        "isCanonical": True,
+                        "evmContract": None,
+                        "fullName": None
                     }
                 ],
                 "universe": [
                     {
-                        "name": "PURR/USDCC",
+                        "name": "COINALPHA/USDC",
                         "tokens": [1, 0],
                         "index": 0,
+                        "isCanonical": True
+                    },
+                    {
+                        "name": "@1",
+                        "tokens": [2, 0],
+                        "index": 1,
                         "isCanonical": True
                     }
                 ]
             },
             [
                 {
-                    "dayNtlVlm": "8906.0",
-                    "markPx": "0.14",
-                    "midPx": "0.209265",
-                    "prevDayPx": "0.20432"
+                    'prevDayPx': '0.22916',
+                    'dayNtlVlm': '4265022.87833',
+                    'markPx': '0.22923',
+                    'midPx': '0.229235',
+                    'circulatingSupply': '598274922.83822',
+                    'coin': 'COINALPHA/USDC'
+                },
+                {
+                    'prevDayPx': '25.236',
+                    'dayNtlVlm': '315299.16652',
+                    'markPx': '25.011',
+                    'midPx': '24.9835',
+                    'circulatingSupply': '997372.88712882',
+                    'coin': '@1'
                 }
             ]
         ]
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
+        self._simulate_trading_rules_initialized()
         endpoint = CONSTANTS.SNAPSHOT_REST_URL
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -189,6 +216,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
+        self._simulate_trading_rules_initialized()
         endpoint = CONSTANTS.SNAPSHOT_REST_URL
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -199,6 +227,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_orderbooks(self, ws_connect_mock):
+        self._simulate_trading_rules_initialized()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_diffs = self.get_ws_snapshot_msg()
@@ -217,11 +246,11 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription_channel = CONSTANTS.TRADES_ENDPOINT_NAME
-        expected_trade_subscription_payload = self.ex_trading_pair.replace("-", "/")
+        expected_trade_subscription_payload = self.connector.name_to_coin[self.trading_pair.replace("-", "/")]
         self.assertEqual(expected_trade_subscription_channel, sent_subscription_messages[0]["subscription"]["type"])
         self.assertEqual(expected_trade_subscription_payload, sent_subscription_messages[0]["subscription"]["coin"])
         expected_depth_subscription_channel = CONSTANTS.DEPTH_ENDPOINT_NAME
-        expected_depth_subscription_payload = self.ex_trading_pair.replace("-", "/")
+        expected_depth_subscription_payload = self.connector.name_to_coin[self.trading_pair.replace("-", "/")]
         self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[1]["subscription"]["type"])
         self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[1]["subscription"]["coin"])
 
@@ -256,6 +285,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         )
 
     def test_subscribe_to_channels_raises_cancel_exception(self):
+        self._simulate_trading_rules_initialized()
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
@@ -297,6 +327,8 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         self.connector._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
         self.connector.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
                                         enumerate(mocked_response[0]["tokens"])}
+        self.connector.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in
+                                       mocked_response[0]["universe"]}
         self.connector._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
@@ -389,6 +421,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.listening_task)
 
     def test_listen_for_order_book_diffs_logs_exception(self):
+        self._simulate_trading_rules_initialized()
         incomplete_resp = self.get_ws_diff_msg()
         del incomplete_resp["data"]["time"]
 
@@ -440,6 +473,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+        self._simulate_trading_rules_initialized()
         endpoint = CONSTANTS.SNAPSHOT_REST_URL
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -474,6 +508,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        self._simulate_trading_rules_initialized()
         msg_queue: asyncio.Queue = asyncio.Queue()
         endpoint = CONSTANTS.SNAPSHOT_REST_URL
         url = web_utils.public_rest_url(endpoint)
