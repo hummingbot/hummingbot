@@ -147,7 +147,7 @@ PUBLIC_REST_RATE_LIMITS = [
     RateLimit(limit_id=endpoint,
               limit=MAX_PUBLIC_REST_REQUESTS_S,
               time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(PRIVATE_REST_REQUESTS, 1)]) for endpoint in PUBLIC_REST_ENDPOINTS]
+              linked_limits=[LinkedLimitWeightPair(PUBLIC_REST_REQUESTS, 1)]) for endpoint in PUBLIC_REST_ENDPOINTS]
 
 SIGNIN_RATE_LIMITS = [
     RateLimit(limit_id=endpoint,
