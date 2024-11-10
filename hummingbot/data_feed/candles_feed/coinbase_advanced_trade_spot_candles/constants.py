@@ -25,12 +25,12 @@ WS_INTERVALS = bidict({
     "5m": "FIVE_MINUTE",
 })
 
-MAX_CANDLES_SIZE = 300
+MAX_CANDLES_SIZE = 350
 
 RATE_LIMITS.append(
     RateLimit(
         CANDLES_ENDPOINT_ID,
-        limit=MAX_PUBLIC_REST_REQUESTS_S,
+        limit=MAX_PUBLIC_REST_REQUESTS_S - 1,
         time_interval=1,
         linked_limits=[LinkedLimitWeightPair(PUBLIC_REST_REQUESTS, 1)]),
 )

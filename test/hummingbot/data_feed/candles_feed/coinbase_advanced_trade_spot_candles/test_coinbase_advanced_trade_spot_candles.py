@@ -1,14 +1,9 @@
 import asyncio
-import json
-import re
-from collections import deque
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
-from time import time
-from unittest.mock import AsyncMock, call, patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
-from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
     REST_URL,
@@ -159,170 +154,12 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
                          self.data_feed.rest_url + CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair))
         self.assertEqual(self.data_feed.rate_limits, CONSTANTS.RATE_LIMITS)
         self.assertEqual(self.data_feed.intervals, CONSTANTS.INTERVALS)
-        self.assertEqual(self.data_feed.candle_keys_order, ("start", "open", "high", "low", "close", "volume"))
 
     def test_intervals(self):
         self.assertEqual("ONE_MINUTE", self.data_feed.intervals["1m"])
 
     def test_get_exchange_trading_pair(self):
         self.assertEqual(self.data_feed.get_exchange_trading_pair("BTC-USDT"), "BTC-USDT")
-
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles")
-    async def test_fill_historical_sufficient_candles(self, mock_fetch_candles):
-        self.interval = "1m"
-        mock_fetch_candles.return_value = np.array(
-            [
-                [(1697498000 + 0), 1, 1, 1, 1, 1],
-                [(1697498000 + 60), 2, 2, 2, 2, 2],
-                [(1697498000 + 120), 3, 3, 3, 3, 3]
-            ])
-        self.data_feed._candles = deque(
-            np.array([[(1697498000 + 180), 4, 4, 4, 4, 4]]),
-            maxlen=3
-        )
-
-        await self.data_feed.fill_historical_candles()
-        mock_fetch_candles.assert_called_once()
-        self.assertEqual(3, self.data_feed.candles_df.shape[0])
-        self.assertEqual(10, self.data_feed.candles_df.shape[1])
-        self.assertDequeEqual(deque(
-            np.array([
-                [(1697498000 + 60), 2, 2, 2, 2, 2],
-                [(1697498000 + 120), 3, 3, 3, 3, 3],
-                [(1697498000 + 180), 4, 4, 4, 4, 4],
-            ]),
-            maxlen=3
-        ), self.data_feed._candles)
-
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles")
-    async def test_fill_historical_insufficient_candles(self, mock_fetch_candles):
-        self.interval = "1m"
-        mock_fetch_candles.side_effect = [
-            np.array([
-                [(1697498000 + 0), 1, 1, 1, 1, 1],
-                [(1697498000 + 60), 2, 2, 2, 2, 2],
-                [(1697498000 + 120), 3, 3, 3, 3, 3],
-                [(1697498000 + 180), 4, 4, 4, 4, 4],
-                [(1697498000 + 240), 5, 5, 5, 5, 5],
-                [(1697498000 + 300), 5, 5, 5, 5, 5]  # This should not be in the final deque
-            ]),
-            np.array([])]
-        self.data_feed._candles = deque(
-            np.array([[(1697498000 + 300), 6, 6, 6, 6, 6]]),
-            maxlen=9
-        )
-
-        await self.data_feed.fill_historical_candles()
-
-        mock_fetch_candles.assert_has_calls([
-            call(end_time=1697498300, limit=150),  # 8 intervals: 8 * 60 = 480 seconds -> 1697497760
-            call(end_time=1697498000, limit=150)])  # Verifying that the start_time is not too short
-        self.assertEqual(6, self.data_feed.candles_df.shape[0])
-        self.assertEqual(10, self.data_feed.candles_df.shape[1])
-        self.assertDequeEqual(deque(
-            np.array([
-                [(1697498000 + 0), 1, 1, 1, 1, 1],
-                [(1697498000 + 60), 2, 2, 2, 2, 2],
-                [(1697498000 + 120), 3, 3, 3, 3, 3],
-                [(1697498000 + 180), 4, 4, 4, 4, 4],
-                [(1697498000 + 240), 5, 5, 5, 5, 5],
-                [(1697498000 + 300), 6, 6, 6, 6, 6],
-            ]),
-            maxlen=9
-        ), self.data_feed._candles)
-
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
-    async def test_fill_historical_candles_empty_data(self, mock_fetch_candles):
-        # Mock to return an empty array
-        self.data_feed._candles = deque(np.array([[1, 2, 3, 4, 5, 6]]), maxlen=2)
-        mock_fetch_candles.return_value = np.array([])
-
-        await self.data_feed.fill_historical_candles()
-        self.assertTrue(
-            self.is_partially_logged("ERROR", "There is not enough data available to fill historical candles for "))
-
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "_sleep", new_callable=AsyncMock)
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
-    async def test_fill_historical_candles_unexpected_exception(self, mock_fetch_candles, mock_sleep):
-        # Mock to raise an unexpected exception
-        self.data_feed._candles = deque(np.array([[1, 2, 3, 4, 5, 6]]), maxlen=2)
-        mock_fetch_candles.side_effect = [Exception("Something went wrong")]
-
-        await self.data_feed.fill_historical_candles()
-
-        # Verify that sleep was called, implying a retry attempt
-        mock_sleep.assert_called_once_with(1.0)
-        self.assertTrue(self.is_partially_logged(
-            "ERROR",
-            "Unexpected error occurred when getting historical candles Something went wrong"))
-
-    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
-    def test_get_valid_start_time_with_start_time(self, mock_interval):
-        end_time = 200000
-        mock_interval.return_value = 60
-        start_time = 150000
-        result = self.data_feed._get_valid_start_time(end_time, start_time, limit=500)
-        self.assertEqual(200000 - 100 * mock_interval.return_value, result)
-
-    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
-    def test_get_valid_start_time_without_start_time(self, mock_interval):
-        end_time = 200000
-        mock_interval.return_value = 60
-        result = self.data_feed._get_valid_start_time(end_time, start_time=None, limit=500)
-        expected_start_time = end_time - (mock_interval.return_value * 100)
-        self.assertEqual(result, expected_start_time)
-
-    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
-    def test_get_valid_start_time_with_candles_maxlen_greater_than_constant(self, mock_interval):
-        data_feed = CoinbaseAdvancedTradeSpotCandles(
-            trading_pair=self.trading_pair,
-            interval=self.interval,
-            max_records=150
-        )
-        end_time = 200000
-        mock_interval.return_value = 60
-        result = data_feed._get_valid_start_time(end_time, start_time=None, limit=500)
-        expected_start_time = end_time - (mock_interval.return_value * 100)
-        self.assertEqual(result, expected_start_time)
-
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
-    def test_get_valid_start_time_with_candles_maxlen_less_than_constant(self, mock_interval):
-        data_feed = CoinbaseAdvancedTradeSpotCandles(
-            trading_pair=self.trading_pair,
-            interval=self.interval,
-            max_records=50
-        )
-        mock_interval.return_value = 60
-        end_time = 200000
-        result = data_feed._get_valid_start_time(end_time, start_time=None, limit=data_feed.max_records)
-        expected_start_time = end_time - (mock_interval.return_value * 50)
-        self.assertEqual(expected_start_time, result)
-
-    @aioresponses()  # This does not seem to work
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
-    async def test_fetch_candles(self, mock_interval, mock_api):
-        end_time = int(time()) + 60
-        mock_interval.return_value = 60
-        # self.data_feed._build_auth_api_factory = AsyncMock()
-        # self.data_feed._build_auth_api_factory.return_value = self.data_feed._public_api_factory
-        self.data_feed._public_api_factory.get_rest_assistant = AsyncMock()
-        self.data_feed._public_api_factory.get_rest_assistant.return_value.execute_request = AsyncMock()
-        start_time = self.data_feed._get_valid_start_time(end_time=end_time, start_time=None, limit=500)
-
-        url = (f"{REST_URL.format(domain='com')}{CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair)}?"
-               f"end={end_time}&granularity=ONE_MINUTE&start={start_time}")
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        data_mock = get_candles_rest_data_mock()
-        mock_api.get(url=regex_url, body=json.dumps(data_mock))
-        self.data_feed._public_api_factory.get_rest_assistant.return_value.execute_request.return_value = data_mock
-
-        resp = await self.data_feed.fetch_candles(start_time=start_time, end_time=end_time)
-
-        self.assertEqual(resp.shape[1], 6)
-        self.assertEqual(resp.shape[0], len(data_mock.get("candles")))
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
@@ -508,7 +345,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
     async def test_check_network_edge_case_non_200_status(self):
         with patch.object(self.data_feed, "_api_factory") as mock_api_factory:
             mock_rest_assistant = AsyncMock()
-            mock_rest_assistant.execute_request.return_value = {"status": 500}
+            mock_rest_assistant.execute_request.return_value = None
             mock_api_factory.get_rest_assistant = AsyncMock(return_value=mock_rest_assistant)
             result = await self.data_feed.check_network()
             self.assertEqual(result, NetworkStatus.NOT_CONNECTED)

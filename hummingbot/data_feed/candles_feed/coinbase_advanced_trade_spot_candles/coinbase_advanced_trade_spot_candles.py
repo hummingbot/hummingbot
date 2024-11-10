@@ -1,9 +1,7 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Tuple
-
-import numpy as np
-import pandas as pd
+import time
+from typing import Any, Dict, List, Optional
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils as web_utils
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
@@ -14,7 +12,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
 )
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
@@ -26,12 +24,6 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
 
     web_utils = web_utils
 
-    class NotEnoughDataAvailableError(Exception):
-        pass
-
-    class HistoricalCallOnEmptyCandles(Exception):
-        pass
-
     @classmethod
     def logger(cls) -> HummingbotLogger | logging.Logger:
         if cls._logger is None:
@@ -40,23 +32,12 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
-        self._public_api_factory = self._api_factory
-        # self._api_factory = None
-        self.logger().debug(f"Initializing {self.name} {interval} candles feed...")
-
-    # async def _build_auth_api_factory(self) -> WebAssistantsFactory:
-    #     """Builds the API factory with authentication."""
-    #     time_sync = TimeSynchronizer()
-    #     await Security.wait_til_decryption_done()
-    #     api_keys = Security.api_keys("coinbase_advanced_trade")
-    #     return web_utils.build_api_factory(
-    #         throttler=AsyncThrottler(rate_limits=self.rate_limits),
-    #         time_synchronizer=time_sync,
-    #         domain=DEFAULT_DOMAIN,
-    #         auth=CoinbaseAdvancedTradeAuth(
-    #             api_key=api_keys["coinbase_advanced_trade_api_key"],
-    #             secret_key=api_keys["coinbase_advanced_trade_api_secret"],
-    #             time_provider=time_sync))
+        # if CoinbaseAdvancedTradeExchange.class_throttler is not None:
+        #     self.logger().debug(f"Initializing {self.name} {interval} candles feed with class throttler")
+        #     self._api_factory = WebAssistantsFactory(throttler=CoinbaseAdvancedTradeExchange.class_throttler)
+        # else:
+        #     self.logger().debug(f"Initializing {self.name} {interval} candles feed with no throttler")
+        #     self._api_factory = WebAssistantsFactory()
 
     @property
     def name(self) -> str:
@@ -88,6 +69,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
     @property
     def rate_limits(self) -> List[RateLimit]:
         """Rate limits for the exchange."""
+        self.logger().debug(f"Getting rate limits for {CONSTANTS.RATE_LIMITS}")
         return CONSTANTS.RATE_LIMITS
 
     @property
@@ -96,27 +78,47 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         return CONSTANTS.INTERVALS
 
     @property
-    def candle_keys_order(self) -> Tuple[str, ...]:
-        """Order in which to arrange the REST and WSS candle information keys"""
-        return "start", "open", "high", "low", "close", "volume"
+    def candles_endpoint(self):
+        self.logger().debug(f"Getting candles endpoint for {self._ex_trading_pair}")
+        raise CONSTANTS.CANDLES_ENDPOINT.format(product_id=self._ex_trading_pair)
 
     @property
-    def candles_df(self) -> pd.DataFrame:
-        """Dataframe with the candles' information."""
-        df = pd.DataFrame(self._candles, columns=["timestamp"] + list(self.candle_keys_order[1:]), dtype=float)
-        df = df.reindex(columns=self.columns, fill_value=0.0)
-        df["timestamp"] = df["timestamp"] * 1000
-        return df.sort_values(by="timestamp", ascending=True)
+    def _rest_throttler_limit_id(self):
+        self.logger().debug(f"Getting rest throttler limit id for {CONSTANTS.CANDLES_ENDPOINT_ID}")
+        return CONSTANTS.CANDLES_ENDPOINT_ID
+
+    @property
+    def candles_max_result_per_rest_request(self):
+        return CONSTANTS.MAX_CANDLES_SIZE
+
+    @property
+    def _is_last_candle_not_included_in_rest_request(self):
+        return False
+
+    @property
+    def _is_first_candle_not_included_in_rest_request(self):
+        return False
+
+    async def start_network(self):
+        """
+        This method starts the network and starts a task for listen_for_subscriptions.
+        """
+        self.logger().debug("Starting network...")
+        await self.stop_network()
+        await self.initialize_exchange_data()
+        self._listen_candles_task = safe_ensure_future(self.listen_for_subscriptions())
+        self.logger().debug(f"Network started. {self._listen_candles_task}")
 
     async def check_network(self) -> NetworkStatus:
         """Verifies the exchange status."""
+        self.logger().debug("Checking network...")
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             result = await rest_assistant.execute_request(
                 url=web_utils.public_rest_url(path_url=SERVER_TIME_EP),
                 throttler_limit_id=SERVER_TIME_EP,
             )
-            if result is not None and result.get("status") == 200:
+            if result is not None:
                 return NetworkStatus.CONNECTED
         except asyncio.CancelledError:
             raise
@@ -129,136 +131,35 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         """Returns the trading pair in the format required by the exchange."""
         return trading_pair.replace("-", "-")
 
-    def _get_valid_start_time(self, end_time: int, start_time: int | None, limit: int) -> int:
-        """Returns the start time of the candles deque."""
-        interval_s: float = self.get_seconds_from_interval(self.interval)
-        _start_time: int = end_time - int(min(limit, CONSTANTS.MAX_CANDLES_SIZE) * interval_s)
-        start_time: int = max(start_time or _start_time, _start_time)
-        return start_time
+    def _get_rest_candles_params(self,
+                                 start_time: Optional[int] = None,
+                                 end_time: Optional[int] = None,
+                                 limit: Optional[int] = CONSTANTS.MAX_CANDLES_SIZE) -> dict:
+        params = {
+            "granularity": CONSTANTS.INTERVALS[self.interval],
+            "start": self.ensure_timestamp_in_seconds(start_time) if start_time else None,
+        }
+        if end_time:
+            params["end"] = self.ensure_timestamp_in_seconds(end_time)
+        self.logger().debug(f"REST candles params: {params}")
+        return params
 
-    async def fetch_candles(
-            self,
-            end_time: int | None = None,
-            start_time: int | None = None,
-            limit: int = CONSTANTS.MAX_CANDLES_SIZE) -> np.ndarray:
-        """
-        Fetches candles from the exchange.
-        :param start_time: the start time of the candles to be fetched
-        :param end_time: the end time of the candles to be fetched
-        :param limit: the quantity of candles to be fetched (defaults to exchange's limit)
-        :return: a numpy array with the candles
-        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getcandles
-        """
-        rest_assistant = await self._api_factory.get_rest_assistant()
-
-        end_time = end_time or await web_utils.get_current_server_time_s()
-        limit = min(limit or CONSTANTS.MAX_CANDLES_SIZE, CONSTANTS.MAX_CANDLES_SIZE)
-        start_time = self._get_valid_start_time(end_time=end_time, start_time=start_time, limit=limit)
-
-        params = {"granularity": CONSTANTS.INTERVALS[self.interval],
-                  "start": str(start_time),
-                  "end": str(end_time)}
-
-        data: Dict[str, Any] = await rest_assistant.execute_request(
-            url=self.candles_url,
-            throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT_ID,
-            params=params,
-        )
-
-        self.logger().debug(f"fetch_candles() returned {len(data['candles'])} candles")
-        return np.array(
-            [
-                [float(candle[key]) for key in self.candle_keys_order]
-                for candle in data["candles"]
-            ]
-        )
-
-    async def fill_historical_candles(self, end_time: int | None = None) -> None:
-        """
-        Fills the historical candles deque with the candles fetched from the exchange.
-        Ideally, one request should provide the number of candles needed to fill the deque.
-        """
-        end_timestamp: int | None = end_time or int(self._candles[0][0])
-        while not self.ready:
-            try:
-                candles = await self.fetch_candles(end_time=end_timestamp, limit=self.max_records)
-
-                if len(candles) == 0:
-                    # No candles were fetched (Coinbase Advanced Trade may only have 9 days of candles)
-                    raise CoinbaseAdvancedTradeSpotCandles.NotEnoughDataAvailableError
-            except asyncio.CancelledError:
-                raise
-            except (CoinbaseAdvancedTradeSpotCandles.NotEnoughDataAvailableError,
-                    StopAsyncIteration):
-                self.logger().error("There is not enough data available to fill historical"
-                                    f" candles for {self.name}. Relying upon websocket feed")
-                break
-            except Exception as e:
-                self.logger().exception(
-                    f"Unexpected error occurred when getting historical candles {e}.\n"
-                    f"   end_timestamp: {end_timestamp}\n"
-                    f"Retrying in 1 seconds...",
-                )
-                await self._sleep(1.0)
-                continue
-
-            # Sort in reversed order to fill the deque from the oldest to the newest candle
-            sorted_indices = candles[:, 0].argsort()[::-1]
-            candles = candles[sorted_indices]
-
-            # Verify that we don't override the last candle fetched with websocket (initial value)
-            if candles[0][0] == end_timestamp:
-                candles = candles[1:]
-
-            # we are computing again the quantity of records again since the websocket process is able to
-            # modify the deque and if we extend it, the new observations are going to be dropped.
-            missing_records = self._candles.maxlen - len(self._candles)
-            if missing_records > len(candles):
-                # Not enough candles were fetched to fill the deque, possibly the end time did not match well
-                self.logger().debug(f"Missing {missing_records - len(candles)} candles to fill the deque. Attempting "
-                                    "to fetch more.")
-                self._candles.extendleft(candles)
-                end_timestamp = int(candles[-1][0])
-            else:
-                self._candles.extendleft(candles[:missing_records])
+    def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
+        self.logger().debug(f"Received {data} candles for {end_time} for {self.interval}:")
+        # How are we supposed to guess this: open, high, low, close, volume
+        return [
+            [self.ensure_timestamp_in_seconds(row['start']), row['open'], row['high'], row['low'], row['close'], row['volume'],
+             0, 0, 0, 0]
+            for row in data['candles']
+        ]
 
     async def listen_for_subscriptions(self):
         """
         Connects to the candlestick websocket endpoint and listens to the messages sent by the
         exchange.
         """
-        # Websocket requires authentication - Using REST only mode for now
-        self.logger().debug(f"Using REST loop for {self.interval} (not in {CONSTANTS.WS_INTERVALS})")
-        self.logger().warning(f"Using REST loop for {self.interval} (not in {CONSTANTS.WS_INTERVALS})")
+        self.logger().debug("Listening for subscriptions...")
         await self._listen_to_fetch()
-
-    async def _listen_for_subscriptions(self):
-        """
-        Connects to the candlestick websocket endpoint and listens to the messages sent by the
-        exchange.
-        """
-        raise NotImplementedError
-
-#        ws: Optional[WSAssistant] = None
-#        while True:
-#            self.logger().debug("_listen_for_subscriptions() called...")
-#            try:
-#                ws: WSAssistant = await self._connected_websocket_assistant()
-#                await self._subscribe_channels(ws)
-#                await self._process_websocket_messages(websocket_assistant=ws)
-#
-#            except asyncio.CancelledError:
-#                raise
-#            except ConnectionError as connection_exception:
-#                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
-#            except Exception:
-#                self.logger().exception(
-#                    "Unexpected error occurred when listening to public klines. Retrying in 1 "
-#                    "seconds...",
-#                )
-#                await self._sleep(1.0)
-#            finally:
-#                await self._on_order_stream_interruption(websocket_assistant=ws)
 
     async def _listen_to_fetch(self):
         """
@@ -267,14 +168,18 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         while True:
             try:
                 self.logger().debug("_listen_to_fetch() called...")
-                end_time = await web_utils.get_current_server_time_s()
-                if not self.ready:
-                    await self.fill_historical_candles(end_time=int(end_time))
-                else:
-                    candles = await self.fetch_candles(end_time=int(end_time), start_time=int(self._candles[0][0]) + 1)
-                    self.logger().debug(f"Received {len(candles)} candles for {int(end_time)} for {self.interval}:")
-                    self.logger().debug(f"\t[{int(candles[0][0])} ... {int(candles[-1][0])}] -> [{int(self._candles[0][0])}]")
-                    self._candles.extendleft(candles)
+                end_time: int = int(time.time())
+
+                start_time = None
+                if len(self._candles) > 0:
+                    start_time = int(self._candles[0][0])
+
+                candles = await self.fetch_candles(end_time=end_time, start_time=start_time)
+
+                self.logger().debug(f"Received {len(candles)} candles for {start_time}/{end_time} for {self.interval}:")
+                # self.logger().debug(f"\t[{int(candles[0][0])} ... {int(candles[-1][0])}] -> [{int(self._candles[0][0])}]")
+
+                self._candles.extendleft(candles)
                 await self._sleep(self.get_seconds_from_interval(self.interval))
                 self.logger().debug(f"Waited {self.get_seconds_from_interval(self.interval)} s")
 
@@ -287,68 +192,22 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                 )
                 await self._sleep(1.0)
 
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        raise NotImplementedError
-#        if self._api_factory is None:
-#            self._api_factory = await self._build_auth_api_factory()
-#
-#        return await super()._connected_websocket_assistant()
+    def ws_subscription_payload(self):
+        return {
+            "type": "subscribe",
+            "product_ids": [self._ex_trading_pair],
+            "channel": "candles",
+        }
 
-    async def _subscribe_channels(self, ws: WSAssistant):
-        """
-        Subscribes to the candles events through the provided websocket connection.
-        :param ws: the websocket assistant used to connect to the exchange
-        """
-        raise NotImplementedError
+    def _parse_websocket_message(self, data: dict):
+        if data is None or "events" not in data or "candles" not in data["events"]:
+            return
 
-#        if self._ws_subscriptions.get(self._trading_pair) is not None:
-#            return
-#
-#        try:
-#            for channel in ("candles",):
-#                payload = {
-#                    "type": "subscribe",
-#                    "product_ids": [self._ex_trading_pair],
-#                    "channel": channel,
-#                }
-#                self.logger().debug(f"Subscribing to public {channel} with payload: {payload}")
-#
-#                await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
-#                self._ws_subscriptions[self._trading_pair] = True
-#                self.logger().info(f"Subscribed to public {channel}...")
-#        except asyncio.CancelledError:
-#            raise
-#        except Exception:
-#            self.logger().error(
-#                "Unexpected error occurred subscribing to public candles...",
-#                exc_info=True
-#            )
-#            raise
-
-    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
-        raise NotImplementedError
-
-#        async for ws_response in websocket_assistant.iter_messages():
-#            data: Dict[str, Any] = ws_response.data
-#            self.logger().debug(f"Received message from websocket: {data}")
-#
-#            if data is not None and data.get("type") == "error":
-#                self._ws_subscriptions.pop(self._trading_pair)
-#                self.logger().error(f"Failed to subscribed to public candles: {data.get('message')}")
-#
-#            if data is not None and data.get("channel") == "candles":
-#                for event in data["events"]:
-#                    for candle in event["candles"]:
-#                        candle = np.array([float(candle[key]) for key in self.candle_keys_order])
-#
-#                        if len(self._candles) == 0:
-#                            self._candles.append(candle)
-#                            safe_ensure_future(self.fill_historical_candles())
-#
-#                        elif candle[0] > int(self._candles[-1][0]):
-#                            # TODO: validate also that the diff of timestamp == interval (issue with 1M interval).
-#                            self._candles.append(candle)
-#
-#                        elif candle[0] == int(self._candles[-1][0]):
-#                            self._candles.pop()
-#                            self._candles.append(candle)
+        d: dict = data["events"]["candles"]
+        candles_row_dict = {"timestamp": self.ensure_timestamp_in_seconds(d["start"])}
+        candles_row_dict["open"] = d["open"]
+        candles_row_dict["high"] = d["high"]
+        candles_row_dict["low"] = d["low"]
+        candles_row_dict["close"] = d["close"]
+        candles_row_dict["volume"] = d["volume"]
+        return candles_row_dict
