@@ -152,7 +152,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         self.assertEqual(self.data_feed.health_check_url, REST_URL.format(domain="com") + SERVER_TIME_EP)
         self.assertEqual(self.data_feed.candles_url,
                          self.data_feed.rest_url + CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair))
-        self.assertEqual(self.data_feed.rate_limits, CONSTANTS.RATE_LIMITS)
+        self.assertEqual(self.data_feed.rate_limits, [])
         self.assertEqual(self.data_feed.intervals, CONSTANTS.INTERVALS)
 
     def test_intervals(self):
