@@ -29,6 +29,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -44,6 +45,12 @@ from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
+
+CoinbaseExchangeThrottler = AsyncThrottler(
+    rate_limits=constants.RATE_LIMITS,
+    limits_share_percentage=Decimal("100")
+)
 
 
 class CoinbaseAdvancedTradeExchange(ExchangePyBase):
@@ -84,6 +91,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         # Update the time synchronizer logger to the current class logger
         self._time_synchronizer.logger = self.logger
         self.logger().debug(f"{self.name} instance created {self}.")
+
+        self._throttler = CoinbaseExchangeThrottler
 
     def __repr__(self) -> str:
         rep: str = (

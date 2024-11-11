@@ -1,14 +1,12 @@
 from bidict import bidict
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
-    MAX_PUBLIC_REST_REQUESTS_S,
-    PUBLIC_REST_REQUESTS,
-    RATE_LIMITS,
+    CANDLES_EP,
+    CANDLES_EP_ID,
 )
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
-CANDLES_ENDPOINT = "/brokerage/market/products/{product_id}/candles"
-CANDLES_ENDPOINT_ID = "candles"
+CANDLES_ENDPOINT = CANDLES_EP
+CANDLES_ENDPOINT_ID = CANDLES_EP_ID
 
 INTERVALS = bidict({
     "1m": "ONE_MINUTE",
@@ -25,12 +23,4 @@ WS_INTERVALS = bidict({
     "5m": "FIVE_MINUTE",
 })
 
-MAX_CANDLES_SIZE = 350
-
-RATE_LIMITS.append(
-    RateLimit(
-        CANDLES_ENDPOINT_ID,
-        limit=MAX_PUBLIC_REST_REQUESTS_S - 1,
-        time_interval=1,
-        linked_limits=[LinkedLimitWeightPair(PUBLIC_REST_REQUESTS, 1)]),
-)
+MAX_CANDLES_SIZE = 349
