@@ -34,7 +34,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._connector = connector
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
-        # self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
+        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._snapshot_messages_queue_key = "order_book_snapshot"
         self._domain = domain
         self._api_factory = api_factory
@@ -144,7 +144,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if "result" not in event_message:
             stream_name = event_message.get("channel")
             if "l2Book" in stream_name:
-                channel = self._snapshot_messages_queue_key
+                channel = self._diff_messages_queue_key
             elif "trades" in stream_name:
                 channel = self._trade_messages_queue_key
         return channel
