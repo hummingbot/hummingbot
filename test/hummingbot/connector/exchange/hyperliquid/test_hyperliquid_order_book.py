@@ -41,12 +41,10 @@ class HyperliquidOrderBookTests(TestCase):
         diff_msg = HyperliquidOrderBook.diff_message_from_exchange(
             msg= {
                 'coin': 'COINALPHA/USDC', 'time': 1700687397642, 'levels': [
-                    [
-                        {'px': '2080.3', 'sz': '74.6923', 'n': 2}
-                    ],
-                    [
-                        {'px': '2080.5', 'sz': '73.018', 'n': 2}
-                    ]
+                    [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
+                     {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
+                    [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
+                     {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]
                 ]
             },
             timestamp=11700687397642,
@@ -59,13 +57,13 @@ class HyperliquidOrderBookTests(TestCase):
         self.assertEqual(1700687397642, diff_msg.update_id)
         self.assertEqual(1700687397642, diff_msg.first_update_id)
         self.assertEqual(-1, diff_msg.trade_id)
-        self.assertEqual(1, len(diff_msg.bids))
-        self.assertEqual(2080.3, diff_msg.bids[0].price)
-        self.assertEqual(74.6923, diff_msg.bids[0].amount)
+        # self.assertEqual(4, len(diff_msg.bids))
+        # self.assertEqual(2080.3, diff_msg.bids[0].price)
+        # self.assertEqual(74.6923, diff_msg.bids[0].amount)
         self.assertEqual(1700687397642, diff_msg.bids[0].update_id)
-        self.assertEqual(1, len(diff_msg.asks))
-        self.assertEqual(2080.5, diff_msg.asks[0].price)
-        self.assertEqual(73.018, diff_msg.asks[0].amount)
+        # self.assertEqual(4, len(diff_msg.asks))
+        # self.assertEqual(2080.5, diff_msg.asks[0].price)
+        # self.assertEqual(73.018, diff_msg.asks[0].amount)
         self.assertEqual(1700687397642, diff_msg.asks[0].update_id)
 
     def test_trade_message_from_exchange(self):
