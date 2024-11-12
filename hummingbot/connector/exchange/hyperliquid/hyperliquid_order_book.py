@@ -45,8 +45,8 @@ class HyperliquidOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg['trading_pair'],
             "update_id": msg["time"],
-            "bids": [[float(i['px']), float(i['sz'])] for i in msg["levels"][0]],
-            "asks": [[float(i['px']), float(i['sz'])] for i in msg["levels"][1]],
+            "bids": ([float(i['px']), float(i['sz'])] for i in msg["levels"][0]),
+            "asks": ([float(i['px']), float(i['sz'])] for i in msg["levels"][1]),
         }, timestamp=timestamp)
 
     @classmethod
