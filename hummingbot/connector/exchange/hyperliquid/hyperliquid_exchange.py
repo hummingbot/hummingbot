@@ -131,6 +131,16 @@ class HyperliquidExchange(ExchangePyBase):
         """
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
+    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        results = {}
+        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
+                                        data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
+        for token in response[1]:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(token['coin'])
+            prices = token['markPx']
+            results[trading_pair] = prices
+            return results
+
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         return False
 
