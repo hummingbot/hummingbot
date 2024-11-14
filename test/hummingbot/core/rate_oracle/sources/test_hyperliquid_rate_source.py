@@ -86,7 +86,7 @@ class HyperliquidRateSourceTest(unittest.TestCase):
                     'prevDayPx': "COINALPHA/USDC",
                     'dayNtlVlm': '4265022.87833',
                     'markPx': '10',
-                    'midPx': '105',
+                    'midPx': '10',
                     'circulatingSupply': '598274922.83822',
                     'coin': "COINALPHA/USDC",
                 },
@@ -156,7 +156,7 @@ class HyperliquidRateSourceTest(unittest.TestCase):
                     'prevDayPx': '0.22916',
                     'dayNtlVlm': '4265022.87833',
                     'markPx': '10',
-                    'midPx': '105',
+                    'midPx': '10',
                     'circulatingSupply': '598274922.83822',
                     'coin': "COINALPHA/USDC"
                 },
