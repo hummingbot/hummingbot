@@ -138,7 +138,7 @@ class HyperliquidExchange(ExchangePyBase):
             data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         for token in response[1]:
             result = {}
-            price = token['markPx']
+            price = token['midPx']
             result["symbol"] = token['coin']
             result["price"] = price
             res.append(result)
