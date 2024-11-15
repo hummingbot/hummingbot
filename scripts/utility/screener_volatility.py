@@ -16,7 +16,7 @@ class VolatilityScreener(ScriptStrategyBase):
                      "BAND-USDT", "KAVA-USDT", "KNC-USDT", "OMG-USDT", "REN-USDT", "ZRX-USDT", "BAL-USDT",
                      "GRT-USDT", "ZEC-USDT", "XMR-USDT", "XTZ-USDT", "ALGO-USDT", "ATOM-USDT", "ZIL-USDT",
                      "DASH-USDT", "DOGE-USDT", "EGLD-USDT", "EOS-USDT", "ETC-USDT", "FIL-USDT", "ICX-USDT",
-                     "IOST-USDT", "IOTA-USDT", "KSM-USDT", "LRC-USDT", "MATIC-USDT", "NEAR-USDT", "OCEAN-USDT",
+                     "IOST-USDT", "IOTA-USDT", "KSM-USDT", "LRC-USDT", "POL-USDT", "NEAR-USDT", "OCEAN-USDT",
                      "ONT-USDT", "QTUM-USDT", "RVN-USDT", "SKL-USDT", "STORJ-USDT", "SXP-USDT",
                      "TRX-USDT", "VET-USDT", "WAVES-USDT", "XLM-USDT", "XRP-USDT"]
     intervals = ["3m"]
