@@ -39,9 +39,8 @@ class MixinFetchCandleData:
             end_time: int | None = None,
     ) -> Generator[CandleData, None, None]:
         for candle in yield_candle_data_from_dict(data, self.ensure_timestamp_in_seconds):
-            if end_time is not None and candle.timestamp < end_time:
+            if end_time is None or candle.timestamp < end_time:
                 yield candle
-            yield candle
 
     async def _fetch_candles(
             self: _SelfMixinFetchCandleData,
@@ -110,17 +109,20 @@ class MixinFetchCandleData:
             # We can only know the offset after the first batch and at least 2 candles
             if len(batch_candles) > 1:
                 candles_offset: int = batch_candles[-1].timestamp % self.interval_in_seconds
+            self.logger().debug(f"Received {len(batch_candles)} candles from {current_start} to {current_end}")
 
             # Sanitize the candles: extracts longest valid sequence
             sanitized_batch: tuple[CandleData, ...] = sanitize_data(
                 batch_candles,
                 self.interval_in_seconds,
-                (current_start, current_end)
+                (current_start, current_end),
+                self.logger(),
             )
 
             if not sanitized_batch:
                 break
 
+            self.logger().debug(f"Received {len(sanitized_batch)} candles from {current_start} to {current_end}")
             all_candles = merge_sanitized_collections(
                 all_candles,
                 sanitized_batch,
@@ -131,9 +133,9 @@ class MixinFetchCandleData:
                 break
 
             got_start = (
+                start_time is None or
                 0 <= all_candles[0].timestamp - start_time < self.interval_in_seconds or
-                0 <= all_candles[-1].timestamp - start_time < self.interval_in_seconds or
-                start_time is None
+                0 <= all_candles[-1].timestamp - start_time < self.interval_in_seconds
             )
             got_end = (0 <= end_time - all_candles[-1].timestamp < self.interval_in_seconds)
 

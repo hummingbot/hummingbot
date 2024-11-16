@@ -69,6 +69,8 @@ class MixinWSOperations:
             if not raw_candles:
                 continue
 
+            self.logger().debug(f"Received {len(raw_candles)} candles from websocket")
+
             raw_candles = sanitize_data(
                 raw_candles,
                 interval_in_s=self.get_seconds_from_interval(self.interval),

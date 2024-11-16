@@ -1,3 +1,4 @@
+import logging
 from collections import deque
 from datetime import datetime
 from typing import Any, Callable, Generator, Sequence, TypeAlias
@@ -77,6 +78,7 @@ def sanitize_data(
         candles: tuple[CandleData, ...],
         interval_in_s: int,
         inclusive_bounds: tuple[int | None, int | None] = (None, None),
+        logger: logging.Logger | None = None,
 ) -> tuple[CandleData, ...]:
     """Sanitizes the data by finding the largest sequence of valid intervals.
 
@@ -112,6 +114,9 @@ def sanitize_data(
     best_sequence = []
     current_sequence = []
     max_length = 0
+
+    if logger:
+        logger.debug(f"Sanitizing {len(sorted_candles)} candles with interval {interval_in_s}")
 
     for i in range(len(timestamps) - 1):
         if not current_sequence:
