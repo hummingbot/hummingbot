@@ -1,5 +1,6 @@
 import unittest
 from collections import deque
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Sequence
 
 import numpy as np
@@ -15,7 +16,7 @@ from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.util
 )
 
 
-class TestDequeTypedUpdate(unittest.IsolatedAsyncioTestCase):
+class TestDequeTypedUpdate(IsolatedAsyncioWrapperTestCase):
     """Test suite for updating typed deque[CandleArray] from sequences."""
 
     def create_candle_data(self, base_time: float, count: int) -> tuple[tuple[float, ...], ...]:

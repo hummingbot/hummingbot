@@ -14,6 +14,10 @@ from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.prot
 class TestParseWebsocketMessage(IsolatedAsyncioWrapperTestCase):
     """Test suite for parse_websocket_message function."""
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        super().tearDownClass()
+
     def test_valid_single_candle(self):
         """Test parsing message with a single valid candle."""
         message = {
@@ -128,6 +132,10 @@ class TestMixinWSOperations(IsolatedAsyncioWrapperTestCase):
 
         # Setup websocket assistant
         self.mixin._connected_websocket_assistant.return_value = self.mock_ws
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        super().tearDownClass()
 
     async def test__catsc_process_websocket_messages(self):
         """Test processing of websocket messages."""

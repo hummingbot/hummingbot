@@ -126,7 +126,6 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.interval = "1m"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.trading_pair
@@ -140,6 +139,10 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         await super().asyncSetUp()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        super().tearDownClass()
 
     def assertDequeEqual(self, deque1, deque2):
         self.assertEqual(len(deque1), len(deque2))

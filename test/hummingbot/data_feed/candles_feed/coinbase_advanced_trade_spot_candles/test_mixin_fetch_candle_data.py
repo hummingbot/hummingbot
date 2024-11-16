@@ -73,6 +73,10 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock()
         self.mock_mixin_instance.logger = MagicMock()
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        super().tearDownClass()
+
     def create_mock_candles(
             self,
             start_time: int,
