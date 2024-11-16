@@ -2,4 +2,6 @@ from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.coin
     CoinbaseAdvancedTradeSpotCandles,
 )
 
-__all__ = ["CoinbaseAdvancedTradeSpotCandles"]
+__all__ = [
+    "CoinbaseAdvancedTradeSpotCandles",
+]
