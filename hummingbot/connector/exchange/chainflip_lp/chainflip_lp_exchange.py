@@ -199,6 +199,7 @@ class ChainflipLpExchange(ExchangePyBase):
             max_id_len=self.client_order_id_max_length,
         )
         hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
+        quant_price = self.quantize_order_price(trading_pair, price)
         safe_ensure_future(
             self._create_order(
                 trade_type=TradeType.BUY,
@@ -210,7 +211,7 @@ class ChainflipLpExchange(ExchangePyBase):
                 **kwargs,
             )
         )
-        return hex_order_id
+        return self.convert_to_chainflip_order_return(hex_order_id, quant_price)
 
     def sell(
         self,
@@ -234,6 +235,7 @@ class ChainflipLpExchange(ExchangePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length,
         )
+        quant_price = self.quantize_order_price(trading_pair, price)
         hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
         safe_ensure_future(
             self._create_order(
@@ -246,7 +248,7 @@ class ChainflipLpExchange(ExchangePyBase):
                 **kwargs,
             )
         )
-        return hex_order_id
+        return self.convert_to_chainflip_order_return(hex_order_id, quant_price)
 
     async def _update_balances(self):
         all_balances = await self._data_source.all_balances()
@@ -307,6 +309,10 @@ class ChainflipLpExchange(ExchangePyBase):
         quantum_price = super().quantize_order_price(trading_pair, price)
         new_price = self._data_source.quantize_order_price(trading_pair, quantum_price)
         return new_price
+
+    def convert_to_chainflip_order_return(self, order_id: str, price: Decimal):
+        value = f"chainflip_{order_id}_{price}"
+        return value
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
