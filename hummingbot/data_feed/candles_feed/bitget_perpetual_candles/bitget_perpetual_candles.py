@@ -16,7 +16,7 @@ class BitgetPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 100):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 200):
         super().__init__(trading_pair, interval, max_records)
 
     @property

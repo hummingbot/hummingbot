@@ -165,10 +165,16 @@ class CandlesBase(NetworkBase):
         candles_df = pd.DataFrame()
         try:
             await self.initialize_exchange_data()
+            allow_equal_end_time = False if "bitget_perpetual" == config.connector_name else False
             current_end_time = self._round_timestamp_to_interval_multiple(config.end_time)
+            if not allow_equal_end_time:
+                current_end_time = config.end_time + 1
             current_start_time = self._round_timestamp_to_interval_multiple(config.start_time)
             while current_end_time >= current_start_time:
                 missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
+                #Avoid issues in Bitget when start and end time are the same
+                if not allow_equal_end_time and current_start_time == current_end_time:
+                    break
                 candles = await self.fetch_candles(start_time=current_start_time,
                                                    end_time=current_end_time,
                                                    limit=missing_records)
