@@ -242,11 +242,10 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        coin = symbol.replace("-", "/")
         api_params = {
             "type": "cancel",
             "cancels": {
-                "asset": self.coin_to_asset[self.name_to_coin[coin]],
+                "asset": self.coin_to_asset[symbol],
                 "cloid": order_id
             },
         }
@@ -358,7 +357,6 @@ class HyperliquidExchange(ExchangePyBase):
     ) -> Tuple[str, float]:
 
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        coin = symbol.replace("-", "/")
         param_order_type = {"limit": {"tif": "Gtc"}}
         if order_type is OrderType.LIMIT_MAKER:
             param_order_type = {"limit": {"tif": "Alo"}}
@@ -369,7 +367,7 @@ class HyperliquidExchange(ExchangePyBase):
             "type": "order",
             "grouping": "na",
             "orders": {
-                "asset": self.coin_to_asset[self.name_to_coin[coin]],
+                "asset": self.coin_to_asset[symbol],
                 "isBuy": True if trade_type is TradeType.BUY else False,
                 "limitPx": float(price),
                 "sz": float(amount),
