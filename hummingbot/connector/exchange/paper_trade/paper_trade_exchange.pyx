@@ -476,7 +476,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         order_book = self.order_books[trading_pair_str]
 
-        buy_entries = order_book.simulate_buy(amount)
+        buy_entries = order_book.simulate_buy(float(amount))
 
         # Get the weighted average price of the trade
         avg_price = Decimal(0)
@@ -558,7 +558,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         order_book = self.order_books[trading_pair_str]
 
-        sell_entries = order_book.simulate_sell(amount)
+        sell_entries = order_book.simulate_sell(float(amount))
 
         # Get the weighted average price of the trade
         avg_price = Decimal(0)
