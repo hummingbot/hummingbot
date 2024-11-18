@@ -45,10 +45,9 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        coin = ex_trading_pair.replace("-", "/")
         params = {
             "type": 'l2Book',
-            "coin": self._connector.name_to_coin[coin]
+            "coin": ex_trading_pair
         }
 
         data = await self._connector._api_post(
@@ -82,12 +81,11 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                coin = symbol.replace("-", "/")
                 trades_payload = {
                     "method": "subscribe",
                     "subscription": {
                         "type": CONSTANTS.TRADES_ENDPOINT_NAME,
-                        "coin": self._connector.name_to_coin[coin],
+                        "coin": symbol,
                     }
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
@@ -96,7 +94,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "method": "subscribe",
                     "subscription": {
                         "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
-                        "coin": self._connector.name_to_coin[coin],
+                        "coin": symbol,
                     }
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
