@@ -79,6 +79,7 @@ def main():
         "hexbytes",
         "importlib-metadata",
         "injective-py",
+        "metanode",
         "mypy-extensions",
         "msgpack",
         "nose",
