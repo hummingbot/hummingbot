@@ -5,7 +5,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 #https://api.bitget.com/api/v2/mix/market/candles?symbol=BTCUSDT&granularity=5m&limit=100&productType=usdt-futures
 REST_URL = "https://api.bitget.com"
 HEALTH_CHECK_ENDPOINT = "/api/spot/v1/public/time"
-CANDLES_ENDPOINT = "/api/v2/mix/market/candles"
+CANDLES_ENDPOINT = "/api/v2/mix/market/history-candles"
 
 WSS_URL = "wss://ws.bitget.com/mix/v1/stream"
 
