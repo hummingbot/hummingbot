@@ -871,6 +871,17 @@ class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
         title: str = "coinbase_advanced_trade"
 
 
+class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="hyperliquid",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "hyperliquid"
+
+
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
@@ -882,6 +893,7 @@ RATE_SOURCE_MODES = {
     GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
     CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.Config.title: CubeRateSourceMode,
+    HyperliquidRateSourceMode.Config.title: HyperliquidRateSourceMode,
 }
 
 
