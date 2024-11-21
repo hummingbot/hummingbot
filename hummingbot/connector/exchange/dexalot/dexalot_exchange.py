@@ -310,6 +310,8 @@ class DexalotExchange(ExchangePyBase):
                     exc_info=True,
                     app_warning_msg="Failed to cancel order. Check API key and network connection."
                 )
+        # Give some time for cancellation events to trigger
+        await asyncio.sleep(2)
         failed_cancellations = [CancellationResult(oid, False) for oid in incomplete_orders.keys()]
         return successful_cancellations + failed_cancellations
 
