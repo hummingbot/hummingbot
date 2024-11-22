@@ -201,7 +201,7 @@ class TestMixinWSOperations(IsolatedAsyncioWrapperTestCase):
 
         # Test normal flow with cancellation
         with self.assertRaises(asyncio.CancelledError):
-            await self.mixin._catsc_listen_for_subscriptions()
+            await self.mixin._catsc_listen_for_websocket()
 
         # Verify the expected calls were made
         self.mixin._connected_websocket_assistant.assert_called()
@@ -235,7 +235,7 @@ class TestMixinWSOperations(IsolatedAsyncioWrapperTestCase):
 
         # Run until CancelledError
         with self.assertRaises(asyncio.CancelledError):
-            await self.mixin._catsc_listen_for_subscriptions()
+            await self.mixin._catsc_listen_for_websocket()
 
         # Verify:
         # - Multiple connection attempts were made
@@ -251,7 +251,7 @@ class TestMixinWSOperations(IsolatedAsyncioWrapperTestCase):
         self.mock_ws.iter_messages.side_effect = asyncio.CancelledError()
 
         with self.assertRaises(asyncio.CancelledError):
-            await self.mixin._catsc_listen_for_subscriptions()
+            await self.mixin._catsc_listen_for_websocket()
 
         self.mixin._on_order_stream_interruption.assert_called_once()
 

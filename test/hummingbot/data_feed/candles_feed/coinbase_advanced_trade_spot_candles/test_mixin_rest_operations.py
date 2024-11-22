@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 from httpcore import NetworkError
 
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.candle_data import CandleData
-from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.mixin_fetch_candle_data import (
-    MixinFetchCandleData,
-    _ProtocolFetchCandleDataWithMixin,
+from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.mixin_rest_operations import (
+    MixinRestOperations,
+    _ProtocolRestOperationsWithMixin,
 )
 
 
@@ -48,7 +48,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_rest_assistant = AsyncMock()
 
         # Create a mock instance implementing the Main class needed Protocol
-        self.mock_mixin_instance = MagicMock(spec=_ProtocolFetchCandleDataWithMixin)
+        self.mock_mixin_instance = MagicMock(spec=_ProtocolRestOperationsWithMixin)
         self.mock_mixin_instance._api_factory = MagicMock()
         self.mock_mixin_instance._api_factory.get_rest_assistant = AsyncMock(
             return_value=self.mock_rest_assistant
@@ -139,7 +139,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
 
         self.mock_mixin_instance._catsc_parse_rest_candles_data.return_value = mock_candles
 
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -162,7 +162,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_rest_assistant.execute_request.side_effect = NetworkError("API Error")
 
         with self.assertRaises(NetworkError) as context:
-            await MixinFetchCandleData._fetch_candles(self.mock_mixin_instance)
+            await MixinRestOperations._fetch_candles(self.mock_mixin_instance)
 
         self.assertEqual(str(context.exception), "API Error")
         self.mock_mixin_instance.logger().error.assert_called_once()
@@ -198,7 +198,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -278,7 +278,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         )
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -351,7 +351,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         )
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -389,7 +389,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -457,7 +457,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Execute
-        await MixinFetchCandleData._fetch_candles(
+        await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -505,7 +505,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -561,7 +561,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Test case 1: Start time after end time
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=end_time + interval,
             end_time=end_time,
@@ -570,7 +570,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
                         "Should respect max_candles even with inverted time range")
 
         # Test case 2: Same start and end time
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=end_time,
             end_time=end_time,
@@ -578,7 +578,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(len(result) <= 1, f"Should return at most one candle for same timestamps: {len(result)}")
 
         # Test case 3: Small time range
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=end_time - interval + 1,
             end_time=end_time,
@@ -626,7 +626,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Execute
-        await MixinFetchCandleData._fetch_candles(
+        await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -680,7 +680,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=expected_start - time_span,  # Request two batches worth
             end_time=end_time,
@@ -739,7 +739,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         )
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -780,7 +780,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         )
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -827,7 +827,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         )
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -849,7 +849,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         response = {"candles": []}  # Mock API response
         self.mock_rest_assistant.execute_request.return_value = response
 
-        result = await MixinFetchCandleData._fetch_candles(self.mock_mixin_instance)
+        result = await MixinRestOperations._fetch_candles(self.mock_mixin_instance)
 
         self.assertEqual(len(result), 0)
         self.assertIsInstance(result, tuple)
@@ -883,7 +883,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data.return_value = mock_candles
         self.mock_rest_assistant.execute_request.return_value = {"candles": []}
 
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=end_time,
@@ -937,7 +937,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         self.mock_mixin_instance._catsc_parse_rest_candles_data = MagicMock(side_effect=mock_parse_candles)
 
         # Execute
-        result = await MixinFetchCandleData._fetch_candles(
+        result = await MixinRestOperations._fetch_candles(
             self.mock_mixin_instance,
             start_time=start_time,
             end_time=requested_end,
@@ -1002,7 +1002,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
         for case_name, end_time in test_cases:
             start_time = end_time - (interval * 5)
 
-            result = await MixinFetchCandleData._fetch_candles(
+            result = await MixinRestOperations._fetch_candles(
                 self.mock_mixin_instance,
                 start_time=start_time,
                 end_time=end_time,
@@ -1061,7 +1061,7 @@ class TestCandleFetcher(IsolatedAsyncioWrapperTestCase):
             start_time = end_time - (interval * 5)
 
             # The offset is inferred from the longest sequence aligned to the interval
-            result = await MixinFetchCandleData._fetch_candles(
+            result = await MixinRestOperations._fetch_candles(
                 self.mock_mixin_instance,
                 start_time=start_time,
                 end_time=end_time,

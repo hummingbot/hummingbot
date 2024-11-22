@@ -1,19 +1,33 @@
-import logging
-from asyncio import Event
-from collections import deque
 from typing import Any, AsyncGenerator, Protocol, runtime_checkable
 
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.candle_data import CandleData
-from hummingbot.logger import HummingbotLogger
 
 
 @runtime_checkable
-class ProtocolForFetchCandleData(Protocol):
-    _candles: deque
-    _ws_candle_available: Event
+class ProtocolForRestWS(Protocol):
     interval: str
 
+    def logger(self) -> Any:
+        ...
+
+    def get_seconds_from_interval(self, interval: str) -> int:
+        ...
+
+    async def _sleep(self, seconds: float) -> None:
+        ...
+
+    async def _update_deque_set_historical(
+            self,
+            candles: tuple[CandleData, ...],
+            *,
+            extend_left: bool = False,
+    ) -> None:
+        ...
+
+
+@runtime_checkable
+class ProtocolForRestOperations(ProtocolForRestWS, Protocol):
     @property
     def ready(self) -> bool:
         ...
@@ -21,10 +35,6 @@ class ProtocolForFetchCandleData(Protocol):
     @property
     def candles_max_result_per_rest_request(self) -> Any:
         ...
-
-    # @property
-    # def interval(self) -> str:
-    #     ...
 
     @property
     def interval_in_seconds(self) -> int:
@@ -42,27 +52,16 @@ class ProtocolForFetchCandleData(Protocol):
     def _api_factory(self) -> WebAssistantsFactory:
         ...
 
-    def logger(self) -> HummingbotLogger | logging.Logger:
+    def _get_first_candle_timestamp(self) -> int | None:
+        ...
+
+    def _get_last_candle_timestamp(self) -> int | None:
+        ...
+
+    def _get_missing_timestamps(self) -> int:
         ...
 
     def ensure_timestamp_in_seconds(self, timestamp: float | None) -> float:
-        ...
-
-    def get_seconds_from_interval(self, interval: str) -> int:
-        ...
-
-    def _get_rest_candles_params(
-            self,
-            start_time: int | None = None,
-            end_time: int | None = None,
-            limit: int | None = None,
-    ) -> dict[str, Any]:
-        ...
-
-    async def _catsc_fill_historical_candles(self) -> None:
-        ...
-
-    async def _sleep(self, seconds: float) -> None:
         ...
 
 
@@ -77,11 +76,7 @@ class ProtocolWSAssistant(Protocol):
 
 @runtime_checkable
 class ProtocolForWSOperations(Protocol):
-    interval: str
     _ex_trading_pair: str
-
-    def get_seconds_from_interval(self, interval: str) -> int:
-        ...
 
     async def _connected_websocket_assistant(self) -> ProtocolWSAssistant:
         ...
@@ -89,21 +84,24 @@ class ProtocolForWSOperations(Protocol):
     async def _subscribe_channels(self, websocket_assistant: ProtocolWSAssistant) -> None:
         ...
 
-    async def _initialize_deque_from_sequence(self, sequence: tuple[CandleData, ...]) -> None:
-        ...
-
     async def _on_order_stream_interruption(self, websocket_assistant: ProtocolWSAssistant) -> None:
-        ...
-
-    def logger(self) -> Any:
-        ...
-
-    async def _sleep(self, seconds: float) -> None:
         ...
 
 
 @runtime_checkable
-class ProtocolMixinFetchCandleData(Protocol):
+class ProtocolMixinRestOperations(Protocol):
+    def _get_rest_candles_params(
+            self,
+            start_time: int | None = None,
+            end_time: int | None = None,
+            limit: int | None = None,
+    ) -> dict[str, Any]:
+        ...
+
+    async def _catsc_fill_historical_candles(self):
+        """ Fills the historical candles. """
+        ...
+
     async def _fetch_candles(
             self,
             start_time: int | None = None,
@@ -122,7 +120,7 @@ class ProtocolWSOperationsWithMixin(
 
 
 @runtime_checkable
-class ProtocolMixinWSOperations(Protocol):
+class ProtocolMixinWSOperations(ProtocolForRestWS, Protocol):
     def ws_subscription_payload(self: ProtocolForWSOperations) -> dict[str, Any]:
         ...
 

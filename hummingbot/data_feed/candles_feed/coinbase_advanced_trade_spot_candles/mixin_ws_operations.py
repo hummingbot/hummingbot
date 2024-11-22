@@ -29,7 +29,7 @@ class MixinWSOperations:
             "channel": "candles",
         }
 
-    async def _catsc_listen_for_subscriptions(self: ProtocolWSOperationsWithMixin) -> None:
+    async def _catsc_listen_for_websocket(self: ProtocolWSOperationsWithMixin) -> None:
         """ Listens for new subscriptions and unsubscribes. """
         ws: ProtocolWSAssistant | None = None
         while True:
@@ -75,4 +75,4 @@ class MixinWSOperations:
                 raw_candles,
                 interval_in_s=self.get_seconds_from_interval(self.interval),
             )
-            await self._initialize_deque_from_sequence(raw_candles)
+            await self._update_deque_set_historical(raw_candles)

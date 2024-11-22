@@ -1,9 +1,7 @@
 import asyncio
 import logging
-import time
 from collections import deque
-from datetime import datetime
-from typing import Any, Dict, Generator, List, Optional
+from typing import Dict, List, Optional
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils as web_utils
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
@@ -17,26 +15,21 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
 )
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles import constants as CONSTANTS
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.candle_data import CandleData
-from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.mixin_fetch_candle_data import (
-    MixinFetchCandleData,
+from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.mixin_rest_operations import (
+    MixinRestOperations,
 )
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.mixin_ws_operations import MixinWSOperations
-from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.utils import (
-    sanitize_data,
-    update_deque_from_sequence,
-    yield_candle_data_from_dict,
-)
+from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.utils import update_deque_from_sequence
 from hummingbot.logger import HummingbotLogger
 
 
 class CoinbaseAdvancedTradeSpotCandles(
-    MixinFetchCandleData,
+    MixinRestOperations,
     MixinWSOperations,
     CandlesBase,
 ):
@@ -150,134 +143,36 @@ class CoinbaseAdvancedTradeSpotCandles(
         """Returns the trading pair in the format required by the exchange."""
         return trading_pair.replace("-", "-")
 
-    def _get_rest_candles_params(
-            self,
-            start_time: int | None = None,
-            end_time: int | None = None,
-            limit: int | None = None,
-    ) -> dict[str, Any]:
-        params = {
-            "granularity": CONSTANTS.INTERVALS[self.interval],
-            "start": self.ensure_timestamp_in_seconds(start_time) if start_time else None,
-        }
-        if end_time:
-            params["end"] = self.ensure_timestamp_in_seconds(end_time)
-        self.logger().debug(f"REST candles params: {params}")
-        return params
-
     async def listen_for_subscriptions(self):
         """
         Connects to the candlestick websocket endpoint and listens to the messages sent by the
         exchange.
         """
         if self.interval in CONSTANTS.WS_INTERVALS:
-            await self._catsc_listen_for_subscriptions()
+            await self._catsc_listen_for_websocket()
         else:
             await self._catsc_listen_to_fetch()
 
-    def __ws_subscription_payload(self):
-        return {
-            "type": "subscribe",
-            "product_ids": [self._ex_trading_pair],
-            "channel": "candles",
-        }
+    async def _update_deque_set_historical(
+            self,
+            candles: tuple[CandleData, ...],
+            *,
+            extend_left: bool = False,
+    ):
+        call_history = len(self._candles) == 0
+        update_deque_from_sequence(self._candles, candles, extend_left=extend_left)
+        if call_history:
+            self._ws_candle_available.set()
+            await self._catsc_fill_historical_candles(self._ws_candle_available)
 
-    async def __catsc_listen_for_subscriptions(self):
-        """
-        Connects to the candlestick websocket endpoint and listens to the messages sent by the
-        exchange.
-        """
-        ws: Optional[WSAssistant] = None
-        while True:
-            try:
-                ws: WSAssistant = await self._connected_websocket_assistant()
-                await self._subscribe_channels(ws)
-                await self._catsc_process_websocket_messages(websocket_assistant=ws)
-            except asyncio.CancelledError:
-                raise
-            except ConnectionError as connection_exception:
-                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
-            except Exception:
-                self.logger().exception(
-                    "Unexpected error occurred when listening to public klines. Retrying in 1 seconds...",
-                )
-                await self._sleep(1.0)
-            finally:
-                await self._on_order_stream_interruption(websocket_assistant=ws)
+    def _get_first_candle_timestamp(self) -> int | None:
+        return self._candles[0][0] if len(self._candles) > 0 else None
 
-    async def _catsc_listen_to_fetch(self):
-        """
-        Repeatedly calls fetch_candles on interval.
-        """
-        self.logger().debug("_listen_to_fetch() started...")
-        candles: tuple[CandleData, ...] = await self._fetch_candles(end_time=int(time.time()))
-        await self._initialize_deque_from_sequence(candles)
+    def _get_last_candle_timestamp(self) -> int | None:
+        return self._candles[-1][0] if len(self._candles) > 0 else None
 
-        while True:
-            try:
-                start_time: int = int(self._candles[-1][0]) if len(self._candles) > 0 else None
-                end_time: int = int(datetime.now().timestamp())
-                candles = await self._fetch_candles(end_time=end_time, start_time=start_time)
-                await self._initialize_deque_from_sequence(candles)
-                await self._sleep(self.get_seconds_from_interval(self.interval))
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception(
-                    "Unexpected error occurred when listening to public REST candle call. Retrying in 1 "
-                    "seconds...",
-                )
-                await self._sleep(1.0)
-
-    async def __catsc_process_websocket_messages(self, websocket_assistant: WSAssistant):
-        def _parse_websocket_message(_data: dict[str, Any]) -> Generator[CandleData, Any, None]:
-            self.logger().debug(f"Received websocket message: {data}")
-            if _data is not None and "events" in _data:
-                for e in _data["events"]:
-                    if "candles" in e:
-                        yield from yield_candle_data_from_dict(e)
-
-        async for ws_response in websocket_assistant.iter_messages():
-            data = ws_response.data
-
-            if isinstance(data, WSJSONRequest):
-                await websocket_assistant.send(request=data)
-                continue
-
-            raw_candles: tuple[CandleData, ...] = ()
-            for candle in _parse_websocket_message(data):
-                raw_candles += (candle,)
-
-            if not raw_candles:
-                continue
-
-            raw_candles = sanitize_data(
-                raw_candles,
-                interval_in_s=self.get_seconds_from_interval(self.interval),
-            )
-            await self._initialize_deque_from_sequence(raw_candles)
-
-    async def _catsc_fill_historical_candles(self):
-        """
-        This method fills the historical candles in the _candles deque until it reaches the maximum length.
-        """
-        while not self.ready:
-            await self._ws_candle_available.wait()
-            try:
-                end_time = self._candles[0][0]
-                missing_records = self._candles.maxlen - len(self._candles)
-                candles: tuple[CandleData, ...] = await self._fetch_candles(end_time=end_time, limit=missing_records)
-                update_deque_from_sequence(self._candles, candles, extend_left=True)
-            except asyncio.CancelledError:
-                raise
-            except ValueError:
-                raise
-            except Exception:
-                self.logger().exception(
-                    "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
-                )
-                await self._sleep(1.0)
+    def _get_missing_timestamps(self) -> int:
+        return self._candles.maxlen - len(self._candles)
 
     async def fill_historical_candles(self):
         return NotImplementedError

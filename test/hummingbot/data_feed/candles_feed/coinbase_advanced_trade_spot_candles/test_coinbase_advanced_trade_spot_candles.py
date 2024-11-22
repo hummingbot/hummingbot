@@ -220,7 +220,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
 
         with self.assertRaises(asyncio.CancelledError):
             self.data_feed._api_factory = self.data_feed._api_factory
-            self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_subscriptions())
+            self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_websocket())
             await asyncio.wait_for(self.listening_task, 1)
 
     @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.CoinbaseAdvancedTradeSpotCandles"
@@ -231,7 +231,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(
             asyncio.CancelledError())
 
-        asyncio.create_task(self.data_feed._catsc_listen_for_subscriptions())
+        asyncio.create_task(self.data_feed._catsc_listen_for_websocket())
         await asyncio.sleep(0.1)
         await self.resume_test_event.wait()
 
@@ -281,15 +281,15 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             message=json.dumps(get_candles_ws_data_mock_1()))
 
         self.data_feed._api_factory = self.data_feed._api_factory
-        self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_subscriptions())
+        self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_websocket())
 
         all_delivered = self.mocking_assistant._all_incoming_websocket_aiohttp_delivered_event[
             ws_connect_mock.return_value]
         await asyncio.wait_for(all_delivered.wait(), 1)
 
+        fill_historical_candles_mock.assert_called_once()
         self.assertEqual(self.data_feed.candles_df.shape[0], 2)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
-        fill_historical_candles_mock.assert_called_once()
 
     @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.CoinbaseAdvancedTradeSpotCandles"
            "._catsc_fill_historical_candles",
@@ -313,7 +313,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             message=json.dumps(get_candles_ws_data_mock_1()))
 
         self.data_feed._api_factory = self.data_feed._api_factory
-        self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_subscriptions())
+        self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_websocket())
 
         all_delivered = self.mocking_assistant._all_incoming_websocket_aiohttp_delivered_event[
             ws_connect_mock.return_value]
@@ -325,7 +325,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
     @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.CoinbaseAdvancedTradeSpotCandles"
            "._catsc_fill_historical_candles")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
+    async def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, fill_historical_mock):
         self.data_feed = CoinbaseAdvancedTradeSpotCandles(
             trading_pair=self.trading_pair,
             interval="5m"
@@ -341,13 +341,14 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             message=json.dumps(get_candles_ws_data_mock_2()))
 
         self.data_feed._api_factory = self.data_feed._api_factory
-        self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_subscriptions())
+        self.listening_task = asyncio.create_task(self.data_feed._catsc_listen_for_websocket())
 
         # self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
         all_delivered = self.mocking_assistant._all_incoming_websocket_aiohttp_delivered_event[
             ws_connect_mock.return_value]
         await asyncio.wait_for(all_delivered.wait(), 2)
 
+        fill_historical_mock.assert_called_once()
         self.assertEqual(self.data_feed.candles_df.shape[0], 3, self.data_feed.candles_df.shape)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
