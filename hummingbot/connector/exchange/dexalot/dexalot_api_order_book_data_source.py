@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
+from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -72,19 +72,14 @@ class DexalotAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
+        url = f"{web_utils.wss_url(self._domain)}"
+
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL,
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        # snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = self._time()
-        # snapshot_msg: OrderBookMessage = DexalotOrderBook.snapshot_message_from_exchange(
-        #     snapshot,
-        #     snapshot_timestamp,
-        #     metadata={"trading_pair": trading_pair}
-        # )
         order_book_message_content = {
             "trading_pair": trading_pair,
             "update_id": snapshot_timestamp,
