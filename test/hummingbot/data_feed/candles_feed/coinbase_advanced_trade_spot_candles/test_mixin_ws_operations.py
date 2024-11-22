@@ -99,7 +99,7 @@ class MockWSOperations(MixinWSOperations):
         self._on_order_stream_interruption = AsyncMock()
         self._sleep = AsyncMock()
         self._logger = MagicMock()
-        self._initialize_deque_from_sequence = AsyncMock()
+        self._update_deque_set_historical = AsyncMock()
 
         # Mock interval as property
         self._interval = "5m"
@@ -177,7 +177,7 @@ class TestMixinWSOperations(IsolatedAsyncioWrapperTestCase):
 
         # Verify behavior
         self.mock_ws.send.assert_called_once_with(request=json_request)
-        self.mixin._initialize_deque_from_sequence.assert_called()
+        self.mixin._update_deque_set_historical.assert_called()
 
     async def test_listen_for_subscriptions(self):
         """Test websocket subscription listening.
@@ -296,7 +296,7 @@ class TestMixinWSOperations(IsolatedAsyncioWrapperTestCase):
 
         # Verify all message types were handled correctly
         self.mock_ws.send.assert_called_once()  # Should be called for JSON request
-        self.mixin._initialize_deque_from_sequence.assert_called_once()  # Should be called for valid candle
+        self.mixin._update_deque_set_historical.assert_called_once()  # Should be called for valid candle
 
 
 if __name__ == '__main__':
