@@ -2,6 +2,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "dexalot"
+TESTNET_DOMAIN = "dexalot_testnet"
 
 HBOT_ORDER_ID_PREFIX = "HBOT"
 MAX_ORDER_ID_LEN = 64
@@ -10,6 +11,16 @@ MAX_ORDER_ID_LEN = 64
 REST_URL = "https://api.dexalot.com/privapi"
 WSS_URL = "wss://api.dexalot.com"
 DEXALOT_SUBNET_RPC_URL = "https://subnets.avax.network/dexalot/mainnet/rpc"
+DEXALOT_TRADEPAIRS_ADDRESS = "0x09383137C1eEe3E1A8bc781228E4199f6b4A9bbf"
+DEXALOT_PORTFOLIOSUB_ADDRESS = "0xa5C079C1986E2335d83fA2d7282e162958e515D5"
+
+
+TESTNET_REST_URL = "https://api.dexalot-test.com/privapi"
+TESTNET_WSS_URL = "wss://api.dexalot-test.com"
+TESTNET_DEXALOT_SUBNET_RPC_URL = "https://subnets.avax.network/dexalot/testnet/rpc"
+TESTNET_DEXALOT_TRADEPAIRS_ADDRESS = "0xaa3891FEa80967b57AAA4E962d1b07BCEe0b5394"
+TESTNET_DEXALOT_PORTFOLIOSUB_ADDRESS = "0xb54859290619630212D4BBAba47066BEE9654076"
+
 
 # Public API endpoints or DexalotClient function
 EXCHANGE_INFO_PATH_URL = "/trading/pairs"
@@ -23,12 +34,6 @@ ORDER_PATH_URL = "/signed/orders/{}"
 ORDERS_PATH_URL = "/signed/orders"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
-
-# Dexalot params
-
-
-# Market slippage
-MARKET_ORDER_SLIPPAGE = 0.05
 
 # gas limit
 CANCEL_GAS_LIMIT = 500000

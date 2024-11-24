@@ -16,6 +16,7 @@ from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source imp
 from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
+from hummingbot.core.rate_oracle.sources.hyperliquid_rate_source import HyperliquidRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.rate_oracle.utils import find_rate
@@ -33,6 +34,7 @@ RATE_ORACLE_SOURCES = {
     "coinbase_advanced_trade": CoinbaseAdvancedTradeRateSource,
     "cube": CubeRateSource,
     "dexalot": DexalotRateSource,
+    "hyperliquid": HyperliquidRateSource,
 }
 
 

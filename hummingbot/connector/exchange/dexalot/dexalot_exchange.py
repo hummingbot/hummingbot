@@ -83,7 +83,7 @@ class DexalotExchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        return "dexalot"
+        return self._domain
 
     @property
     def rate_limits_rules(self):
@@ -149,7 +149,7 @@ class DexalotExchange(ExchangePyBase):
         api_factory = self._web_assistants_factory
         ws = await api_factory.get_ws_assistant()
         async with api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_URL):
-            await ws.connect(ws_url=CONSTANTS.WSS_URL, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+            await ws.connect(ws_url=web_utils.wss_url(self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
             payload = {
                 "type": "marketsnapshotsubscribe",
             }
@@ -204,7 +204,8 @@ class DexalotExchange(ExchangePyBase):
     def _create_tx_client(self) -> DexalotClient:
         return DexalotClient(
             self.secret_key,
-            connector=self
+            connector=self,
+            domain=self._domain
         )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
@@ -309,6 +310,8 @@ class DexalotExchange(ExchangePyBase):
                     exc_info=True,
                     app_warning_msg="Failed to cancel order. Check API key and network connection."
                 )
+        # Give some time for cancellation events to trigger
+        await asyncio.sleep(2)
         failed_cancellations = [CancellationResult(oid, False) for oid in incomplete_orders.keys()]
         return successful_cancellations + failed_cancellations
 
@@ -410,10 +413,7 @@ class DexalotExchange(ExchangePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
 
         if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 + slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+            price = Decimal(0)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -449,10 +449,7 @@ class DexalotExchange(ExchangePyBase):
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 - slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+            price = Decimal(0)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
@@ -464,12 +461,34 @@ class DexalotExchange(ExchangePyBase):
             **kwargs))
         return hex_order_id
 
-    async def _execute_batch_inflight_order_create(self, inflight_orders_to_create: List[GatewayInFlightOrder]):
+    async def _execute_batch_inflight_order_cancel_and_create(
+            self,
+            orders_to_cancel: List[LimitOrder],
+            inflight_orders_to_create: List[GatewayInFlightOrder]
+    ):
+        tracked_orders_to_cancel = []
+        for order in orders_to_cancel:
+            tracked_order = self._order_tracker.all_updatable_orders.get(order.client_order_id)
+            if tracked_order is not None and tracked_order.exchange_order_id:
+                tracked_orders_to_cancel.append(tracked_order)
         try:
             async with self._throttler.execute_task(limit_id=CONSTANTS.UID_REQUEST_WEIGHT):
-                place_order_results = await self._tx_client.add_order_list(
+
+                transaction_hash = await self._tx_client.cancel_and_add_order_list(
+                    orders_to_cancel = tracked_orders_to_cancel,
                     order_list=inflight_orders_to_create
                 )
+                for cancel_order_result in tracked_orders_to_cancel:
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=cancel_order_result.client_order_id,
+                        trading_pair=cancel_order_result.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=(OrderState.CANCELED
+                                   if self.is_cancel_request_in_exchange_synchronous
+                                   else OrderState.PENDING_CANCEL),
+                        misc_updates={"cancelation_transaction_hash": transaction_hash}
+                    )
+                    self._order_tracker.process_order_update(order_update)
                 for in_flight_order in inflight_orders_to_create:
                     order_update: OrderUpdate = OrderUpdate(
                         client_order_id=in_flight_order.client_order_id,
@@ -477,15 +496,19 @@ class DexalotExchange(ExchangePyBase):
                         trading_pair=in_flight_order.trading_pair,
                         update_timestamp=self.current_timestamp,
                         new_state=in_flight_order.current_state,
-                        misc_updates={"creation_transaction_hash": place_order_results},
+                        misc_updates={"creation_transaction_hash": transaction_hash},
                     )
                     self.logger().debug(
-                        f"\nCreated order {in_flight_order.client_order_id}  with TX {place_order_results}")
+                        f"\nCreated order {in_flight_order.client_order_id}  with TX {transaction_hash}")
                     self._order_tracker.process_order_update(order_update)
 
         except asyncio.CancelledError:
             raise
         except Exception as ex:
+            self.logger().error(
+                f"Failed to cancel orders {', '.join([o.client_order_id for o in orders_to_cancel])}",
+                exc_info=True,
+            )
             self.logger().network("Batch order create failed.")
             for order in inflight_orders_to_create:
                 self._on_order_creation_failure(
@@ -841,14 +864,15 @@ class DexalotExchange(ExchangePyBase):
                 await self._sleep(self.clock.tick_size * 0.5)
 
     async def _cancel_and_create_queued_orders(self):
-        if len(self._orders_queued_to_cancel) > 0:
-            orders = [order.to_limit_order() for order in self._orders_queued_to_cancel]
+        if len(self._orders_queued_to_cancel) > 0 or len(self._orders_queued_to_create) > 0:
+            cancel_orders = [order.to_limit_order() for order in self._orders_queued_to_cancel]
+            add_orders = self._orders_queued_to_create
             self._orders_queued_to_cancel = []
-            await self._execute_batch_cancel(orders_to_cancel=orders)
-        if len(self._orders_queued_to_create) > 0:
-            orders = self._orders_queued_to_create
             self._orders_queued_to_create = []
-            await self._execute_batch_inflight_order_create(inflight_orders_to_create=orders)
+            await self._execute_batch_inflight_order_cancel_and_create(
+                orders_to_cancel=cancel_orders,
+                inflight_orders_to_create=add_orders
+            )
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         last_price = self.order_books.get(trading_pair).last_trade_price
