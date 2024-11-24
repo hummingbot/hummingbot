@@ -78,6 +78,13 @@ def start(self):
         rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
         rate_source.add_rate(f"{quote_1}-{quote_2}", Decimal(str(1 / quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
 
+        # This hack sets the ETH rate so that fee calculations work when users don't use the rate oracle.
+        ETH_USD_RATE = 3300
+        rate_source.add_rate(f"ETH-{quote_1}", Decimal(str(1 / ETH_USD_RATE)))
+        rate_source.add_rate(f"ETH-{quote_2}", Decimal(str(1 / ETH_USD_RATE)))
+        rate_source.add_rate(f"{quote_1}-ETH", Decimal(str(ETH_USD_RATE)))
+        rate_source.add_rate(f"{quote_2}-ETH", Decimal(str(ETH_USD_RATE)))
+
     self.strategy = AmmArbStrategy()
     self.strategy.init_params(market_info_1=market_info_1,
                               market_info_2=market_info_2,
