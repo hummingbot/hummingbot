@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 from decimal import Decimal
 from typing import Dict, List, Optional, Union
 
@@ -92,7 +93,18 @@ class PositionExecutor(ExecutorBase):
 
         :return: The filled amount of the open order if it exists, otherwise 0.
         """
-        return self._open_order.executed_amount_base if self._open_order else Decimal("0")
+        if self._open_order:
+            fees = Decimal(0)
+            if self._open_order.order and self._open_order.order.order_fills:
+                for fill in self._open_order.order.order_fills.values():
+                    for flat_fee in fill.fee.flat_fees:
+                        if flat_fee.token == self._open_order.order.base_asset:
+                            fees += flat_fee.amount
+            exchange = self.connectors[self.config.connector_name]
+            rounded_amount = exchange.quantize_order_amount(trading_pair=self.config.trading_pair,
+                                                            amount=self._open_order.executed_amount_base-fees)
+            return rounded_amount
+        return Decimal("0")
 
     @property
     def amount_to_close(self) -> Decimal:
@@ -518,9 +530,11 @@ class PositionExecutor(ExecutorBase):
                     if is_within_activation_bounds:
                         self.place_take_profit_limit_order()
                 else:
-                    if self._take_profit_limit_order.is_open and not self._take_profit_limit_order.is_filled and \
-                            not is_within_activation_bounds:
-                        self.cancel_take_profit()
+                    if self._take_profit_limit_order.is_open and not self._take_profit_limit_order.is_filled:
+                        if not is_within_activation_bounds:
+                            self.cancel_take_profit()
+                        elif not math.isclose(self._take_profit_limit_order.order.amount, self.open_filled_amount):
+                            self.renew_take_profit_order()
             elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
