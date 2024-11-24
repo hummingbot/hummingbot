@@ -160,7 +160,6 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
                         "Binance",
                         "Kucoin",
                         "Poloniex",
-                        "Hitbtc"
                     ],
                     "lowPrice": 38040,
                     "highPrice": 44948,

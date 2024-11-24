@@ -9,6 +9,7 @@ CANDLES_ENDPOINT = "/api/v1/market/candles"
 PUBLIC_WS_DATA_PATH_URL = "/api/v1/bullet-public"
 
 INTERVALS = bidict({
+    "1s": "1s",  # Implemented for resampling to 1s from trades in quants-lab
     "1m": "1min",
     "3m": "3min",
     "5m": "5min",

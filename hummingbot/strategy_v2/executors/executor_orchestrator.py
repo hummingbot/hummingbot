@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from decimal import Decimal
 from typing import Dict, List
 
@@ -22,7 +23,6 @@ from hummingbot.strategy_v2.models.executor_actions import (
     StopExecutorAction,
     StoreExecutorAction,
 )
-from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
 
 
@@ -41,20 +41,44 @@ class ExecutorOrchestrator:
     def __init__(self, strategy: ScriptStrategyBase, executors_update_interval: float = 1.0):
         self.strategy = strategy
         self.executors_update_interval = executors_update_interval
-        self.executors = {}
+        self.active_executors = {}
+        self.archived_executors = {}
+        self.cached_performance = {}
+        self._initialize_cached_performance()
+
+    def _initialize_cached_performance(self):
+        """
+        Initialize cached performance by querying the database for stored executors.
+        """
+        db_executors = MarketsRecorder.get_instance().get_all_executors()
+        for executor in db_executors:
+            controller_id = executor.controller_id
+            if controller_id not in self.cached_performance:
+                self.cached_performance[controller_id] = PerformanceReport()
+            self._update_cached_performance(controller_id, executor)
+
+    def _update_cached_performance(self, controller_id: str, executor_info: ExecutorInfo):
+        """
+        Update the cached performance for a specific controller with an executor's information.
+        """
+        report = self.cached_performance[controller_id]
+        report.realized_pnl_quote += executor_info.net_pnl_quote
+        report.volume_traded += executor_info.filled_amount_quote
+        if executor_info.close_type:
+            report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type, 0) + 1
 
     def stop(self):
         """
         Stop the orchestrator task and all active executors.
         """
         # first we stop all active executors
-        for controller_id, executors_list in self.executors.items():
+        for controller_id, executors_list in self.active_executors.items():
             for executor in executors_list:
                 if not executor.is_closed:
                     executor.early_stop()
 
     def store_all_executors(self):
-        for controller_id, executors_list in self.executors.items():
+        for controller_id, executors_list in self.active_executors.items():
             for executor in executors_list:
                 MarketsRecorder.get_instance().store_or_update_executor(executor)
 
@@ -63,8 +87,10 @@ class ExecutorOrchestrator:
         Execute the action and handle executors based on action type.
         """
         controller_id = action.controller_id
-        if controller_id not in self.executors:
-            self.executors[controller_id] = []
+        if controller_id not in self.active_executors:
+            self.active_executors[controller_id] = []
+            self.archived_executors[controller_id] = []
+            self.cached_performance[controller_id] = PerformanceReport()
 
         if isinstance(action, CreateExecutorAction):
             self.create_executor(action)
@@ -105,7 +131,7 @@ class ExecutorOrchestrator:
             raise ValueError("Unsupported executor config type")
 
         executor.start()
-        self.executors[controller_id].append(executor)
+        self.active_executors[controller_id].append(executor)
         self.logger().debug(f"Created {type(executor).__name__} for controller {controller_id}")
 
     def stop_executor(self, action: StopExecutorAction):
@@ -115,7 +141,7 @@ class ExecutorOrchestrator:
         controller_id = action.controller_id
         executor_id = action.executor_id
 
-        executor = next((executor for executor in self.executors[controller_id] if executor.config.id == executor_id),
+        executor = next((executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
                         None)
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
@@ -124,12 +150,12 @@ class ExecutorOrchestrator:
 
     def store_executor(self, action: StoreExecutorAction):
         """
-        Store executor data based on the action details.
+        Store executor data based on the action details and update cached performance.
         """
         controller_id = action.controller_id
         executor_id = action.executor_id
 
-        executor = next((executor for executor in self.executors[controller_id] if executor.config.id == executor_id),
+        executor = next((executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
                         None)
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
@@ -138,111 +164,72 @@ class ExecutorOrchestrator:
             self.logger().error(f"Executor ID {executor_id} is still active.")
             return
         MarketsRecorder.get_instance().store_or_update_executor(executor)
-        self.executors[controller_id].remove(executor)
+        self._update_cached_performance(controller_id, executor.executor_info)
+        self.active_executors[controller_id].remove(executor)
+        self.archived_executors[controller_id].append(executor.executor_info)
+        del executor
 
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
         """
         Generate a report of all executors.
         """
         report = {}
-        for controller_id, executors_list in self.executors.items():
+        for controller_id, executors_list in self.active_executors.items():
             report[controller_id] = [executor.executor_info for executor in executors_list if executor]
         return report
 
     def generate_performance_report(self, controller_id: str) -> PerformanceReport:
-        # Fetch executors from database and active in-memory executors
-        db_executors = MarketsRecorder.get_instance().get_executors_by_controller(controller_id)
-        active_executor_ids = [executor.executor_info.id for executor in self.executors.get(controller_id, [])]
-        filtered_db_executors = [executor for executor in db_executors if executor.id not in active_executor_ids]
-        active_executors = [executor.executor_info for executor in self.executors.get(controller_id, [])]
-        combined_executors = active_executors + filtered_db_executors
+        # Start with a deep copy of the cached performance for this controller
+        report = deepcopy(self.cached_performance.get(controller_id, PerformanceReport()))
 
-        # Initialize performance metrics
-        realized_pnl_quote = Decimal(0)
-        unrealized_pnl_quote = Decimal(0)
-        volume_traded = Decimal(0)
-        open_order_volume = Decimal(0)
-        inventory_imbalance = Decimal(0)
-        close_type_counts = {}
-
-        for executor in combined_executors:
-            close_type = executor.close_type
-            if close_type == CloseType.FAILED:
-                close_type_counts[close_type] = close_type_counts.get(close_type, 0) + 1
-                continue
-            elif close_type is not None:
-                if close_type in close_type_counts:
-                    close_type_counts[close_type] += 1
-                else:
-                    close_type_counts[close_type] = 1
-            if executor.is_active:  # For active executors
-                unrealized_pnl_quote += executor.net_pnl_quote
-                side = executor.custom_info.get("side", None)
+        # Add data from active executors
+        active_executors = self.active_executors.get(controller_id, [])
+        for executor in active_executors:
+            executor_info = executor.executor_info
+            side = executor_info.custom_info.get("side", None)
+            if executor_info.is_active:
+                report.unrealized_pnl_quote += executor_info.net_pnl_quote
                 if side:
-                    inventory_imbalance += executor.filled_amount_quote if side == TradeType.BUY else -executor.filled_amount_quote
-                if executor.type == "dca_executor":
-                    open_order_volume += sum(executor.config.amounts_quote) - executor.filled_amount_quote
-                elif executor.type == "position_executor":
-                    open_order_volume += (executor.config.amount * executor.config.entry_price) - executor.filled_amount_quote
-            else:  # For closed executors
-                realized_pnl_quote += executor.net_pnl_quote
-            volume_traded += executor.filled_amount_quote
+                    report.inventory_imbalance += executor_info.filled_amount_quote \
+                        if side == TradeType.BUY else -executor_info.filled_amount_quote
+                if executor_info.type == "dca_executor":
+                    report.open_order_volume += sum(
+                        executor_info.config.amounts_quote) - executor_info.filled_amount_quote
+                elif executor_info.type == "position_executor":
+                    report.open_order_volume += (executor_info.config.amount *
+                                                 executor_info.config.entry_price) - executor_info.filled_amount_quote
+
+            else:
+                report.realized_pnl_quote += executor_info.net_pnl_quote
+            report.volume_traded += executor_info.filled_amount_quote
 
         # Calculate global PNL values
-        global_pnl_quote = unrealized_pnl_quote + realized_pnl_quote
-        global_pnl_pct = (global_pnl_quote / volume_traded) * 100 if volume_traded != 0 else Decimal(0)
+        report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote
+        report.global_pnl_pct = (report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
 
         # Calculate individual PNL percentages
-        unrealized_pnl_pct = (unrealized_pnl_quote / volume_traded) * 100 if volume_traded != 0 else Decimal(0)
-        realized_pnl_pct = (realized_pnl_quote / volume_traded) * 100 if volume_traded != 0 else Decimal(0)
-
-        # Create Performance Report
-        report = PerformanceReport(
-            realized_pnl_quote=realized_pnl_quote,
-            unrealized_pnl_quote=unrealized_pnl_quote,
-            unrealized_pnl_pct=unrealized_pnl_pct,
-            realized_pnl_pct=realized_pnl_pct,
-            global_pnl_quote=global_pnl_quote,
-            global_pnl_pct=global_pnl_pct,
-            volume_traded=volume_traded,
-            open_order_volume=open_order_volume,
-            inventory_imbalance=inventory_imbalance,
-            close_type_counts=close_type_counts
-        )
+        report.unrealized_pnl_pct = (report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        report.realized_pnl_pct = (report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
 
         return report
 
     def generate_global_performance_report(self) -> PerformanceReport:
-        global_realized_pnl_quote = Decimal(0)
-        global_unrealized_pnl_quote = Decimal(0)
-        global_volume_traded = Decimal(0)
-        global_open_order_volume = Decimal(0)
-        global_inventory_imbalance = Decimal(0)
-        global_close_type_counts = {}
+        global_report = PerformanceReport()
 
-        for controller_id in self.executors.keys():
+        for controller_id in set(list(self.active_executors.keys()) + list(self.cached_performance.keys())):
             report = self.generate_performance_report(controller_id)
-            global_realized_pnl_quote += report.realized_pnl_quote
-            global_unrealized_pnl_quote += report.unrealized_pnl_quote
-            global_volume_traded += report.volume_traded
-            global_open_order_volume += report.open_order_volume
-            global_inventory_imbalance += report.inventory_imbalance
+            global_report.realized_pnl_quote += report.realized_pnl_quote
+            global_report.unrealized_pnl_quote += report.unrealized_pnl_quote
+            global_report.volume_traded += report.volume_traded
+            global_report.open_order_volume += report.open_order_volume
+            global_report.inventory_imbalance += report.inventory_imbalance
 
             for close_type, count in report.close_type_counts.items():
-                global_close_type_counts[close_type] = global_close_type_counts.get(close_type, 0) + count
+                global_report.close_type_counts[close_type] = global_report.close_type_counts.get(close_type, 0) + count
 
-        global_pnl_quote = global_realized_pnl_quote + global_unrealized_pnl_quote
-        global_pnl_pct = (global_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0)
+        global_report.global_pnl_quote = global_report.realized_pnl_quote + global_report.unrealized_pnl_quote
+        global_report.global_pnl_pct = (global_report.global_pnl_quote / global_report.volume_traded) * 100 if global_report.volume_traded != 0 else Decimal(0)
+        global_report.realized_pnl_pct = (global_report.realized_pnl_quote / global_report.volume_traded) * 100 if global_report.volume_traded != 0 else Decimal(0)
+        global_report.unrealized_pnl_pct = (global_report.unrealized_pnl_quote / global_report.volume_traded) * 100 if global_report.volume_traded != 0 else Decimal(0)
 
-        return PerformanceReport(
-            realized_pnl_quote=global_realized_pnl_quote,
-            unrealized_pnl_quote=global_unrealized_pnl_quote,
-            realized_pnl_pct=(global_realized_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0),
-            unrealized_pnl_pct=(global_unrealized_pnl_quote / global_volume_traded) * 100 if global_volume_traded != 0 else Decimal(0),
-            global_pnl_quote=global_pnl_quote,
-            global_pnl_pct=global_pnl_pct,
-            volume_traded=global_volume_traded,
-            open_order_volume=global_open_order_volume,
-            inventory_imbalance=global_inventory_imbalance,
-            close_type_counts=global_close_type_counts
-        )
+        return global_report
