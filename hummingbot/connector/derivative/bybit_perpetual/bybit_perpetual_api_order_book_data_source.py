@@ -2,8 +2,6 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
-
 from hummingbot.connector.derivative.bybit_perpetual import (
     bybit_perpetual_constants as CONSTANTS,
     bybit_perpetual_utils,
@@ -41,16 +39,33 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        funding_info_response = await self._request_complete_funding_info(trading_pair)
-        general_info = funding_info_response[0]["result"][0]
-        predicted_funding = funding_info_response[1]["result"]
+        params = {
+            "category": "linear" if web_utils.is_linear_perpetual(trading_pair) else "inverse",
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+        }
+
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        endpoint_info = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        url_info = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_info, trading_pair=trading_pair,
+                                                       domain=self._domain)
+        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_info)
+        funding_info_response = await rest_assistant.execute_request(
+            url=url_info,
+            throttler_limit_id=limit_id,
+            params=params,
+            method=RESTMethod.GET,
+        )
+        if not funding_info_response["result"]:
+            self._connector.logger().warning(f"Failed to get funding info for {trading_pair}")
+            raise ValueError(f"Failed to get funding info for {trading_pair}")
+        general_info = funding_info_response["result"]["list"][0]
 
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(general_info["index_price"])),
-            mark_price=Decimal(str(general_info["mark_price"])),
-            next_funding_utc_timestamp=int(pd.Timestamp(general_info["next_funding_time"]).timestamp()),
-            rate=Decimal(str(predicted_funding["predicted_funding_rate"])),
+            index_price=Decimal(str(general_info["indexPrice"])),
+            mark_price=Decimal(str(general_info["markPrice"])),
+            next_funding_utc_timestamp=int(general_info["nextFundingTime"]) // 1000,
+            rate=Decimal(str(general_info["fundingRate"])),
         )
         return funding_info
 
@@ -175,8 +190,8 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if event_type == "delta":
             symbol = raw_message["topic"].split(".")[-1]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_us = int(raw_message["timestamp_e6"])
-            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_us * 1e-6)
+            timestamp_seconds = int(raw_message["ts"]) / 1e3
+            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_seconds)
             diffs_data = raw_message["data"]
             bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
             order_book_message_content = {
@@ -188,7 +203,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             diff_message = OrderBookMessage(
                 message_type=OrderBookMessageType.DIFF,
                 content=order_book_message_content,
-                timestamp=timestamp_us * 1e-6,
+                timestamp=timestamp_seconds,
             )
             message_queue.put_nowait(diff_message)
 
@@ -196,16 +211,16 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trade_updates = raw_message["data"]
 
         for trade_data in trade_updates:
-            symbol = trade_data["symbol"]
+            symbol = trade_data["s"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            ts_ms = int(trade_data["trade_time_ms"])
-            trade_type = float(TradeType.BUY.value) if trade_data["side"] == "Buy" else float(TradeType.SELL.value)
+            ts_ms = int(trade_data["T"])
+            trade_type = float(TradeType.BUY.value) if trade_data["S"] == "Buy" else float(TradeType.SELL.value)
             message_content = {
-                "trade_id": trade_data["trade_id"],
+                "trade_id": trade_data["i"],
                 "trading_pair": trading_pair,
                 "trade_type": trade_type,
-                "amount": trade_data["size"],
-                "price": trade_data["price"],
+                "amount": trade_data["v"],
+                "price": trade_data["p"],
             }
             trade_message = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
@@ -219,57 +234,22 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if event_type == "delta":
             symbol = raw_message["topic"].split(".")[-1]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            entries = raw_message["data"]["update"]
-            for entry in entries:
-                info_update = FundingInfoUpdate(trading_pair)
-                if "index_price" in entry:
-                    info_update.index_price = Decimal(str(entry["index_price"]))
-                if "mark_price" in entry:
-                    info_update.mark_price = Decimal(str(entry["mark_price"]))
-                if "next_funding_time" in entry:
-                    info_update.next_funding_utc_timestamp = int(
-                        pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp()
-                    )
-                if "predicted_funding_rate_e6" in entry:
-                    info_update.rate = (
-                        Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
-                    )
-                message_queue.put_nowait(info_update)
-
-    async def _request_complete_funding_info(self, trading_pair: str):
-        tasks = []
-        params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-        }
-
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        endpoint_info = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url_info = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_info, trading_pair=trading_pair, domain=self._domain)
-        limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_info)
-        tasks.append(rest_assistant.execute_request(
-            url=url_info,
-            throttler_limit_id=limit_id,
-            params=params,
-            method=RESTMethod.GET,
-        ))
-        endpoint_predicted = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
-        url_predicted = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_predicted, trading_pair=trading_pair, domain=self._domain)
-        limit_id_predicted = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_predicted, trading_pair)
-        tasks.append(rest_assistant.execute_request(
-            url=url_predicted,
-            throttler_limit_id=limit_id_predicted,
-            params=params,
-            method=RESTMethod.GET,
-            is_auth_required=True
-        ))
-
-        responses = await asyncio.gather(*tasks)
-        return responses
+            entry = raw_message["data"]
+            info_update = FundingInfoUpdate(trading_pair)
+            if "indexPrice" in entry:
+                info_update.index_price = Decimal(entry["indexPrice"])
+            if "markPrice" in entry:
+                info_update.mark_price = Decimal(entry["markPrice"])
+            if "nextFundingTime" in entry:
+                info_update.next_funding_utc_timestamp = int(entry["nextFundingTime"]) // 1e3
+            if "fundingRate" in entry:
+                info_update.rate = Decimal(str(entry["fundingRate"]))
+            message_queue.put_nowait(info_update)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
         snapshot_data = snapshot_response["result"]
-        timestamp = float(snapshot_response["time_now"])
+        timestamp = float(snapshot_data["ts"])
         update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
 
         bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
@@ -289,6 +269,7 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         params = {
+            "category": "linear" if web_utils.is_linear_perpetual(trading_pair) else "inverse",
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
         }
 
@@ -309,39 +290,50 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def _get_bids_and_asks_from_rest_msg_data(
         snapshot: List[Dict[str, Union[str, int, float]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bisect_idx = 0
-        for i, row in enumerate(snapshot):
-            if row["side"] == "Sell":
-                bisect_idx = i
-                break
         bids = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[:bisect_idx]
+            (float(row[0]), float(row[1]))
+            for row in snapshot["b"]
         ]
         asks = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[bisect_idx:]
+            (float(row[0]), float(row[1]))
+            for row in snapshot["a"]
         ]
         return bids, asks
 
     @staticmethod
     def _get_bids_and_asks_from_ws_msg_data(
-        snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
+            snapshot: Dict[str, Union[List[List[str]], str, int]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
+        """
+        This method processes snapshot data from the websocket message and returns
+        the bids and asks as lists of tuples (price, size).
+
+        :param snapshot: Websocket message snapshot data
+        :return: Tuple containing bids and asks as lists of (price, size) tuples
+        """
         bids = []
         asks = []
-        for action, rows_list in snapshot.items():
-            if action not in ["delete", "update", "insert"]:
+
+        bids_list = snapshot.get("b", [])
+        asks_list = snapshot.get("a", [])
+
+        for bid in bids_list:
+            bid_price = float(bid[0])
+            bid_size = float(bid[1])
+            if bid_size == 0:
+                # Size of 0 means delete the entry
                 continue
-            is_delete = action == "delete"
-            for row_dict in rows_list:
-                row_price = row_dict["price"]
-                row_size = 0.0 if is_delete else row_dict["size"]
-                row_tuple = (row_price, row_size)
-                if row_dict["side"] == "Buy":
-                    bids.append(row_tuple)
-                else:
-                    asks.append(row_tuple)
+            bids.append((bid_price, bid_size))
+
+        # Process asks
+        for ask in asks_list:
+            ask_price = float(ask[0])
+            ask_size = float(ask[1])
+            if ask_size == 0:
+                # Size of 0 means delete the entry
+                continue
+            asks.append((ask_price, ask_size))
+
         return bids, asks
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
