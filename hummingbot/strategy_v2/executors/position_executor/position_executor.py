@@ -686,7 +686,6 @@ class PositionExecutor(ExecutorBase):
             self._failed_orders.append(self._take_profit_limit_order)
             self._take_profit_limit_order = None
             self.logger().error(f"Take profit order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
-            self._current_retries += 1
 
     def get_custom_info(self) -> Dict:
         return {

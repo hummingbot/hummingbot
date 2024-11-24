@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any, Dict, Optional
 
-from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
+from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.connector.exchange.dexalot.dexalot_auth import DexalotAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
@@ -23,8 +23,9 @@ class DexalotAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._api_factory = api_factory
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
+        url = f"{web_utils.wss_url(self._domain)}"
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         return ws
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):

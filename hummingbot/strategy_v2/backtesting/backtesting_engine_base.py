@@ -240,15 +240,17 @@ class BacktestingEngineBase:
             active_executors (list): The list of active executors.
             timestamp (pd.Timestamp): The current timestamp.
         """
-        for executor in self.active_executor_simulations:
-            executor_info = executor.get_executor_info_at_timestamp(timestamp)
-            if executor_info.config.id == action.executor_id:
-                executor_info.status = RunnableStatus.TERMINATED
-                executor_info.close_type = CloseType.EARLY_STOP
-                executor_info.is_active = False
-                executor_info.close_timestamp = timestamp
-                self.stopped_executors_info.append(executor_info)
-                self.active_executor_simulations.remove(executor)
+        executor_simulation: Optional[ExecutorSimulation] = next(
+            (ei for ei in self.active_executor_simulations if ei.config.id == action.executor_id), None)
+        if executor_simulation:
+            executor_info = executor_simulation.get_executor_info_at_timestamp(timestamp)
+            executor_info.is_active = False
+            executor_info.is_trading = False
+            executor_info.status = RunnableStatus.TERMINATED
+            executor_info.close_type = CloseType.EARLY_STOP
+            executor_info.close_timestamp = timestamp
+            self.stopped_executors_info.append(executor_info)
+            self.active_executor_simulations.remove(executor_simulation)
 
     @staticmethod
     def summarize_results(executors_info: List, total_amount_quote: float = 1000):
