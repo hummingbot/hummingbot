@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import List, Optional
 
@@ -28,8 +28,8 @@ class ArbProposalSide:
     order_price: Decimal
     amount: Decimal
     extra_flat_fees: List[TokenAmount]
-    completed_event: asyncio.Event = asyncio.Event()
-    failed_event: asyncio.Event = asyncio.Event()
+    completed_event: asyncio.Event = field(default_factory=asyncio.Event)
+    failed_event: asyncio.Event = field(default_factory=asyncio.Event)
 
     def __repr__(self):
         side = "buy" if self.is_buy else "sell"

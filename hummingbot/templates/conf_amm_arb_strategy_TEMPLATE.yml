@@ -47,3 +47,9 @@ rate_oracle_enabled: true
 quote_conversion_rate: 1
 
 pool_id: null
+
+# A dictionary of fixed conversion rates
+fixed_conversion_rate_dict: null
+
+# The Exchanges to be used to convert assets prices in the format of [exchange1, exchange2, exchange3] with descending priority
+rate_conversion_exchanges: null
