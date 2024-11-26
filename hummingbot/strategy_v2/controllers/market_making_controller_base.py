@@ -305,7 +305,7 @@ class MarketMakingControllerBase(ControllerBase):
         trade_type = self.get_trade_type_from_level_id(level_id)
         spreads, amounts_quote = self.config.get_spreads_and_amounts_in_quote(trade_type)
         reference_price = self.processed_data["reference_price"]
-        spread_in_pct = Decimal(spreads[int(level)]) * self.processed_data["spread_multiplier"]
+        spread_in_pct = Decimal(spreads[int(level)]) * Decimal(self.processed_data["spread_multiplier"])
         side_multiplier = Decimal("-1") if trade_type == TradeType.BUY else Decimal("1")
         order_price = reference_price * (1 + side_multiplier * spread_in_pct)
         return order_price, Decimal(amounts_quote[int(level)]) / order_price
