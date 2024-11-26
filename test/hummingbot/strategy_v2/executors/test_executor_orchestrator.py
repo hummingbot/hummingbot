@@ -86,6 +86,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config_mock.id = "test"
         config_mock.controller_id = "test"
         position_executor.config = config_mock
+        self.orchestrator.cached_performance["test"] = PerformanceReport()
         self.orchestrator.active_executors["test"] = [position_executor]
         actions = [StoreExecutorAction(executor_id="test", controller_id="test")]
         self.orchestrator.execute_actions(actions)
