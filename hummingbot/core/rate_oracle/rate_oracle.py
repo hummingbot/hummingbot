@@ -35,6 +35,7 @@ RATE_ORACLE_SOURCES = {
     "cube": CubeRateSource,
     "dexalot": DexalotRateSource,
     "hyperliquid": HyperliquidRateSource,
+    "tegro": HyperliquidRateSource,
 }
 
 
