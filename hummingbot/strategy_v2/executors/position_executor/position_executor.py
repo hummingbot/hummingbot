@@ -693,7 +693,9 @@ class PositionExecutor(ExecutorBase):
             "current_position_average_price": self.entry_price,
             "side": self.config.side,
             "current_retries": self._current_retries,
-            "max_retries": self._max_retries
+            "max_retries": self._max_retries,
+            "close_price": self.close_price,
+            "order_ids": [order.order_id for order in [self._open_order, self._close_order, self._take_profit_limit_order] if order],
         }
 
     def to_format_status(self, scale=1.0):
