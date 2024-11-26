@@ -206,3 +206,27 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertAlmostEqual(global_report.global_pnl_quote, expected_total_realized_pnl)
         self.assertAlmostEqual(global_report.global_pnl_pct,
                                (expected_total_realized_pnl / expected_total_volume_traded) * 100)
+
+    @patch("hummingbot.strategy_v2.executors.executor_orchestrator.MarketsRecorder.get_instance")
+    def test_initialize_cached_performance(self, mock_get_instance: MagicMock):
+        # Create mock markets recorder
+        mock_markets_recorder = MagicMock(spec=MarketsRecorder)
+        mock_get_instance.return_value = mock_markets_recorder
+
+        # Create mock executor info
+        executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor",
+            status=RunnableStatus.RUNNING, config=PositionExecutorConfig(
+                timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+                side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+            ),
+            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
+            cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY},
+            controller_id="test",
+        )
+
+        # Set up mock to return executor info
+        mock_markets_recorder.get_all_executors.return_value = [executor_info]
+
+        orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
+        self.assertEqual(len(orchestrator.cached_performance), 1)
