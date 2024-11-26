@@ -193,7 +193,7 @@ class BitmartExchange(ExchangePyBase):
                       "type": "limit",
                       "size": f"{amount:f}",
                       "price": f"{price:f}",
-                      "clientOrderId": order_id,
+                      "client_order_id": order_id,
                       }
         order_result = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_PATH_URL,
@@ -205,7 +205,7 @@ class BitmartExchange(ExchangePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         api_params = {
-            "clientOrderId": order_id,
+            "client_order_id": order_id,
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
@@ -289,16 +289,14 @@ class BitmartExchange(ExchangePyBase):
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_get(
             path_url=CONSTANTS.GET_ORDER_DETAIL_PATH_URL,
-            params={"order_id": order.exchange_order_id},
+            params={"orderId": order.exchange_order_id},
             is_auth_required=True)
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL,
-            params={
-                "symbol": await self.exchange_symbol_associated_to_pair(order.trading_pair),
-                "order_id": await order.get_exchange_order_id()},
+            params={"symbol": await self.exchange_symbol_associated_to_pair(order.trading_pair)},
             is_auth_required=True)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
