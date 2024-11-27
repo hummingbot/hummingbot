@@ -337,8 +337,8 @@ class DataFormatter:
 
     @classmethod
     def quantize_price(cls, price: Decimal, asset: Dict):
-        float_price = float(Decimal(price)),
-        base_asset = asset["base_asset"],
+        float_price = float(price)
+        base_asset = asset["base_asset"]
         quote_asset = asset["quote_asset"]
         tick_converted = cls.convert_price_to_tick(
             float_price,
