@@ -40,6 +40,20 @@ class TrackedOrder:
         self._order = order
 
     @property
+    def creation_time(self):
+        if self.order:
+            return self.order.creation_time
+        else:
+            return None
+
+    @property
+    def last_update_time(self):
+        if self.order:
+            return self.order.last_update_time
+        else:
+            return None
+
+    @property
     def average_executed_price(self):
         if self.order:
             return self.order.average_executed_price or self.order.price
