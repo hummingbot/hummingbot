@@ -325,6 +325,35 @@ class DataFormatter:
         return quote * pow(10, base_decimal - quote_decimal)
 
     @classmethod
+    def convert_price_to_tick(cls, price: float, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+        """
+        calculate ticks
+        """
+        base_decimal = cls.format_asset_decimal(base_asset)
+        quote_decimal = cls.format_asset_decimal(quote_asset)
+        quote = price * pow(10, quote_decimal - base_decimal)
+        tick = round(math.log(quote) / math.log(1.0001))
+        return min(max(tick, -887272), 887272)
+
+    @classmethod
+    def quantize_price(cls, price: Decimal, asset: Dict):
+        float_price = float(price)
+        base_asset = asset["base_asset"]
+        quote_asset = asset["quote_asset"]
+        tick_converted = cls.convert_price_to_tick(
+            float_price,
+            base_asset,
+            quote_asset
+        )
+        price_from_tick = DataFormatter.convert_tick_to_price(
+            tick_converted,
+            base_asset,
+            quote_asset
+        )
+        str_order_price = f"{price_from_tick:.6f}"
+        return Decimal(str_order_price)
+
+    @classmethod
     def convert_bot_id_to_int(cls, id: str):
         """
         The reason for this method is because chainflip only accepts numeric id

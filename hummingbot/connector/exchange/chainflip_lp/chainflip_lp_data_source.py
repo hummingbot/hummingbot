@@ -173,20 +173,17 @@ class ChainflipLpDataSource:
             raise ValueError(f"Error placing order {order_id} in Chainflip LP")
         return place_order_response["order_id"], timestamp
 
-    def quantize_order_price(self, trading_pair: str, price: Decimal):
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal):
+        """
+        This method involves a tweak done to sync hummingbot price with chainflip price
+        """
         asset = DataFormatter.format_trading_pair(trading_pair, self._assets_list)
-        tick_converted = self._rpc_executor._calculate_tick(
-            float(Decimal(price)),
-            asset["base_asset"],
-            asset["quote_asset"]
+        price_quantum = CustomDecimal(
+            10,  # arbituary value
+            price=price,
+            asset=asset
         )
-        price_from_tick = DataFormatter.convert_tick_to_price(
-            tick_converted,
-            asset["base_asset"],
-            asset["quote_asset"]
-        )
-        str_order_price = f"{price_from_tick:.5f}"
-        return Decimal(str_order_price)
+        return price_quantum
 
     async def place_cancel(self, order_id: str, trading_pair: str, tracked_order: InFlightOrder):
         asset_list = await self.assets_list()
@@ -296,3 +293,17 @@ class ChainflipLpDataSource:
 
     def _time(self):
         return time.time()
+
+
+class CustomDecimal(Decimal):
+    def __new__(cls, value, context=None, price = None, asset = None):
+        super_new = Decimal.__new__(cls, value, context)
+        super_new.price = price
+        super_new.asset = asset
+        return super_new
+
+    def __rfloordiv__(self, value, /):
+        return Decimal(1)
+
+    def __rmul__(self, value, /):
+        return DataFormatter.quantize_price(self.price, self.asset)

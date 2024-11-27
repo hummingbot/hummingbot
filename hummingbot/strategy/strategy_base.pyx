@@ -534,11 +534,6 @@ cdef class StrategyBase(TimeIterator):
                                         price=price,
                                         kwargs=kwargs)
 
-        if order_id.startswith("chainflip"):
-            split_values = order_id.split("_")
-            order_id = split_values[1]
-            price = Decimal(split_values[2])
-
         # Start order tracking
         if order_type.is_limit_type():
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
@@ -580,11 +575,6 @@ cdef class StrategyBase(TimeIterator):
         cdef:
             str order_id = market.c_sell(market_trading_pair_tuple.trading_pair, amount,
                                          order_type=order_type, price=price, kwargs=kwargs)
-
-        if order_id.startswith("chainflip"):
-            split_values = order_id.split("_")
-            order_id = split_values[1]
-            price = Decimal(split_values[2])
 
         # Start order tracking
         if order_type.is_limit_type():

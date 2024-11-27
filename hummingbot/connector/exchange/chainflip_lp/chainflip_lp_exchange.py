@@ -199,7 +199,6 @@ class ChainflipLpExchange(ExchangePyBase):
             max_id_len=self.client_order_id_max_length,
         )
         hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
-        quant_price = self.quantize_order_price(trading_pair, price)
         safe_ensure_future(
             self._create_order(
                 trade_type=TradeType.BUY,
@@ -211,7 +210,7 @@ class ChainflipLpExchange(ExchangePyBase):
                 **kwargs,
             )
         )
-        return self.convert_to_chainflip_order_return(hex_order_id, quant_price)
+        return hex_order_id
 
     def sell(
         self,
@@ -235,7 +234,6 @@ class ChainflipLpExchange(ExchangePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length,
         )
-        quant_price = self.quantize_order_price(trading_pair, price)
         hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
         safe_ensure_future(
             self._create_order(
@@ -248,7 +246,7 @@ class ChainflipLpExchange(ExchangePyBase):
                 **kwargs,
             )
         )
-        return self.convert_to_chainflip_order_return(hex_order_id, quant_price)
+        return hex_order_id
 
     async def _update_balances(self):
         all_balances = await self._data_source.all_balances()
@@ -305,14 +303,9 @@ class ChainflipLpExchange(ExchangePyBase):
 
         return result
 
-    def quantize_order_price(self, trading_pair: str, price: Decimal):
-        quantum_price = super().quantize_order_price(trading_pair, price)
-        new_price = self._data_source.quantize_order_price(trading_pair, quantum_price)
-        return new_price
-
-    def convert_to_chainflip_order_return(self, order_id: str, price: Decimal):
-        value = f"chainflip_{order_id}_{price}"
-        return value
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal):
+        price_quantum = self._data_source.get_order_price_quantum(trading_pair, price)
+        return price_quantum
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
