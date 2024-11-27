@@ -287,14 +287,14 @@ class BitmartExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
-        return await self._api_get(
+        return await self._api_post(
             path_url=CONSTANTS.GET_ORDER_DETAIL_PATH_URL,
             params={"orderId": order.exchange_order_id},
             is_auth_required=True)
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_request(
-            method=RESTMethod.GET,
+            method=RESTMethod.POST,
             path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL,
             params={"symbol": await self.exchange_symbol_associated_to_pair(order.trading_pair)},
             is_auth_required=True)
