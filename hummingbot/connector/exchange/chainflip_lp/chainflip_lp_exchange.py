@@ -303,10 +303,9 @@ class ChainflipLpExchange(ExchangePyBase):
 
         return result
 
-    def quantize_order_price(self, trading_pair: str, price: Decimal):
-        quantum_price = super().quantize_order_price(trading_pair, price)
-        new_price = self._data_source.quantize_order_price(trading_pair, quantum_price)
-        return new_price
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal):
+        price_quantum = self._data_source.get_order_price_quantum(trading_pair, price)
+        return price_quantum
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
