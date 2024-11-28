@@ -7,7 +7,7 @@ from hummingbot.client.config.config_validators import validate_with_regex
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
-EXAMPLE_PAIR = "FLIP/Ethereum-USDT/Ethereum"
+EXAMPLE_PAIR = "FLIP/Ethereum-USDC/Ethereum"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.00"),
     taker_percent_fee_decimal=Decimal("0.00"),
@@ -52,7 +52,7 @@ KEYS = ChainflipLpConfigMap.construct()
 
 OTHER_DOMAINS = ["chainflip_lp_testnet"]
 OTHER_DOMAINS_PARAMETER = {"chainflip_lp_testnet": "chainflip_lp_testnet"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"chainflip_lp_testnet": "FLIP/Ethereum-USDT/Ethereum"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"chainflip_lp_testnet": "FLIP/Ethereum-USDC/Ethereum"}
 OTHER_DOMAINS_DEFAULT_FEES = {"chainflip_lp_testnet": DEFAULT_FEES}
 
 

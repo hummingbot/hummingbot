@@ -1,9 +1,8 @@
 import asyncio
 import logging
-import math
 import ssl
 import sys
-from abc import ABC, abstractmethod
+from abc import ABC
 from decimal import Decimal
 from functools import partial
 from typing import Any, Callable, Dict, List, Literal, Optional
@@ -18,58 +17,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.logger import HummingbotLogger
 
 
-class BaseRPCExecutor(ABC):
-
-    @abstractmethod
-    async def all_assets(self):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def all_markets(self):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def get_orderbook(self, base_asset: Dict[str, str], quote_asset: Dict[str, str], orders: int = 20):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def get_open_orders(
-        self,
-        base_asset: Dict[str, str],
-        quote_asset: Dict[str, str],
-    ):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def get_all_balances(self):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def place_limit_order(
-        self, base_asset: str, quote_asset: str, order_id: str, side: Literal["buy", "sell"], sell_amount: int
-    ):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def cancel_order(
-        self,
-        base_asset: str,
-        quote_asset: str,
-        order_id: str,
-        side: Literal["buy", "sell"],
-    ):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def listen_to_market_price_updates(self, events_handler: Callable, market_symbol: str):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def listen_to_order_fills(self, events_handler: Callable, market_symbol: str):
-        raise NotImplementedError  # pragma: no cover
-
-
-class RPCQueryExecutor(BaseRPCExecutor):
+class RPCQueryExecutor(ABC):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -158,7 +106,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
         return DataFormatter.format_order_response(response["data"], base_asset, quote_asset)
 
-    async def get_order_status(self, id: str, side: str, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+    async def get_order_status(self, order_id: str, side: str, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
         params = {
             "base_asset": base_asset,
             "quote_asset": quote_asset
@@ -167,7 +115,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         if not response["status"]:
             raise RuntimeError(f"Error getting order status: {response['data']}")
 
-        return DataFormatter.format_order_status(response["data"], id, side)
+        return DataFormatter.format_order_status(response["data"], order_id, side)
 
     async def get_all_balances(self):
         response = await self._execute_api_request(CONSTANTS.ASSET_BALANCE_METHOD)
@@ -177,7 +125,10 @@ class RPCQueryExecutor(BaseRPCExecutor):
 
         return DataFormatter.format_balance_response(response["data"])
 
-    async def get_market_price(self, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
+    async def get_market_price(
+            self,
+            base_asset: Dict[str, str],
+            quote_asset: Dict[str, str]):
         params = {"base_asset": base_asset, "quote_asset": quote_asset}
         response = await self._execute_rpc_request(CONSTANTS.MARKET_PRICE_V2_METHOD, params)
 
@@ -196,7 +147,7 @@ class RPCQueryExecutor(BaseRPCExecutor):
         side: Literal["buy"] | Literal["sell"],
         sell_amount: Decimal,
     ):
-        tick = self._calculate_tick(float(order_price), base_asset, quote_asset)
+        tick = DataFormatter.convert_price_to_tick(float(order_price), base_asset, quote_asset)
         self.logger().info(f"tick: {tick}")
         if side == CONSTANTS.SIDE_BUY:
             amount = DataFormatter.format_amount(float(sell_amount), quote_asset)
@@ -378,9 +329,9 @@ class RPCQueryExecutor(BaseRPCExecutor):
             try:
                 response = await self.run_in_thread(
                     instance.rpc_request, method_name, params
-                )  # if an error occurs.. raise
+                )  # if an error occurs, raise
                 handler(response)
-                asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+                await asyncio.sleep(CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -389,16 +340,6 @@ class RPCQueryExecutor(BaseRPCExecutor):
                 )
                 instance.close()
                 sys.exit()
-
-    def _calculate_tick(self, price: float, base_asset: Dict[str, str], quote_asset: Dict[str, str]):
-        """
-        calculate ticks
-        """
-        base_decimal = DataFormatter.format_asset_decimal(base_asset)
-        quote_decimal = DataFormatter.format_asset_decimal(quote_asset)
-        quote = price * pow(10, quote_decimal - base_decimal)
-        tick = round(math.log(quote) / math.log(1.0001))
-        return min(max(tick, -887272), 887272)
 
     def _get_current_rpc_url(self, domain: str):
         return CONSTANTS.REST_RPC_URLS[domain]

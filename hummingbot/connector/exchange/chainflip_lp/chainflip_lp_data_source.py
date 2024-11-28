@@ -86,7 +86,6 @@ class ChainflipLpDataSource:
         self._throttler = throttler
 
     async def assets_list(self) -> Dict[str, str]:
-
         all_assets = await self._rpc_executor.all_assets()
         self._assets_list = all_assets
         return self._assets_list
@@ -96,7 +95,7 @@ class ChainflipLpDataSource:
         symbol_dict = DataFormatter.format_trading_pair(trading_pair, all_assets)
         orderbook_items = await self._rpc_executor.get_orderbook(symbol_dict["base_asset"], symbol_dict["quote_asset"])
         if orderbook_items is None:
-            raise ValueError("Error getting orderbook from Chainflip Lp")
+            raise ValueError("Error getting orderbook from Chainflip LP")
         timestamp = self._time()
         bids = []
         asks = []
@@ -178,12 +177,10 @@ class ChainflipLpDataSource:
         This method involves a tweak done to sync hummingbot price with chainflip price
         """
         asset = DataFormatter.format_trading_pair(trading_pair, self._assets_list)
-        price_quantum = CustomDecimal(
-            10,  # arbituary value
+        return PriceQuantum(
             price=price,
             asset=asset
         )
-        return price_quantum
 
     async def place_cancel(self, order_id: str, trading_pair: str, tracked_order: InFlightOrder):
         asset_list = await self.assets_list()
@@ -227,8 +224,8 @@ class ChainflipLpDataSource:
         return trade_updates
 
     async def all_trading_rules(self):
-        # chainflip lp does not have implementation for trading rules
-        # so we are going to set some arbituary values
+        # Chainflip LP does not have an implementation for trading rules
+        # so we are going to set some arbitrary values
         markets = await self._rpc_executor.all_markets()
         trading_rules = []
         for market in markets:
@@ -236,10 +233,10 @@ class ChainflipLpDataSource:
             trading_rules.append(TradingRule(
                 trading_pair=trading_pair,
                 min_order_size=0,
-                max_order_size=10**6,
-                min_price_increment=Decimal("0.00001"),
-                min_base_amount_increment=Decimal("0.00001"),
-                min_quote_amount_increment=Decimal("0.00001"),
+                max_order_size=10 ** 6,
+                min_price_increment=Decimal("0.00000001"),
+                min_base_amount_increment=Decimal("0.00000001"),
+                min_quote_amount_increment=Decimal("0.00000001"),
             ))
         return trading_rules
 
@@ -295,9 +292,9 @@ class ChainflipLpDataSource:
         return time.time()
 
 
-class CustomDecimal(Decimal):
-    def __new__(cls, value, context=None, price = None, asset = None):
-        super_new = Decimal.__new__(cls, value, context)
+class PriceQuantum(Decimal):
+    def __new__(cls, context=None, price=None, asset=None):
+        super_new = Decimal.__new__(cls, 10, context)
         super_new.price = price
         super_new.asset = asset
         return super_new

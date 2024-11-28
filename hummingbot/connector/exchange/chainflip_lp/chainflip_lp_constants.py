@@ -17,10 +17,9 @@ LISTENER_TIME_INTERVAL = 10
 
 MAX_REQUEST = 1000
 SECOND = 1
-MAX_ID_LEN = (2**64) - 1
+MAX_ID_LEN = (2 ** 64) - 1
 
-
-# Public chainflip lp rpc methods
+# Public Chainflip LP RPC methods
 ACTIVE_POOLS_METHOD = "cf_pool_environment"
 ASSET_BALANCE_METHOD = "lp_free_balances"
 PING_METHOD = ""
@@ -44,7 +43,6 @@ SIDE_SELL = "sell"
 
 # rate limit id
 GENERAL_LIMIT_ID = "General"
-
 
 RATE_LIMITS = [RateLimit(GENERAL_LIMIT_ID, MAX_REQUEST, SECOND)]
 

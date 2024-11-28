@@ -155,19 +155,22 @@ class ChainflipLpExchange(ExchangePyBase):
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return ChainflipLpAPIOrderBookDataSource(
-            trading_pairs=self._trading_pairs, connector=self, data_source=self._data_source, domain=self.domain
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            data_source=self._data_source,
+            domain=self.domain
         )
 
     def _create_user_stream_tracker(self):
-        # not used in chainflip LP
+        # not used in Chainflip LP
         return None
 
     def _create_user_stream_tracker_task(self):
-        # Not used in chainflip lp
+        # Not used in Chainflip LP
         return None
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        # Not used in chainflip lp
+        # Not used in Chainflip LP
         raise NotImplementedError()  # pragma: no cover
 
     async def _initialize_trading_pair_symbol_map(self):
@@ -292,7 +295,7 @@ class ChainflipLpExchange(ExchangePyBase):
     ) -> Tuple[str, float]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
-        result = await self._data_source.place_order(
+        return await self._data_source.place_order(
             order_id=order_id,
             trading_pair=symbol,
             amount=amount,
@@ -301,15 +304,16 @@ class ChainflipLpExchange(ExchangePyBase):
             price=price,
         )
 
-        return result
-
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
-        price_quantum = self._data_source.get_order_price_quantum(trading_pair, price)
-        return price_quantum
+        return self._data_source.get_order_price_quantum(trading_pair, price)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        return await self._data_source.place_cancel(order_id, symbol, tracked_order)
+
+        return await self._data_source.place_cancel(
+            order_id,
+            symbol,
+            tracked_order)
 
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
         try:
@@ -341,7 +345,7 @@ class ChainflipLpExchange(ExchangePyBase):
         return False
 
     async def _user_stream_event_listener(self):
-        # no user stream in chainflip lp
+        # no user stream in Chainflip lp
         pass
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
@@ -350,7 +354,6 @@ class ChainflipLpExchange(ExchangePyBase):
         return order_update
 
     def _configure_event_forwarders(self):
-
         event_forwarder = EventForwarder(to_function=self._process_user_order_update)
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=MarketEvent.OrderUpdate, listener=event_forwarder)
