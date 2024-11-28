@@ -46,4 +46,11 @@ rate_oracle_enabled: true
 # What is the fixed_rate used to convert quote assets?
 quote_conversion_rate: 1
 
+# Specify poolId to interract with on the DEX connector
 pool_id: null
+
+# What is the symbol of the token used to pay gas?
+gas_token: ETH
+
+# What is the gas price, expressed in the quote asset?
+gas_price: 3500

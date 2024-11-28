@@ -84,7 +84,7 @@ amm_arb_config_map = {
         on_validated=market_2_on_validated),
     "pool_id": ConfigVar(
         key="pool_id",
-        prompt="Specify poolId to interract with on the DEX connector >>> ",
+        prompt="# Specify a pool to swap with on the AMM connector >>> ",
         prompt_on_new=False,
         type_str="str",
         default=""),
@@ -155,8 +155,22 @@ amm_arb_config_map = {
         type_str="bool"),
     "quote_conversion_rate": ConfigVar(
         key="quote_conversion_rate",
-        prompt="What is the fixed_rate used to convert quote assets? >>> ",
+        prompt="What is the fixed_rate used to convert quote assets across the pairs (e.g. USDT to USDC)? >>> ",
         default=Decimal("1"),
         validator=lambda v: validate_decimal(v),
+        prompt_on_new=False,
+        type_str="decimal"),
+    "gas_token": ConfigVar(
+        key="gas_token",
+        prompt="What is the symbol of the token used to pay gas? >>> ",
+        default="ETH",
+        prompt_on_new=False,
+        type_str="str"),
+    "gas_price": ConfigVar(
+        key="gas_price",
+        prompt="What is the gas price, expressed in the quote asset? >>> ",
+        default=Decimal("3500"),
+        validator=lambda v: validate_decimal(v),
+        prompt_on_new=False,
         type_str="decimal"),
 }
