@@ -34,6 +34,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         bint _paper_trade_market_initialized
         dict _trading_pairs
         object _queued_orders
+        object _delayed_market_orders
         dict _quantization_params
         object _order_book_trade_listener
         object _market_order_filled_listener
@@ -78,6 +79,11 @@ cdef class PaperTradeExchange(ExchangeBase):
     cdef c_match_trade_to_limit_orders(self, object order_book_trade_event)
     cdef object c_cancel_order_from_orders_map(self,
                                                LimitOrders *orders_map,
+                                               str trading_pair_str,
+                                               bint cancel_all=*,
+                                               str client_order_id=*)
+    cdef object c_cancel_order_from_delayed_market_orders(self,
+                                               object delayed_market_orders,
                                                str trading_pair_str,
                                                bint cancel_all=*,
                                                str client_order_id=*)

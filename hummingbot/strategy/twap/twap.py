@@ -102,7 +102,8 @@ class TwapTradeStrategy(StrategyPyBase):
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
-        return self.order_tracker.market_pair_to_active_orders
+        # Assuming this strategy only use LimitOrders
+        return self.order_tracker.market_pair_to_active_orders[0]
 
     @property
     def place_orders(self):
