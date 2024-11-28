@@ -4,14 +4,16 @@
 
 template_version: 6
 strategy: null
-
+number_of_exchanges: null
 # The following configurations are only required for the AMM arbitrage trading strategy
 
 # Connectors and markets parameters
 connector_1: null
-market_1: null
 connector_2: null
-market_2: null
+connector_3: null
+connector_4: null
+
+market_pair: null
 
 order_amount: null
 
@@ -23,12 +25,10 @@ min_profitability: null
 # This is important for AMM which transaction takes a long time where a slippage is acceptable rather having
 # the transaction get rejected. The submitted order price will be adjust higher (by percentage value) for buy order
 # and lower for sell order. (Enter 1 for 1%)
-market_1_slippage_buffer: null
-
-# A buffer to add to the price to account for slippage when buying/selling on second connector market
-# (Enter 1 for 1%)
-market_2_slippage_buffer: null
-
+connector_1_slippage_buffer : null
+connector_2_slippage_buffer : null
+connector_3_slippage_buffer : null
+connector_4_slippage_buffer : null
 # A flag (true/false), if true the bot submits both arbitrage taker orders (buy and sell) simultaneously
 # If false, the bot will wait for first exchange order filled before submitting the other order
 concurrent_orders_submission: null
