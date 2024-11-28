@@ -50,10 +50,10 @@ class DataFormatter:
         if isinstance(price, str):
             price = cls.hex_str_to_int(price)
         if sqrt_price:
-            current_price = price / (2**CONSTANTS.SQRT_PRICE_FRACTIONAL_BITS)
-            current_price = current_price**2
+            current_price = price / (2 ** CONSTANTS.SQRT_PRICE_FRACTIONAL_BITS)
+            current_price = current_price ** 2
         else:
-            current_price = price / (2**CONSTANTS.FRACTIONAL_BITS)
+            current_price = price / (2 ** CONSTANTS.FRACTIONAL_BITS)
 
         formated_price = (current_price * base_precision) / quote_precision
         return formated_price
@@ -101,17 +101,19 @@ class DataFormatter:
         return as a list of dict containing just base asset dict and quote asset dict
         """
         data: Dict = response["result"]["fees"]
-        keys: List = data.keys()
+        keys = data.keys()
         format_list = []
         for key in keys:
             chain = key
             for symbol in data[key]:
                 try:
-
                     base_asset = {"chain": chain, "asset": symbol}
                     quote_asset = data[key][symbol]["quote_asset"]
                     trading_symbol = cls.format_assets_to_market_symbol(base_asset, quote_asset)
-                    format_list.append({"symbol": trading_symbol, "base_asset": base_asset, "quote_asset": quote_asset})
+                    format_list.append({
+                        "symbol": trading_symbol,
+                        "base_asset": base_asset,
+                        "quote_asset": quote_asset})
                 except Exception:
                     continue
         return format_list
@@ -128,13 +130,13 @@ class DataFormatter:
 
     @classmethod
     def format_asset_precision(cls, asset: Dict[str, str]):
-        # NOTE: asset precision needs to be added to chainflip lp constanst when new asset is added to chainflip
+        # NOTE: asset precision needs to be added to Chainflip LP constants when new asset is added to Chainflip
         if asset["chain"] not in CONSTANTS.ASSET_PRECISIONS:
             cls.logger().error(f"Asset Precision for chain: {asset['chain']} not found in CONSTANTS.ASSET_PRECISIONS")
             raise Exception(f"Asset Precision for chain: {asset['chain']} not found in CONSTANTS.ASSET_PRECISIONS")
         elif asset["asset"] not in CONSTANTS.ASSET_PRECISIONS[asset["chain"]]:
-            cls.logger().error(f"Asset Precision for asset: {asset['asset']} not found in CONSTANST.ASSET_PRECISIONS['{asset['chain']}']")
-            raise Exception(f"Asset Precision for asset: {asset['asset']} not found in CONSTANST.ASSET_PRECISIONS['{asset['chain']}']")
+            cls.logger().error(f"Asset Precision for asset: {asset['asset']} not found in CONSTANTS.ASSET_PRECISIONS['{asset['chain']}']")
+            raise Exception(f"Asset Precision for asset: {asset['asset']} not found in CONSTANTS.ASSET_PRECISIONS['{asset['chain']}']")
         return CONSTANTS.ASSET_PRECISIONS[asset["chain"]][asset["asset"]]
 
     @classmethod
@@ -191,10 +193,10 @@ class DataFormatter:
         """
         format a trading pair from {base_asset}-{quote_asset}
         to the format needed for lp rpc calls
-        e.g ETH/Ethereum-USDT/Ethereum =>
+        e.g ETH/Ethereum-USDC/Ethereum =>
         {
             "base_asset":{"chain":"Ethereum","asset":"ETH"},
-            "quote_asset":{"chain":"Ethereum","asset":"USDT"},
+            "quote_asset":{"chain":"Ethereum","asset":"USDC"},
         }
         """
         def asset_filter(data: str | dict[str, str]):
@@ -221,7 +223,7 @@ class DataFormatter:
     @classmethod
     def format_symbol_list(cls, all_assets: List[Dict[str, str]]):
         """
-        returns a list of just the symbols e.g ["ETH","USDT","BTC"]
+        returns a list of just the symbols e.g ["ETH", "USDT", "BTC"]
         """
         return list(set(map(lambda x: x["asset"], all_assets)))
 
@@ -282,7 +284,7 @@ class DataFormatter:
             order = order["limit_order"]
             trading_pair = cls.format_assets_to_market_symbol(order["base_asset"], order["quote_asset"])
             asset = cls.format_trading_pair(trading_pair, all_assets)
-            data = {
+            return {
                 "trading_pair": trading_pair,
                 "side": order["side"],
                 "id": order["id"],
@@ -290,7 +292,6 @@ class DataFormatter:
                 "quote_amount": cls.format_hex_balance(order["sold"], asset["quote_asset"]),
                 "price": cls.convert_tick_to_price(order["tick"], asset["base_asset"], asset["quote_asset"]),
             }
-            return data
 
         data = response["result"]
         fills: Dict = data["fills"]
@@ -333,7 +334,7 @@ class DataFormatter:
         quote_decimal = cls.format_asset_decimal(quote_asset)
         quote = price * pow(10, quote_decimal - base_decimal)
         tick = round(math.log(quote) / math.log(1.0001))
-        return min(max(tick, -887272), 887272)
+        return min(max(tick, CONSTANTS.LOWER_TICK_BOUND), CONSTANTS.UPPER_TICK_BOUND)
 
     @classmethod
     def quantize_price(cls, price: Decimal, asset: Dict):
@@ -350,21 +351,20 @@ class DataFormatter:
             base_asset,
             quote_asset
         )
-        str_order_price = f"{price_from_tick:.6f}"
-        return Decimal(str_order_price)
+        return Decimal(price_from_tick)
 
     @classmethod
-    def convert_bot_id_to_int(cls, id: str):
+    def convert_bot_id_to_int(cls, order_id: str):
         """
-        The reason for this method is because chainflip only accepts numeric id
-        and hummingbot generates a string id.
+        The reason for this method is because Chainflip only accepts numeric id
+        and Hummingbot generates a string id.
         so we will be converting the string to integer.
         in the exchange file, the string id has already been
         converted to a hex format in the buy and sell
         method which will make it easier to be converting to integerr
         """
         # convert the hex str to integer.
-        integer = cls.hex_str_to_int(id)
+        integer = cls.hex_str_to_int(order_id)
         # convert the integer to string reduce the length
         # the length might be too much to pass as an id
         string_int = str(integer)[:10]
@@ -372,7 +372,7 @@ class DataFormatter:
         return new_id
 
     @classmethod
-    def format_order_status(cls, response: dict, id: str, side: str):
+    def format_order_status(cls, response: dict, order_id: str, side: str):
         result = response["result"]
         limit_orders = result["limit_orders"]
         if side == CONSTANTS.SIDE_SELL:
@@ -382,7 +382,7 @@ class DataFormatter:
         if len(data) == 0:
             return None  # no more open orders
         order = list(filter(
-            lambda x: x["id"] == id,
+            lambda x: x["id"] == order_id,
             data
         ))
         if len(order) == 0:
