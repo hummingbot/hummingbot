@@ -646,6 +646,14 @@ class PositionExecutor(ExecutorBase):
         """
         self.update_tracked_orders_with_order_id(event.order_id)
 
+    def process_order_filled_event(self, _, market, event: OrderFilledEvent):
+        """
+        This method is responsible for processing the order filled event. Here we will update the value of
+        _total_executed_amount_backup, that can be used if the InFlightOrder
+        is not available.
+        """
+        self.update_tracked_orders_with_order_id(event.order_id)
+
     def process_order_completed_event(self, _, market, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
         """
         This method is responsible for processing the order completed event. Here we will check if the id is one of the
@@ -658,14 +666,6 @@ class PositionExecutor(ExecutorBase):
             self.close_type = CloseType.TAKE_PROFIT
             self._close_order = self._take_profit_limit_order
             self._status = RunnableStatus.SHUTTING_DOWN
-
-    def process_order_filled_event(self, _, market, event: OrderFilledEvent):
-        """
-        This method is responsible for processing the order filled event. Here we will update the value of
-        _total_executed_amount_backup, that can be used if the InFlightOrder
-        is not available.
-        """
-        self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_canceled_event(self, _, market: ConnectorBase, event: OrderCancelledEvent):
         """
@@ -707,7 +707,9 @@ class PositionExecutor(ExecutorBase):
             "current_position_average_price": self.entry_price,
             "side": self.config.side,
             "current_retries": self._current_retries,
-            "max_retries": self._max_retries
+            "max_retries": self._max_retries,
+            "close_price": self.close_price,
+            "order_ids": [order.order_id for order in [self._open_order, self._close_order, self._take_profit_limit_order] if order],
         }
 
     def to_format_status(self, scale=1.0):
