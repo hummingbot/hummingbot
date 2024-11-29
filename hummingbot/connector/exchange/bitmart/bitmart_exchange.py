@@ -203,8 +203,9 @@ class BitmartExchange(ExchangePyBase):
 
         return exchange_order_id, self.current_timestamp
 
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+    async def _place_cancel(self, trading_pair: str, order_id: str, tracked_order: InFlightOrder):
         api_params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
             "client_order_id": order_id,
         }
         cancel_result = await self._api_post(
