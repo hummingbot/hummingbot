@@ -294,8 +294,7 @@ class BitmartExchange(ExchangePyBase):
             is_auth_required=True)
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
-        return await self._api_request(
-            method=RESTMethod.POST,
+        return await self._api_post(
             path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL,
             data={"symbol": await self.exchange_symbol_associated_to_pair(order.trading_pair)},
             is_auth_required=True)
