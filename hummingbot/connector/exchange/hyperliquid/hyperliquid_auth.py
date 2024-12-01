@@ -22,7 +22,6 @@ class HyperliquidAuth(AuthBase):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
-        self.wallet = eth_account.Account.from_key(api_secret)
 
     @classmethod
     def address_to_bytes(cls, address):
@@ -85,8 +84,9 @@ class HyperliquidAuth(AuthBase):
         return request  # pass-through
 
     def _sign_update_leverage_params(self, params, base_url, timestamp):
+        wallet = eth_account.Account.from_key(self._api_secret)
         signature = self.sign_l1_action(
-            self.wallet,
+            wallet,
             params,
             None if not self._use_vault else self._api_key,
             timestamp,
@@ -105,8 +105,9 @@ class HyperliquidAuth(AuthBase):
             "type": "cancelByCloid",
             "cancels": [params["cancels"]],
         }
+        wallet = eth_account.Account.from_key(self._api_secret)
         signature = self.sign_l1_action(
-            self.wallet,
+            wallet,
             order_action,
             None if not self._use_vault else self._api_key,
             timestamp,
@@ -130,8 +131,9 @@ class HyperliquidAuth(AuthBase):
             "orders": [order_spec_to_order_wire(order)],
             "grouping": grouping,
         }
+        wallet = eth_account.Account.from_key(self._api_secret)
         signature = self.sign_l1_action(
-            self.wallet,
+            wallet,
             order_action,
             None if not self._use_vault else self._api_key,
             timestamp,
