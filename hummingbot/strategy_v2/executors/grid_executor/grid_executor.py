@@ -65,6 +65,7 @@ class GridExecutor(ExecutorBase):
 
         self.step = Decimal("0")
         self.position_break_even_price = Decimal("0")
+        self.position_size_base = Decimal("0")
         self.position_size_quote = Decimal("0")
         self.position_fees_quote = Decimal("0")
         self.position_pnl_quote = Decimal("0")
@@ -241,10 +242,11 @@ class GridExecutor(ExecutorBase):
         :return: None
         """
         self.update_grid_levels()
+        self.update_metrics()
         self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
         close_orders_completed = self.close_liquidity_placed == Decimal("0")
-        order_execution_completed = self.position_size_quote == Decimal("0")
+        order_execution_completed = self.position_size_base == Decimal("0")
         # TODO: Evaluate total balance combining filled and failed orders
         if open_orders_completed and order_execution_completed and close_orders_completed:
             for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
@@ -401,10 +403,12 @@ class GridExecutor(ExecutorBase):
             open_orders_placed = [level.active_open_order for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
             levels_to_cancel = []
             for order in open_orders_placed:
-                distance_pct = abs(order.price - self.mid_price) / self.mid_price
-                if distance_pct > self.config.activation_bounds:
-                    levels_to_cancel.append(order)
-                    self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
+                price = order.price
+                if price:
+                    distance_pct = abs(price - self.mid_price) / self.mid_price
+                    if distance_pct > self.config.activation_bounds:
+                        levels_to_cancel.append(order)
+                        self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
             return levels_to_cancel
         return []
 
@@ -437,9 +441,11 @@ class GridExecutor(ExecutorBase):
             close_orders_to_cancel = []
             close_orders_placed = self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
             for level in close_orders_placed:
-                distance_to_mid = abs(level.active_close_order.order.price - self.mid_price) / self.mid_price
-                if distance_to_mid < self.config.activation_bounds:
-                    close_orders_to_cancel.append(level.active_close_order)
+                price = level.active_close_order.order.price
+                if price:
+                    distance_to_mid = abs(price - self.mid_price) / self.mid_price
+                    if distance_to_mid < self.config.activation_bounds:
+                        close_orders_to_cancel.append(level.active_close_order)
             return close_orders_to_cancel
         return []
 
@@ -537,13 +543,12 @@ class GridExecutor(ExecutorBase):
         :return: None
         """
         self.cancel_open_orders()
-        amount_to_close = self.position_size_quote / self.mid_price
-        if amount_to_close >= self.trading_rules.min_order_size:
+        if self.position_size_base >= self.trading_rules.min_order_size:
             order_id = self.place_order(
                 connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
                 order_type=OrderType.MARKET,
-                amount=amount_to_close,
+                amount=self.position_size_base,
                 price=price,
                 side=self.close_order_side,
                 position_action=PositionAction.CLOSE,
@@ -565,17 +570,18 @@ class GridExecutor(ExecutorBase):
                               self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]]
         for order in open_order_placed + close_order_placed:
             # TODO: Implement cancel batch orders
-            self._strategy.cancel(
-                connector_name=self.config.connector_name,
-                trading_pair=self.config.trading_pair,
-                order_id=order.order_id
-            )
-            self.logger().debug("Removing open order")
-            self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
+            if order:
+                self._strategy.cancel(
+                    connector_name=self.config.connector_name,
+                    trading_pair=self.config.trading_pair,
+                    order_id=order.order_id
+                )
+                self.logger().debug("Removing open order")
+                self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
 
     def get_custom_info(self) -> Dict:
         return {
-            "levels_by_state": self.levels_by_state,
+            "levels_by_state": {key.name: value for key, value in self.levels_by_state.items()},
             "filled_orders": self._filled_orders,
             "failed_orders": self._failed_orders,
             "canceled_orders": self._canceled_orders,
@@ -631,7 +637,7 @@ class GridExecutor(ExecutorBase):
             if self._close_order and self._close_order.order_id == order_id:
                 self._close_order.order = in_flight_order
                 for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] + self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
-                    level.active_close_order.order = in_flight_order
+                    level.reset_level()
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         """
@@ -707,6 +713,7 @@ class GridExecutor(ExecutorBase):
         open_filled_levels = self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
         side_multiplier = 1 if self.config.side == TradeType.BUY else -1
         if len(open_filled_levels) == 0:
+            self.position_size_base = Decimal("0")
             self.position_size_quote = Decimal("0")
             self.position_fees_quote = Decimal("0")
             self.position_pnl_quote = Decimal("0")
@@ -718,6 +725,8 @@ class GridExecutor(ExecutorBase):
                 [level.active_open_order.average_executed_price * level.active_open_order.executed_amount_base for level in
                  open_filled_levels]) / sum([level.active_open_order.executed_amount_base for level in open_filled_levels])
             close_order_size_quote = self._close_order.executed_amount_quote if self._close_order else Decimal("0")
+            close_order_size_base = self._close_order.executed_amount_base if self._close_order else Decimal("0")
+            self.position_size_base = sum([level.active_open_order.executed_amount_base for level in open_filled_levels]) - close_order_size_base
             self.position_size_quote = sum([level.active_open_order.executed_amount_quote for level in open_filled_levels]) - close_order_size_quote
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
             self.position_pnl_quote = side_multiplier * (
