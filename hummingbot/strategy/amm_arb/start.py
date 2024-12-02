@@ -80,11 +80,11 @@ def start(self):
         rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
         rate_source.add_rate(f"{quote_1}-{quote_2}", Decimal(str(1 / quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
 
-    if gas_price:
-        rate_source.add_rate(f"{gas_token}-{quote_1}", Decimal(str(gas_price)))
-        rate_source.add_rate(f"{gas_token}-{quote_2}", Decimal(str(gas_price)))
-        rate_source.add_rate(f"{quote_1}-{gas_token}", Decimal(str(1 / gas_price)))
-        rate_source.add_rate(f"{quote_2}-{gas_token}", Decimal(str(1 / gas_price)))
+        if gas_price:
+            rate_source.add_rate(f"{gas_token}-{quote_1}", Decimal(str(gas_price)))
+            rate_source.add_rate(f"{gas_token}-{quote_2}", Decimal(str(gas_price)))
+            rate_source.add_rate(f"{quote_1}-{gas_token}", Decimal(str(1 / gas_price)))
+            rate_source.add_rate(f"{quote_2}-{gas_token}", Decimal(str(1 / gas_price)))
 
     self.strategy = AmmArbStrategy()
     self.strategy.init_params(market_info_1=market_info_1,
