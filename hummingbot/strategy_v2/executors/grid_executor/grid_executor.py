@@ -407,7 +407,7 @@ class GridExecutor(ExecutorBase):
                 if price:
                     distance_pct = abs(price - self.mid_price) / self.mid_price
                     if distance_pct > self.config.activation_bounds:
-                        levels_to_cancel.append(order)
+                        levels_to_cancel.append(order.order_id)
                         self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
             return levels_to_cancel
         return []
@@ -444,8 +444,8 @@ class GridExecutor(ExecutorBase):
                 price = level.active_close_order.order.price
                 if price:
                     distance_to_mid = abs(price - self.mid_price) / self.mid_price
-                    if distance_to_mid < self.config.activation_bounds:
-                        close_orders_to_cancel.append(level.active_close_order)
+                    if distance_to_mid > self.config.activation_bounds:
+                        close_orders_to_cancel.append(level.active_close_order.order_id)
             return close_orders_to_cancel
         return []
 
