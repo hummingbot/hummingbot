@@ -46,6 +46,13 @@ class TrackedOrder:
             return None
 
     @property
+    def price(self):
+        if self.order:
+            return self.order.price
+        else:
+            return None
+
+    @property
     def last_update_time(self):
         if self.order:
             return self.order.last_update_time
