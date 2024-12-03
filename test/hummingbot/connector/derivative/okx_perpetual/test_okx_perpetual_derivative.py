@@ -501,7 +501,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     @property
     def expected_trading_rule(self):
@@ -2389,7 +2389,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position."
+                f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -2433,7 +2434,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position."
+                f"{Decimal('100.000000')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -2482,7 +2484,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
+                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
+                f"at {Decimal('10000.0000')}."
             )
         )
 
@@ -2572,7 +2575,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
+                f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
+                f"at {Decimal('10000.0000')}."
             )
         )
 

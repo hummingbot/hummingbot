@@ -1,7 +1,6 @@
 import hashlib
 import hmac
 import json
-import time
 from typing import Any, Dict
 from urllib.parse import urlparse
 
@@ -68,11 +67,11 @@ class GateIoAuth(AuthBase):
     def _sign_payload_ws(self, channel, event, time) -> str:
         return self._sign(f"channel={channel}&event={event}&time={time}")
 
-    def _sign_payload(self, r: RESTRequest) -> (str, int):
+    def _sign_payload(self, r: RESTRequest) -> tuple[str, int]:
         query_string = ""
         body = r.data
 
-        ts = time.time()
+        ts = self.time_provider.time()
         m = hashlib.sha512()
         path = urlparse(r.url).path
 

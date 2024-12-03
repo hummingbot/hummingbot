@@ -7,6 +7,7 @@ class Chain(Enum):
     ETHEREUM = ("ethereum", "ETH")
     TEZOS = ("tezos", "XTZ")
     ERGO = ("ergo", "ERG")
+    TELOS = ('telos', 'TLOS')
 
     def __init__(self, chain: str, native_currency: str):
         self.chain = chain

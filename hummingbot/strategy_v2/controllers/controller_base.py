@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import importlib
 import inspect
+from decimal import Decimal
 from typing import Callable, Dict, List, Set
 
 from pydantic import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
@@ -36,6 +38,12 @@ class ControllerConfigBase(BaseClientModel):
         ))
     controller_name: str
     controller_type: str = "generic"
+    total_amount_quote: Decimal = Field(
+        default=100,
+        client_data=ClientFieldData(
+            is_updatable=True,
+            prompt_on_new=True,
+            prompt=lambda mi: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
     manual_kill_switch: bool = Field(default=None, client_data=ClientFieldData(is_updatable=True, prompt_on_new=False))
     candles_config: List[CandlesConfig] = Field(
         default="binance_perpetual.WLD-USDT.1m.500",
@@ -139,6 +147,12 @@ class ControllerBase(RunnableBase):
     def initialize_candles(self):
         for candles_config in self.config.candles_config:
             self.market_data_provider.initialize_candles_feed(candles_config)
+
+    def get_balance_requirements(self) -> List[TokenAmount]:
+        """
+        Get the balance requirements for the controller.
+        """
+        return []
 
     def update_config(self, new_config: ControllerConfigBase):
         """

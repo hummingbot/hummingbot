@@ -15,18 +15,15 @@ from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 
 
 class WSAssistantTest(unittest.TestCase):
-    ev_loop: asyncio.AbstractEventLoop
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        for task in asyncio.all_tasks(cls.ev_loop):
-            task.cancel()
 
     def setUp(self) -> None:
         super().setUp()
-        aiohttp_client_session = aiohttp.ClientSession()
+        aiohttp_client_session = aiohttp.ClientSession(loop=self.ev_loop)
         self.ws_connection = WSConnection(aiohttp_client_session)
         self.ws_assistant = WSAssistant(self.ws_connection)
         self.mocking_assistant = NetworkMockingAssistant()
@@ -40,15 +37,17 @@ class WSAssistantTest(unittest.TestCase):
         ws_url = "ws://some.url"
         ping_timeout = 10
         message_timeout = 20
+        max_msg_size = 4 * 1024 * 1024
 
         self.async_run_with_timeout(
-            self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout)
+            self.ws_assistant.connect(ws_url, ping_timeout=ping_timeout, message_timeout=message_timeout, max_msg_size=max_msg_size)
         )
 
         connect_mock.assert_called_with(ws_url=ws_url,
                                         ws_headers={},
                                         ping_timeout=ping_timeout,
-                                        message_timeout=message_timeout)
+                                        message_timeout=message_timeout,
+                                        max_msg_size=max_msg_size)
 
     @patch("hummingbot.core.web_assistant.connections.ws_connection.WSConnection.disconnect")
     def test_disconnect(self, disconnect_mock):

@@ -30,7 +30,7 @@ class ExternalEventsExample(ScriptStrategyBase):
     def on_message(self, msg, topic):
         self.logger().info(f'Topic Message Callback fired: {topic} -> {msg}')
 
-    def on_stop(self):
+    async def on_stop(self):
         ExternalEventFactory.remove_listener('*', self.on_event)
         ExternalTopicFactory.remove_listener(self.listener)
     # ----------------------------------

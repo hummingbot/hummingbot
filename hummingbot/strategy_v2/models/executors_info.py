@@ -66,13 +66,13 @@ class ExecutorHandlerInfo(BaseModel):
 
 
 class PerformanceReport(BaseModel):
-    realized_pnl_quote: Decimal
-    unrealized_pnl_quote: Decimal
-    unrealized_pnl_pct: Decimal
-    realized_pnl_pct: Decimal
-    global_pnl_quote: Decimal
-    global_pnl_pct: Decimal
-    volume_traded: Decimal
-    open_order_volume: Decimal
-    inventory_imbalance: Decimal
-    close_type_counts: Dict[CloseType, int]
+    realized_pnl_quote: Decimal = Decimal("0")
+    unrealized_pnl_quote: Decimal = Decimal("0")
+    unrealized_pnl_pct: Decimal = Decimal("0")
+    realized_pnl_pct: Decimal = Decimal("0")
+    global_pnl_quote: Decimal = Decimal("0")
+    global_pnl_pct: Decimal = Decimal("0")
+    volume_traded: Decimal = Decimal("0")
+    open_order_volume: Decimal = Decimal("0")
+    inventory_imbalance: Decimal = Decimal("0")
+    close_type_counts: Dict[CloseType, int] = {}

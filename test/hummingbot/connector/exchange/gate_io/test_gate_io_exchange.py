@@ -1274,7 +1274,7 @@ class TestGateIoExchange(unittest.TestCase):
                 "INFO",
                 f"The {order.trade_type.name.upper()} order {order.client_order_id} "
                 f"amounting to {order.executed_amount_base}/{order.amount} "
-                f"{order.base_asset} has been filled."
+                f"{order.base_asset} has been filled at {Decimal('10000')} HBOT."
             )
         )
 
@@ -1535,7 +1535,7 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged("INFO", f"The {order.trade_type.name} order {order.client_order_id} amounting to "
-                                    f"0.5/{order.amount} {order.base_asset} has been filled.")
+                                    f"0.5/{order.amount} {order.base_asset} has been filled at {Decimal('10000.00000000')} HBOT.")
         )
 
     def test_user_stream_update_for_order_fill(self):
@@ -1802,3 +1802,8 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertEqual(expected_initial_dict, status_dict)
         self.assertFalse(self.exchange.ready)
+
+    def test_time_synchronizer_related_request_error_detection(self):
+        exception = IOError("HTTP status is 403. "
+                            "Error: {'label':'REQUEST_EXPIRED','message':'gap between request Timestamp and server time exceeds 60'}")
+        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))

@@ -194,7 +194,10 @@ class OkxExchange(ExchangePyBase):
             "sz": str(amount),
         }
         if order_type.is_limit_type():
-            data["px"] = str(price)
+            data["px"] = f"{price:f}"
+        else:
+            # Specify that the the order quantity for market orders is denominated in base currency
+            data["tgtCcy"] = "base_ccy"
 
         exchange_order_id = await self._api_request(
             path_url=CONSTANTS.OKX_PLACE_ORDER_PATH,
@@ -233,6 +236,17 @@ class OkxExchange(ExchangePyBase):
             raise IOError(f"Error cancelling order {order_id}: {cancel_result}")
 
         return final_result
+
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
+        params = {"instType": "SPOT"}
+
+        resp_json = await self._api_get(
+            path_url=CONSTANTS.OKX_TICKERS_PATH,
+            params=params,
+        )
+
+        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"]}
+        return last_traded_prices
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {"instId": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
@@ -276,6 +290,7 @@ class OkxExchange(ExchangePyBase):
 
     async def _update_trading_rules(self):
         # This has to be reimplemented because the request requires an extra parameter
+        # TODO: Normalize the rest requests so they can be used standalone
         exchange_info = await self._api_get(
             path_url=self.trading_rules_request_path,
             params={"instType": "SPOT"},
@@ -383,11 +398,13 @@ class OkxExchange(ExchangePyBase):
                     for data in stream_message.get("data", []):
                         order_status = CONSTANTS.ORDER_STATE[data["state"]]
                         client_order_id = data["clOrdId"]
+                        trade_id = data["tradeId"]
                         fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
                         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
                         if (fillable_order is not None
-                                and order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]):
+                                and order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
+                                and trade_id):
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=fillable_order.trade_type,
@@ -395,7 +412,7 @@ class OkxExchange(ExchangePyBase):
                                 flat_fees=[TokenAmount(amount=Decimal(data["fillFee"]), token=data["fillFeeCcy"])]
                             )
                             trade_update = TradeUpdate(
-                                trade_id=str(data["tradeId"]),
+                                trade_id=str(trade_id),
                                 client_order_id=fillable_order.client_order_id,
                                 exchange_order_id=str(data["ordId"]),
                                 trading_pair=fillable_order.trading_pair,

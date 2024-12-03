@@ -3,7 +3,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "com"
 
-HBOT_ORDER_ID_PREFIX = "x-XEKWYICX"
+HBOT_ORDER_ID_PREFIX = "x-MG43PCSN"
 MAX_ORDER_ID_LEN = 32
 
 # Base URL
@@ -16,6 +16,7 @@ PRIVATE_API_VERSION = "v3"
 # Public API endpoints or BinanceClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
 TICKER_BOOK_PATH_URL = "/ticker/bookTicker"
+PRICES_PATH_URL = "/ticker/price"
 EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
 PING_PATH_URL = "/ping"
 SNAPSHOT_PATH_URL = "/depth"
@@ -61,6 +62,7 @@ ORDER_STATE = {
     "CANCELED": OrderState.CANCELED,
     "REJECTED": OrderState.FAILED,
     "EXPIRED": OrderState.FAILED,
+    "EXPIRED_IN_MATCH": OrderState.FAILED,
 }
 
 # Websocket event types
@@ -70,14 +72,17 @@ TRADE_EVENT_TYPE = "trade"
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id=REQUEST_WEIGHT, limit=6000, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS, limit=50, time_interval=10 * ONE_SECOND),
-    RateLimit(limit_id=ORDERS_24HR, limit=160000, time_interval=ONE_DAY),
-    RateLimit(limit_id=RAW_REQUESTS, limit=61000, time_interval= 5 * ONE_MINUTE),
+    RateLimit(limit_id=ORDERS, limit=100, time_interval=10 * ONE_SECOND),
+    RateLimit(limit_id=ORDERS_24HR, limit=200000, time_interval=ONE_DAY),
+    RateLimit(limit_id=RAW_REQUESTS, limit=61000, time_interval=5 * ONE_MINUTE),
     # Weighted Limits
     RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
+                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    RateLimit(limit_id=PRICES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 4),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,

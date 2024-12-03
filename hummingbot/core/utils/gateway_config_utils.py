@@ -8,6 +8,7 @@ native_tokens = {
     "avalanche": "AVAX",
     "algorand": "ALGO",
     "cosmos": "ATOM",
+    "celo": "CELO",
     "osmosis": "OSMO",
     "polygon": "MATIC",
     "harmony": "ONE",
@@ -19,6 +20,8 @@ native_tokens = {
     "tezos": "XTZ",
     "xrpl": "XRP",
     "kujira": "KUJI",
+    "telos": "TLOS",
+    "ethereum-classic": "ETC",
     "ergo": "ERG",
 }
 
