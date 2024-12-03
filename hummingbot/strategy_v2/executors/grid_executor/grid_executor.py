@@ -260,6 +260,7 @@ class GridExecutor(ExecutorBase):
             if self._close_order and self._close_order.order:
                 self._filled_orders.append(self._close_order.order.to_json())
                 self._close_order = None
+            self.update_metrics()
             self.stop()
         else:
             await self.control_close_order()
