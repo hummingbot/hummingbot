@@ -105,20 +105,53 @@ class GridStrike(ControllerBase):
         pass
 
     def to_format_status(self) -> List[str]:
+        # Define column widths and spacing
+        col_width = 45
+        total_width = col_width * 4  # 4 columns
         status = []
+        # Header
+        status.append("\n" + "═" * total_width)
+        header = f"Grid Executor Controller: {self.config.id}"
+        status.append(header.center(total_width))
+        status.append("═" * total_width)
         for level in self.active_executors():
-            status.append(f"Grid {level.id}: {level.status}")
-            levels_by_state = level.custom_info['levels_by_state']
-            status.append("Levels by state:")
-            for state in levels_by_state:
-                n_levels = len(levels_by_state[state])
-                status.append(f"  - {state}: {n_levels}")
-            status.append(f"Filled orders: {len(level.custom_info['filled_orders'])}")
-            status.append(f"Failed orders: {len(level.custom_info['failed_orders'])}")
-            status.append(f"Canceled orders: {len(level.custom_info['canceled_orders'])}")
-            status.append("Metrics:")
-            status.append(f"Realized buy size: {level.custom_info['realized_buy_size_quote']} | Realized sell size: {level.custom_info['realized_sell_size_quote']} | Realized imbalance: {level.custom_info['realized_imbalance_quote']}")
-            status.append(f"Realized fees: {level.custom_info['realized_fees_quote']} | Realized PnL: {level.custom_info['realized_pnl_quote']} | Realized PnL pct: {level.custom_info['realized_pnl_pct']}")
-            status.append(f"Position size: {level.custom_info['position_size_quote']} | Position fees: {level.custom_info['position_fees_quote']} | Position PnL: {level.custom_info['position_pnl_quote']}")
-
+            status.append(f"Grid Status - {level.id}:".center(total_width))
+            status.append(f"Current Status: {level.status}".center(total_width))
+            status.append("─" * total_width)
+            # Prepare data for each column
+            grid_config = [
+                "Grid Configuration:",
+                f"Start: {self.config.start_price:.4f}",
+                f"End: {self.config.end_price:.4f}",
+                f"Side: {self.config.side}",
+                f"Limit: {self.config.limit_price:.4f}",
+                f"Max Orders: {self.config.max_open_orders}"
+            ]
+            level_dist = ["Level Distribution:"]
+            for state, count in level.custom_info['levels_by_state'].items():
+                level_dist.append(f"{state}: {len(count)} levels")
+            order_stats = [
+                "Order Statistics:",
+                f"Total Orders: {sum(len(level.custom_info[k]) for k in ['filled_orders', 'failed_orders', 'canceled_orders'])}",
+                f"Filled: {len(level.custom_info['filled_orders'])}",
+                f"Failed: {len(level.custom_info['failed_orders'])}",
+                f"Canceled: {len(level.custom_info['canceled_orders'])}"
+            ]
+            perf_metrics = [
+                "Performance Metrics:",
+                f"Buy Vol: {level.custom_info['realized_buy_size_quote']:.4f}",
+                f"Sell Vol: {level.custom_info['realized_sell_size_quote']:.4f}",
+                f"R. PnL: {level.custom_info['realized_pnl_quote']:.4f}",
+                f"P. PnL: {level.custom_info['position_pnl_quote']:.4f}",
+                f"Position: {level.custom_info['position_size_quote']:.4f}"
+            ]
+            # Combine columns row by row
+            max_rows = max(len(grid_config), len(level_dist), len(order_stats), len(perf_metrics))
+            for i in range(max_rows):
+                row = []
+                for col in [grid_config, level_dist, order_stats, perf_metrics]:
+                    cell = col[i] if i < len(col) else ""
+                    row.append(f"{cell:<{col_width}}")
+                status.append("".join(row))
+            status.append("═" * total_width)
         return status
