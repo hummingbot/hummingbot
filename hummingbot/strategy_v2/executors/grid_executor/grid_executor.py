@@ -729,8 +729,7 @@ class GridExecutor(ExecutorBase):
             self.position_size_base = sum([level.active_open_order.executed_amount_base for level in open_filled_levels]) - close_order_size_base
             self.position_size_quote = sum([level.active_open_order.executed_amount_quote for level in open_filled_levels]) - close_order_size_quote
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
-            self.position_pnl_quote = side_multiplier * (
-                self.mid_price - self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
+            self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
             self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal("0")
             self.open_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]])
             self.close_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]])
