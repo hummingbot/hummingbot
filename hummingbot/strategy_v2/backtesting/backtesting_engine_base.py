@@ -123,9 +123,7 @@ class BacktestingEngineBase:
         self.active_executor_simulations: List[ExecutorSimulation] = []
         self.stopped_executors_info: List[ExecutorInfo] = []
         for i, row in processed_features.iterrows():
-            self.update_market_data(row)
-            await self.update_processed_data(row)
-            self.update_executors_info(row["timestamp"])
+            await self.update_state(row)
             for action in self.controller.determine_executor_actions():
                 if isinstance(action, CreateExecutorAction):
                     executor_simulation = self.simulate_executor(action.executor_config, processed_features.loc[i:], trade_cost)
@@ -135,6 +133,13 @@ class BacktestingEngineBase:
                     self.handle_stop_action(action, row["timestamp"])
 
         return self.controller.executors_info
+
+    async def update_state(self, row):
+        key = f"{self.controller.config.connector_name}_{self.controller.config.trading_pair}"
+        self.controller.market_data_provider.prices = {key: Decimal(row["close_bt"])}
+        self.controller.market_data_provider._time = row["timestamp"]
+        self.controller.processed_data.update(row.to_dict())
+        self.update_executors_info(row["timestamp"])
 
     def update_executors_info(self, timestamp: float):
         active_executors_info = []
@@ -189,18 +194,6 @@ class BacktestingEngineBase:
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
 
-    def update_market_data(self, row: pd.Series):
-        """
-        Updates market data in the controller with the current price and timestamp.
-
-        Args:
-            row (pd.Series): The current row of market data.
-        """
-        connector_name = self.controller.config.connector_name
-        trading_pair = self.controller.config.trading_pair
-        self.controller.market_data_provider.prices = {f"{connector_name}_{trading_pair}": Decimal(row["close_bt"])}
-        self.controller.market_data_provider._time = row["timestamp"]
-
     def simulate_executor(self, config: Union[PositionExecutorConfig, DCAExecutorConfig], df: pd.DataFrame,
                           trade_cost: float) -> Optional[ExecutorSimulation]:
         """
@@ -240,17 +233,15 @@ class BacktestingEngineBase:
             active_executors (list): The list of active executors.
             timestamp (pd.Timestamp): The current timestamp.
         """
-        executor_simulation: Optional[ExecutorSimulation] = next(
-            (ei for ei in self.active_executor_simulations if ei.config.id == action.executor_id), None)
-        if executor_simulation:
-            executor_info = executor_simulation.get_executor_info_at_timestamp(timestamp)
-            executor_info.is_active = False
-            executor_info.is_trading = False
-            executor_info.status = RunnableStatus.TERMINATED
-            executor_info.close_type = CloseType.EARLY_STOP
-            executor_info.close_timestamp = timestamp
-            self.stopped_executors_info.append(executor_info)
-            self.active_executor_simulations.remove(executor_simulation)
+        for executor in self.active_executor_simulations:
+            executor_info = executor.get_executor_info_at_timestamp(timestamp)
+            if executor_info.config.id == action.executor_id:
+                executor_info.status = RunnableStatus.TERMINATED
+                executor_info.close_type = CloseType.EARLY_STOP
+                executor_info.is_active = False
+                executor_info.close_timestamp = timestamp
+                self.stopped_executors_info.append(executor_info)
+                self.active_executor_simulations.remove(executor)
 
     @staticmethod
     def summarize_results(executors_info: List, total_amount_quote: float = 1000):
