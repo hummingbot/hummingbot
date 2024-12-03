@@ -186,7 +186,7 @@ amm_arb_config_map = {
         prompt="",
         prompt_on_new=False,
         default={},
-        type_str="decimal"),
+        type_str="json"),
     "rate_conversion_exchanges": ConfigVar(
         key="rate_conversion_exchange",
         prompt="In case of a needed conversion, which exchanges should be used in List Format (sorted by priority) bsp: ['binance', 'gate_io', 'mexc'] >>> ",
