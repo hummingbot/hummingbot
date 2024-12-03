@@ -124,7 +124,8 @@ class GridExecutor(ExecutorBase):
 
     def _generate_grid_levels(self):
         grid_levels = []
-        step_proposed = max(self.config.min_spread_between_orders, self.trading_rules.min_price_increment)
+        price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
+        step_proposed = max(self.config.min_spread_between_orders, self.trading_rules.min_price_increment / price)
         amount_proposed = max(self.config.min_order_amount_quote, self.trading_rules.min_notional_size)
         total_amount = self.config.total_amount_quote
         grid_range = (self.config.end_price - self.config.start_price) / self.config.start_price
