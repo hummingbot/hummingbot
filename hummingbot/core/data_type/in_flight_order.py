@@ -264,7 +264,9 @@ class InFlightOrder:
             "position": self.position.value,
             "creation_timestamp": self.creation_timestamp,
             "last_update_timestamp": self.last_update_timestamp,
-            "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()}
+            "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
+            "cumulative_fee_paid_base": float(self.cumulative_fee_paid(self.base_asset)),
+            "cumulative_fee_paid_quote": float(self.cumulative_fee_paid(self.quote_asset)),
         }
 
     def to_limit_order(self) -> LimitOrder:
@@ -302,14 +304,17 @@ class InFlightOrder:
         :return: the cumulative fee paid for all partial fills in the specified token
         """
         total_fee_in_token = Decimal("0")
-        for trade_update in self.order_fills.values():
-            total_fee_in_token += trade_update.fee.fee_amount_in_token(
-                trading_pair=self.trading_pair,
-                price=trade_update.fill_price,
-                order_amount=trade_update.fill_base_amount,
-                token=token,
-                exchange=exchange
-            )
+        try:
+            for trade_update in self.order_fills.values():
+                total_fee_in_token += trade_update.fee.fee_amount_in_token(
+                    trading_pair=self.trading_pair,
+                    price=trade_update.fill_price,
+                    order_amount=trade_update.fill_base_amount,
+                    token=token,
+                    exchange=exchange
+                )
+        except Exception:
+            pass
         return total_fee_in_token
 
     def update_with_order_update(self, order_update: OrderUpdate) -> bool:

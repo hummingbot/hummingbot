@@ -362,14 +362,14 @@ class PositionExecutor(ExecutorBase):
             self.close_type = CloseType.FAILED
             self.stop()
 
-    def on_start(self):
+    async def on_start(self):
         """
         This method is responsible for starting the executor and validating if the position is expired. The base method
         validates if there is enough balance to place the open order.
 
         :return: None
         """
-        super().on_start()
+        await super().on_start()
         if self.is_expired:
             self.close_type = CloseType.EXPIRED
             self.stop()
@@ -760,7 +760,7 @@ class PositionExecutor(ExecutorBase):
                 if net_pnl_pct - self.config.triple_barrier_config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
                     self._trailing_stop_trigger_pct = net_pnl_pct - self.config.triple_barrier_config.trailing_stop.trailing_delta
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         if self.is_perpetual:
             order_candidate = PerpetualOrderCandidate(
                 trading_pair=self.config.trading_pair,
