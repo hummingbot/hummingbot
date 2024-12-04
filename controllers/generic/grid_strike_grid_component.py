@@ -142,7 +142,10 @@ class GridStrike(ControllerBase):
                 f"Buy Vol: {level.custom_info['realized_buy_size_quote']:.4f}",
                 f"Sell Vol: {level.custom_info['realized_sell_size_quote']:.4f}",
                 f"R. PnL: {level.custom_info['realized_pnl_quote']:.4f}",
+                f"R. Fees: {level.custom_info['realized_fees_quote']:.4f}",
                 f"P. PnL: {level.custom_info['position_pnl_quote']:.4f}",
+                f"Open Liquidity: {level.custom_info['open_liquidity_placed']:.4f}",
+                f"Close Liquidity: {level.custom_info['close_liquidity_placed']:.4f}",
                 f"Position: {level.custom_info['position_size_quote']:.4f}"
             ]
             # Combine columns row by row

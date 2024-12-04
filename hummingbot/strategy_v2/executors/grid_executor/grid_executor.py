@@ -188,10 +188,12 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
-        self.update_metrics()
         self.update_grid_levels()
+        self.update_metrics()
         if self.status == RunnableStatus.RUNNING:
             if self.control_triple_barrier():
+                self._status = RunnableStatus.SHUTTING_DOWN
+                self.cancel_open_orders()
                 return
             open_orders_to_create = self.get_open_orders_to_create()
             close_orders_to_create = self.get_close_orders_to_create()
@@ -218,7 +220,9 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
-        self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
+        self._status = RunnableStatus.SHUTTING_DOWN
+        self.close_type = CloseType.EARLY_STOP
+        self.cancel_open_orders()
 
     def update_grid_levels(self):
         self.levels_by_state = {state: [] for state in GridLevelStates}
@@ -246,25 +250,26 @@ class GridExecutor(ExecutorBase):
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
         close_orders_completed = self.close_liquidity_placed == Decimal("0")
         order_execution_completed = self.position_size_base == Decimal("0")
-        # TODO: Evaluate total balance combining filled and failed orders
-        if open_orders_completed and order_execution_completed and close_orders_completed:
-            for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
-                order = level.active_open_order.order.to_json()
-                self._filled_orders.append(order)
-                self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED].remove(level)
-            for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]:
-                order = level.active_close_order.order.to_json()
-                self._filled_orders.append(order)
-                self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED].remove(level)
-            if self._close_order and self._close_order.order:
-                self._filled_orders.append(self._close_order.order.to_json())
-                self._close_order = None
-            self.update_metrics()
-            self.stop()
+        if open_orders_completed and close_orders_completed:
+            if order_execution_completed:
+                for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
+                    order = level.active_open_order.order.to_json()
+                    self._filled_orders.append(order)
+                    level.reset_level()
+                for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]:
+                    order = level.active_close_order.order.to_json()
+                    self._filled_orders.append(order)
+                    level.reset_level()
+                if self._close_order and self._close_order.order:
+                    self._filled_orders.append(self._close_order.order.to_json())
+                    self._close_order = None
+                self.update_metrics()
+                self.stop()
+            else:
+                await self.control_close_order()
+                self._current_retries += 1
         else:
-            await self.control_close_order()
             self.cancel_open_orders()
-            self._current_retries += 1
         await asyncio.sleep(5.0)
 
     async def control_close_order(self):
@@ -473,16 +478,17 @@ class GridExecutor(ExecutorBase):
         :return: None
         """
         if self.stop_loss_condition() or self.limit_price_condition():
-            self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
+            self.cancel_open_orders()
+            self.close_type = CloseType.STOP_LOSS
             return True
         if self.is_expired:
-            self.place_close_order_and_cancel_open_orders(close_type=CloseType.TIME_LIMIT)
+            self.close_type = CloseType.TIME_LIMIT
             return True
         if self.trailing_stop_condition():
-            self.place_close_order_and_cancel_open_orders(close_type=CloseType.TRAILING_STOP)
+            self.close_type = CloseType.TRAILING_STOP
             return True
         if self.take_profit_condition():
-            self._status = RunnableStatus.SHUTTING_DOWN
+            self.close_type = CloseType.TAKE_PROFIT
             return True
         return False
 
