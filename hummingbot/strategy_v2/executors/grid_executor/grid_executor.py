@@ -188,9 +188,9 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
+        self.update_metrics()
+        self.update_grid_levels()
         if self.status == RunnableStatus.RUNNING:
-            self.update_grid_levels()
-            self.update_metrics()
             if self.control_triple_barrier():
                 return
             open_orders_to_create = self.get_open_orders_to_create()
@@ -242,8 +242,6 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
-        self.update_grid_levels()
-        self.update_metrics()
         self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
         close_orders_completed = self.close_liquidity_placed == Decimal("0")
@@ -492,9 +490,9 @@ class GridExecutor(ExecutorBase):
         """
         Take profit will be when the mid price is above the end price of the grid and there are no active executors.
         """
-        price_condition = self.mid_price > self.config.end_price if self.config.side == TradeType.BUY else self.mid_price < self.config.end_price
+        price_condition = self.mid_price > self.config.end_price if self.config.side == TradeType.BUY else self.mid_price < self.config.start_price
         potential_active_levels = self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] + self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
-        if price_condition and len(potential_active_levels):
+        if price_condition and len(potential_active_levels) == 0:
             return True
         return False
 
@@ -598,6 +596,8 @@ class GridExecutor(ExecutorBase):
             "position_size_quote": self.position_size_quote,
             "position_fees_quote": self.position_fees_quote,
             "position_pnl_quote": self.position_pnl_quote,
+            "open_liquidity_placed": self.open_liquidity_placed,
+            "close_liquidity_placed": self.close_liquidity_placed,
         }
 
     async def on_start(self):
@@ -640,8 +640,6 @@ class GridExecutor(ExecutorBase):
                     level.active_close_order.order = in_flight_order
             if self._close_order and self._close_order.order_id == order_id:
                 self._close_order.order = in_flight_order
-                for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] + self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
-                    level.reset_level()
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         """
@@ -735,8 +733,8 @@ class GridExecutor(ExecutorBase):
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
             self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
             self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal("0")
-            self.open_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]])
-            self.close_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]])
+            self.open_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED] if level.active_open_order and level.active_open_order.executed_amount_base == Decimal("0")])
+            self.close_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] if level.active_close_order and level.active_close_order.executed_amount_base == Decimal("0")])
 
     def update_realized_pnl_metrics(self):
         """
