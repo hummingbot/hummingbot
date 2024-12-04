@@ -263,7 +263,7 @@ class GridExecutor(ExecutorBase):
                 if self._close_order and self._close_order.order:
                     self._filled_orders.append(self._close_order.order.to_json())
                     self._close_order = None
-                self.update_metrics()
+                self.update_realized_pnl_metrics()
                 self.stop()
             else:
                 await self.control_close_order()
@@ -496,9 +496,7 @@ class GridExecutor(ExecutorBase):
         """
         Take profit will be when the mid price is above the end price of the grid and there are no active executors.
         """
-        price_condition = self.mid_price > self.config.end_price if self.config.side == TradeType.BUY else self.mid_price < self.config.start_price
-        potential_active_levels = self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] + self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
-        if price_condition and len(potential_active_levels) == 0:
+        if self.mid_price > self.config.end_price if self.config.side == TradeType.BUY else self.mid_price < self.config.start_price:
             return True
         return False
 
