@@ -353,6 +353,7 @@ class GridExecutor(ExecutorBase):
             trading_pair=self.config.trading_pair,
             is_maker=self.config.triple_barrier_config.open_order_type.is_limit_type(),
             order_type=self.config.triple_barrier_config.open_order_type,
+            order_side=self.config.side,
             amount=level.amount_quote / self.mid_price,
             price=entry_price
         )
@@ -373,7 +374,8 @@ class GridExecutor(ExecutorBase):
             trading_pair=self.config.trading_pair,
             is_maker=self.config.triple_barrier_config.take_profit_order_type.is_limit_type(),
             order_type=self.config.triple_barrier_config.take_profit_order_type,
-            amount=level.amount_quote / self.mid_price,
+            order_side=self.close_order_side,
+            amount=level.active_open_order.executed_amount_base,
             price=take_profit_price
         )
 
@@ -400,20 +402,6 @@ class GridExecutor(ExecutorBase):
         sorted_levels_by_proximity = self._sort_levels_by_proximity(levels_allowed)
         return sorted_levels_by_proximity[:self.config.max_orders_per_batch]
 
-    def get_open_order_ids_to_cancel(self):
-        if self.config.activation_bounds:
-            open_orders_placed = [level.active_open_order for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
-            levels_to_cancel = []
-            for order in open_orders_placed:
-                price = order.price
-                if price:
-                    distance_pct = abs(price - self.mid_price) / self.mid_price
-                    if distance_pct > self.config.activation_bounds:
-                        levels_to_cancel.append(order.order_id)
-                        self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
-            return levels_to_cancel
-        return []
-
     def get_close_orders_to_create(self):
         """
         This method is responsible for controlling the take profit. It will check if the net pnl percentage is greater
@@ -432,6 +420,20 @@ class GridExecutor(ExecutorBase):
                 close_orders_proposal.append(level)
         return close_orders_proposal
 
+    def get_open_order_ids_to_cancel(self):
+        if self.config.activation_bounds:
+            open_orders_to_cancel = []
+            open_orders_placed = [level.active_open_order for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
+            for order in open_orders_placed:
+                price = order.price
+                if price:
+                    distance_pct = abs(price - self.mid_price) / self.mid_price
+                    if distance_pct > self.config.activation_bounds:
+                        open_orders_to_cancel.append(order.order_id)
+                        self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
+            return open_orders_to_cancel
+        return []
+
     def get_close_order_ids_to_cancel(self):
         """
         This method is responsible for controlling the close orders. It will check if the take profit is greater than the
@@ -441,13 +443,13 @@ class GridExecutor(ExecutorBase):
         """
         if self.config.activation_bounds:
             close_orders_to_cancel = []
-            close_orders_placed = self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
-            for level in close_orders_placed:
-                price = level.active_close_order.order.price
+            close_orders_placed = [level.active_close_order for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]]
+            for order in close_orders_placed:
+                price = order.price
                 if price:
                     distance_to_mid = abs(price - self.mid_price) / self.mid_price
                     if distance_to_mid > self.config.activation_bounds:
-                        close_orders_to_cancel.append(level.active_close_order.order_id)
+                        close_orders_to_cancel.append(order.order_id)
             return close_orders_to_cancel
         return []
 
