@@ -31,7 +31,7 @@ class BitmartPerpetualAuth(AuthBase):
         return {
             "X-BM-KEY": self._api_key,
             "X-BM-SIGN": self.generate_signature_from_payload(payload, timestamp),
-            "X-BM-TIMESTAMP": timestamp
+            "X-BM-TIMESTAMP": str(timestamp)
         }
 
     def generate_signature_from_payload(self, payload: str, timestamp: int) -> str:

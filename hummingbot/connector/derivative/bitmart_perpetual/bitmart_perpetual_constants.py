@@ -6,14 +6,13 @@ BROKER_ID = "x-nbQe1H39"
 MAX_ORDER_ID_LEN = 32
 
 DOMAIN = EXCHANGE_NAME
-TESTNET_DOMAIN = "bitmart_perpetual_testnet"
 
 PERPETUAL_BASE_URL = "https://api-cloud-v2.bitmart.com"
-
 PERPETUAL_WS_URL = "wss://openapi-ws-v2.bitmart.com"
+
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
-PUBLIC_WS_ENDPOINT = "api?protocol=1.1"
-PRIVATE_WS_ENDPOINT = "user?protocol=1.1"
+PUBLIC_WS_ENDPOINT = "/api?protocol=1.1"
+PRIVATE_WS_ENDPOINT = "/user?protocol=1.1"
 
 TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
 TIME_IN_FORCE_GTX = "GTX"  # Good Till Crossing
@@ -21,14 +20,14 @@ TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
 TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
 # Public API v1 Endpoints
-SNAPSHOT_REST_URL = "contract/public/depth"
+SNAPSHOT_REST_URL = "/contract/public/depth"
 TICKER_PRICE_URL = "v1/ticker/bookTicker"
 TICKER_PRICE_CHANGE_URL = "v1/ticker/24hr"
-EXCHANGE_INFO_URL = "public/details"
+EXCHANGE_INFO_URL = "/contract/public/details"
 RECENT_TRADES_URL = "v1/trades"
 PING_URL = "v1/ping"
-FUNDING_INFO_URL = "public/funding-rate"
-SERVER_TIME_PATH_URL = "system/time"
+FUNDING_INFO_URL = "/public/funding-rate"
+SERVER_TIME_PATH_URL = "/system/time"
 
 # Private API v1 Endpoints
 ORDER_URL = "v1/order"
@@ -42,7 +41,8 @@ POST_POSITION_MODE_LIMIT_ID = f"POST{CHANGE_POSITION_MODE_URL}"
 GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 
 # Private API v2 Endpoints
-ACCOUNT_INFO_URL = "contract/private/order"
+ACCOUNT_INFO_URL = "/contract/private/order"
+ASSETS_DETAIL = "/contract/private/assets-detail"
 POSITION_INFORMATION_URL = "v2/positionRisk"
 
 # Private API Endpoints
@@ -130,6 +130,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_POSITION_MODE_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=30)]),
     RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=ASSETS_DETAIL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
