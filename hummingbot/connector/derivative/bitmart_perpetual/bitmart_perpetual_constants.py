@@ -1,21 +1,19 @@
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-EXCHANGE_NAME = "binance_perpetual"
+EXCHANGE_NAME = "bitmart_perpetual"
 BROKER_ID = "x-nbQe1H39"
 MAX_ORDER_ID_LEN = 32
 
 DOMAIN = EXCHANGE_NAME
-TESTNET_DOMAIN = "binance_perpetual_testnet"
+TESTNET_DOMAIN = "bitmart_perpetual_testnet"
 
-PERPETUAL_BASE_URL = "https://fapi.binance.com/fapi/"
-TESTNET_BASE_URL = "https://testnet.binancefuture.com/fapi/"
+PERPETUAL_BASE_URL = "https://api-cloud-v2.bitmart.com"
 
-PERPETUAL_WS_URL = "wss://fstream.binance.com/"
-TESTNET_WS_URL = "wss://stream.binancefuture.com/"
-
-PUBLIC_WS_ENDPOINT = "stream"
-PRIVATE_WS_ENDPOINT = "ws"
+PERPETUAL_WS_URL = "wss://openapi-ws-v2.bitmart.com"
+SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
+PUBLIC_WS_ENDPOINT = "api?protocol=1.1"
+PRIVATE_WS_ENDPOINT = "user?protocol=1.1"
 
 TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
 TIME_IN_FORCE_GTX = "GTX"  # Good Till Crossing
@@ -23,14 +21,14 @@ TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
 TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
 # Public API v1 Endpoints
-SNAPSHOT_REST_URL = "v1/depth"
+SNAPSHOT_REST_URL = "contract/public/depth"
 TICKER_PRICE_URL = "v1/ticker/bookTicker"
 TICKER_PRICE_CHANGE_URL = "v1/ticker/24hr"
-EXCHANGE_INFO_URL = "v1/exchangeInfo"
+EXCHANGE_INFO_URL = "public/details"
 RECENT_TRADES_URL = "v1/trades"
 PING_URL = "v1/ping"
-MARK_PRICE_URL = "v1/premiumIndex"
-SERVER_TIME_PATH_URL = "v1/time"
+FUNDING_INFO_URL = "public/funding-rate"
+SERVER_TIME_PATH_URL = "system/time"
 
 # Private API v1 Endpoints
 ORDER_URL = "v1/order"
@@ -44,11 +42,22 @@ POST_POSITION_MODE_LIMIT_ID = f"POST{CHANGE_POSITION_MODE_URL}"
 GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 
 # Private API v2 Endpoints
-ACCOUNT_INFO_URL = "v2/account"
+ACCOUNT_INFO_URL = "contract/private/order"
 POSITION_INFORMATION_URL = "v2/positionRisk"
 
 # Private API Endpoints
 BINANCE_USER_STREAM_ENDPOINT = "v1/listenKey"
+
+# Public WS channels
+DIFF_STREAM_CHANNEL = "futures/depth50"
+TRADE_STREAM_CHANNEL = "futures/trade"
+FUNDING_INFO_CHANNEL = "futures/fundingRate"
+TICKERS_CHANNEL = "futures/ticker"
+
+# Private WS channels
+WS_POSITIONS_CHANNEL = "futures/position"
+WS_ORDERS_CHANNEL = "futures/order"
+WS_ACCOUNT_CHANNEL = "futures/asset:USDT"
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after snapshot
@@ -71,6 +80,7 @@ ORDERS_1SEC = "ORDERS_1SEC"
 DIFF_STREAM_ID = 1
 TRADE_STREAM_ID = 2
 FUNDING_INFO_STREAM_ID = 3
+TICKERS_STREAM_ID = 4
 HEARTBEAT_TIME_INTERVAL = 30.0
 
 # Rate Limit time intervals
@@ -123,8 +133,8 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
-    RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    # RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]
 
 ORDER_NOT_EXIST_ERROR_CODE = -2013
