@@ -21,15 +21,15 @@ class BitmartPerpetualRESTPreProcessor(RESTPreProcessorBase):
         return request
 
 
-def public_rest_url(path_url: str):
+def public_rest_url(path_url: str, domain: str):
     return CONSTANTS.PERPETUAL_BASE_URL + path_url
 
 
-def private_rest_url(path_url: str):
+def private_rest_url(path_url: str, domain: str):
     return CONSTANTS.PERPETUAL_BASE_URL + path_url
 
 
-def wss_url(endpoint: str):
+def wss_url(endpoint: str, domain: str):
     return CONSTANTS.PERPETUAL_WS_URL + endpoint
 
 
@@ -72,11 +72,11 @@ async def get_current_server_time(
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response = await rest_assistant.execute_request(
-        url=public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL),
+        url=public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=CONSTANTS.DOMAIN),
         method=RESTMethod.GET,
         throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
     )
-    server_time = response["server_time"]
+    server_time = response["data"]["server_time"]
     return server_time
 
 

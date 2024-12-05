@@ -7,16 +7,16 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tupl
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.derivative.binance_perpetual import (
-    binance_perpetual_constants as CONSTANTS,
-    binance_perpetual_web_utils as web_utils,
+from hummingbot.connector.derivative.bitmart_perpetual import (
+    bitmart_perpetual_constants as CONSTANTS,
+    bitmart_perpetual_web_utils as web_utils,
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
-    BinancePerpetualAPIOrderBookDataSource,
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_api_order_book_data_source import (
+    BitmartPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import (
-    BinancePerpetualUserStreamDataSource,
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_auth import BitmartPerpetualAuth
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_user_stream_data_source import (
+    BitmartPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 bpm_logger = None
 
 
-class BinancePerpetualDerivative(PerpetualDerivativePyBase):
+class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -47,14 +47,16 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     def __init__(
             self,
             client_config_map: "ClientConfigAdapter",
-            binance_perpetual_api_key: str = None,
-            binance_perpetual_api_secret: str = None,
+            bitmart_perpetual_api_key: str = None,
+            bitmart_perpetual_api_secret: str = None,
+            bitmart_perpetual_memo: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
-        self.binance_perpetual_api_key = binance_perpetual_api_key
-        self.binance_perpetual_secret_key = binance_perpetual_api_secret
+        self.bitmart_perpetual_api_key = bitmart_perpetual_api_key
+        self.bitmart_perpetual_secret_key = bitmart_perpetual_api_secret
+        self.bitmart_perpetual_memo = bitmart_perpetual_memo
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -67,9 +69,11 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         return CONSTANTS.EXCHANGE_NAME
 
     @property
-    def authenticator(self) -> BinancePerpetualAuth:
-        return BinancePerpetualAuth(self.binance_perpetual_api_key, self.binance_perpetual_secret_key,
-                                    self._time_synchronizer)
+    def authenticator(self) -> BitmartPerpetualAuth:
+        return BitmartPerpetualAuth(api_key=self.bitmart_perpetual_api_key,
+                                    api_secret=self.bitmart_perpetual_secret_key,
+                                    memo=self.bitmart_perpetual_memo,
+                                    time_provider=self._time_synchronizer)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -151,6 +155,12 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             cancelation_exception
         ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
+    async def trading_pair_associated_to_exchange_symbol(self, symbol: str):
+        return "BTC-USDT"
+
+    async def exchange_symbol_associated_to_pair(self, trading_pair: str):
+        return "BTCUSDT"
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -159,7 +169,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return BinancePerpetualAPIOrderBookDataSource(
+        return BitmartPerpetualAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory,
@@ -167,7 +177,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return BinancePerpetualUserStreamDataSource(
+        return BitmartPerpetualUserStreamDataSource(
             auth=self._auth,
             connector=self,
             api_factory=self._web_assistants_factory,
@@ -221,7 +231,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             params=api_params,
             is_auth_required=True)
         if cancel_result.get("code") == -2011 and "Unknown order sent." == cancel_result.get("msg", ""):
-            self.logger().debug(f"The order {order_id} does not exist on Binance Perpetuals. "
+            self.logger().debug(f"The order {order_id} does not exist on Bitmart Perpetuals. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{cancel_result.get('code')} - {cancel_result['msg']}")
@@ -362,7 +372,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
-                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection.",
+                    app_warning_msg="Could not fetch user events from Bitmart. Check API key and network connection.",
                 )
                 await self._sleep(1.0)
 
@@ -577,13 +587,13 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_get(path_url=CONSTANTS.ACCOUNT_INFO_URL,
+        account_info = await self._api_get(path_url=CONSTANTS.ASSETS_DETAIL,
                                            is_auth_required=True)
-        assets = account_info.get("assets")
+        assets = account_info.get("data")
         for asset in assets:
-            asset_name = asset.get("asset")
-            available_balance = Decimal(asset.get("availableBalance"))
-            wallet_balance = Decimal(asset.get("walletBalance"))
+            asset_name = asset.get("currency")
+            available_balance = Decimal(asset.get("available_balance"))
+            wallet_balance = Decimal(asset.get("equity"))
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = wallet_balance
             remote_asset_names.add(asset_name)
