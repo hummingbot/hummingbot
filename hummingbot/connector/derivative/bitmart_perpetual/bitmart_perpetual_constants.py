@@ -15,7 +15,7 @@ PUBLIC_WS_ENDPOINT = "/api?protocol=1.1"
 PRIVATE_WS_ENDPOINT = "/user?protocol=1.1"
 
 TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
-TIME_IN_FORCE_GTX = "GTX"  # Good Till Crossing
+TIME_IN_FORCE_MAKER_ONLY = "GTX"  # Good Till Crossing
 TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
 TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
@@ -26,14 +26,17 @@ TICKER_PRICE_CHANGE_URL = "v1/ticker/24hr"
 EXCHANGE_INFO_URL = "/contract/public/details"
 RECENT_TRADES_URL = "v1/trades"
 PING_URL = "v1/ping"
-FUNDING_INFO_URL = "/public/funding-rate"
+FUNDING_INFO_URL = "/contract/public/funding-rate"
 SERVER_TIME_PATH_URL = "/system/time"
 
 # Private API v1 Endpoints
-ORDER_URL = "v1/order"
+SUBMIT_ORDER_URL = "/private/submit-order"
+ORDER_DETAILS = "/contract/private/order"
+ALL_OPEN_ORDERS = "/private/get-open-orders"
+CANCEL_ORDER_URL = "/contract/private/cancel-order"
 CANCEL_ALL_OPEN_ORDERS_URL = "v1/allOpenOrders"
-ACCOUNT_TRADE_LIST_URL = "v1/userTrades"
-SET_LEVERAGE_URL = "v1/leverage"
+ACCOUNT_TRADE_LIST_URL = "/contract/private/trades"
+SET_LEVERAGE_URL = "/contract/private/submit-leverage"
 GET_INCOME_HISTORY_URL = "v1/income"
 CHANGE_POSITION_MODE_URL = "v1/positionSide/dual"
 
@@ -43,7 +46,7 @@ GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 # Private API v2 Endpoints
 ACCOUNT_INFO_URL = "/contract/private/order"
 ASSETS_DETAIL = "/contract/private/assets-detail"
-POSITION_INFORMATION_URL = "v2/positionRisk"
+POSITION_INFORMATION_URL = "/contract/private/position"
 
 # Private API Endpoints
 BINANCE_USER_STREAM_ENDPOINT = "v1/listenKey"
@@ -53,6 +56,7 @@ DIFF_STREAM_CHANNEL = "futures/depth50"
 TRADE_STREAM_CHANNEL = "futures/trade"
 FUNDING_INFO_CHANNEL = "futures/fundingRate"
 TICKERS_CHANNEL = "futures/ticker"
+SNAPSHOT_CHANNEL = "futures/depthAll50"
 
 # Private WS channels
 WS_POSITIONS_CHANNEL = "futures/position"
@@ -77,10 +81,6 @@ REQUEST_WEIGHT = "REQUEST_WEIGHT"
 ORDERS_1MIN = "ORDERS_1MIN"
 ORDERS_1SEC = "ORDERS_1SEC"
 
-DIFF_STREAM_ID = 1
-TRADE_STREAM_ID = 2
-FUNDING_INFO_STREAM_ID = 3
-TICKERS_STREAM_ID = 4
 HEARTBEAT_TIME_INTERVAL = 30.0
 
 # Rate Limit time intervals
@@ -113,7 +113,7 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    RateLimit(limit_id=SUBMIT_ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
                              LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
                              LinkedLimitWeightPair(ORDERS_1SEC, weight=1)]),
@@ -135,11 +135,13 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=FUNDING_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     # RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
     #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]
 
-ORDER_NOT_EXIST_ERROR_CODE = -2013
-ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
-UNKNOWN_ORDER_ERROR_CODE = -2011
-UNKNOWN_ORDER_MESSAGE = "Unknown order sent"
+ORDER_NOT_EXIST_ERROR_CODE = 40035
+ORDER_NOT_EXIST_MESSAGE = "The order is not exist"
+UNKNOWN_ORDER_ERROR_CODE = 40037
+UNKNOWN_ORDER_MESSAGE = "The order id is not exist"

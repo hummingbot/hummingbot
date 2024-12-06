@@ -29,7 +29,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -62,6 +62,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._position_mode = None
         self._last_trade_history_timestamp = None
+        self._contract_sizes = None
         super().__init__(client_config_map)
 
     @property
@@ -101,7 +102,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def check_network_request_path(self) -> str:
-        return CONSTANTS.PING_URL
+        return CONSTANTS.SERVER_TIME_PATH_URL
 
     @property
     def trading_pairs(self):
@@ -141,6 +142,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
+        # TODO: try a future request to study behaviour
         is_time_synchronizer_related = ("-1021" in error_description
                                         and "Timestamp for this request" in error_description)
         return is_time_synchronizer_related
@@ -154,12 +156,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
             cancelation_exception
         ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
-
-    async def trading_pair_associated_to_exchange_symbol(self, symbol: str):
-        return "BTC-USDT"
-
-    async def exchange_symbol_associated_to_pair(self, trading_pair: str):
-        return "BTCUSDT"
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -184,6 +180,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
         )
 
+    # TODO: check if use trade_fee or
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -194,13 +191,16 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = is_maker or False
-        fee = build_trade_fee(
+        # TODO: Check if replacing build_trade_fee by build_perpetual_trade_fee is correct. ExchangePyBase has
+        # different signature from PerpetualDerivativePyBase
+        fee = build_perpetual_trade_fee(
             self.name,
             is_maker,
             base_currency=base_currency,
             quote_currency=quote_currency,
             order_type=order_type,
             order_side=order_side,
+            position_action=position_action,
             amount=amount,
             price=price,
         )
@@ -223,14 +223,16 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
-            "origClientOrderId": order_id,
+            "client_order_id": order_id,
             "symbol": symbol,
         }
-        cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_URL,
+        cancel_result = await self._api_post(
+            path_url=CONSTANTS.SUBMIT_ORDER_URL,
             params=api_params,
             is_auth_required=True)
-        if cancel_result.get("code") == -2011 and "Unknown order sent." == cancel_result.get("msg", ""):
+        unknown_order_code = cancel_result.get("code") == CONSTANTS.UNKNOWN_ORDER_ERROR_CODE
+        unknown_order_msg = cancel_result.get("msg", "") == CONSTANTS.UNKNOWN_ORDER_MESSAGE
+        if unknown_order_msg and unknown_order_code:
             self.logger().debug(f"The order {order_id} does not exist on Bitmart Perpetuals. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
@@ -238,6 +240,12 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         if cancel_result.get("status") == "CANCELED":
             return True
         return False
+
+    def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
+        return amount / self._contract_sizes[trading_pair]
+
+    def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
+        return size * self._contract_sizes[trading_pair]
 
     async def _place_order(
             self,
@@ -250,35 +258,38 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             position_action: PositionAction = PositionAction.NIL,
             **kwargs,
     ) -> Tuple[str, float]:
-
-        amount_str = f"{amount:f}"
         price_str = f"{price:f}"
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
-                      "side": "BUY" if trade_type is TradeType.BUY else "SELL",
-                      "quantity": amount_str,
-                      "type": "MARKET" if order_type is OrderType.MARKET else "LIMIT",
-                      "newClientOrderId": order_id
-                      }
+        side_mapping = {
+            (PositionAction.OPEN, TradeType.BUY): 1,  # buy_open_long
+            (PositionAction.CLOSE, TradeType.SELL): 2,  # buy_close_short
+            (PositionAction.CLOSE, TradeType.BUY): 3,  # sell_close_long
+            (PositionAction.OPEN, TradeType.SELL): 4,  # sell_open_short
+        }
+        mode_mapping = {
+            OrderType.LIMIT: CONSTANTS.TIME_IN_FORCE_GTC,  # GTC
+            OrderType.LIMIT_MAKER: CONSTANTS.TIME_IN_FORCE_MAKER_ONLY  # Maker only
+        }
+        api_params = {
+            "symbol": symbol,
+            "client_order_id": order_id,
+            "type": "market" if order_type == OrderType.MARKET else "limit",
+            "side": side_mapping.get((position_action, trade_type)),
+            "mode": mode_mapping.get(order_type),
+            "size": self._format_amount_to_size(trading_pair, amount),  # TODO: It's in contracts so we need to translate before
+            "newClientOrderId": order_id
+        }
         if order_type.is_limit_type():
             api_params["price"] = price_str
-        if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
-        if order_type == OrderType.LIMIT_MAKER:
-            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTX
-        if self._position_mode == PositionMode.HEDGE:
-            if position_action == PositionAction.OPEN:
-                api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
-            else:
-                api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
         try:
             order_result = await self._api_post(
-                path_url=CONSTANTS.ORDER_URL,
+                path_url=CONSTANTS.SUBMIT_ORDER_URL,
                 data=api_params,
                 is_auth_required=True)
-            o_id = str(order_result["orderId"])
-            transact_time = order_result["updateTime"] * 1e-3
+            o_id = str(order_result["data"]["order_id"])
+            transact_time = self._time_synchronizer.time()
         except IOError as e:
+            # TODO: Check what to do with this
             error_description = str(e)
             is_server_overloaded = ("status is 503" in error_description
                                     and "Unknown error, please check your request or try again later." in error_description)
@@ -289,6 +300,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 raise
         return o_id, transact_time
 
+    # TODO: Continue here
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
         try:
@@ -302,28 +314,28 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 is_auth_required=True)
 
             for trade in all_fills_response:
-                order_id = str(trade.get("orderId"))
+                order_id = str(trade.get("order_id"))
                 if order_id == exchange_order_id:
-                    position_side = trade["positionSide"]
+                    position_side = trade["side"]
                     position_action = (PositionAction.OPEN
-                                       if (order.trade_type is TradeType.BUY and position_side == "LONG"
-                                           or order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                       if (order.trade_type is TradeType.BUY and position_side == 1
+                                           or order.trade_type is TradeType.SELL and position_side == 4)
                                        else PositionAction.CLOSE)
+                    # TODO: Check if hardcode usdt or handle in other place
                     fee = TradeFeeBase.new_perpetual_fee(
                         fee_schema=self.trade_fee_schema(),
                         position_action=position_action,
-                        percent_token=trade["commissionAsset"],
-                        flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                        flat_fees=[TokenAmount(amount=Decimal(trade["paid_fees"]), token="USDT")]
                     )
                     trade_update: TradeUpdate = TradeUpdate(
-                        trade_id=str(trade["id"]),
+                        trade_id=trade["trade_id"],
                         client_order_id=order.client_order_id,
-                        exchange_order_id=trade["orderId"],
+                        exchange_order_id=trade["order_id"],
                         trading_pair=order.trading_pair,
-                        fill_timestamp=trade["time"] * 1e-3,
+                        fill_timestamp=trade["create_time"] * 1e-3,
                         fill_price=Decimal(trade["price"]),
-                        fill_base_amount=Decimal(trade["qty"]),
-                        fill_quote_amount=Decimal(trade["quoteQty"]),
+                        fill_base_amount=Decimal(trade["vol"]),
+                        fill_quote_amount=Decimal(trade["price"]) * Decimal(trade["vol"]),
                         fee=fee,
                     )
                     trade_updates.append(trade_update)
@@ -335,15 +347,37 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        # Since Bitmart doesn't offer a full breakdown view of orders, there is a need to get through REST
+        # all and partially filled orders and then re-construct the information
         trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
+        orders = await asyncio.gather(
+            self._api_get(
+                path_url=CONSTANTS.ALL_OPEN_ORDERS,
+                params={
+                    "symbol": trading_pair,
+                    "order_state": "all"
+                },
+                is_auth_required=True
+            ),
+            self._api_get(
+                path_url=CONSTANTS.ALL_OPEN_ORDERS,
+                params={
+                    "symbol": trading_pair,
+                    "order_state": "partially_filled"
+                },
+                is_auth_required=True
+            )
+        )
+        all_orders_response, partially_filled_orders_response = orders
+
         order_update = await self._api_get(
-            path_url=CONSTANTS.ORDER_URL,
+            path_url=CONSTANTS.ORDER_DETAILS,
             params={
                 "symbol": trading_pair,
-                "origClientOrderId": tracked_order.client_order_id
+                "order_id": tracked_order.exchange_order_id
             },
             is_auth_required=True)
-        if "code" in order_update:
+        if order_update["code"] != 1000:
             if self._is_request_exception_related_to_time_synchronizer(request_exception=order_update):
                 _order_update = OrderUpdate(
                     trading_pair=tracked_order.trading_pair,
@@ -354,9 +388,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 return _order_update
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
-
-            update_timestamp=order_update["updateTime"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
+            update_timestamp=order_update["update_time"] * 1e-3,
+            new_state=CONSTANTS.ORDER_STATE[order_update["state"]],
             client_order_id=order_update["clientOrderId"],
             exchange_order_id=order_update["orderId"],
         )
@@ -513,13 +546,14 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 if web_utils.is_exchange_information_valid(rule):
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["symbol"])
-                    filters = rule["filters"]
-                    filt_dict = {fil["filterType"]: fil for fil in filters}
-
-                    min_order_size = Decimal(filt_dict.get("LOT_SIZE").get("minQty"))
-                    step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
-                    tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
-                    min_notional = Decimal(filt_dict.get("MIN_NOTIONAL").get("notional"))
+                    contract_size = Decimal(rule.get("contract_size"))
+                    self._contract_sizes[trading_pair] = contract_size
+                    min_order_size_in_contracts = Decimal(rule.get("min_volume"))
+                    min_order_size = contract_size * min_order_size_in_contracts
+                    step_size = Decimal(rule.get("volume_precision"))
+                    tick_size = Decimal(rule.get("price_precision"))
+                    last_price = Decimal(rule.get("last_price"))
+                    min_notional = Decimal(contract_size * min_order_size * last_price)
                     collateral_token = rule["marginAsset"]
 
                     return_val.append(
@@ -541,10 +575,10 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(web_utils.is_exchange_information_valid, exchange_info.get("symbols", [])):
-            exchange_symbol = symbol_data["pair"]
-            base = symbol_data["baseAsset"]
-            quote = symbol_data["quoteAsset"]
+        for symbol_data in filter(web_utils.is_exchange_information_valid, exchange_info["data"].get("symbols", [])):
+            exchange_symbol = symbol_data["base_currency"] + symbol_data["quote_currency"]
+            base = symbol_data["base_currency"]
+            quote = symbol_data["quote_currency"]
             trading_pair = combine_to_hb_trading_pair(base, quote)
             if trading_pair in mapping.inverse:
                 self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
@@ -556,9 +590,9 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         params = {"symbol": exchange_symbol}
         response = await self._api_get(
-            path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
+            path_url=CONSTANTS.EXCHANGE_INFO_URL,
             params=params)
-        price = float(response["lastPrice"])
+        price = float(response["last_price"])
         return price
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
@@ -606,17 +640,17 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_positions(self):
         positions = await self._api_get(path_url=CONSTANTS.POSITION_INFORMATION_URL,
                                         is_auth_required=True)
-        for position in positions:
+        for position in positions["data"]:
             trading_pair = position.get("symbol")
             try:
                 hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
             except KeyError:
                 # Ignore results for which their symbols is not tracked by the connector
                 continue
-            position_side = PositionSide[position.get("positionSide")]
-            unrealized_pnl = Decimal(position.get("unRealizedProfit"))
-            entry_price = Decimal(position.get("entryPrice"))
-            amount = Decimal(position.get("positionAmt"))
+            position_side = PositionSide[position.get("position_type")]
+            unrealized_pnl = Decimal(position.get("unrealized_value"))
+            entry_price = Decimal(position.get("entry_price"))
+            amount = Decimal(position.get("current_amount"))
             leverage = Decimal(position.get("leverage"))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != 0:
@@ -696,7 +730,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             tracked_orders = list(self._order_tracker.active_orders.values())
             tasks = [
                 self._api_get(
-                    path_url=CONSTANTS.ORDER_URL,
+                    path_url=CONSTANTS.SUBMIT_ORDER_URL,
                     params={
                         "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair),
                         "origClientOrderId": order.client_order_id
@@ -769,10 +803,11 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        params = {'symbol': symbol, 'leverage': leverage}
+        # TODO: Check if there is something to handle cross/isolated
+        payload = {"symbol": symbol, "leverage": str(leverage), "open_type": "cross"}
         set_leverage = await self._api_post(
             path_url=CONSTANTS.SET_LEVERAGE_URL,
-            data=params,
+            data=payload,
             is_auth_required=True,
         )
         success = False
@@ -784,31 +819,5 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        payment_response = await self._api_get(
-            path_url=CONSTANTS.GET_INCOME_HISTORY_URL,
-            params={
-                "symbol": exchange_symbol,
-                "incomeType": "FUNDING_FEE",
-            },
-            is_auth_required=True,
-        )
-        funding_info_response = await self._api_get(
-            path_url=CONSTANTS.MARK_PRICE_URL,
-            params={
-                "symbol": exchange_symbol,
-            },
-        )
-        sorted_payment_response = sorted(payment_response, key=lambda a: a.get('time', 0), reverse=True)
-        if len(sorted_payment_response) < 1:
-            timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
-            return timestamp, funding_rate, payment
-        funding_payment = sorted_payment_response[0]
-        _payment = Decimal(funding_payment["income"])
-        funding_rate = Decimal(funding_info_response["lastFundingRate"])
-        timestamp = funding_payment["time"]
-        if _payment != Decimal("0"):
-            payment = _payment
-        else:
-            timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
-        return timestamp, funding_rate, payment
+        # TODO: Currently there is no funding payment endpoint
+        return 0, Decimal("-1"), Decimal("-1")
