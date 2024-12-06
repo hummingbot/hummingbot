@@ -51,6 +51,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                                                                                "0.1"))})
         strategy.connectors = {
             "binance": connector,
+            "binance_perpetual": connector,
         }
         return strategy
 
@@ -532,7 +533,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(GridExecutor, 'adjust_order_candidates')
     @patch.object(GridExecutor, "get_price")
-    async def test_validate_sufficient_balance(self, mock_price, mock_adjust_order_candidates):
+    async def test_validate_sufficient_balance_spot(self, mock_price, mock_adjust_order_candidates):
         mock_price.return_value = Decimal("100")
         config = GridExecutorConfig(
             id="test",
@@ -571,6 +572,60 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 is_maker=True,
                 order_type=OrderType.LIMIT,
                 order_side=TradeType.BUY,
+                amount=Decimal("0"),
+                price=Decimal("100")
+            )]]
+        await executor.validate_sufficient_balance()
+        self.assertEqual(executor.close_type, None)
+        # Test with insufficient balance
+        await executor.validate_sufficient_balance()
+        self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+
+    @patch.object(GridExecutor, 'adjust_order_candidates')
+    @patch.object(GridExecutor, "get_price")
+    async def test_validate_sufficient_balance_perpetual(self, mock_price, mock_adjust_order_candidates):
+        mock_price.return_value = Decimal("100")
+        config = GridExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.SELL,
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            start_price=Decimal("100"),
+            end_price=Decimal("120"),
+            total_amount_quote=Decimal("100"),
+            min_spread_between_orders=Decimal("0.01"),
+            min_order_amount_quote=Decimal("100"),
+            order_frequency=1.0,
+            max_open_orders=5,
+            max_orders_per_batch=2,
+            limit_price=Decimal("90"),
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.001"),
+                stop_loss=Decimal("0.05"),
+                time_limit=100,
+                trailing_stop=TrailingStop(
+                    activation_price=Decimal("0.05"),
+                    trailing_delta=Decimal("0.005")
+                )
+            )
+        )
+        executor = self.get_grid_executor_from_config(config)
+        # Test with sufficient balance
+        mock_adjust_order_candidates.side_effect = [
+            [OrderCandidate(
+                trading_pair="ETH-USDT",
+                is_maker=True,
+                order_type=OrderType.LIMIT,
+                order_side=TradeType.SELL,
+                amount=Decimal("100"),
+                price=Decimal("100")
+            )],
+            [OrderCandidate(
+                trading_pair="ETH-USDT",
+                is_maker=True,
+                order_type=OrderType.LIMIT,
+                order_side=TradeType.SELL,
                 amount=Decimal("0"),
                 price=Decimal("100")
             )]]
@@ -711,7 +766,8 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             )
         )
         executor = self.get_grid_executor_from_config(config)
-        custom_info = executor.get_custom_info()
+        executor_info = executor.executor_info
+        custom_info = executor_info.custom_info
         self.assertEqual(custom_info["levels_by_state"], {key.name: value for key, value in executor.levels_by_state.items()})
         self.assertEqual(custom_info["filled_orders"], executor._filled_orders)
         self.assertEqual(custom_info["failed_orders"], executor._failed_orders)
