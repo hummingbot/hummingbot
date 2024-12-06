@@ -724,7 +724,6 @@ class GridExecutor(ExecutorBase):
             self.position_fees_quote = Decimal("0")
             self.position_pnl_quote = Decimal("0")
             self.position_pnl_pct = Decimal("0")
-            self.open_liquidity_placed = Decimal("0")
             self.close_liquidity_placed = Decimal("0")
         else:
             self.position_break_even_price = sum(
@@ -737,8 +736,11 @@ class GridExecutor(ExecutorBase):
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
             self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
             self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal("0")
-            self.open_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED] if level.active_open_order and level.active_open_order.executed_amount_base == Decimal("0")])
             self.close_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] if level.active_close_order and level.active_close_order.executed_amount_base == Decimal("0")])
+        if len(self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]) > 0:
+            self.open_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED] if level.active_open_order and level.active_open_order.executed_amount_base == Decimal("0")])
+        else:
+            self.open_liquidity_placed = Decimal("0")
 
     def update_realized_pnl_metrics(self):
         """
