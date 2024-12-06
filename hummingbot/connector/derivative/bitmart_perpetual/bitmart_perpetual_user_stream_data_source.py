@@ -2,6 +2,7 @@ import asyncio
 from typing import TYPE_CHECKING, List, Optional
 
 import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_auth import BitmartPerpetualAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
@@ -47,10 +48,28 @@ class BitmartPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             return self._ws_assistant.last_recv_time
         return 0
 
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
+    async def listen_for_user_stream(self, output: asyncio.Queue):
+        """
+        Connects to the user private channel in the exchange using a websocket connection. With the established
+        connection listens to all balance events and order updates provided by the exchange, and stores them in the
+        output queue
+
+        :param output: the queue to use to store the received messages
+        """
+        tasks_future = None
+        try:
+            tasks = []
+            tasks.append(
+                self._listen_for_user_stream_on_url(
+                    url=web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain), output=output
+                )
+            )
+            tasks_future = asyncio.gather(*tasks)
+            await tasks_future
+
+        except asyncio.CancelledError:
+            tasks_future and tasks_future.cancel()
+            raise
 
     async def _listen_for_user_stream_on_url(self, url: str, output: asyncio.Queue):
         ws: Optional[WSAssistant] = None
@@ -59,6 +78,7 @@ class BitmartPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 ws = await self._get_connected_websocket_assistant(url)
                 self._ws_assistants.append(ws)
                 await self._subscribe_to_channels(ws, url)
+                await ws.ping()  # to update last_recv_timestamp
                 await self._process_websocket_messages(websocket_assistant=ws, queue=output)
             except asyncio.CancelledError:
                 raise
@@ -119,3 +139,9 @@ class BitmartPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 f"Unexpected error occurred subscribing to private account and orders channels {url}..."
             )
             raise
+
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+        pass  # unused
+
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        pass  # unused
