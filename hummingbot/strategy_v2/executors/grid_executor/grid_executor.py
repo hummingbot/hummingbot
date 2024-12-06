@@ -612,8 +612,9 @@ class GridExecutor(ExecutorBase):
         :return: None
         """
         await super().on_start()
-        if self.is_expired:
-            self.close_type = CloseType.EXPIRED
+        self.update_metrics()
+        if self.control_triple_barrier():
+            self.logger().error(f"Grid is already expired by {self.close_type}.")
             self.stop()
 
     def evaluate_max_retries(self):
@@ -635,6 +636,7 @@ class GridExecutor(ExecutorBase):
         :param order_id: The order_id to be used as a reference.
         :return: None
         """
+        self.update_grid_levels()
         in_flight_order = self.get_in_flight_order(self.config.connector_name, order_id)
         if in_flight_order:
             for level in self.grid_levels:
