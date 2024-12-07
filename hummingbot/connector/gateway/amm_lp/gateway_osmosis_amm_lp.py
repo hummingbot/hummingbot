@@ -370,7 +370,11 @@ class GatewayOsmosisAMMLP(ConnectorBase):
             if "info" in resp.keys():
                 self.logger().info(f"Unable to get price data. {resp['info']}")
                 return ["0"]
-            return [Decimal(price) for price in resp.get("prices", [])]
+
+            # Get the first price in the list
+            price = resp.get("prices", [])[0]
+
+            return [Decimal(price)]
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -460,7 +464,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
 
                 tracked_order.update_exchange_order_id(transaction_hash)
                 tracked_order.gas_price = gas_price
-                tracked_order.token_id = int(order_result.get("tokenId"))
                 tracked_order.current_state = OrderState.OPEN
             if transaction_hash is not None:
                 tracked_order.nonce = 0
@@ -952,13 +955,14 @@ class GatewayOsmosisAMMLP(ConnectorBase):
         for nft_order, nft_update_result in zip(nft_orders, nft_update_results):
             if isinstance(nft_update_result, Exception):
                 raise nft_update_result
-            lower_price = Decimal(nft_update_result["lowerPrice"])
-            upper_price = Decimal(nft_update_result["upperPrice"])
-            amount_0 = Decimal(nft_update_result["amount0"])
-            amount_1 = Decimal(nft_update_result["amount1"])
-            unclaimed_fee_0 = Decimal(nft_update_result["unclaimedToken0"])
-            unclaimed_fee_1 = Decimal(nft_update_result["unclaimedToken1"])
-            fee_tier = nft_update_result["fee"]
+
+            lower_price = Decimal(nft_update_result.get("lowerPrice", "0"))
+            upper_price = Decimal(nft_update_result.get("upperPrice", "0"))
+            amount_0 = Decimal(nft_update_result.get("amount0", "0"))
+            amount_1 = Decimal(nft_update_result.get("amount1", "0"))
+            unclaimed_fee_0 = Decimal(nft_update_result.get("unclaimedToken0", "0"))
+            unclaimed_fee_1 = Decimal(nft_update_result.get("unclaimedToken1", "0"))
+            fee_tier = nft_update_result.get("fee", "")
             if amount_0 + amount_1 + unclaimed_fee_0 + unclaimed_fee_1 == s_decimal_0:  # position closed, stop tracking
                 self.logger().info(f"Position with ID {nft_order.token_id} closed. About to stop tracking...")
                 nft_order.current_state = OrderState.COMPLETED
@@ -968,8 +972,8 @@ class GatewayOsmosisAMMLP(ConnectorBase):
                     RangePositionClosedEvent(
                         timestamp=self.current_timestamp,
                         token_id=nft_order.token_id,
-                        token_0=nft_update_result["token0"],
-                        token_1=nft_update_result["token1"],
+                        token_0=nft_update_result.get("token0", ""),
+                        token_1=nft_update_result.get("token1", ""),
                         claimed_fee_0=unclaimed_fee_0,
                         claimed_fee_1=unclaimed_fee_1,
                     )
@@ -977,11 +981,6 @@ class GatewayOsmosisAMMLP(ConnectorBase):
             else:
                 nft_order.adjusted_lower_price = lower_price
                 nft_order.adjusted_upper_price = upper_price
-                if nft_order.trading_pair.split("-")[0] != nft_update_result["token0"]:
-                    nft_order.adjusted_lower_price = Decimal("1") / upper_price
-                    nft_order.adjusted_upper_price = Decimal("1") / lower_price
-                    unclaimed_fee_0, unclaimed_fee_1 = unclaimed_fee_1, unclaimed_fee_0
-                    amount_0, amount_1 = amount_1, amount_0
                 nft_order.amount_0 = amount_0
                 nft_order.amount_1 = amount_1
                 nft_order.unclaimed_fee_0 = unclaimed_fee_0
