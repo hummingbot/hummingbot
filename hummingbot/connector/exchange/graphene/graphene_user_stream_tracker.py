@@ -77,6 +77,6 @@ class GrapheneUserStreamTracker(UserStreamTracker):
         """
         # ~ print("GrapheneUserStreamTracker start")
         self._user_stream_tracking_task = safe_ensure_future(
-            self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
+            self.data_source.listen_for_user_stream(self._user_stream)
         )
         await safe_gather(self._user_stream_tracking_task)

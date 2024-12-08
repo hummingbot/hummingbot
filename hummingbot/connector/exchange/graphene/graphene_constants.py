@@ -34,9 +34,7 @@ class GrapheneConstants(MetanodeGrapheneConstants):
     ):
         # ~ print("GrapheneConstants", domain)
         domain = domain.lower().replace("_", " ")
-        super().__init__(
-            chain_name=domain if domain else None
-        )
+        super().__init__(chain_name=domain if domain else None)
         self.hummingbot = HummingbotConfig
         if domain != "":
             # initialize config for this blockchain domain; eg. peerplays or bitshares
@@ -49,13 +47,8 @@ class GrapheneConstants(MetanodeGrapheneConstants):
             self.chain.CORE = self.chains[self.chain.NAME]["core"].upper()
             self.chain.ID = self.chains[self.chain.NAME]["id"]
             self.chain.NODES = [node.lower() for node in sls(self.chain.NODES)]
-            self.chain.DATABASE = (
-                str(os.path.dirname(os.path.abspath(__file__)))
-                + "/database/"
-                + self.chain.NAME.replace(" ", "_")
-                + ".db"
-            )
             self.DATABASE_FOLDER = str(os.path.dirname(os.path.abspath(__file__))) + "/database/"
+            self.chain.DATABASE = self.DATABASE_FOLDER + self.chain.NAME.replace(" ", "_") + ".db"
             try:
                 with open(self.DATABASE_FOLDER + self.chain.NAME.replace(" ", "_") + "_pairs.txt", "r") as handle:
                     data = json.loads(handle.read())
@@ -71,26 +64,17 @@ class GrapheneConstants(MetanodeGrapheneConstants):
                 self.chain.PREFIX = self.chain.CORE
 
     def process_pairs(self):
-        self.chain.PAIRS = [
-            i for i in self.chain.PAIRS if i not in invert_pairs(self.chain.PAIRS)
-        ]
+        self.chain.PAIRS = [i for i in self.chain.PAIRS if i not in invert_pairs(self.chain.PAIRS)]
         self.chain.INVERTED_PAIRS = invert_pairs(self.chain.PAIRS)
         self.chain.ASSETS = list(set(assets_from_pairs(self.chain.PAIRS) + [self.chain.CORE]))
         self.chain.CORE_PAIRS = [
             i
-            for i in [
-                self.chain.CORE + "-" + asset
-                for asset in self.chain.ASSETS
-                if asset != self.chain.CORE
-            ]
+            for i in [self.chain.CORE + "-" + asset for asset in self.chain.ASSETS if asset != self.chain.CORE]
             if i not in self.chain.PAIRS and i not in self.chain.INVERTED_PAIRS
         ]
         self.chain.INVERTED_CORE_PAIRS = invert_pairs(self.chain.CORE_PAIRS)
         self.chain.ALL_PAIRS = (
-            self.chain.PAIRS
-            + self.chain.CORE_PAIRS
-            + self.chain.INVERTED_PAIRS
-            + self.chain.INVERTED_CORE_PAIRS
+            self.chain.PAIRS + self.chain.CORE_PAIRS + self.chain.INVERTED_PAIRS + self.chain.INVERTED_CORE_PAIRS
         )
 
 
@@ -125,7 +109,7 @@ class PeerplaysConfig:
         "wss://peerplaysblockchain.net/mainnet/api",
         "ws://witness.serverpit.com:8090",
         "ws://api.i9networks.net.br:8090",
-        "wss://node.mainnet.peerblock.trade"
+        "wss://node.mainnet.peerblock.trade",
     ]
     PAIRS = ["BTC-PPY", "HIVE-PPY", "HBD-PPY"]
     BASES = ["BTC", "HIVE", "HBD"]
@@ -139,7 +123,10 @@ class PeerplaysTestnetConfig:
     """
 
     ACCOUNT = "litepresence1"
-    NODES = ["wss://testnet.peerplays.download/api"]
+    NODES = [
+        "wss://testnet.peerplays.download/api",
+        "wss://testnet-ge.peerplays.download/api",
+    ]
     PAIRS = ["TEST-HIVE", "TEST-HBD"]
     BASES = ["HIVE", "HBD", "ABC", "DEFG"]
     CORE = "TEST"

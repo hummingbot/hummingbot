@@ -1,5 +1,5 @@
 # DISABLE SELECT PYLINT TESTS
-# pylint: disable=bad-continuation, broad-except, no-member, too-many-lines
+# pylint: disable=broad-except, no-member, too-many-lines
 # pylint: disable=no-name-in-module, too-many-arguments, too-many-public-methods
 # pylint: disable=too-many-locals, too-many-instance-attributes, import-error
 # pylint: disable=too-many-statements, useless-super-delegation
@@ -27,10 +27,13 @@ from multiprocessing import Process
 from threading import Thread
 from typing import AsyncIterable, Dict, List, Optional
 
+import psutil
+
 # METANODE MODULES
 from metanode.graphene_metanode_client import GrapheneTrustlessClient
 from metanode.graphene_metanode_server import GrapheneMetanode
 from metanode.graphene_rpc import RemoteProcedureCall
+from metanode.graphene_utils import logger as metanode_logger
 
 # THIRD PARTY MODULES
 from psutil import pid_exists
@@ -62,33 +65,44 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
 # GLOBAL CONSTANTS
-DEV = True
-LEVEL = 0  # logging verbosity, 0 is least verbose, 2 is most
-START_METANODE_CONCURRENTLY = False  # Useful for some debugging scenarios
+DEV = False
+LEVEL = 0  # logging verbosity
+# 0: least verbose, mostly metanode messages; there may still be some superfluous logging
+# 1: status polling loop, broker messages
+# 2: Initialization messages, waits for status polling loop
+# 3: almost every function call logged
+
+START_METANODE_CONCURRENTLY = False  # Useful for some debugging scenarios;
+# runs GrapheneExchange._deploy_metanode in a Thread rather than asyncio's run_in_executor.
+
+START_METANODE_AS_THREAD = False  # Allows the metanode's print statements to pass into the hummingbot log pane;
+# stdout from nested Processes is not passed to the grandparent process, but is for nested Threads.
+
+START_METANODE = True  # False allows use of static database, or database maintained by external metanode;
+# note that START_METANODE=False doesn't shut down quite right.
+
+# Defaults: False; 0; False; False; True
+# note that all possible combinations of the START_METANODE flags are _not_ guaranteed to work;
+# False; False; True is the only combination that has been thoroughly tested, and is intended for live use.
 
 
-def dprint(*data):
-    """print for development"""
-    if DEV:
-        print(*data)
+# Used for keeping logging separate
+PROCESS_START = int(time.time() * 1000)
 
 
-def dinput(data):
-    """input for development"""
-    out = None
-    if DEV:
-        out = input(data)
-    return out
-
-
+# Imported from hummingbot.client.command.exit_command to ensure metanode reliably dies on exit
 def kill_metanode():
-    for domain in ["bitshares", "bitshares_testnet", "peerplays", "peerplays_testnet"]:
-        constants = GrapheneConstants(domain)
-        try:
-            with open(constants.DATABASE_FOLDER + "metanode_flags.json", "w+") as handle:
-                handle.write(json.dumps({**json.loads(handle.read() or "{}"), domain.replace("_", " "): False}))
-        except FileNotFoundError:
-            pass
+    constants = GrapheneConstants("peerplays")
+    try:
+        with open(constants.DATABASE_FOLDER + "metanode_flags.json", "w") as handle:
+            # None is the restart flag, but restarting is done by graphene_exchange, so killed bots won't restart;
+            # in a situation like this:
+            # start 1 -> start 2 -> kill 2
+            # the metanode of 1 will restart with flag=None, whereas False would kill it
+            # (there is no way to not affect it with this architecture)
+            handle.write(json.dumps({domain.replace("_", " "): None for domain in ["bitshares", "bitshares_testnet", "peerplays", "peerplays_testnet"]}))
+    except FileNotFoundError:
+        pass
 
 
 class GrapheneClientOrderTracker(ClientOrderTracker):
@@ -180,21 +194,27 @@ class GrapheneExchange(ExchangeBase):
 
         os.makedirs(self.constants.DATABASE_FOLDER, exist_ok=True)
 
-        with open(self.constants.DATABASE_FOLDER + domain + "_pairs.txt", "a+") as handle:
-            handle.seek(0)
-            contents = handle.read()
-            new_contents = json.dumps([self._pairs, self._username])
-            # if there are new pairs, then change the file and signal to restart the metanode
-            if contents != new_contents:
-                handle.seek(0)
+        # Read existing pairs & username
+        try:
+            with open(self.constants.DATABASE_FOLDER + domain + "_pairs.txt", "r") as handle:
+                contents = handle.read()
+        except FileNotFoundError:
+            contents = "{}"
+
+        new_contents = json.dumps([self._pairs, self._username])
+        # if there are new pairs, then change the file and signal to restart the metanode
+        if contents != new_contents:
+            with open(self.constants.DATABASE_FOLDER + domain + "_pairs.txt", "w") as handle:
                 handle.write(new_contents)
-                self.logger().info("Pairs / Username changed.  Signalling Metanode Server to restart.  (This may take up to 60 seconds)")
+                self.logger().info(
+                    "Pairs / Username changed.  Signaling Metanode Server to restart.  (This may take up to 60 seconds)"
+                )
                 self.dev_log(f"(was '{contents}', is now '{new_contents}')")
                 # Restart metanode
                 self._signal_metanode(None)
-            else:
-                # Start metanode or continue running
-                self._signal_metanode(True)
+        else:
+            # Start metanode or continue running
+            self._signal_metanode(True)
 
         self.constants = GrapheneConstants(domain)
         self.constants.process_pairs()
@@ -208,9 +228,7 @@ class GrapheneExchange(ExchangeBase):
             self._metanode_server.sql.restart()
             self.dev_log("Database restarted", level=2)
 
-        self._order_tracker: ClientOrderTracker = GrapheneClientOrderTracker(
-            connector=self
-        )
+        self._order_tracker: ClientOrderTracker = GrapheneClientOrderTracker(connector=self)
         self.dev_log("Created GrapheneClientOrderTracker", level=2)
         self._order_book_tracker = GrapheneOrderBookTracker(
             trading_pairs=trading_pairs,
@@ -231,9 +249,15 @@ class GrapheneExchange(ExchangeBase):
 
     def dev_log(self, *args, level=0, **kwargs):
         """
-        log only in dev mode and where verbosity level is matched
+        log only in dev mode and where verbosity level is matched or exceeded
         """
         if DEV and LEVEL >= level:
+            try:
+                metanode_logger(
+                    *args, file=self.constants.DATABASE_FOLDER + "graphene_exchange_log.txt", identifier=PROCESS_START
+                )
+            except AttributeError:
+                pass
             self.logger().info(*args, **kwargs)
 
     @classmethod
@@ -250,7 +274,7 @@ class GrapheneExchange(ExchangeBase):
         """
         the name of this graphene blockchain
         """
-        self.dev_log("name", level=2)
+        self.dev_log("name", level=3)
         return self.domain
 
     @property
@@ -258,7 +282,7 @@ class GrapheneExchange(ExchangeBase):
         """
         a dictionary keyed by pair of subdicts keyed bids/asks
         """
-        self.dev_log("order_books", level=2)
+        self.dev_log("order_books", level=3)
         return self._order_book_tracker.order_books
 
     @property
@@ -266,7 +290,7 @@ class GrapheneExchange(ExchangeBase):
         """
         a TradingRule object specific to a trading pair
         """
-        self.dev_log("trading_rules", level=2)
+        self.dev_log("trading_rules", level=3)
         return self._trading_rules
 
     @property
@@ -274,7 +298,7 @@ class GrapheneExchange(ExchangeBase):
         """
         a dict of active orders keyed by client id with relevant order tracking info
         """
-        self.dev_log("in_flight_orders", level=2)
+        self.dev_log("in_flight_orders", level=3)
         return self._order_tracker.active_orders
 
     @property
@@ -282,11 +306,8 @@ class GrapheneExchange(ExchangeBase):
         """
         a list of LimitOrder objects
         """
-        self.dev_log("limit_orders", level=2)
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self.in_flight_orders.values()
-        ]
+        self.dev_log("limit_orders", level=3)
+        return [in_flight_order.to_limit_order() for in_flight_order in self.in_flight_orders.values()]
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -294,7 +315,7 @@ class GrapheneExchange(ExchangeBase):
         Returns a dictionary associating current active orders client id
         to their JSON representation
         """
-        self.dev_log("tracking_states", level=2)
+        self.dev_log("tracking_states", level=3)
         return {key: value.to_json() for key, value in self.in_flight_orders.items()}
 
     @property
@@ -302,7 +323,7 @@ class GrapheneExchange(ExchangeBase):
         """
         the class that tracks bids and asks for each pair
         """
-        self.dev_log("order_book_tracker", level=2)
+        self.dev_log("order_book_tracker", level=3)
         return self._order_book_tracker
 
     @property
@@ -310,7 +331,7 @@ class GrapheneExchange(ExchangeBase):
         """
         the class that tracks trades for each pair
         """
-        self.dev_log("user_stream_tracker", level=2)
+        self.dev_log("user_stream_tracker", level=3)
         return self._user_stream_tracker
 
     @property
@@ -321,16 +342,14 @@ class GrapheneExchange(ExchangeBase):
         The key of each entry is the condition name,
         and the value is True if condition is ready, False otherwise.
         """
-        self.dev_log("status_dict", level=2)
+        self.dev_log("status_dict", level=3)
         # self._update_balances()
         # ~ self.dev_log(self._account_balances)
         return {
             "order_books_initialized": self._order_book_tracker.ready,
-            "account_balance": len(list(self._account_balances.values())) > 0
-            if self._trading_required
-            else True,
+            "account_balance": len(list(self._account_balances.values())) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "metanode_live": 0 < time.time() - self.metanode.timing["blocktime"] < 100,
+            "metanode_live": (0 < time.time() - self.metanode.timing["blocktime"] < 100) if START_METANODE else True,
         }
 
     @property
@@ -397,7 +416,7 @@ class GrapheneExchange(ExchangeBase):
         (backup for main update process)
         """
         level = 0
-        while not pid_exists(self._check_metanode("pid")):
+        while not pid_exists(self._check_metanode("pid")) and START_METANODE:
             self.dev_log("Metanode is not running, not starting network until...", level)
             await asyncio.sleep(1)
             level = 1  # only repeat the message in verbose mode
@@ -405,26 +424,18 @@ class GrapheneExchange(ExchangeBase):
         self.dev_log("GrapheneExchange.start_network")
         self._order_book_tracker.start()
         self.dev_log("Order Book Started")
-        self._trading_rules_polling_task = safe_ensure_future(
-            self._trading_rules_polling_loop()
-        )
+        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self.dev_log("Trading Rules Started")
         # ~ if self._trading_required:
         self._status_polling_task = safe_ensure_future(self._status_polling_loop())
         self.dev_log("Status Polling Started")
-        self._user_stream_tracker_task = safe_ensure_future(
-            self._user_stream_tracker.start()
-        )
+        self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
         self.dev_log("User Stream Tracker Started")
-        self._user_stream_event_listener_task = safe_ensure_future(
-            self._user_stream_event_listener()
-        )
+        self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
         self.dev_log("User Stream Listener Started")
 
         self.dev_log(f"Authenticating {self.domain}...")
-        msg = (
-            "Authenticated" if self._auth.login()["result"] is True else "Login Failed"
-        )
+        msg = "Authenticated" if self._auth.login()["result"] is True else "Login Failed"
         self.dev_log(msg)
 
     async def stop_network(self):
@@ -449,35 +460,45 @@ class GrapheneExchange(ExchangeBase):
             self._trading_rules_polling_task.cancel()
         self._status_polling_task = self._user_stream_tracker_task = None
         await asyncio.sleep(0.1)
-        try:
-            print("stopping metanode...")
-            self._signal_metanode(False)
-            if self.metanode:
-                print("waiting for metanode")
-                self._metanode_process.join()
-        except Exception:
-            self.dev_log("Failed to wait for metanode, must be in another instance.")
+        # try:
+        #     print("stopping metanode...")
+        #     self._signal_metanode(False)
+        #     if self.metanode:
+        #         print("waiting for metanode")
+        #         self._metanode_process.join()
+        # except Exception:
+        #     self.dev_log("Failed to wait for metanode, must be in another instance.")
 
     def _signal_metanode(self, signal):
-        with open(self.constants.DATABASE_FOLDER + "metanode_flags.json", "w+") as handle:
-            handle.write(json.dumps({**json.loads(handle.read() or "{}"), self.domain.replace("_", " "): signal}))
+        path = self.constants.DATABASE_FOLDER + "metanode_flags.json"
+        try:
+            with open(path, "r") as handle:
+                contents = json.loads(handle.read())
+        except (FileNotFoundError, json.JSONDecodeError):
+            contents = {}
+        with open(path, "w") as handle:
+            handle.write(json.dumps({**contents, self.domain.replace("_", " "): signal}))
             handle.close()
 
     def _check_metanode(self, flag):
         if flag == "signal":
             try:
                 with open(self.constants.DATABASE_FOLDER + "metanode_flags.json", "r") as handle:
-                    ret = json.loads(handle.read())[self.domain.replace("_", " ")]
+                    ret = handle.read()
+                    ret = json.loads(ret).get(self.domain.replace("_", " "), False)
                     handle.close()
             except FileNotFoundError:
                 ret = None
+            except json.JSONDecodeError as error:
+                self.dev_log(ret)
+                raise error
         elif flag == "pid":
             try:
-                with open(self.constants.DATABASE_FOLDER + "metanode_pid", "r") as handle:
-                    ret = int(handle.read())
+                with open(self.constants.DATABASE_FOLDER + "metanode_pid.json", "r") as handle:
+                    ret = json.loads(handle.read()).get(self.domain.replace("_", " "), False)
                     handle.close()
             except FileNotFoundError:
-                ret = -1
+                ret = -2
         return ret
 
     def _deploy_metanode(self):
@@ -488,8 +509,7 @@ class GrapheneExchange(ExchangeBase):
             "Metanode is cpu intensive, requires ram, and rapid read/write"
         )
         self.logger().info(
-            "This may hang for a moment (less than 2 minutes) while starting "
-            "the Metanode, please be patient."
+            "This may hang for a moment (less than 2 minutes) while starting the Metanode, please be patient."
         )
         try:
             self._signal_metanode(False)
@@ -497,13 +517,24 @@ class GrapheneExchange(ExchangeBase):
         except Exception:
             pass
         self._signal_metanode(True)
-        self._metanode_process = Process(target=self._metanode_server.deploy)
+        if START_METANODE_AS_THREAD:
+            self._metanode_process = Thread(target=self._metanode_server.deploy)
+        else:
+            self._metanode_process = Process(target=self._metanode_server.deploy)
+            self._metanode_process.name = f"hummingbot {self.constants.chain.NAME} metanode server"
         self._metanode_process.start()
-        with open(self.constants.DATABASE_FOLDER + "metanode_pid", "w") as handle:
+        try:
+            with open(self.constants.DATABASE_FOLDER + "metanode_pid.json", "r") as handle:
+                contents = json.loads(handle.read())
+                handle.close()
+        except (FileNotFoundError, json.JSONDecodeError):
+            contents = {}
+
+        with open(self.constants.DATABASE_FOLDER + "metanode_pid.json", "w") as handle:
             try:
-                handle.write(str(self._metanode_process.pid))
+                handle.write(json.dumps({**contents, self.domain.replace("_", " "): self._metanode_process.pid}))
             except AttributeError:
-                handle.write("-2")
+                handle.write(json.dumps({**contents, self.domain.replace("_", " "): -2}))
             handle.close()
         # do not proceed until metanode is running
         patience = 10
@@ -548,6 +579,7 @@ class GrapheneExchange(ExchangeBase):
                 blocktime = self.metanode.timing["blocktime"]
             except IndexError:  # the metanode has not created a database yet
                 blocktime = 0
+            blocktime = blocktime if START_METANODE else time.time()
             latency = time.time() - blocktime
             metanode_signal, metanode_pid = self._check_metanode("signal"), self._check_metanode("pid")
             metanode_exists = pid_exists(metanode_pid)
@@ -563,20 +595,25 @@ class GrapheneExchange(ExchangeBase):
                 f"and latency: {latency:.2f}"
             )
 
-            if metanode_signal is None and metanode_exists:
-                self.dev_log("Metanode has been signalled to restart, but it still exists.  Attempting to kill...")
-                os.kill(metanode_pid, 15)  # SIGTERM, "default signal to terminate a process gracefully"
-            elif metanode_exists:
+            if metanode_signal is None and metanode_exists and not START_METANODE_AS_THREAD and START_METANODE:
+                self.dev_log("Metanode has been signaled to restart, but it still exists.  Attempting to kill...")
+                metanode_proc = psutil.Process(metanode_pid)
+                for child in metanode_proc.children(recursive=True):
+                    child.terminate()
+                    child.wait()
+                metanode_proc.terminate()
+                metanode_proc.wait()
+            elif metanode_exists or not START_METANODE:
                 self.dev_log(f"Metanode Running, latency {latency:2f}")
                 status = NetworkStatus.CONNECTED
             elif not self._username or not self._wif:
                 self.logger().info("Username/WIF not entered.  Not starting Metanode Server.")
             elif metanode_signal is False:
-                self.dev_log("Metanode has been signalled to shutdown, not restarting.")
+                self.dev_log("Metanode has been signaled to shutdown, not restarting.")
             elif self._starting_metanode:
                 self.dev_log("Metanode is being started in another thread, passing on...", level=1)
             else:
-                # deploy metanode in a seperate thread, and
+                # deploy metanode in a separate thread, and
                 if START_METANODE_CONCURRENTLY:
                     # continue onward unhindered
                     Thread(target=self._deploy_metanode).start()
@@ -592,6 +629,7 @@ class GrapheneExchange(ExchangeBase):
             self.logger().exception(f"asyncio.CancelledError {__name__}")
         except Exception as error:
             self.logger().exception(f"check network failed {__name__} {error}")
+            self.dev_log(f"check network failed {__name__} {error}", level=0)
         return status
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
@@ -601,7 +639,7 @@ class GrapheneExchange(ExchangeBase):
         when it disconnects.
         :param saved_states: The saved tracking_states.
         """
-        self.dev_log("restore_tracking_states", level=2)
+        self.dev_log("restore_tracking_states", level=3)
         self._order_tracker.restore_tracking_states(tracking_states=saved_states)
 
     def tick(self, timestamp: float):
@@ -609,7 +647,7 @@ class GrapheneExchange(ExchangeBase):
         Includes the logic processed every time a new tick happens in the bot.
         It enables execution of the status update polling loop using an event.
         """
-        self.dev_log("tick", level=1)
+        self.dev_log("tick", level=2)
         now = time.time()
         poll_interval = (
             self.SHORT_POLL_INTERVAL
@@ -629,7 +667,7 @@ class GrapheneExchange(ExchangeBase):
         Returns the current order book for a particular market
         :param trading_pair: BASE-QUOTE
         """
-        self.dev_log("get_order_book", level=2)
+        self.dev_log("get_order_book", level=3)
         if trading_pair not in self._order_book_tracker.order_books:
             inverted_pair = "-".join(trading_pair.split("-")[::-1])
             if inverted_pair in self._order_book_tracker.order_books:
@@ -659,7 +697,7 @@ class GrapheneExchange(ExchangeBase):
         :param amount: the amount for the order
         :order type: type of execution for the order (MARKET, LIMIT, LIMIT_MAKER)
         """
-        self.dev_log("start_tracking_order", level=2)
+        self.dev_log("start_tracking_order", level=3)
         self._order_tracker.start_tracking_order(
             InFlightOrder(
                 client_order_id=order_id,
@@ -678,7 +716,7 @@ class GrapheneExchange(ExchangeBase):
         Stops tracking an order
         :param order_id: The id of the order that will not be tracked any more
         """
-        self.dev_log("stop_tracking_order", level=2)
+        self.dev_log("stop_tracking_order", level=3)
         self._order_tracker.stop_tracking_order(client_order_id=order_id)
 
     def get_order_price_quantum(self, trading_pair: str, *_) -> Decimal:
@@ -688,7 +726,7 @@ class GrapheneExchange(ExchangeBase):
         :param trading_pair: the trading pair to check for market conditions
         :param price: the starting point price
         """
-        self.dev_log("get_order_price_quantum", level=2)
+        self.dev_log("get_order_price_quantum", level=3)
         trading_rule = self._trading_rules[trading_pair]
         return trading_rule.min_price_increment
 
@@ -699,7 +737,7 @@ class GrapheneExchange(ExchangeBase):
         :param trading_pair: the trading pair to check for market conditions
         :param order_size: the starting point order price
         """
-        self.dev_log("get_order_size_quantum", level=2)
+        self.dev_log("get_order_size_quantum", level=3)
         trading_rule = self._trading_rules[trading_pair]
         return trading_rule.min_base_amount_increment
 
@@ -717,7 +755,7 @@ class GrapheneExchange(ExchangeBase):
         :param price: the intended price for the order
         :return: the quantized order amount after applying the trading rules
         """
-        self.dev_log("quantize_order_amount", level=2)
+        self.dev_log("quantize_order_amount", level=3)
         trading_rule = self._trading_rules[trading_pair]
         quantized_amount: Decimal = self.quantize_order_amount_by_side(trading_rule, amount, side)
 
@@ -738,7 +776,9 @@ class GrapheneExchange(ExchangeBase):
 
         min_notional_size = trading_rule.min_order_size
 
-        self.dev_log(f"QUANTIZE_ORDER_AMOUNT: notional size {notional_size}    minimum size plus 1% {min_notional_size * Decimal('1.01')}")
+        self.dev_log(
+            f"QUANTIZE_ORDER_AMOUNT: notional size {notional_size}    minimum size plus 1% {min_notional_size * Decimal('1.01')}"
+        )
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < min_notional_size * Decimal("1.01"):
             return Decimal(0)
@@ -761,6 +801,7 @@ class GrapheneExchange(ExchangeBase):
         AND a deducted percent based market fees paid in currency RECEIVED
         market fees MAY have maker/taker functionality
         """
+
         class GrapheneTradeFee(TradeFeeBase):
             """
             a trade fee class which includes both Added and Deducted fees
@@ -781,7 +822,7 @@ class GrapheneExchange(ExchangeBase):
             def type_descriptor_for_json(_):
                 ...
 
-        self.dev_log("get_fee", level=2)
+        self.dev_log("get_fee", level=3)
         account = dict(self.metanode.account)  # DISCRETE SQL QUERY
         objects = dict(self.metanode.objects)  # DISCRETE SQL QUERY
         assets = dict(self.metanode.assets)  # DISCRETE SQL QUERY
@@ -836,15 +877,9 @@ class GrapheneExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        self.dev_log("buy", level=2)
-        order_id = graphene_utils.get_new_client_order_id(
-            is_buy=True, trading_pair=trading_pair
-        )
-        safe_ensure_future(
-            self._limit_order_create(
-                TradeType.BUY, order_id, trading_pair, amount, order_type, price
-            )
-        )
+        self.dev_log("buy", level=3)
+        order_id = graphene_utils.get_new_client_order_id(is_buy=True, trading_pair=trading_pair)
+        safe_ensure_future(self._limit_order_create(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
     def sell(
@@ -863,15 +898,9 @@ class GrapheneExchange(ExchangeBase):
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
-        self.dev_log("sell", level=2)
-        order_id = graphene_utils.get_new_client_order_id(
-            is_buy=False, trading_pair=trading_pair
-        )
-        safe_ensure_future(
-            self._limit_order_create(
-                TradeType.SELL, order_id, trading_pair, amount, order_type, price
-            )
-        )
+        self.dev_log("sell", level=3)
+        order_id = graphene_utils.get_new_client_order_id(is_buy=False, trading_pair=trading_pair)
+        safe_ensure_future(self._limit_order_create(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
     def cancel(self, trading_pair: str, order_id: str):
@@ -881,7 +910,7 @@ class GrapheneExchange(ExchangeBase):
         :param order_id: the client id of the order to cancel
         :return: the client id of the order to cancel
         """
-        self.dev_log("cancel", level=2)
+        self.dev_log("cancel", level=3)
         safe_ensure_future(
             self._limit_order_cancel(
                 trading_pair=trading_pair,
@@ -899,17 +928,17 @@ class GrapheneExchange(ExchangeBase):
         :param timeout_seconds: the maximum time in seconds the cancel logic should run
         :return: a list of CancellationResult instances, one for each of the order
         """
-        self.dev_log("cancel_all", level=2)
+        self.dev_log("cancel_all", level=3)
         # get an order id set of known open orders hummingbot is tracking
         # change each OrderState to PENDING_CANCEL
         await asyncio.sleep(0.01)
 
-        hummingbot_open_client_ids = {
-            o.client_order_id for o in self.in_flight_orders.values() if not o.is_done
-        }
+        hummingbot_open_client_ids = {o.client_order_id for o in self.in_flight_orders.values() if not o.is_done}
 
         rpc = RemoteProcedureCall(self.constants)
-        open_client_ids = [j for j in [self._order_tracker.swap_id(exchange_order_id=i) for i in rpc.open_order_ids()] if j is not None]
+        open_client_ids = [
+            j for j in [self._order_tracker.swap_id(exchange_order_id=i) for i in rpc.open_order_ids()] if j is not None
+        ]
 
         await asyncio.sleep(0.01)
 
@@ -923,14 +952,10 @@ class GrapheneExchange(ExchangeBase):
         if not open_client_ids:
             return []
         open_exchange_ids = {
-            self._order_tracker.swap_id(i)
-            for i in open_client_ids
-            if self._order_tracker.swap_id(i) is not None
+            self._order_tracker.swap_id(i) for i in open_client_ids if self._order_tracker.swap_id(i) is not None
         }
         open_ids = {
-            self._order_tracker.swap_id(i): i
-            for i in open_client_ids
-            if self._order_tracker.swap_id(i) is not None
+            self._order_tracker.swap_id(i): i for i in open_client_ids if self._order_tracker.swap_id(i) is not None
         }
         await asyncio.sleep(0.01)
         # log open orders in client and DEX terms
@@ -959,10 +984,7 @@ class GrapheneExchange(ExchangeBase):
             self.dev_log(order["edicts"])
             cancelled_exchange_ids.extend((await self._broker(order))["result"])
 
-        msg = (
-            f"cancelled_exchange_ids {len(cancelled_exchange_ids)}"
-            + f" {cancelled_exchange_ids}"
-        )
+        msg = f"cancelled_exchange_ids {len(cancelled_exchange_ids)}" + f" {cancelled_exchange_ids}"
         self.dev_log(msg)
         # swap the list to hummingbot client ids
         cancelled_client_ids = [open_ids[i] for i in cancelled_exchange_ids if i in open_ids]
@@ -985,10 +1007,7 @@ class GrapheneExchange(ExchangeBase):
             )
             self._order_tracker.process_order_update(order_update)
             self.stop_tracking_order(order_id)
-        msg = (
-            f"successful_cancellations {len(successful_cancellations)}"
-            + f" {successful_cancellations}"
-        )
+        msg = f"successful_cancellations {len(successful_cancellations)}" + f" {successful_cancellations}"
         self.dev_log(msg)
 
         # create a list of apparently failed CancellationResult
@@ -1008,10 +1027,7 @@ class GrapheneExchange(ExchangeBase):
         await asyncio.sleep(0.01)
         # log successful and failed cancellations
 
-        msg = (
-            f"failed_cancellations {len(failed_cancellations)}"
-            + f" {failed_cancellations}"
-        )
+        msg = f"failed_cancellations {len(failed_cancellations)}" + f" {failed_cancellations}"
         self.dev_log(msg)
         await asyncio.sleep(0.01)
         # join the lists and return
@@ -1040,8 +1056,7 @@ class GrapheneExchange(ExchangeBase):
         Applies trading rule to quantize order amount by side.
         """
         order_size_quantum = (
-            trading_rule.min_base_amount_increment if side == "buy"
-            else trading_rule.min_quote_amount_increment
+            trading_rule.min_base_amount_increment if side == "buy" else trading_rule.min_quote_amount_increment
         )
         return (amount // order_size_quantum) * order_size_quantum
 
@@ -1063,7 +1078,7 @@ class GrapheneExchange(ExchangeBase):
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         """
-        self.dev_log("_limit_order_create", level=2)
+        self.dev_log("_limit_order_create", level=3)
         self.dev_log("############### LIMIT ORDER CREATE ATTEMPT ###############")
         self.dev_log(trade_type)
         self.dev_log(order_type)
@@ -1187,9 +1202,7 @@ class GrapheneExchange(ExchangeBase):
             # ~ [1, {"1.7.490017547" ]]}}]]}
             ############################################################################
             if isinstance(result, dict) and result["status"]:
-                exchange_order_id = result["result"]["params"][1][0]["trx"][
-                    "operation_results"
-                ][0][1]
+                exchange_order_id = result["result"]["params"][1][0]["trx"]["operation_results"][0][1]
                 ########################################################################
                 # update_timestamp = int(result["blocknum"])
                 order_update: OrderUpdate = OrderUpdate(
@@ -1200,6 +1213,7 @@ class GrapheneExchange(ExchangeBase):
                     new_state=OrderState.OPEN,
                 )
                 self._order_tracker.process_order_update(order_update)
+                self.dev_log(f"CREATED ORDER #{order_id} ({exchange_order_id})")
             else:
                 raise ValueError("DEX did not return an order id")
         except asyncio.CancelledError:
@@ -1210,9 +1224,7 @@ class GrapheneExchange(ExchangeBase):
         # update tracking status to FAILED
         except Exception as error:
             self.logger().network(
-                "Error submitting order to Graphene for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
+                "Error submitting order to Graphene for " f"{amount} {trading_pair} " f"{price}.",
                 exc_info=True,
                 app_warning_msg=str(error),
             )
@@ -1234,7 +1246,7 @@ class GrapheneExchange(ExchangeBase):
         :param trading_pair: the trading pair the order to cancel operates with
         :param client_order_id: the client id of the order to cancel
         """
-        self.dev_log(f"CANCELLING ORDER #{client_order_id}")
+        self.dev_log(f"######## LIMIT ORDER CANCEL ATTEMPT #{client_order_id} ########")
         if self._wif == "":
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=client_order_id,
@@ -1247,9 +1259,10 @@ class GrapheneExchange(ExchangeBase):
             self.dev_log("ORDER STATUS UPDATED TO CANCELLED")
             self.dev_log("#################################")
             return [client_order_id]
-        self.dev_log("_limit_order_cancel", level=2)
+        self.dev_log("_limit_order_cancel", level=3)
         result = None
         tracked_order = self._order_tracker.fetch_tracked_order(client_order_id)
+        self.dev_log(f"######## LIMIT ORDER CANCEL ATTEMPT ({tracked_order.exchange_order_id}) ########")
         # if this order was placed by hummingbot
         if tracked_order is not None:
             # change its status to pending cancellation
@@ -1264,20 +1277,15 @@ class GrapheneExchange(ExchangeBase):
             try:
                 order = json.loads(self._auth.prototype_order(trading_pair))
                 order["header"]["wif"] = self._wif
-                order["edicts"] = [
-                    {"op": "cancel", "ids": [tracked_order.exchange_order_id]}
-                ]
+                order["edicts"] = [{"op": "cancel", "ids": [tracked_order.exchange_order_id]}]
                 result = await self._broker(order)
-                self.dev_log(f"CANCELLED ORDER #{client_order_id}")
+                self.dev_log(f"CANCELLED ORDER #{client_order_id} ({tracked_order.exchange_order_id})")
             except asyncio.CancelledError:
                 msg = f"asyncio.CancelledError {__name__}"
                 self.logger().exception(msg)
                 raise
             except Exception:
-                msg = (
-                    "There was a an error when requesting cancellation of order "
-                    f"{client_order_id}"
-                )
+                msg = "There was a an error when requesting cancellation of order " f"{client_order_id}"
                 self.logger().exception(msg)
                 raise
         ################################################################################
@@ -1342,10 +1350,7 @@ class GrapheneExchange(ExchangeBase):
                 self.logger().network(
                     "Unexpected error while fetching updates.",
                     exc_info=True,
-                    app_warning_msg=(
-                        "Could not fetch account updates. "
-                        "Check metanode and network connection."
-                    ),
+                    app_warning_msg=("Could not fetch account updates. " "Check metanode and network connection."),
                 )
             except asyncio.CancelledError:
                 break
@@ -1358,7 +1363,7 @@ class GrapheneExchange(ExchangeBase):
         with the DEX. It also updates the time synchronizer.
         Executes when the _poll_notifier event is enabled by the `tick` function.
         """
-        self.dev_log("_trading_rules_polling_loop", level=2)
+        self.dev_log("_trading_rules_polling_loop", level=3)
 
         while True:
             try:
@@ -1370,17 +1375,14 @@ class GrapheneExchange(ExchangeBase):
                 self.logger().network(
                     "Unexpected error while fetching updates.",
                     exc_info=True,
-                    app_warning_msg=(
-                        "Could not fetch account updates. "
-                        "Check metanode and network connection."
-                    ),
+                    app_warning_msg=("Could not fetch account updates. " "Check metanode and network connection."),
                 )
 
     async def _update_trading_rules(self):
         """
         gather DEX info from metanode.assets and pass on to _trading_rules
         """
-        self.dev_log("_update_trading_rules", level=2)
+        self.dev_log("_update_trading_rules", level=3)
         try:
             graphene_max = self.constants.core.GRAPHENE_MAX
             metanode_assets = self.metanode.assets
@@ -1427,7 +1429,7 @@ class GrapheneExchange(ExchangeBase):
         It keeps reading events from the queue until the task is interrupted.
         The events received are order updates and trade events.
         """
-        self.dev_log("_user_stream_event_listener", level=2)
+        self.dev_log("_user_stream_event_listener", level=3)
 
         async def iter_user_event_queue() -> AsyncIterable[Dict[str, any]]:
             """
@@ -1446,16 +1448,14 @@ class GrapheneExchange(ExchangeBase):
                     self.logger().network(
                         "Unknown error. Retrying after 1 seconds.",
                         exc_info=True,
-                        app_warning_msg=(
-                            "Could not fetch user events from Graphene."
-                            "Check network connection."
-                        ),
+                        app_warning_msg=("Could not fetch user events from Graphene." "Check network connection."),
                     )
                     await asyncio.sleep(1.0)
                 finally:
                     await asyncio.sleep(0.1)
 
         async for event_message in iter_user_event_queue():
+            self.dev_log(f"ATTEMPTING TO UPDATE TRADE; {event_message}")
             try:
                 # localize and type cast values common to all event_messages
                 trading_pair = str(event_message["trading_pair"])
@@ -1463,20 +1463,27 @@ class GrapheneExchange(ExchangeBase):
                 client_order_id = str(event_message["client_order_id"])
                 exchange_order_id = str(event_message["exchange_order_id"])
                 # process trade event messages
-                if execution_type == "FILL":
-                    tracked_order = self._order_tracker.fetch_order(
-                        client_order_id=client_order_id
-                    )
+                if execution_type == "TRADE":
+                    self.dev_log(f"UPDATING ORDER; those that are in flight: {self.in_flight_orders}")
+                    self.dev_log(f"ATTEMPTING TO UPDATE {client_order_id}")
+                    tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                    self.dev_log(f"UPDATE TO TRACKED_ORDER {tracked_order}")
                     if tracked_order is not None:
                         # localize and type cast fill order event message values
                         trade_id = str(event_message["trade_id"])
-                        fee_asset = str(event_message["fee_asset"])
                         fee_paid = Decimal(event_message["fee_paid"])
-                        fill_price = Decimal(event_message["price"])
-                        fill_timestamp = int(event_message["fill_timestamp"])
+                        fill_price = Decimal(event_message["fill_price"])
+                        update_timestamp = int(event_message["update_timestamp"])
                         fill_base_amount = Decimal(event_message["fill_base_amount"])
+                        is_maker = bool(event_message["is_maker"])
+                        order_side: TradeType = event_message["order_side"]
+                        pair = str(event_message["trading_pair"]).split("-")
                         # estimate the quote amount
                         fill_quote_amount = fill_base_amount * fill_price
+                        # in a sell, the base is the first token in the pair
+                        base_currency, quote_currency = (pair if order_side == TradeType.SELL else pair[::-1])
+                        # calculate fee
+                        fee = self.get_fee(base_currency, quote_currency, None, order_side, None, None, is_maker)
                         # process a trade update
                         trade_update = TradeUpdate(
                             client_order_id=client_order_id,
@@ -1486,20 +1493,24 @@ class GrapheneExchange(ExchangeBase):
                             fill_quote_amount=fill_quote_amount,
                             fill_price=fill_price,
                             trade_id=trade_id,
-                            fee_asset=fee_asset,
-                            fee_paid=fee_paid,
-                            fill_timestamp=fill_timestamp,
+                            fee={
+                                "fee_type": "DeductedFromReturns",
+                                "percent": fee.percent,
+                                "percent_token": fee.percent_token,
+                                "flat_fees": [fee_paid]
+                            },
+                            fill_timestamp=update_timestamp,
                         )
+                        self.dev_log(f"UPDATING #{client_order_id} ({exchange_order_id}) TO TRADE")
                         self._order_tracker.process_trade_update(trade_update)
+                        self.dev_log(f"UPDATED #{client_order_id} ({exchange_order_id}) TO TRADE")
                 # all other event messages just change order state
                 # eg "CANCELLED" or "FILLED"
                 in_flight_order = self.in_flight_orders.get(client_order_id)
                 if in_flight_order is not None:
                     # localize order state event message values
                     update_timestamp = (int(event_message["update_timestamp"]),)
-                    new_state = (
-                        self.constants.ORDER_STATE[event_message["order_state"]],
-                    )
+                    new_state = event_message["new_state"]
                     # process an order update
                     order_update = OrderUpdate(
                         trading_pair=trading_pair,
@@ -1508,17 +1519,18 @@ class GrapheneExchange(ExchangeBase):
                         update_timestamp=update_timestamp,
                         new_state=new_state,
                     )
+                    self.dev_log(f"UPDATING #{client_order_id} ({exchange_order_id}) TO BE {new_state}")
                     self._order_tracker.process_order_update(order_update=order_update)
+                    self.dev_log(f"UPDATED #{client_order_id} ({exchange_order_id}) TO BE {new_state}")
                 await self._update_balances()
             except asyncio.CancelledError:
                 msg = f"asyncio.CancelledError {__name__}"
                 self.logger().exception(msg)
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error in user stream listener loop.", exc_info=True
-                )
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(1.0)
+        self.dev_log("_user_stream_event_listener quitting...")
 
     async def _update_balances(self):
         """
@@ -1526,10 +1538,12 @@ class GrapheneExchange(ExchangeBase):
             self._account_balances
             self._account_available_balances
         """
-        self.dev_log("Updating Balances", level=2)
+        self.dev_log("Updating Balances", level=3)
         error_msg = None
         if self._account_balances == {}:
-            self._auth.login()
+            self.dev_log("No balances available, logging in...", level=2)
+            if START_METANODE:
+                self._auth.login()
         try:
             if await self.check_network() == NetworkStatus.NOT_CONNECTED:
                 for asset in self.constants.chain.ASSETS:
@@ -1540,12 +1554,8 @@ class GrapheneExchange(ExchangeBase):
             else:
                 metanode_assets = self.metanode.assets
                 for asset in self.constants.chain.ASSETS:
-                    self._account_available_balances[asset] = Decimal(
-                        str(metanode_assets[asset]["balance"]["free"])
-                    )
-                    self._account_balances[asset] = Decimal(
-                        str(metanode_assets[asset]["balance"]["total"])
-                    )
+                    self._account_available_balances[asset] = Decimal(str(metanode_assets[asset]["balance"]["free"]))
+                    self._account_balances[asset] = Decimal(str(metanode_assets[asset]["balance"]["total"]))
         except Exception as error:
             for asset in self.constants.chain.ASSETS:
                 self._account_available_balances[asset] = Decimal(0)
@@ -1572,12 +1582,12 @@ class GrapheneExchange(ExchangeBase):
         use `update_server_time_offset_with_time_provider`
         to synchronize local time with the server's time.
         """
-        self.dev_log("_update_time_synchronizer", level=2)
+        self.dev_log("_update_time_synchronizer", level=3)
         if self.constants.hummingbot.SYNCHRONIZE:
             synchro = self._time_synchronizer
             try:
                 await synchro.update_server_time_offset_with_time_provider(
-                    time_provider=self.metanode.timing["blocktime"]
+                    time_provider=self.metanode.timing["blocktime"] if START_METANODE else time.time()
                 )
             except asyncio.CancelledError:
                 msg = f"asyncio.CancelledError {__name__}"
