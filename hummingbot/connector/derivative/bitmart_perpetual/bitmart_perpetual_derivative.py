@@ -537,9 +537,9 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         exchange_info_dict:
             Trading rules dictionary response from the exchange
         """
-        rules: list = exchange_info_dict.get("symbols", [])
+        rules: list = exchange_info_dict.get("data", [])
         return_val: list = []
-        for rule in rules:
+        for rule in rules["symbols"]:
             try:
                 if web_utils.is_exchange_information_valid(rule):
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["symbol"])
