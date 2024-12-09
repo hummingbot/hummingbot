@@ -241,7 +241,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
-        return amount / self._contract_sizes[trading_pair]
+        return int(amount / self._contract_sizes[trading_pair])
 
     def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
         return size * self._contract_sizes[trading_pair]
@@ -276,7 +276,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             "side": side_mapping.get((position_action, trade_type)),
             "mode": mode_mapping.get(order_type),
             "size": self._format_amount_to_size(trading_pair, amount),  # TODO: It's in contracts so we need to translate before
-            "newClientOrderId": order_id
         }
         if order_type.is_limit_type():
             api_params["price"] = price_str
