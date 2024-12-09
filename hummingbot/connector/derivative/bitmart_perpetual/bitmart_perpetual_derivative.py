@@ -299,7 +299,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 raise
         return o_id, transact_time
 
-    # TODO: Continue here
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
         try:
@@ -425,7 +424,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
     async def _process_user_stream_event(self, event_message: Dict[str, Any]):
         event_data = event_message.get("data", {})
         event_group: str = event_message.get("group", "")
-        if "ORDER_TRADE_UPDATE" in event_group:
+        if CONSTANTS.WS_ORDERS_CHANNEL in event_group and bool(event_data):
             order_message = event_message.get("o")
             client_order_id = order_message.get("c", None)
             tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
@@ -475,12 +474,12 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
                 self._order_tracker.process_order_update(order_update)
 
-        elif "futures/asset" in event_group and bool(event_data):
+        elif CONSTANTS.WS_ACCOUNT_CHANNEL in event_group and bool(event_data):
             asset_name = event_data["currency"]
             self._account_balances[asset_name] = Decimal(event_data["available_balance"]) + Decimal(event_data["frozen_balance"])
             self._account_available_balances[asset_name] = Decimal(event_data["available_balance"])
 
-        elif "futures/position" in event_group and bool(event_data):
+        elif CONSTANTS.WS_POSITIONS_CHANNEL in event_group and bool(event_data):
             for asset in event_data.get("P", []):
                 trading_pair = asset["s"]
                 try:
