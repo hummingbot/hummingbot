@@ -6,15 +6,12 @@ from typing import Union
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import (
-    ArbitrageExecutorConfig,
-    ArbitrageExecutorStatus,
-)
+from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
-from hummingbot.strategy_v2.models.executors import TrackedOrder
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class ArbitrageExecutor(ExecutorBase):
@@ -25,10 +22,6 @@ class ArbitrageExecutor(ExecutorBase):
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
-
-    @property
-    def is_closed(self):
-        return self.arbitrage_status in [ArbitrageExecutorStatus.COMPLETED, ArbitrageExecutorStatus.FAILED]
 
     @staticmethod
     def _are_tokens_interchangeable(first_token: str, second_token: str):
@@ -59,7 +52,6 @@ class ArbitrageExecutor(ExecutorBase):
         self.min_profitability = config.min_profitability
         self.order_amount = config.order_amount
         self.max_retries = config.max_retries
-        self.arbitrage_status = ArbitrageExecutorStatus.NOT_STARTED
 
         # Order tracking
         self._buy_order: TrackedOrder = TrackedOrder()
@@ -70,9 +62,33 @@ class ArbitrageExecutor(ExecutorBase):
         self._last_tx_cost = Decimal("1")
         self._cumulative_failures = 0
 
-    def validate_sufficient_balance(self):
-        # TODO: Implement this method checking balances in the two exchanges
-        pass
+    async def validate_sufficient_balance(self):
+        base_asset_for_selling_exchange = self.connectors[self.selling_market.connector_name].get_available_balance(
+            self.selling_market.trading_pair.split("-")[0])
+        if self.order_amount > base_asset_for_selling_exchange:
+            self.logger().info(f"Insufficient balance in exchange {self.selling_market.connector_name} "
+                               f"to sell {self.selling_market.trading_pair.split('-')[0]} "
+                               f"Actual: {base_asset_for_selling_exchange} --> Needed: {self.order_amount}")
+            self.close_type = CloseType.INSUFFICIENT_BALANCE
+            self.logger().error("Not enough budget to open position.")
+            self.stop()
+            return
+
+        price = await self.get_resulting_price_for_amount(
+            exchange=self.buying_market.connector_name,
+            trading_pair=self.buying_market.trading_pair,
+            is_buy=True,
+            order_amount=self.order_amount)
+        quote_asset_for_buying_exchange = self.connectors[self.buying_market.connector_name].get_available_balance(
+            self.buying_market.trading_pair.split("-")[1])
+        if self.order_amount * price > quote_asset_for_buying_exchange:
+            self.logger().info(f"Insufficient balance in exchange {self.buying_market.connector_name} "
+                               f"to buy {self.buying_market.trading_pair.split('-')[1]} "
+                               f"Actual: {quote_asset_for_buying_exchange} --> Needed: {self.order_amount * price}")
+            self.close_type = CloseType.INSUFFICIENT_BALANCE
+            self.logger().error("Not enough budget to open position.")
+            self.stop()
+            return
 
     def is_arbitrage_valid(self, pair1, pair2):
         base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
@@ -81,7 +97,7 @@ class ArbitrageExecutor(ExecutorBase):
             self._are_tokens_interchangeable(quote_asset1, quote_asset2)
 
     def get_net_pnl_quote(self) -> Decimal:
-        if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
+        if self.close_type == CloseType.COMPLETED:
             sell_quote_amount = self.sell_order.order.executed_amount_base * self.sell_order.average_executed_price
             buy_quote_amount = self.buy_order.order.executed_amount_base * self.buy_order.average_executed_price
             return sell_quote_amount - buy_quote_amount - self.cum_fees_quote
@@ -89,7 +105,7 @@ class ArbitrageExecutor(ExecutorBase):
             return Decimal("0")
 
     def get_net_pnl_pct(self) -> Decimal:
-        if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
+        if self.is_closed:
             return self.net_pnl_quote / self.buy_order.order.executed_amount_base
         else:
             return Decimal("0")
@@ -117,7 +133,7 @@ class ArbitrageExecutor(ExecutorBase):
         return await self.connectors[exchange].get_quote_price(trading_pair, is_buy, order_amount)
 
     async def control_task(self):
-        if self.arbitrage_status == ArbitrageExecutorStatus.NOT_STARTED:
+        if self.status == RunnableStatus.RUNNING:
             try:
                 trade_pnl_pct = await self.get_trade_pnl_pct()
                 fee_pct = await self.get_tx_cost_pct()
@@ -126,9 +142,9 @@ class ArbitrageExecutor(ExecutorBase):
                     await self.execute_arbitrage()
             except Exception as e:
                 self.logger().error(f"Error calculating profitability: {e}")
-        elif self.arbitrage_status == ArbitrageExecutorStatus.ACTIVE_ARBITRAGE:
+        elif self.status == RunnableStatus.SHUTTING_DOWN:
             if self._cumulative_failures > self.max_retries:
-                self.arbitrage_status = ArbitrageExecutorStatus.FAILED
+                self.close_type = CloseType.FAILED
                 self.stop()
             else:
                 self.check_order_status()
@@ -136,11 +152,11 @@ class ArbitrageExecutor(ExecutorBase):
     def check_order_status(self):
         if self.buy_order.order and self.buy_order.order.is_filled and \
                 self.sell_order.order and self.sell_order.order.is_filled:
-            self.arbitrage_status = ArbitrageExecutorStatus.COMPLETED
+            self.close_type = CloseType.COMPLETED
             self.stop()
 
     async def execute_arbitrage(self):
-        self.arbitrage_status = ArbitrageExecutorStatus.ACTIVE_ARBITRAGE
+        self._status = RunnableStatus.SHUTTING_DOWN
         self.place_buy_arbitrage_order()
         self.place_sell_arbitrage_order()
 
@@ -210,8 +226,7 @@ class ArbitrageExecutor(ExecutorBase):
         price = await self.get_resulting_price_for_amount(exchange, trading_pair, is_buy, order_amount)
         if self.is_amm_connector(exchange=exchange):
             gas_cost = connector.network_transaction_fee
-            conversion_price = RateOracle.get_instance().get_pair_rate(f"{asset}-{gas_cost.token}")
-            return gas_cost.amount / conversion_price
+            return gas_cost.amount * self.config.gas_conversion_price
         else:
             fee = connector.get_fee(
                 base_currency=asset,
@@ -253,12 +268,12 @@ class ArbitrageExecutor(ExecutorBase):
             tx_cost_pct = self._last_tx_cost / self.order_amount
             base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
             lines.extend([f"""
-    Arbitrage Status: {self.arbitrage_status}
+    Arbitrage Status: {self.status} | Close Type: {self.close_type}
     - BUY: {self.buying_market.connector_name}:{self.buying_market.trading_pair}  --> SELL: {self.selling_market.connector_name}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
     - Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
     -------------------------------------------------------------------------------
     """])
-            if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
+            if self.close_type == CloseType.COMPLETED:
                 lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl_quote:.4f}"])
             return lines
         else:
