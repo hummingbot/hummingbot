@@ -57,7 +57,7 @@ class HyperliquidRateSource(RateSourceBase):
 
         return HyperliquidExchange(
             client_config_map=client_config_map,
-            hyperliquid_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
+            hyperliquid_api_secret="",
             trading_pairs=[],
             use_vault = False,
             hyperliquid_api_key="",
