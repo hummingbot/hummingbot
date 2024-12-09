@@ -180,7 +180,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
         )
 
-    # TODO: check if use trade_fee or
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -803,8 +802,9 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        leverage_str = str(leverage)
         # TODO: Check if there is something to handle cross/isolated
-        payload = {"symbol": symbol, "leverage": str(leverage), "open_type": "cross"}
+        payload = {"symbol": symbol, "leverage": leverage_str, "open_type": "cross"}
         set_leverage = await self._api_post(
             path_url=CONSTANTS.SET_LEVERAGE_URL,
             data=payload,
@@ -812,7 +812,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         )
         success = False
         msg = ""
-        if set_leverage["leverage"] == leverage:
+        if set_leverage["data"]["leverage"] == leverage_str:
             success = True
         else:
             msg = 'Unable to set leverage'
