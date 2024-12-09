@@ -363,13 +363,17 @@ class GridExecutor(ExecutorBase):
 
     def _get_close_order_candidate(self, level: GridLevel):
         take_profit_price = self.get_take_profit_price(level)
+        if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0]:
+            amount = level.active_open_order.executed_amount_base - level.active_open_order.cum_fees_base
+        else:
+            amount = level.active_open_order.executed_amount_base
         if self.is_perpetual:
             return PerpetualOrderCandidate(
                 trading_pair=self.config.trading_pair,
                 is_maker=self.config.triple_barrier_config.take_profit_order_type.is_limit_type(),
                 order_type=self.config.triple_barrier_config.take_profit_order_type,
                 order_side=self.close_order_side,
-                amount=level.active_open_order.executed_amount_base,
+                amount=amount,
                 price=take_profit_price,
                 leverage=Decimal(self.config.leverage)
             )
@@ -378,7 +382,7 @@ class GridExecutor(ExecutorBase):
             is_maker=self.config.triple_barrier_config.take_profit_order_type.is_limit_type(),
             order_type=self.config.triple_barrier_config.take_profit_order_type,
             order_side=self.close_order_side,
-            amount=level.active_open_order.executed_amount_base,
+            amount=amount,
             price=take_profit_price
         )
 
