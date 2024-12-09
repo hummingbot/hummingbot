@@ -44,9 +44,10 @@ class BitmartPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     @property
     def last_recv_time(self) -> float:
-        if self._ws_assistant:
-            return self._ws_assistant.last_recv_time
-        return 0
+        t = 0.0
+        if len(self._ws_assistants) > 0:
+            t = min([wsa.last_recv_time for wsa in self._ws_assistants])
+        return t
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """
