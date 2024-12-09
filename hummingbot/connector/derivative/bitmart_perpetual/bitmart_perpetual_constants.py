@@ -30,7 +30,7 @@ FUNDING_INFO_URL = "/contract/public/funding-rate"
 SERVER_TIME_PATH_URL = "/system/time"
 
 # Private API v1 Endpoints
-SUBMIT_ORDER_URL = "/private/submit-order"
+SUBMIT_ORDER_URL = "/contract/private/submit-order"
 ORDER_DETAILS = "/contract/private/order"
 ALL_OPEN_ORDERS = "/private/get-open-orders"
 CANCEL_ORDER_URL = "/contract/private/cancel-order"
