@@ -19,7 +19,9 @@ class BitmartPerpetualAuth(AuthBase):
         self._time_provider: TimeSynchronizer = time_provider
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
-        request.headers = self.header_for_authentication(request)
+        if request.headers is None:
+            request.headers = {}
+        request.headers.update(self.header_for_authentication(request))
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
