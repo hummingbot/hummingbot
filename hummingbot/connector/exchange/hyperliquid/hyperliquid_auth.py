@@ -18,11 +18,13 @@ class HyperliquidAuth(AuthBase):
     Auth class required by Hyperliquid API
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
+    def __init__(self, api_key: str, api_secret: str, use_vault: bool, trading_required):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
-        self.wallet = eth_account.Account.from_key(api_secret)
+        self._trading_required: bool = trading_required
+        if self._trading_required:
+            self.wallet = eth_account.Account.from_key(api_secret)
 
     @classmethod
     def address_to_bytes(cls, address):
