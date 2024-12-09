@@ -855,6 +855,40 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.close_type, CloseType.TAKE_PROFIT)
 
     @patch.object(GridExecutor, "get_price")
+    async def test_early_stop(self, mock_price):
+        mock_price.return_value = Decimal("100")
+        config = GridExecutorConfig(
+            id="test",
+            timestamp=1234567890,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            start_price=Decimal("100"),
+            end_price=Decimal("120"),
+            total_amount_quote=Decimal("100"),
+            min_spread_between_orders=Decimal("0.01"),
+            min_order_amount_quote=Decimal("10"),
+            order_frequency=1.0,
+            max_open_orders=5,
+            max_orders_per_batch=2,
+            limit_price=Decimal("90"),
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.001"),
+                stop_loss=Decimal("0.05"),
+                time_limit=100,
+                trailing_stop=TrailingStop(
+                    activation_price=Decimal("0.05"),
+                    trailing_delta=Decimal("0.005")
+                )
+            )
+        )
+        executor = self.get_grid_executor_from_config(config)
+        executor._status = RunnableStatus.RUNNING
+        executor.early_stop()
+        self.assertEqual(executor._status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+
+    @patch.object(GridExecutor, "get_price")
     async def test_get_custom_info(self, mock_price):
         mock_price.return_value = Decimal("100")
         config = GridExecutorConfig(
