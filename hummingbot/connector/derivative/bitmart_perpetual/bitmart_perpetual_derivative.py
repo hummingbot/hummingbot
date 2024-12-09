@@ -62,7 +62,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._position_mode = None
         self._last_trade_history_timestamp = None
-        self._contract_sizes = None
+        self._contract_sizes = {}
         super().__init__(client_config_map)
 
     @property
@@ -130,7 +130,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         """
         This method needs to be overridden to provide the accurate information depending on the exchange.
         """
-        return [PositionMode.ONEWAY, PositionMode.HEDGE]
+        return [PositionMode.HEDGE]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -226,7 +226,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             "symbol": symbol,
         }
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.SUBMIT_ORDER_URL,
+            path_url=CONSTANTS.CANCEL_ORDER_URL,
             params=api_params,
             is_auth_required=True)
         unknown_order_code = cancel_result.get("code") == CONSTANTS.UNKNOWN_ORDER_ERROR_CODE
@@ -423,8 +423,9 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 await self._sleep(5.0)
 
     async def _process_user_stream_event(self, event_message: Dict[str, Any]):
-        event_type = event_message.get("e")
-        if event_type == "ORDER_TRADE_UPDATE":
+        event_data = event_message.get("data", {})
+        event_group: str = event_message.get("group", "")
+        if "ORDER_TRADE_UPDATE" in event_group:
             order_message = event_message.get("o")
             client_order_id = order_message.get("c", None)
             tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
@@ -474,16 +475,13 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
                 self._order_tracker.process_order_update(order_update)
 
-        elif event_type == "ACCOUNT_UPDATE":
-            update_data = event_message.get("a", {})
-            # update balances
-            for asset in update_data.get("B", []):
-                asset_name = asset["a"]
-                self._account_balances[asset_name] = Decimal(asset["wb"])
-                self._account_available_balances[asset_name] = Decimal(asset["cw"])
+        elif "futures/asset" in event_group and bool(event_data):
+            asset_name = event_data["currency"]
+            self._account_balances[asset_name] = Decimal(event_data["available_balance"]) + Decimal(event_data["frozen_balance"])
+            self._account_available_balances[asset_name] = Decimal(event_data["available_balance"])
 
-            # update position
-            for asset in update_data.get("P", []):
+        elif "futures/position" in event_group and bool(event_data):
+            for asset in event_data.get("P", []):
                 trading_pair = asset["s"]
                 try:
                     hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
@@ -505,7 +503,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                                                  amount=Decimal(asset["pa"]))
                 else:
                     await self._update_positions()
-        elif event_type == "MARGIN_CALL":
+        elif "MARGIN_CALL" in event_group:
             positions = event_message.get("p", [])
             total_maint_margin_required = Decimal(0)
             # total_pnl = 0
@@ -549,11 +547,11 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                     self._contract_sizes[trading_pair] = contract_size
                     min_order_size_in_contracts = Decimal(rule.get("min_volume"))
                     min_order_size = contract_size * min_order_size_in_contracts
-                    step_size = Decimal(rule.get("volume_precision"))
+                    step_size = Decimal(rule.get("vol_precision"))
                     tick_size = Decimal(rule.get("price_precision"))
                     last_price = Decimal(rule.get("last_price"))
-                    min_notional = Decimal(contract_size * min_order_size * last_price)
-                    collateral_token = rule["marginAsset"]
+                    min_notional = Decimal(min_order_size * last_price)
+                    collateral_token = rule["quote_currency"]
 
                     return_val.append(
                         TradingRule(
@@ -574,7 +572,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(web_utils.is_exchange_information_valid, exchange_info["data"].get("symbols", [])):
+        symbols_data = exchange_info.get("data", {})
+        for symbol_data in filter(web_utils.is_exchange_information_valid, symbols_data.get("symbols", [])):
             exchange_symbol = symbol_data["base_currency"] + symbol_data["quote_currency"]
             base = symbol_data["base_currency"]
             quote = symbol_data["quote_currency"]
@@ -766,39 +765,9 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
                 self._order_tracker.process_order_update(new_order_update)
 
-    async def _get_position_mode(self) -> Optional[PositionMode]:
-        # To-do: ensure there's no active order or contract before changing position mode
-        if self._position_mode is None:
-            response = await self._api_get(
-                path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
-                is_auth_required=True,
-                limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
-                return_err=True
-            )
-            self._position_mode = PositionMode.HEDGE if response.get("dualSidePosition") else PositionMode.ONEWAY
-
-        return self._position_mode
-
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-        msg = ""
-        success = True
-        initial_mode = await self._get_position_mode()
-        if initial_mode != mode:
-            params = {
-                "dualSidePosition": True if mode == PositionMode.HEDGE else False,
-            }
-            response = await self._api_post(
-                path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
-                data=params,
-                is_auth_required=True,
-                limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID,
-                return_err=True
-            )
-            if not (response["msg"] == "success" and response["code"] == 200):
-                success = False
-                return success, str(response)
-            self._position_mode = mode
-        return success, msg
+        # TODO: Currently there is no position mode settings in Bitmart
+        return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
