@@ -15,77 +15,73 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 def start(self):
-    connector_1 = amm_arb_config_map.get("connector_1").value.lower()
-    market_1 = amm_arb_config_map.get("market_1").value
-    connector_2 = amm_arb_config_map.get("connector_2").value.lower()
-    market_2 = amm_arb_config_map.get("market_2").value
+    num_exchanges = amm_arb_config_map.get("number_of_exchanges").value
+    market_pair = amm_arb_config_map.get("market_pair").value
+    connectors = []
+    slippage_buffers = {}
+    for i in range(num_exchanges):
+        connector = amm_arb_config_map.get(f"connector_{i+1}").value.lower()
+        connectors.append(connector)
     pool_id = "_" + amm_arb_config_map.get("pool_id").value
     order_amount = amm_arb_config_map.get("order_amount").value
     min_profitability = amm_arb_config_map.get("min_profitability").value / Decimal("100")
-    market_1_slippage_buffer = amm_arb_config_map.get("market_1_slippage_buffer").value / Decimal("100")
-    market_2_slippage_buffer = amm_arb_config_map.get("market_2_slippage_buffer").value / Decimal("100")
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
     debug_price_shim = amm_arb_config_map.get("debug_price_shim").value
     gateway_transaction_cancel_interval = amm_arb_config_map.get("gateway_transaction_cancel_interval").value
     rate_oracle_enabled = amm_arb_config_map.get("rate_oracle_enabled").value
     quote_conversion_rate = amm_arb_config_map.get("quote_conversion_rate").value
 
-    self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
-    base_1, quote_1 = market_1.split("-")
-    base_2, quote_2 = market_2.split("-")
+    market_configs = [(connector, [market_pair]) for connector in connectors]
+    self._initialize_markets(market_configs)
 
-    is_connector_1_gateway = connector_1 in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
+    base, quote = market_pair.split("-")
+    market_tuples = []
+    for i, connector in enumerate(connectors):
+        is_gateway = connector in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
+        trading_pair = market_pair + pool_id if is_gateway else market_pair
+        market_tuple = MarketTradingPairTuple(self.markets[connector], trading_pair, base, quote)
+        market_tuples.append(market_tuple)
 
-    is_connector_2_gateway = connector_2 in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
-
-    market_info_1 = MarketTradingPairTuple(
-        self.markets[connector_1], market_1 if not is_connector_1_gateway else market_1 + pool_id, base_1, quote_1
-    )
-    market_info_2 = MarketTradingPairTuple(
-        self.markets[connector_2], market_2 if not is_connector_2_gateway else market_2 + pool_id, base_2, quote_2
-    )
-    self.market_trading_pair_tuples = [market_info_1, market_info_2]
-
+    for i in range(num_exchanges):
+        slippage = amm_arb_config_map.get(f"connector_{i+1}_slippage_buffer").value / Decimal("100")
+        slippage_buffers[market_tuples[i]] = slippage
+    self.market_trading_pair_tuples = market_tuples
     if debug_price_shim:
-        amm_market_info: MarketTradingPairTuple = market_info_1
-        other_market_info: MarketTradingPairTuple = market_info_2
-        other_market_name: str = connector_2
-        if AmmArbStrategy.is_gateway_market(other_market_info):
-            amm_market_info = market_info_2
-            other_market_info = market_info_1
-            other_market_name = connector_1
-        if Chain.ETHEREUM.chain == amm_market_info.market.chain:
-            amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, amm_market_info.market)
-        elif Chain.TEZOS.chain == amm_market_info.market.chain:
-            amm_connector: GatewayTezosAMM = cast(GatewayTezosAMM, amm_market_info.market)
-        elif Chain.TELOS.chain == amm_market_info.market.chain:
-            amm_connector: GatewayTelosAMM = cast(GatewayTelosAMM, amm_market_info.market)
-        else:
-            raise ValueError(f"Unsupported chain: {amm_market_info.market.chain}")
-        GatewayPriceShim.get_instance().patch_prices(
-            other_market_name,
-            other_market_info.trading_pair,
-            amm_connector.connector_name,
-            amm_connector.chain,
-            amm_connector.network,
-            amm_market_info.trading_pair
-        )
+        for market_info in market_tuples:
+            if AmmArbStrategy.is_gateway_market(market_info):
+                if Chain.ETHEREUM.chain == market_info.market.chain:
+                    amm_connector = cast(GatewayEVMAMM, market_info.market)
+                elif Chain.TEZOS.chain == market_info.market.chain:
+                    amm_connector = cast(GatewayTezosAMM, market_info.market)
+                elif Chain.TELOS.chain == market_info.market.chain:
+                    amm_connector = cast(GatewayTelosAMM, market_info.market)
+                else:
+                    raise ValueError(f"Unsupported chain: {market_info.market.chain}")
+                for other_market_info in market_tuples:
+                    if not AmmArbStrategy.is_gateway_market(other_market_info):
+                        GatewayPriceShim.get_instance().patch_prices(
+                            other_market_info.market.name,
+                            other_market_info.trading_pair,
+                            amm_connector.connector_name,
+                            amm_connector.chain,
+                            amm_connector.network,
+                            market_info.trading_pair,
+                        )
 
     if rate_oracle_enabled:
         rate_source = RateOracle.get_instance()
     else:
         rate_source = FixedRateSource()
-        rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
-        rate_source.add_rate(f"{quote_1}-{quote_2}", Decimal(str(1 / quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
-
+        rate_source.add_rate(
+            f"{quote}-{quote}", Decimal(str(quote_conversion_rate))
+        )  # reverse rate is already handled in FixedRateSource find_rate method.
     self.strategy = AmmArbStrategy()
-    self.strategy.init_params(market_info_1=market_info_1,
-                              market_info_2=market_info_2,
-                              min_profitability=min_profitability,
-                              order_amount=order_amount,
-                              market_1_slippage_buffer=market_1_slippage_buffer,
-                              market_2_slippage_buffer=market_2_slippage_buffer,
-                              concurrent_orders_submission=concurrent_orders_submission,
-                              gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
-                              rate_source=rate_source,
-                              )
+    self.strategy.init_params(
+        market_infos=self.market_trading_pair_tuples,
+        min_profitability=min_profitability,
+        order_amount=order_amount,
+        slippage_buffers=slippage_buffers,
+        concurrent_orders_submission=concurrent_orders_submission,
+        gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
+        rate_source=rate_source,
+    )

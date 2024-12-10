@@ -16,11 +16,11 @@ class TradeDirection(Enum):
 
 
 async def create_arb_proposals(
-        market_info_1: MarketTradingPairTuple,
-        market_info_2: MarketTradingPairTuple,
-        market_1_extra_flat_fees: List[TokenAmount],
-        market_2_extra_flat_fees: List[TokenAmount],
-        order_amount: Decimal
+    market_info_1: MarketTradingPairTuple,
+    market_info_2: MarketTradingPairTuple,
+    market_1_extra_flat_fees: List[TokenAmount],
+    market_2_extra_flat_fees: List[TokenAmount],
+    order_amount: Decimal,
 ) -> List[ArbProposal]:
     order_amount = Decimal(str(order_amount))
     results = []
@@ -28,12 +28,14 @@ async def create_arb_proposals(
     tasks = []
     for trade_direction in TradeDirection:
         is_buy = trade_direction == TradeDirection.BUY
-        tasks.append([
-            market_info_1.market.get_quote_price(market_info_1.trading_pair, is_buy, order_amount),
-            market_info_1.market.get_order_price(market_info_1.trading_pair, is_buy, order_amount),
-            market_info_2.market.get_quote_price(market_info_2.trading_pair, not is_buy, order_amount),
-            market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount)
-        ])
+        tasks.append(
+            [
+                market_info_1.market.get_quote_price(market_info_1.trading_pair, is_buy, order_amount),
+                market_info_1.market.get_order_price(market_info_1.trading_pair, is_buy, order_amount),
+                market_info_2.market.get_quote_price(market_info_2.trading_pair, not is_buy, order_amount),
+                market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount),
+            ]
+        )
 
     results_raw = await safe_gather(*[safe_gather(*task_group) for task_group in tasks])
 
@@ -58,7 +60,7 @@ async def create_arb_proposals(
             quote_price=m_2_q_price,
             order_price=m_2_o_price,
             amount=order_amount,
-            extra_flat_fees=market_2_extra_flat_fees
+            extra_flat_fees=market_2_extra_flat_fees,
         )
 
         results.append(ArbProposal(first_side, second_side))
