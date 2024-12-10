@@ -264,6 +264,7 @@ class GridExecutor(ExecutorBase):
                     self._filled_orders.append(self._close_order.order.to_json())
                     self._close_order = None
                 self.update_realized_pnl_metrics()
+                self.levels_by_state = {}
                 self.stop()
             else:
                 await self.control_close_order()
@@ -337,8 +338,8 @@ class GridExecutor(ExecutorBase):
         return level.price * (1 + level.take_profit) if self.config.side == TradeType.BUY else level.price * (1 - level.take_profit)
 
     def _get_open_order_candidate(self, level: GridLevel):
-        if ((level.side == TradeType.BUY and level.price > self.mid_price) or
-                (level.side == TradeType.SELL and level.price < self.mid_price)):
+        if ((level.side == TradeType.BUY and level.price >= self.current_open_quote) or
+                (level.side == TradeType.SELL and level.price <= self.current_open_quote)):
             entry_price = self.current_open_quote
         else:
             entry_price = level.price
