@@ -33,6 +33,7 @@ class TestHyperliquidAPIUserStreamDataSource(unittest.TestCase):
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.api_key = "someKey"
         cls.use_vault = False
+        cls.trading_required = False
         cls.api_secret_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock"
 
     def setUp(self) -> None:
@@ -47,7 +48,8 @@ class TestHyperliquidAPIUserStreamDataSource(unittest.TestCase):
         self.auth = HyperliquidAuth(
             api_key=self.api_key,
             api_secret=self.api_secret_key,
-            use_vault=self.use_vault)
+            use_vault=self.use_vault,
+            trading_required=self.trading_required)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
