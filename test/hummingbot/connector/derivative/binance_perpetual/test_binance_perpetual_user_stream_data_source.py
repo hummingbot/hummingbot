@@ -7,21 +7,21 @@ from unittest.mock import AsyncMock, patch
 import ujson
 from aioresponses.core import aioresponses
 
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_constants as CONSTANTS
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_web_utils as web_utils
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import (
-    BinancePerpetualUserStreamDataSource,
+from hummingbot.connector.derivative.bitmart_perpetual import bitmart_perpetual_web_utils as web_utils
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_auth import BitmartPerpetualAuth
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative import BitmartPerpetualDerivative
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_user_stream_data_source import (
+    BitmartPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
+class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -33,10 +33,11 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
-        cls.domain = CONSTANTS.TESTNET_DOMAIN
+        cls.domain = CONSTANTS.DOMAIN
 
         cls.api_key = "TEST_API_KEY"
         cls.secret_key = "TEST_SECRET_KEY"
+        cls.memo = "TEST_MEMO"
         cls.listen_key = "TEST_LISTEN_KEY"
 
     def setUp(self) -> None:
@@ -47,21 +48,22 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.emulated_time = 1640001112.223
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.connector = BinancePerpetualDerivative(
+        self.connector = BitmartPerpetualDerivative(
             client_config_map=client_config_map,
-            binance_perpetual_api_key="",
-            binance_perpetual_api_secret="",
+            bitmart_perpetual_api_key="",
+            bitmart_perpetual_api_secret="",
             domain=self.domain,
             trading_pairs=[])
 
-        self.auth = BinancePerpetualAuth(api_key=self.api_key,
+        self.auth = BitmartPerpetualAuth(api_key=self.api_key,
                                          api_secret=self.secret_key,
+                                         memo=self.memo,
                                          time_provider=self)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
         api_factory = web_utils.build_api_factory(auth=self.auth)
-        self.data_source = BinancePerpetualUserStreamDataSource(
+        self.data_source = BitmartPerpetualUserStreamDataSource(
             auth=self.auth, domain=self.domain, api_factory=api_factory, connector=self.connector,
         )
 
@@ -230,7 +232,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
                             "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch(
-        "hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source.BinancePerpetualUserStreamDataSource"
+        "hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_user_stream_data_source.BitmartPerpetualUserStreamDataSource"
         "._ping_listen_key",
         new_callable=AsyncMock)
     def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
