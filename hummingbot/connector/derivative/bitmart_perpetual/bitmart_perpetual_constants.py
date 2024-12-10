@@ -32,24 +32,17 @@ SERVER_TIME_PATH_URL = "/system/time"
 # Private API v1 Endpoints
 SUBMIT_ORDER_URL = "/contract/private/submit-order"
 ORDER_DETAILS = "/contract/private/order"
-ALL_OPEN_ORDERS = "/private/get-open-orders"
+ALL_OPEN_ORDERS = "/contract/private/get-open-orders"
 CANCEL_ORDER_URL = "/contract/private/cancel-order"
 CANCEL_ALL_OPEN_ORDERS_URL = "v1/allOpenOrders"
 ACCOUNT_TRADE_LIST_URL = "/contract/private/trades"
 SET_LEVERAGE_URL = "/contract/private/submit-leverage"
 GET_INCOME_HISTORY_URL = "v1/income"
-CHANGE_POSITION_MODE_URL = "v1/positionSide/dual"
-
-POST_POSITION_MODE_LIMIT_ID = f"POST{CHANGE_POSITION_MODE_URL}"
-GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 
 # Private API v2 Endpoints
 ACCOUNT_INFO_URL = "/contract/private/order"
 ASSETS_DETAIL = "/contract/private/assets-detail"
 POSITION_INFORMATION_URL = "/contract/private/position"
-
-# Private API Endpoints
-BINANCE_USER_STREAM_ENDPOINT = "v1/listenKey"
 
 # Public WS channels
 DIFF_STREAM_CHANNEL = "futures/depth50"
@@ -107,8 +100,6 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)]),
     RateLimit(limit_id=RECENT_TRADES_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=BINANCE_USER_STREAM_ENDPOINT, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
@@ -124,10 +115,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=GET_INCOME_HISTORY_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=30)]),
-    RateLimit(limit_id=POST_POSITION_MODE_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=GET_POSITION_MODE_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=30)]),
     RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
