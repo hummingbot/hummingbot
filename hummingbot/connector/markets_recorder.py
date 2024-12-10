@@ -394,7 +394,6 @@ class MarketsRecorder:
                 market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market,
                                                                                    trade_fill_record.exchange_trade_id,
                                                                                    trade_fill_record.symbol)})
-                self.append_to_csv(trade_fill_record)
 
     def _did_complete_funding_payment(self,
                                       event_tag: int,

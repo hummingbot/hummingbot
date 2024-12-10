@@ -363,7 +363,7 @@ class GatewayEVMAMM(ConnectorBase):
         amount: Decimal,
         side: TradeType,
         price_response: Dict[str, Any],
-        process_exception: bool = True
+        process_exception: bool = False
     ) -> Optional[Decimal]:
         """
         Parses price response
@@ -864,7 +864,7 @@ class GatewayEVMAMM(ConnectorBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances: use trading interface to do manual approval.": self.has_allowances() if self._trading_required else True,
+            # "allowances: use trading interface to do manual approval.": self.has_allowances() if self._trading_required else True,
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }

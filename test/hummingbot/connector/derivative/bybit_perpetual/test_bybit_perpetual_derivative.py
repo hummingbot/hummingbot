@@ -401,19 +401,11 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             response: Dict[str, Any],
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-
         linear_url = self.balance_url
-        non_linear_url = linear_url.replace("UNIFIED", "CONTRACT")
-        mock_api.side_effect = [
-            mock_api.get(
-                re.compile(f"^{linear_url}".replace(".", r"\.").replace("?", r"\?")),
-                body=json.dumps(response),
-                callback=callback),
-            mock_api.get(
-                re.compile(f"^{non_linear_url}".replace(".", r"\.").replace("?", r"\?")),
-                body=json.dumps(response),
-                callback=callback),
-        ]
+        mock_api.get(
+            re.compile(f"^{linear_url}".replace(".", r"\.").replace("?", r"\?")),
+            body=json.dumps(response),
+            callback=callback),
         return linear_url
 
     def configure_trade_fills_response(
@@ -593,7 +585,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                         }
                     ],
                     "accountLTV": "0",
-                    "accountType": "CONTRACT"
+                    "accountType": "UNIFIED"
                 }
             ]
         }
@@ -1319,6 +1311,32 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
 
         self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
+
+    @aioresponses()
+    def test_update_balances_raises_error_when_failure(self, mock_api):
+        mock_url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL
+        )
+        params = {"accountType": "UNIFIED"}
+        encoded_params = urlencode(params)
+        url = f"{mock_url}?{encoded_params}"
+
+        # Mock the API response to trigger a failure
+        mock_api.get(url, payload={
+            "retCode": "ERROR_CODE",  # Not CONSTANTS.RET_CODE_OK, to simulate failure
+            "retMsg": "Mocked error message",
+            "result": {}
+        })
+
+        # Format the ret_code for expected error message
+        formatted_ret_code = self.exchange._format_ret_code_for_print("ERROR_CODE")
+
+        # Check for IOError with expected message and catch it to trigger breakpoints
+        with self.assertRaises(IOError) as context:
+            asyncio.get_event_loop().run_until_complete(self.exchange._update_balances())
+
+        # Verify the error message is as expected
+        self.assertIn(f"{formatted_ret_code} - Mocked error message", str(context.exception))
 
     @aioresponses()
     def test_trade_history_fetch_raises_exception(self, mock_api):

@@ -54,7 +54,7 @@ class DexalotRateSource(RateSourceBase):
         return DexalotExchange(
             client_config_map=client_config_map,
             dexalot_api_key="",
-            dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930", # noqa: mock
+            dexalot_api_secret="",
             trading_pairs=[],
             trading_required=False,
         )

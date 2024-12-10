@@ -323,6 +323,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         response = self._order_cancelation_request_successful_mock_response(order=successful_order)
         err_response = self._order_cancelation_request_erroneous_mock_response(order=erroneous_order)
 
+        self.exchange._tx_client._place_order_responses.put_nowait("")
         self.exchange._tx_client._cancel_order_responses.put_nowait(response)
         self.exchange._tx_client._cancel_order_responses.put_nowait(err_response)
         return []
@@ -465,7 +466,12 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     ) -> str:
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_queue = AsyncMock()
+        mock_queue_2 = AsyncMock()
         mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
+        mock_queue_2.get.side_effect = partial(
+            self._callback_wrapper_with_response, callback=callback, response=[]
+        )
+        self.exchange._tx_client._place_order_responses = mock_queue_2
         self.exchange._tx_client._cancel_order_responses = mock_queue
         return ""
 
@@ -475,7 +481,12 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     ) -> str:
         response = self._order_cancelation_request_erroneous_mock_response(order=order)
         mock_queue = AsyncMock()
+        mock_queue_2 = AsyncMock()
         mock_queue.get.side_effect = partial(self._callback_wrapper_with_response, callback=callback, response=response)
+        mock_queue_2.get.side_effect = partial(
+            self._callback_wrapper_with_response, callback=callback, response=[]
+        )
+        self.exchange._tx_client._place_order_responses = mock_queue_2
         self.exchange._tx_client._cancel_order_responses = mock_queue
         return ""
 

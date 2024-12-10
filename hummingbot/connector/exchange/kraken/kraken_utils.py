@@ -15,8 +15,8 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ETH-USDC"
 
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.16"),
-    taker_percent_fee_decimal=Decimal("0.26"),
+    maker_percent_fee_decimal=Decimal("0.0025"),
+    taker_percent_fee_decimal=Decimal("0.004"),
 )
 
 
