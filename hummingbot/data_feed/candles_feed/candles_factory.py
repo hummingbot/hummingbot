@@ -6,6 +6,9 @@ from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCa
 from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_candles import BybitPerpetualCandles
 from hummingbot.data_feed.candles_feed.bybit_spot_candles.bybit_spot_candles import BybitSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
+from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.coinbase_advanced_trade_spot_candles import (
+    CoinbaseAdvancedTradeSpotCandles,
+)
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
@@ -47,6 +50,7 @@ class CandlesFactory:
         "okx_perpetual": OKXPerpetualCandles,
         "okx": OKXSpotCandles,
         "kraken": KrakenSpotCandles,
+        "coinbase_advanced_trade": CoinbaseAdvancedTradeSpotCandles,
         "mexc": MexcSpotCandles,
         "mexc_perpetual": MexcPerpetualCandles,
         "bybit": BybitSpotCandles,
