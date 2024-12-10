@@ -22,7 +22,6 @@ class HyperliquidAuth(AuthBase):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
-        self.wallet = eth_account.Account.from_key(api_secret)
 
     @classmethod
     def address_to_bytes(cls, address):
@@ -47,7 +46,8 @@ class HyperliquidAuth(AuthBase):
     def construct_phantom_agent(self, hash, is_mainnet):
         return {"source": "a" if is_mainnet else "b", "connectionId": hash}
 
-    def sign_l1_action(self, wallet, action, active_pool, nonce, is_mainnet):
+    def sign_l1_action(self, action, active_pool, nonce, is_mainnet):
+        wallet = eth_account.Account.from_key(self._api_secret)
         _hash = self.action_hash(action, active_pool, nonce)
         phantom_agent = self.construct_phantom_agent(_hash, is_mainnet)
 
@@ -86,7 +86,6 @@ class HyperliquidAuth(AuthBase):
 
     def _sign_update_leverage_params(self, params, base_url, timestamp):
         signature = self.sign_l1_action(
-            self.wallet,
             params,
             None if not self._use_vault else self._api_key,
             timestamp,
@@ -106,7 +105,6 @@ class HyperliquidAuth(AuthBase):
             "cancels": [params["cancels"]],
         }
         signature = self.sign_l1_action(
-            self.wallet,
             order_action,
             None if not self._use_vault else self._api_key,
             timestamp,
@@ -131,7 +129,6 @@ class HyperliquidAuth(AuthBase):
             "grouping": grouping,
         }
         signature = self.sign_l1_action(
-            self.wallet,
             order_action,
             None if not self._use_vault else self._api_key,
             timestamp,
