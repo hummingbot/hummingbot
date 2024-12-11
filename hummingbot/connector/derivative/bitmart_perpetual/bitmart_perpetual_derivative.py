@@ -23,7 +23,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -265,6 +265,12 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             }
         )
 
+    @staticmethod
+    def state_mapping():
+        return {
+            (2, 2): OrderState.OPEN
+        }
+
     async def _place_order(
             self,
             order_id: str,
@@ -462,10 +468,12 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
             tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
             if tracked_order is not None:
+                ex_order_state = event_data[0]["action"], order_message["state"]
+                order_state_mapping = self.state_mapping()
                 order_update: OrderUpdate = OrderUpdate(
                     trading_pair=tracked_order.trading_pair,
-                    update_timestamp=event_message["update_time"] * 1e-3,
-                    new_state=CONSTANTS.ORDER_STATE[order_message["X"]],  # TODO: wait for bitmart definitions
+                    update_timestamp=order_message["update_time"] * 1e-3,
+                    new_state=order_state_mapping[ex_order_state],  # TODO: wait for bitmart definitions
                     client_order_id=client_order_id,
                     exchange_order_id=str(order_message["order_id"]),
                 )
@@ -479,26 +487,26 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
         # TODO
         elif CONSTANTS.WS_POSITIONS_CHANNEL in event_group and bool(event_data):
-            for asset in event_data.get("P", []):
-                trading_pair = asset["s"]
+            for asset in event_data:
+                trading_pair = asset["symbol"]
                 try:
                     hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
                 except KeyError:
                     # Ignore results for which their symbols is not tracked by the connector
                     continue
 
-                side = PositionSide[asset['ps']]
-                position = self._perpetual_trading.get_position(hb_trading_pair, side)
+                position_side = PositionSide["LONG" if asset['position_type'] == 1 else "SHORT"]
+                position = self._perpetual_trading.get_position(hb_trading_pair, position_side)
                 if position is not None:
-                    amount = Decimal(asset["pa"])
+                    amount = Decimal(asset["hold_volume"])  # TODO: check if it's base or contracts
                     if amount == Decimal("0"):
-                        pos_key = self._perpetual_trading.position_key(hb_trading_pair, side)
+                        pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
                         self._perpetual_trading.remove_position(pos_key)
                     else:
-                        position.update_position(position_side=PositionSide[asset["ps"]],
-                                                 unrealized_pnl=Decimal(asset["up"]),
-                                                 entry_price=Decimal(asset["ep"]),
-                                                 amount=Decimal(asset["pa"]))
+                        position.update_position(position_side=position_side,
+                                                 unrealized_pnl=Decimal(asset["up"]),  # TODO: check if unrealized pnl is available
+                                                 entry_price=Decimal(asset["hold_avg_price"]),
+                                                 amount=Decimal(asset["hold_volume"]))  # TODO: check if volume is base
                 else:
                     await self._update_positions()
 
@@ -619,7 +627,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             except KeyError:
                 # Ignore results for which their symbols is not tracked by the connector
                 continue
-            position_side = PositionSide[position.get("position_type")]
+            position_type = position["position_type"]
+            position_side = PositionSide["LONG" if position_type == 1 else "SHORT"]
             unrealized_pnl = Decimal(position.get("unrealized_value"))
             entry_price = Decimal(position.get("entry_price"))
             amount = Decimal(position.get("current_amount"))
@@ -703,10 +712,10 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             tracked_orders = list(self._order_tracker.active_orders.values())
             tasks = [
                 self._api_get(
-                    path_url=CONSTANTS.SUBMIT_ORDER_URL,
+                    path_url=CONSTANTS.ORDER_DETAILS,
                     params={
                         "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair),
-                        "origClientOrderId": order.client_order_id
+                        "order_id": order.exchange_order_id
                     },
                     is_auth_required=True,
                     return_err=True,
@@ -714,28 +723,30 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 for order in tracked_orders
             ]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            results = await safe_gather(*tasks, return_exceptions=True)
+            results: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
 
             for order_update, tracked_order in zip(results, tracked_orders):
-                client_order_id = tracked_order.client_order_id
-                if client_order_id not in self._order_tracker.all_orders:
+                exchange_order_id = tracked_order.exchange_order_id
+                if exchange_order_id not in self._order_tracker.all_orders:
                     continue
                 if isinstance(order_update, Exception) or "code" in order_update:
-                    if not isinstance(order_update, Exception) and \
-                            (order_update["code"] == -2013 or order_update["msg"] == "Order does not exist."):
-                        await self._order_tracker.process_order_not_found(client_order_id)
+                    not_found_error = (order_update["code"] in (CONSTANTS.UNKNOWN_ORDER_ERROR_CODE,
+                                                                CONSTANTS.UNKNOWN_ORDER_ERROR_CODE))
+                    if not isinstance(order_update, Exception) and not_found_error:
+                        await self._order_tracker.process_order_not_found(exchange_order_id)
                     else:
                         self.logger().network(
-                            f"Error fetching status update for the order {client_order_id}: " f"{order_update}."
+                            f"Error fetching status update for the order {exchange_order_id}: " f"{order_update}."
                         )
                     continue
-
+                order_state_mapping = self.state_mapping()
+                order_state = order_update["action"], order_update["order"]["state"]
                 new_order_update: OrderUpdate = OrderUpdate(
                     trading_pair=await self.trading_pair_associated_to_exchange_symbol(order_update['symbol']),
-                    update_timestamp=order_update["updateTime"] * 1e-3,
-                    new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
-                    client_order_id=order_update["clientOrderId"],
-                    exchange_order_id=order_update["orderId"],
+                    update_timestamp=order_update["update_time"] * 1e-3,
+                    new_state=order_state_mapping[order_state],
+                    client_order_id=order_update["client_order_id"],
+                    exchange_order_id=order_update["order_id"],
                 )
 
                 self._order_tracker.process_order_update(new_order_update)
