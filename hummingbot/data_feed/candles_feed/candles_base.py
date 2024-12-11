@@ -68,7 +68,7 @@ class CandlesBase(NetworkBase):
         """
         This method starts the network and starts a task for listen_for_subscriptions.
         """
-        self.logger().info(f"Starting candles feed...")
+        self.logger().info("Starting candles feed...")
         await self.stop_network()
         await self.initialize_exchange_data()
         self._listen_candles_task = safe_ensure_future(self.listen_for_subscriptions())
