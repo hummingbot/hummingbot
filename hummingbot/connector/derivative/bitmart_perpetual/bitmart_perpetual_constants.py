@@ -61,12 +61,9 @@ FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after 
 
 # Order Statuses
 ORDER_STATE = {
-    "NEW": OrderState.OPEN,
-    "FILLED": OrderState.FILLED,
-    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
-    "CANCELED": OrderState.CANCELED,
-    "EXPIRED": OrderState.CANCELED,
-    "REJECTED": OrderState.FAILED,
+    1: OrderState.OPEN,
+    2: OrderState.PARTIALLY_FILLED,
+    4: [OrderState.FILLED, OrderState.CANCELED, OrderState.FAILED],
 }
 
 # Rate Limit Type
@@ -123,6 +120,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=FUNDING_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=CANCEL_ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     # RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
     #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
