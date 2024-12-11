@@ -55,13 +55,13 @@ class DownloadTradesAndOrderBookSnapshots(ScriptStrategyBase):
             file = self.ob_file_paths[trading_pair]
             json_strings = [json.dumps(obj) for obj in order_book_info]
             json_data = '\n'.join(json_strings)
-            file.write(json_data)
+            file.write("\n" + json_data)
             self.ob_temp_storage[trading_pair] = []
         for trading_pair, trades_info in self.trades_temp_storage.items():
             file = self.trades_file_paths[trading_pair]
             json_strings = [json.dumps(obj) for obj in trades_info]
             json_data = '\n'.join(json_strings)
-            file.write(json_data)
+            file.write("\n" + json_data)
             self.trades_temp_storage[trading_pair] = []
         self.last_dump_timestamp = self.current_timestamp + self.time_between_csv_dumps
 
