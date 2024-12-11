@@ -14,10 +14,10 @@ SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
 PUBLIC_WS_ENDPOINT = "/api?protocol=1.1"
 PRIVATE_WS_ENDPOINT = "/user?protocol=1.1"
 
-TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
-TIME_IN_FORCE_MAKER_ONLY = "GTX"  # Good Till Crossing
-TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
-TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
+TIME_IN_FORCE_GTC = 1  # Good till cancelled
+TIME_IN_FORCE_FOK = 2  # Fill or kill
+TIME_IN_FORCE_IOC = 3  # Immediate or cancel
+TIME_IN_FORCE_MAKER_ONLY = 4  # Good Till Crossing
 
 # Public API v1 Endpoints
 SNAPSHOT_REST_URL = "/contract/public/depth"
