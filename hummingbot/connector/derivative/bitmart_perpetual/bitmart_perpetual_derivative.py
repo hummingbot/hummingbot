@@ -793,8 +793,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 "symbol": exchange_symbol,
             },
         )
-        if payment_data is not None:
-            sorted_payment_response = sorted(payment_response, key=lambda a: a.get('time', 0), reverse=True)
+        if bool(payment_data):
+            sorted_payment_response = sorted(payment_response, key=lambda a: a["data"].get('time', 0), reverse=True)
             funding_payment = sorted_payment_response[0]
             payment = Decimal(funding_payment["amount"])
             timestamp = funding_payment["time"]
