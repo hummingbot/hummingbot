@@ -9,8 +9,8 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 class ArbitrageWithSmartComponent(ScriptStrategyBase):
     # Parameters
-    exchange_pair_1 = ConnectorPair(connector_name="binance", trading_pair="MATIC-USDT")
-    exchange_pair_2 = ConnectorPair(connector_name="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
+    exchange_pair_1 = ConnectorPair(connector_name="mexc_paper_trade", trading_pair="BAI-USDT")
+    exchange_pair_2 = ConnectorPair(connector_name="uniswap_ethereum_base", trading_pair="BAI-USDC")
     order_amount = Decimal("50")  # in base asset
     min_profitability = Decimal("0.004")
 
@@ -63,8 +63,8 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
                                    f"to buy {buying_exchange_pair.trading_pair.split('-')[1]} "
                                    f"Actual: {quote_asset_for_buying_exchange} --> Needed: {self.order_amount * price}")
                 return
-
             arbitrage_config = ArbitrageExecutorConfig(
+                timestamp=self.current_timestamp,
                 buying_market=buying_exchange_pair,
                 selling_market=selling_exchange_pair,
                 order_amount=self.order_amount,

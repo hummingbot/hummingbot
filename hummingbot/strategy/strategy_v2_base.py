@@ -377,14 +377,14 @@ class StrategyV2Base(ScriptStrategyBase):
             extra_info.append(f"\n\nController: {controller_id}")
             # Append controller market data metrics
             extra_info.extend(controller.to_format_status())
-            executors_list = self.get_executors_by_controller(controller_id)
-            if len(executors_list) == 0:
-                extra_info.append("No executors found.")
-            else:
-                # In memory executors info
-                executors_df = self.executors_info_to_df(executors_list)
-                executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
-                extra_info.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
+            # executors_list = self.get_executors_by_controller(controller_id)
+            # if len(executors_list) == 0:
+            #     extra_info.append("No executors found.")
+            # else:
+            #     # In memory executors info
+            #     executors_df = self.executors_info_to_df(executors_list)
+            #     executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
+            #     extra_info.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
 
             # Generate performance report for each controller
             performance_report = self.executor_orchestrator.generate_performance_report(controller_id)
