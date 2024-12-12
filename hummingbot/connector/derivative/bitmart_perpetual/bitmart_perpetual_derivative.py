@@ -675,9 +675,9 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                         app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
                     continue
-                for trade in trades:
-                    order_id = str(trade.get("orderId"))
-                    if order_id in order_map:
+                for trade in trades["data"]:
+                    order_id = trade.get("orderId")
+                    if order_id is not None and order_id in order_map:
                         tracked_order: InFlightOrder = order_map.get(order_id)
                         position_side = trade["positionSide"]
                         position_action = (PositionAction.OPEN
@@ -775,5 +775,28 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
-        # TODO: Currently there is no funding payment endpoint
-        return 0, Decimal("-1"), Decimal("-1")
+        timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
+
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        payment_response = await self._api_get(
+            path_url=CONSTANTS.GET_INCOME_HISTORY_URL,
+            params={
+                "symbol": exchange_symbol,
+                "flow_type": 3,
+            },
+            is_auth_required=True,
+        )
+        payment_data = payment_response.get("data")
+        funding_info_response = await self._api_get(
+            path_url=CONSTANTS.FUNDING_INFO_URL,
+            params={
+                "symbol": exchange_symbol,
+            },
+        )
+        if payment_data is not None:
+            sorted_payment_response = sorted(payment_response, key=lambda a: a.get('time', 0), reverse=True)
+            funding_payment = sorted_payment_response[0]
+            payment = Decimal(funding_payment["amount"])
+            timestamp = funding_payment["time"]
+            funding_rate = Decimal(funding_info_response["funding_rate"])
+        return timestamp, funding_rate, payment
