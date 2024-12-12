@@ -56,17 +56,36 @@ class BitmartPerpetualAuthUnitTests(unittest.TestCase):
 
         self.assertEqual(signature, self._get_signature_from_test_payload())
 
-    def test_header_for_authentication(self):
-        # Validate that headers are set correctly for REST requests
+    def test_rest_authenticate(self):
+        # Create a RESTRequest object
         request = RESTRequest(method="POST", url="http://test-url.com", data=self._get_test_payload())
-        authenticated_request = self.auth.header_for_authentication(request)
 
-        self.assertEqual(authenticated_request["X-BM-KEY"], self.api_key)
-        self.assertEqual(authenticated_request["X-BM-TIMESTAMP"], int(self.emulated_time * 1e3))
+        # Call the authenticate method
+        authenticated_request = self.async_run_with_timeout(self.auth.rest_authenticate(request))
+
+        # Validate headers are correctly set
+        self.assertEqual(authenticated_request.headers["X-BM-KEY"], self.api_key)
+        self.assertEqual(authenticated_request.headers["X-BM-TIMESTAMP"], str(int(self.emulated_time * 1e3)))
         self.assertEqual(
-            authenticated_request["X-BM-SIGN"],
+            authenticated_request.headers["X-BM-SIGN"],
             self._get_signature_from_test_payload()
         )
+
+    def test_rest_authenticate_with_previous_headers(self):
+        # Create a RESTRequest object
+        request = RESTRequest(method="POST", headers={"SOME_HEADER": "SOME_VALUE"}, url="http://test-url.com", data=self._get_test_payload())
+
+        # Call the authenticate method
+        authenticated_request = self.async_run_with_timeout(self.auth.rest_authenticate(request))
+
+        # Validate headers are correctly set
+        self.assertEqual(authenticated_request.headers["X-BM-KEY"], self.api_key)
+        self.assertEqual(authenticated_request.headers["X-BM-TIMESTAMP"], str(int(self.emulated_time * 1e3)))
+        self.assertEqual(
+            authenticated_request.headers["X-BM-SIGN"],
+            self._get_signature_from_test_payload()
+        )
+        self.assertEqual(authenticated_request.headers["SOME_HEADER"], "SOME_VALUE")
 
     def test_ws_authenticate(self):
         request: WSJSONRequest = WSJSONRequest(
@@ -76,3 +95,23 @@ class BitmartPerpetualAuthUnitTests(unittest.TestCase):
         signed_request: WSJSONRequest = self.async_run_with_timeout(self.auth.ws_authenticate(request))
 
         self.assertEqual(request, signed_request)
+
+    def test_get_ws_login_with_args(self):
+        # Generate expected timestamp and signature
+        timestamp = str(int(self.emulated_time * 1e3))
+        raw_message = f"{timestamp}#{self.memo}#bitmart.WebSocket"
+        expected_sign = hmac.new(
+            self.secret_key.encode("utf-8"),
+            raw_message.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
+
+        # Call the method
+        ws_login_args = self.auth.get_ws_login_with_args()
+
+        # Validate the output
+        self.assertEqual(ws_login_args["action"], "access")
+        self.assertEqual(ws_login_args["args"][0], self.api_key)  # API Key
+        self.assertEqual(ws_login_args["args"][1], timestamp)  # Timestamp
+        self.assertEqual(ws_login_args["args"][2], expected_sign)  # Signature
+        self.assertEqual(ws_login_args["args"][3], "web")  # Channel type
