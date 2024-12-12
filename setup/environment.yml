@@ -18,6 +18,7 @@ dependencies:
   - pydantic=1.10
   - pytest
   - python=3.10
+  - rust
   - scipy=1.10.1
   - sqlalchemy=1.4
   - tabulate==0.8.9
