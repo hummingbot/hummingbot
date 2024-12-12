@@ -57,7 +57,7 @@ class TegroRateSource(RateSourceBase):
 
         return TegroExchange(
             client_config_map=client_config_map,
-            tegro_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
+            tegro_api_secret="",  # noqa: mock
             trading_pairs=[],  # noqa: mock
             tegro_api_key="",
             chain_name= "base",
