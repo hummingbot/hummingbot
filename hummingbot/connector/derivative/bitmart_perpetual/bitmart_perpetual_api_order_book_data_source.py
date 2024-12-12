@@ -113,7 +113,7 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        if "result" not in event_message and event_message.get("data") is not None:
+        if event_message.get("data") is not None:
             stream_name = event_message.get("group")
             if CONSTANTS.ORDER_BOOK_CHANNEL in stream_name:
                 if event_message["data"]["type"] == "update":
@@ -209,7 +209,25 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         message_queue.put_nowait(funding_info)
 
-    async def _parse_tickers_message(self, raw_message: Dict[str, Any]):
+    async def listen_for_exchange_info(self, ev_loop: asyncio.AbstractEventLoop):
+        """
+        Reads the exchange info events queue. For each trading pair initialized stores in a local variable
+        the index and last price
+
+        :param ev_loop: the event loop the method will run in
+        """
+        message_queue = self._message_queue[self._diff_messages_queue_key]
+        while True:
+            try:
+                diff_event = await message_queue.get()
+                await self._parse_exchange_info_message(raw_message=diff_event)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error when processing public order book updates from exchange")
+
+    async def _parse_exchange_info_message(self, raw_message: Dict[str, Any]):
         data: Dict[str, Any] = raw_message["data"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data["symbol"])
 
