@@ -55,6 +55,8 @@ class ExecutorOrchestrator:
             controller_id = executor.controller_id
             if controller_id not in self.cached_performance:
                 self.cached_performance[controller_id] = PerformanceReport()
+                self.active_executors[controller_id] = []
+                self.archived_executors[controller_id] = []
             self._update_cached_performance(controller_id, executor)
 
     def _update_cached_performance(self, controller_id: str, executor_info: ExecutorInfo):
@@ -87,7 +89,7 @@ class ExecutorOrchestrator:
         Execute the action and handle executors based on action type.
         """
         controller_id = action.controller_id
-        if controller_id not in self.active_executors:
+        if controller_id not in self.cached_performance:
             self.active_executors[controller_id] = []
             self.archived_executors[controller_id] = []
             self.cached_performance[controller_id] = PerformanceReport()
