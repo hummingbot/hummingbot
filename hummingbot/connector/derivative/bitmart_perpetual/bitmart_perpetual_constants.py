@@ -25,7 +25,6 @@ TICKER_PRICE_URL = "v1/ticker/bookTicker"
 TICKER_PRICE_CHANGE_URL = "v1/ticker/24hr"
 EXCHANGE_INFO_URL = "/contract/public/details"
 RECENT_TRADES_URL = "v1/trades"
-PING_URL = "v1/ping"
 FUNDING_INFO_URL = "/contract/public/funding-rate"
 SERVER_TIME_PATH_URL = "/system/time"
 
@@ -34,10 +33,9 @@ SUBMIT_ORDER_URL = "/contract/private/submit-order"
 ORDER_DETAILS = "/contract/private/order"
 ALL_OPEN_ORDERS = "/contract/private/get-open-orders"
 CANCEL_ORDER_URL = "/contract/private/cancel-order"
-CANCEL_ALL_OPEN_ORDERS_URL = "v1/allOpenOrders"
 ACCOUNT_TRADE_LIST_URL = "/contract/private/trades"
 SET_LEVERAGE_URL = "/contract/private/submit-leverage"
-GET_INCOME_HISTORY_URL = "v1/income"
+GET_INCOME_HISTORY_URL = "/contract/private/transaction-history"
 
 # Private API v2 Endpoints
 ACCOUNT_INFO_URL = "/contract/private/order"
@@ -97,16 +95,12 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)]),
     RateLimit(limit_id=RECENT_TRADES_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=SUBMIT_ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
                              LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
                              LinkedLimitWeightPair(ORDERS_1SEC, weight=1)]),
-    RateLimit(limit_id=CANCEL_ALL_OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
@@ -123,8 +117,6 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
     RateLimit(limit_id=CANCEL_ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
-    # RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
-    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]
 
 ORDER_NOT_EXIST_ERROR_CODE = 40035
