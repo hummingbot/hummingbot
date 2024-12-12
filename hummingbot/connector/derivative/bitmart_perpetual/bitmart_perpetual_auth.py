@@ -21,20 +21,18 @@ class BitmartPerpetualAuth(AuthBase):
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         if request.headers is None:
             request.headers = {}
-        request.headers.update(self.header_for_authentication(request))
-        return request
-
-    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
-        return request  # pass-through
-
-    def header_for_authentication(self, request: RESTRequest) -> Dict[str, str]:
         payload = request.data if request.data is not None else {}
         timestamp = int(self._time_provider.time() * 1e3)
-        return {
+        auth_headers = {
             "X-BM-KEY": self._api_key,
             "X-BM-SIGN": self.generate_signature_from_payload(payload, timestamp),
             "X-BM-TIMESTAMP": str(timestamp)
         }
+        request.headers.update(auth_headers)
+        return request
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        return request  # pass-through
 
     def generate_signature_from_payload(self, payload: str, timestamp: int) -> str:
         raw_message = f"{timestamp}#{self._memo}#{payload}"
