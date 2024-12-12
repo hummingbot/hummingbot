@@ -226,12 +226,12 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_URL,
-            params=api_params,
+            data=api_params,
             is_auth_required=True)
         unknown_order_code = cancel_result.get("code") == CONSTANTS.UNKNOWN_ORDER_ERROR_CODE
         unknown_order_msg = cancel_result.get("msg", "") == CONSTANTS.UNKNOWN_ORDER_MESSAGE
         if unknown_order_msg and unknown_order_code:
-            self.logger().debug(f"The order {order_id} does not exist on Bitmart Perpetuals. "
+            self.logger().debug(f"The order {order_id} does not exist on Bitmart Perpetual. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{cancel_result.get('code')} - {cancel_result['msg']}")
@@ -268,7 +268,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
     @staticmethod
     def state_mapping():
         return {
-            (2, 2): OrderState.OPEN
+            (2, 2): OrderState.OPEN,
+            (3, 4): OrderState.CANCELED,
         }
 
     async def _place_order(
