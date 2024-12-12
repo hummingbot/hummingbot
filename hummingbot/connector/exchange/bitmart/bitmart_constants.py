@@ -51,12 +51,10 @@ RATE_LIMITS = [
 ]
 
 ORDER_STATE = {
-    "1": OrderState.FAILED,
-    "2": OrderState.OPEN,
-    "3": OrderState.FAILED,
-    "4": OrderState.OPEN,
-    "5": OrderState.PARTIALLY_FILLED,
-    "6": OrderState.FILLED,
-    "7": OrderState.PENDING_CANCEL,
-    "8": OrderState.CANCELED,
+    "failed": OrderState.FAILED,
+    "new": OrderState.OPEN,
+    "partially_filled": OrderState.PARTIALLY_FILLED,
+    "filled": OrderState.FILLED,
+    "partially_canceled": OrderState.CANCELED,
+    "canceled": OrderState.CANCELED
 }
