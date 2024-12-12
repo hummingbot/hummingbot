@@ -362,21 +362,21 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(Decimal("100"), Decimal(request_data["size"]))
         self.assertEqual(Decimal("10000"), Decimal(request_data["price"]))
-        self.assertEqual(order.client_order_id, request_data["clientOrderId"])
+        self.assertEqual(order.client_order_id, request_data["client_order_id"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = dict(json.loads(request_call.kwargs["data"]))
-        self.assertEqual(order.client_order_id, request_data["clientOrderId"])
+        self.assertEqual(order.client_order_id, request_data["client_order_id"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(order.exchange_order_id, request_params["order_id"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                          request_params["symbol"])
-        self.assertEqual(order.exchange_order_id, request_params["order_id"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def configure_successful_cancelation_response(self,
                                                   order: InFlightOrder,
@@ -528,7 +528,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "filled_notional": "00.0000000000",
                     "filled_size": "0.0000000000",
                     "margin_trading": "0",
-                    "state": "4",
+                    "order_state": "new",
                     "order_id": order.exchange_order_id,
                     "order_type": "0",
                     "last_fill_time": "0",
@@ -556,7 +556,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "filled_notional": "00.0000000000",
                     "filled_size": "0.0000000000",
                     "margin_trading": "0",
-                    "state": "8",
+                    "order_state": "canceled",
                     "order_id": order.exchange_order_id,
                     "order_type": "0",
                     "last_fill_time": "0",
@@ -584,7 +584,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "filled_notional": str(order.amount * order.price),
                     "filled_size": str(order.amount),
                     "margin_trading": "0",
-                    "state": "6",
+                    "order_state": "filled",
                     "order_id": order.exchange_order_id,
                     "order_type": "0",
                     "last_fill_time": "1609926039226",
@@ -663,7 +663,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_notional": "0.00000000",
                 "filled_size": "0.00000",
                 "unfilled_volume": "0.02000",
-                "status": "8",
+                "state": "canceled",
                 "clientOrderId": order.client_order_id
             }
         }
@@ -687,7 +687,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_notional": str(order.amount * (order.price + Decimal(2))),
                 "filled_size": str(order.amount),
                 "unfilled_volume": "0.00000",
-                "status": "6",
+                "state": "filled",
                 "clientOrderId": order.client_order_id
             }
         }
@@ -703,12 +703,12 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "trades": [
                     {
                         "detail_id": self.expected_fill_trade_id,
-                        "order_id": exchange_order_id,
+                        "orderId": exchange_order_id,
                         "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
                         "create_time": 1590462303000,
                         "side": order.trade_type.name.lower(),
                         "fees": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "fee_coin_name": self.expected_fill_fee.flat_fees[0].token,
+                        "feeCoinName": self.expected_fill_fee.flat_fees[0].token,
                         "notional": str(order.amount * order.price),
                         "price_avg": str(order.price),
                         "size": str(order.amount),
@@ -726,7 +726,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "code": 1000,
             "trace": "a27c2cb5-ead4-471d-8455-1cfeda054ea6",
             "data": {
-                "order_id": exchange_order_id,
+                "orderId": exchange_order_id,
                 "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 "create_time": 1591096004000,
                 "side": order.trade_type.name.lower(),
@@ -738,7 +738,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_notional": "0.00000000",
                 "filled_size": "0.00000",
                 "unfilled_volume": "0.02000",
-                "status": "4",
+                "state": "new",
                 "clientOrderId": order.client_order_id
             }
         }
@@ -750,7 +750,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "code": 1000,
             "trace": "a27c2cb5-ead4-471d-8455-1cfeda054ea6",
             "data": {
-                "order_id": exchange_order_id,
+                "orderId": exchange_order_id,
                 "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 "create_time": 1591096004000,
                 "side": order.trade_type.name.lower(),
@@ -763,7 +763,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_size": str(self.expected_partial_fill_amount),
                 "unfilled_volume": str((order.amount * order.price) -
                                        (self.expected_partial_fill_amount * self.expected_partial_fill_price)),
-                "status": "5",
+                "status": "partially_filled",
                 "clientOrderId": order.client_order_id
             }
         }
@@ -779,12 +779,12 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "trades": [
                     {
                         "detail_id": self.expected_fill_trade_id,
-                        "order_id": exchange_order_id,
+                        "orderId": exchange_order_id,
                         "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
                         "create_time": 1590462303000,
                         "side": order.trade_type.name.lower(),
                         "fees": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "fee_coin_name": self.expected_fill_fee.flat_fees[0].token,
+                        "feeCoinName": self.expected_fill_fee.flat_fees[0].token,
                         "notional": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
                         "price_avg": str(self.expected_partial_fill_price),
                         "size": str(self.expected_partial_fill_amount),

@@ -203,16 +203,18 @@ class BitmartExchange(ExchangePyBase):
 
         return exchange_order_id, self.current_timestamp
 
-    async def _place_cancel(self, trading_pair: str, order_id: str, tracked_order: InFlightOrder):
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
+            "symbol": symbol,
             "client_order_id": order_id,
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
             data=api_params,
             is_auth_required=True)
-        return cancel_result.get("data", {}).get("result", False)
+        # await cancel_result.get("data", {}).get("result", False)
+        return bool(cancel_result["data"]["result"])
 
     async def _format_trading_rules(self, symbols_details: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -324,25 +326,25 @@ class BitmartExchange(ExchangePyBase):
 
     def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
         updates = []
-        fills_data = fill_update["data"]["trades"]
+        fills_data = fill_update["data"]
 
         for fill_data in fills_data:
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=order.trade_type,
-                percent_token=fill_data["fee_coin_name"],
-                flat_fees=[TokenAmount(amount=Decimal(fill_data["fees"]), token=fill_data["fee_coin_name"])]
+                percent_token=fill_data["feeCoinName"],
+                flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCoinName"])]
             )
             trade_update = TradeUpdate(
-                trade_id=str(fill_data["detail_id"]),
+                trade_id=str(fill_data["tradeId"]),
                 client_order_id=order.client_order_id,
-                exchange_order_id=str(fill_data["order_id"]),
+                exchange_order_id=str(fill_data["orderId"]),
                 trading_pair=order.trading_pair,
                 fee=fee,
                 fill_base_amount=Decimal(fill_data["size"]),
-                fill_quote_amount=Decimal(fill_data["size"]) * Decimal(fill_data["price_avg"]),
-                fill_price=Decimal(fill_data["price_avg"]),
-                fill_timestamp=int(fill_data["create_time"]) * 1e-3,
+                fill_quote_amount=Decimal(fill_data["size"]) * Decimal(fill_data["price"]),
+                fill_price=Decimal(fill_data["price"]),
+                fill_timestamp=int(fill_data["createTime"]) * 1e-3,
             )
             updates.append(trade_update)
 
@@ -350,10 +352,10 @@ class BitmartExchange(ExchangePyBase):
 
     def _create_order_update(self, order: InFlightOrder, order_update: Dict[str, Any]) -> OrderUpdate:
         order_data = order_update["data"]
-        new_state = CONSTANTS.ORDER_STATE[order_data["status"]]
+        new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
         update = OrderUpdate(
             client_order_id=order.client_order_id,
-            exchange_order_id=str(order_data["order_id"]),
+            exchange_order_id=str(order_data["orderId"]),
             trading_pair=order.trading_pair,
             update_timestamp=self.current_timestamp,
             new_state=new_state,
@@ -374,7 +376,7 @@ class BitmartExchange(ExchangePyBase):
                             fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
                             updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
-                            new_state = CONSTANTS.ORDER_STATE[each_event["state"]]
+                            new_state = CONSTANTS.ORDER_STATE[each_event["order_state"]]
                             event_timestamp = int(each_event["ms_t"]) * 1e-3
 
                             if fillable_order is not None:
