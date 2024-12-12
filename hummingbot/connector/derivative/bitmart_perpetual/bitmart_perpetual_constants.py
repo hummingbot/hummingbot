@@ -43,11 +43,11 @@ ASSETS_DETAIL = "/contract/private/assets-detail"
 POSITION_INFORMATION_URL = "/contract/private/position"
 
 # Public WS channels
-DIFF_STREAM_CHANNEL = "futures/depth50"
 TRADE_STREAM_CHANNEL = "futures/trade"
 FUNDING_INFO_CHANNEL = "futures/fundingRate"
 TICKERS_CHANNEL = "futures/ticker"
-SNAPSHOT_CHANNEL = "futures/depthAll50"
+ORDER_BOOK_CHANNEL = "futures/depthIncrease50"
+ORDER_BOOK_SPEED = "200ms"
 
 # Private WS channels
 WS_POSITIONS_CHANNEL = "futures/position"
