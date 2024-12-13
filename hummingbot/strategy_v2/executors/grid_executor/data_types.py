@@ -28,6 +28,7 @@ class GridExecutorConfig(ExecutorConfigBase):
     max_orders_per_batch: Optional[int] = None
     order_frequency: int = 0
     activation_bounds: Optional[Decimal] = None
+    safe_extra_spread: Decimal = Decimal("0.0002")
     # Risk Management
     triple_barrier_config: TripleBarrierConfig
     leverage: int = 20
