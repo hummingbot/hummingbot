@@ -340,7 +340,7 @@ class GridExecutor(ExecutorBase):
     def _get_open_order_candidate(self, level: GridLevel):
         if ((level.side == TradeType.BUY and level.price >= self.current_open_quote) or
                 (level.side == TradeType.SELL and level.price <= self.current_open_quote)):
-            entry_price = self.current_open_quote
+            entry_price = self.current_open_quote * (1 - self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_open_quote * (1 + self.config.safe_extra_spread)
         else:
             entry_price = level.price
         if self.is_perpetual:
@@ -364,6 +364,9 @@ class GridExecutor(ExecutorBase):
 
     def _get_close_order_candidate(self, level: GridLevel):
         take_profit_price = self.get_take_profit_price(level)
+        if ((level.side == TradeType.BUY and take_profit_price <= self.current_close_quote) or
+                (level.side == TradeType.SELL and take_profit_price >= self.current_close_quote)):
+            take_profit_price = self.current_close_quote * (1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (1 - self.config.safe_extra_spread)
         if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0]:
             amount = level.active_open_order.executed_amount_base - level.active_open_order.cum_fees_base
         else:
@@ -620,7 +623,7 @@ class GridExecutor(ExecutorBase):
         self.update_metrics()
         if self.control_triple_barrier():
             self.logger().error(f"Grid is already expired by {self.close_type}.")
-            self.stop()
+            self._status = RunnableStatus.SHUTTING_DOWN
 
     def evaluate_max_retries(self):
         """
