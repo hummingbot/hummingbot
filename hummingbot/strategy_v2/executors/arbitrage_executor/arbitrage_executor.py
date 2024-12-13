@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Union
+from typing import Dict, Union
 
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -60,6 +60,7 @@ class ArbitrageExecutor(ExecutorBase):
 
         self._last_buy_price = Decimal("1")
         self._last_sell_price = Decimal("1")
+        self._trade_pnl_pct = Decimal("0")
         self._last_tx_cost = Decimal("1")
         self._cumulative_failures = 0
 
@@ -136,9 +137,9 @@ class ArbitrageExecutor(ExecutorBase):
     async def control_task(self):
         if self.status == RunnableStatus.RUNNING:
             try:
-                trade_pnl_pct = await self.get_trade_pnl_pct()
-                fee = await self.get_tx_cost()
-                profitability = (trade_pnl_pct * self.order_amount - fee) / self.order_amount
+                await self.update_trade_pnl_pct()
+                await self.update_tx_cost()
+                profitability = (self._trade_pnl_pct * self.order_amount - self._last_tx_cost) / self.order_amount
                 if profitability > self.min_profitability:
                     await self.execute_arbitrage()
             except Exception as e:
@@ -149,6 +150,10 @@ class ArbitrageExecutor(ExecutorBase):
                 self.stop()
             else:
                 self.check_order_status()
+
+    def early_stop(self):
+        self.close_type = CloseType.EARLY_STOP
+        self.stop()
 
     def check_order_status(self):
         if self.buy_order.order and self.buy_order.order.is_filled and \
@@ -181,7 +186,7 @@ class ArbitrageExecutor(ExecutorBase):
             price=self._last_sell_price,
         )
 
-    async def get_tx_cost(self) -> Decimal:
+    async def update_tx_cost(self) -> Decimal:
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
         # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
         base_without_wrapped = base[1:] if base.startswith("W") else base
@@ -199,7 +204,6 @@ class ArbitrageExecutor(ExecutorBase):
             order_amount=self.order_amount,
             asset=base_without_wrapped)
         self._last_tx_cost = buy_fee + sell_fee
-        return self._last_tx_cost
 
     async def get_buy_and_sell_prices(self):
         buy_price_task = asyncio.create_task(self.get_resulting_price_for_amount(
@@ -216,11 +220,11 @@ class ArbitrageExecutor(ExecutorBase):
         buy_price, sell_price = await asyncio.gather(buy_price_task, sell_price_task)
         return buy_price, sell_price
 
-    async def get_trade_pnl_pct(self):
+    async def update_trade_pnl_pct(self):
         self._last_buy_price, self._last_sell_price = await self.get_buy_and_sell_prices()
         if not self._last_buy_price or not self._last_sell_price:
             raise Exception("Could not get buy and sell prices")
-        return (self._last_sell_price - self._last_buy_price) / self._last_buy_price
+        self._trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
 
     async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal, asset: str):
         connector = self.connectors[exchange]
@@ -261,6 +265,19 @@ class ArbitrageExecutor(ExecutorBase):
         elif self.sell_order.order_id == event.order_id:
             self.place_sell_arbitrage_order()
             self._cumulative_failures += 1
+
+    def get_custom_info(self) -> Dict:
+        return {
+            "buy_connector": self.buying_market.connector_name,
+            "sell_connector": self.selling_market.connector_name,
+            "buy_trading_pair": self.buying_market.trading_pair,
+            "sell_trading_pair": self.selling_market.trading_pair,
+            "last_sell_price": self._last_sell_price,
+            "last_buy_price": self._last_buy_price,
+            "trade_pnl_pct": self._trade_pnl_pct,
+            "last_tx_cost": self._last_tx_cost,
+            "cumulative_failures": self._cumulative_failures
+        }
 
     def to_format_status(self):
         lines = []
