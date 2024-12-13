@@ -39,17 +39,20 @@ class ArbitrageController(ControllerBase):
     def __init__(self, config: ArbitrageControllerConfig, *args, **kwargs):
         self.config = config
         super().__init__(config, *args, **kwargs)
-        rates_required = []
         self._imbalance = 0
         self._last_buy_closed_timestamp = 0
         self._last_sell_closed_timestamp = 0
         self._len_active_buy_arbitrages = 0
         self._len_active_sell_arbitrages = 0
+        rates_required = []
         for connector_pair in [config.exchange_pair_1, config.exchange_pair_2]:
             if connector_pair.is_amm_connector():
                 gas_token = self.get_gas_token(connector_pair.connector_name)
+                base, quote = connector_pair.trading_pair.split("-")
                 rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
-                                                    trading_pair=f"{gas_token}-USDT"))
+                                                    trading_pair=f"{gas_token}-{quote}"))
+                rates_required.append(ConnectorPair(connector_name=connector_pair.connector_name,
+                                                    trading_pair=connector_pair.trading_pair))
         if len(rates_required) > 0:
             self.market_data_provider.initialize_rate_sources(rates_required)
 
