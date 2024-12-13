@@ -47,6 +47,7 @@ class ArbitrageExecutor(ExecutorBase):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
         super().__init__(strategy=strategy, connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval)
+        self.config = config
         self.buying_market = config.buying_market
         self.selling_market = config.selling_market
         self.min_profitability = config.min_profitability
@@ -136,8 +137,8 @@ class ArbitrageExecutor(ExecutorBase):
         if self.status == RunnableStatus.RUNNING:
             try:
                 trade_pnl_pct = await self.get_trade_pnl_pct()
-                fee_pct = await self.get_tx_cost_pct()
-                profitability = trade_pnl_pct - fee_pct
+                fee = await self.get_tx_cost()
+                profitability = (trade_pnl_pct * self.order_amount - fee) / self.order_amount
                 if profitability > self.min_profitability:
                     await self.execute_arbitrage()
             except Exception as e:
@@ -180,7 +181,7 @@ class ArbitrageExecutor(ExecutorBase):
             price=self._last_sell_price,
         )
 
-    async def get_tx_cost_pct(self) -> Decimal:
+    async def get_tx_cost(self) -> Decimal:
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
         # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
         base_without_wrapped = base[1:] if base.startswith("W") else base
@@ -198,7 +199,7 @@ class ArbitrageExecutor(ExecutorBase):
             order_amount=self.order_amount,
             asset=base_without_wrapped)
         self._last_tx_cost = buy_fee + sell_fee
-        return self._last_tx_cost / self.order_amount
+        return self._last_tx_cost
 
     async def get_buy_and_sell_prices(self):
         buy_price_task = asyncio.create_task(self.get_resulting_price_for_amount(
