@@ -20,7 +20,7 @@ class AMMDataFeedExample(ScriptStrategyBase):
         trading_pairs={"LINK-USDC", "AAVE-USDC", "WMATIC-USDT"},
         order_amount_in_base=Decimal("1"),
     )
-    markets = {"binance_paper_trade": {"BTC-USDT"}}
+    markets = {}
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
