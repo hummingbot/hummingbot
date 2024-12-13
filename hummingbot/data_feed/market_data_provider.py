@@ -13,7 +13,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.rate_oracle.utils import find_rate
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -39,6 +39,7 @@ class MarketDataProvider:
         self._rate_sources = {}
         self._rates_required = {}
         self.gateway_client = GatewayHttpClient.get_instance()
+        self.rate_oracle = RateOracle.get_instance()
         self.conn_settings = AllConnectorSettings.get_connector_settings()
 
     def stop(self):
@@ -88,23 +89,25 @@ class MarketDataProvider:
                 if connector == "gateway":
                     tasks = []
                     for connector_pair in connector_pairs:
+                        connector, chain, network = connector_pair.connector_name.split("_")
                         base, quote = connector_pair.trading_pair.split("-")
                         tasks.append(
                             self.gateway_client.get_price(
-                                chain="ethereum", network="mainnet", connector="uniswap",
+                                chain=chain, network=network, connector=connector,
                                 base_asset=base, quote_asset=quote, amount=Decimal("1"),
                                 side=TradeType.BUY))
                     try:
                         results = await asyncio.gather(*tasks)
                         for connector_pair, rate in zip(connector_pairs, results):
-                            self._rates[connector_pair.trading_pair] = rate
+                            self.rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
                     except Exception as e:
                         self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                 else:
                     connector = self._rate_sources[connector]
                     prices = await self._safe_get_last_traded_prices(connector,
                                                                      [pair.trading_pair for pair in connector_pairs])
-                    self._rates.update(prices)
+                    for pair, rate in prices.items():
+                        self.rate_oracle.set_price(pair, rate)
             await asyncio.sleep(self._rates_update_interval)
 
     def initialize_candles_feed(self, config: CandlesConfig):
@@ -347,13 +350,13 @@ class MarketDataProvider:
         :param pair: A trading pair, e.g. BTC-USDT
         :return A conversion rate
         """
-        return find_rate(self._rates, pair)
+        return self.rate_oracle.get_pair_rate(pair)
 
     async def _safe_get_last_traded_prices(self, connector, trading_pairs, timeout=5):
         try:
             last_traded = await asyncio.wait_for(connector.get_last_traded_prices(trading_pairs=trading_pairs),
                                                  timeout=timeout)
-            return last_traded
+            return {pair: Decimal(rate) for pair, rate in last_traded.items()}
         except asyncio.TimeoutError:
             logging.error(f"Timeout getting last traded prices for trading pairs {trading_pairs}")
             return {pair: Decimal("0") for pair in trading_pairs}
