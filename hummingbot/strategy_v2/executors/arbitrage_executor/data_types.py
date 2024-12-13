@@ -5,7 +5,7 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair, ExecutorC
 
 
 class ArbitrageExecutorConfig(ExecutorConfigBase):
-    type = "arbitrage_executor"
+    type: str = "arbitrage_executor"
     buying_market: ConnectorPair
     selling_market: ConnectorPair
     order_amount: Decimal
