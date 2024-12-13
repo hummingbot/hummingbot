@@ -1,11 +1,13 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
@@ -90,3 +92,61 @@ class GatewaySolanaAMM(GatewayEVMAMM):
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
+
+    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
+        """
+        Calls REST API to get status update for each in-flight amm orders.
+        """
+        if len(tracked_orders) < 1:
+            return
+
+        # split canceled and non-canceled orders
+        tx_hash_list: List[str] = await safe_gather(
+            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
+        )
+        self.logger().debug(
+            "Polling for order status updates of %d orders.",
+            len(tracked_orders)
+        )
+        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            self._get_gateway_instance().get_transaction_status(
+                self.chain,
+                self.network,
+                tx_hash
+            )
+            for tx_hash in tx_hash_list
+        ], return_exceptions=True)
+        for tracked_order, tx_details in zip(tracked_orders, update_results):
+            if isinstance(tx_details, Exception):
+                self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
+                continue
+            if "txHash" not in tx_details:
+                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
+                                    f"{tx_details}.")
+                continue
+            tx_status: int = tx_details["txStatus"]
+            tx_receipt: Optional[Dict[str, Any]] = tx_details["txData"]
+            if tx_status == 1 and (tx_receipt is not None):
+                fee: Decimal = tx_receipt["meta"]["fee"] / 1000000000
+
+                super().processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
+
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=OrderState.FILLED,
+                )
+                self._order_tracker.process_order_update(order_update)
+            elif tx_status in [0, 2, 3]:
+                # 0: in the mempool but we dont have data to guess its status
+                # 2: in the mempool and likely to succeed
+                # 3: in the mempool and likely to fail
+                pass
+
+            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
+                self.logger().network(
+                    f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
+                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
+                )
+                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
