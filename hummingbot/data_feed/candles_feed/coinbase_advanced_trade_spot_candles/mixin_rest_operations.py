@@ -56,8 +56,11 @@ class MixinRestOperations:
         while True:
             try:
                 start_time: int = self._get_last_candle_timestamp()
-                end_time: int = int(datetime.now().timestamp())
+                # Last candle is most often incomplete, so we fetch until the second last candle
+                end_time: int = int(datetime.now().timestamp() - self.interval_in_seconds)
                 candles = await self._fetch_candles(end_time=end_time, start_time=start_time)
+                self.logger().debug(f"Received {len(candles)} candles from {start_time} to {end_time}")
+                self.logger().debug(f"{candles}")
                 await self._update_deque_set_historical(candles)
                 await self._sleep(self.get_seconds_from_interval(self.interval))
 
@@ -170,7 +173,7 @@ class MixinRestOperations:
             # We can only know the offset after the first batch and at least 2 candles
             if len(batch_candles) > 1:
                 candles_offset: int = batch_candles[-1].timestamp % self.interval_in_seconds
-            self.logger().debug(f"Received {len(batch_candles)} candles from {current_start} to {current_end}")
+            self.logger().debug(f"Received {len(batch_candles)} candles from {current_start} to {current_end} with offset {candles_offset}")
 
             # Sanitize the candles: extracts longest valid sequence
             sanitized_batch: tuple[CandleData, ...] = sanitize_data(
