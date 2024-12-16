@@ -122,6 +122,23 @@ class DexalotClientTests(TestCase):
 
     @patch(
         "hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
+    def test_cancel_add_order(self, send_tx_sync_mode_mock):
+        send_tx_sync_mode_mock.return_value = self._order_cancelation_request_successful_mock_response
+        order = GatewayInFlightOrder(
+            client_order_id="0xbdd7b2516b6da27e0f6ad078d4542154",  # noqa: mock
+            exchange_order_id="0x000000000000000000000000000000000000000000000000000000006c04243c",  # noqa: mock
+            trading_pair="AVAX-USDC",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=123123123,
+            amount=Decimal("10"),
+            price=Decimal("100"),
+        )
+        result = self.async_run_with_timeout(self._tx_client.cancel_and_add_order_list([order], []))
+        self.assertEqual("79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659", result)  # noqa: mock
+
+    @patch(
+        "hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
     def test_place_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self.order_creation_request_successful_mock_response
         order = GatewayInFlightOrder(
@@ -133,5 +150,5 @@ class DexalotClientTests(TestCase):
             amount=Decimal("10"),
             price=Decimal("100"),
         )
-        result = self.async_run_with_timeout(self._tx_client.add_order_list([order]))
+        result = self.async_run_with_timeout(self._tx_client.cancel_and_add_order_list([], [order]))
         self.assertEqual("79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659", result)  # noqa: mock
