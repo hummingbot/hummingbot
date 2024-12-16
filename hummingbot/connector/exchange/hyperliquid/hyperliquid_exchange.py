@@ -76,7 +76,7 @@ class HyperliquidExchange(ExchangePyBase):
     @property
     def authenticator(self) -> HyperliquidAuth:
         return HyperliquidAuth(self.hyperliquid_api_key, self.hyperliquid_secret_key,
-                               self._use_vault)
+                               self._use_vault, self._trading_required)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
