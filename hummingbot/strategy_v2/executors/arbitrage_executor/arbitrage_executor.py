@@ -108,7 +108,10 @@ class ArbitrageExecutor(ExecutorBase):
 
     def get_net_pnl_pct(self) -> Decimal:
         if self.is_closed:
-            return self.net_pnl_quote / self.buy_order.order.executed_amount_base
+            if self.buy_order.order and self.buy_order.order.executed_amount_base > 0:
+                return self.net_pnl_quote / self.buy_order.order.executed_amount_base
+            else:
+                return Decimal("0")
         else:
             return Decimal("0")
 
