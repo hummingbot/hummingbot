@@ -102,7 +102,7 @@ class PositionExecutor(ExecutorBase):
                             fees += flat_fee.amount
             exchange = self.connectors[self.config.connector_name]
             rounded_amount = exchange.quantize_order_amount(trading_pair=self.config.trading_pair,
-                                                            amount=self._open_order.executed_amount_base-fees)
+                                                            amount=self._open_order.executed_amount_base - fees)
             return rounded_amount
         return Decimal("0")
 
