@@ -92,6 +92,8 @@ class SimpleDirectionalRSI(StrategyV2Base):
             ))
         super().__init__(connectors, config)
         self.config = config
+        self.current_rsi = None
+        self.current_signal = None
 
     def start(self, clock: Clock, timestamp: float) -> None:
         """
@@ -165,9 +167,11 @@ class SimpleDirectionalRSI(StrategyV2Base):
                                                            self.config.candles_length + 10)
         candles.ta.rsi(length=self.config.candles_length, append=True)
         candles["signal"] = 0
+        self.current_rsi = candles.iloc[-1][f"RSI_{self.config.candles_length}"]
         candles.loc[candles[f"RSI_{self.config.candles_length}"] < self.config.rsi_low, "signal"] = 1
         candles.loc[candles[f"RSI_{self.config.candles_length}"] > self.config.rsi_high, "signal"] = -1
-        return candles.iloc[-1]["signal"] if not candles.empty else None
+        self.current_signal = candles.iloc[-1]["signal"] if not candles.empty else None
+        return self.current_signal
 
     def apply_initial_setting(self):
         if not self.account_config_set:
@@ -177,3 +181,42 @@ class SimpleDirectionalRSI(StrategyV2Base):
                     for trading_pair in self.market_data_provider.get_trading_pairs(connector_name):
                         connector.set_leverage(trading_pair, self.config.leverage)
             self.account_config_set = True
+
+    def format_status(self) -> str:
+        if not self.ready_to_trade:
+            return "Market connectors are not ready."
+        lines = []
+
+        balance_df = self.get_balance_df()
+        lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
+
+        # Create RSI progress bar
+        if self.current_rsi is not None:
+            bar_length = 50
+            rsi_position = int((self.current_rsi / 100) * bar_length)
+            progress_bar = ["─"] * bar_length
+
+            # Add threshold markers
+            low_threshold_pos = int((self.config.rsi_low / 100) * bar_length)
+            high_threshold_pos = int((self.config.rsi_high / 100) * bar_length)
+            progress_bar[low_threshold_pos] = "L"
+            progress_bar[high_threshold_pos] = "H"
+
+            # Add current position marker
+            if 0 <= rsi_position < bar_length:
+                progress_bar[rsi_position] = "●"
+
+            progress_bar = "".join(progress_bar)
+            lines.extend([
+                "",
+                f"  RSI: {self.current_rsi:.2f}  (Long ≤ {self.config.rsi_low}, Short ≥ {self.config.rsi_high})",
+                f"  0 {progress_bar} 100",
+            ])
+
+        try:
+            orders_df = self.active_orders_df()
+            lines.extend(["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")])
+        except ValueError:
+            lines.extend(["", "  No active maker orders."])
+
+        return "\n".join(lines)
