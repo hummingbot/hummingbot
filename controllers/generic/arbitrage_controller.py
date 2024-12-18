@@ -35,6 +35,9 @@ class ArbitrageController(ControllerBase):
         "ethereum": "ETH",
         "solana": "SOL",
         "binance-smart-chain": "BNB",
+        "polygon": "POL",
+        "avalanche": "AVAX",
+        "dexalot": "AVAX"
     }
 
     def __init__(self, config: ArbitrageControllerConfig, *args, **kwargs):
