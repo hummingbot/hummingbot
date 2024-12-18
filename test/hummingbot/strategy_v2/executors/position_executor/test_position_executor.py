@@ -556,7 +556,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
 
     @patch.object(PositionExecutor, 'get_trading_rules')
     @patch.object(PositionExecutor, 'adjust_order_candidates')
-    def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+    async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
         trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
                                     min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
@@ -573,13 +573,13 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
-        executor.validate_sufficient_balance()
+        await executor.validate_sufficient_balance()
         self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
 
         # Test for insufficient balance
         order_candidate.amount = Decimal("0")
         mock_adjust_order_candidates.return_value = [order_candidate]
-        executor.validate_sufficient_balance()
+        await executor.validate_sufficient_balance()
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
