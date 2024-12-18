@@ -30,7 +30,7 @@ class ArbitrageExecutor(ExecutorBase):
             {"WETH", "ETH"},
             {"WBTC", "BTC"},
             {"WBNB", "BNB"},
-            {"WMATIC", "MATIC"},
+            {"WPOL", "POL"},
             {"WAVAX", "AVAX"},
             {"WONE", "ONE"},
         ]
