@@ -54,16 +54,21 @@ class ArbitrageController(ControllerBase):
         rates_required = []
         for connector_pair in [self.config.exchange_pair_1, self.config.exchange_pair_2]:
             base, quote = connector_pair.trading_pair.split("-")
+            # Add rate source for gas token
             if connector_pair.is_amm_connector():
                 gas_token = self.get_gas_token(connector_pair.connector_name)
                 if gas_token != quote:
                     rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
                                                         trading_pair=f"{gas_token}-{quote}"))
-                rates_required.append(ConnectorPair(connector_name=connector_pair.connector_name,
-                                                    trading_pair=connector_pair.trading_pair))
+
+            # Add rate source for quote conversion asset
             if quote != self.config.quote_conversion_asset:
                 rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
                                                     trading_pair=f"{quote}-{self.config.quote_conversion_asset}"))
+
+            # Add rate source for trading pairs
+            rates_required.append(ConnectorPair(connector_name=connector_pair.connector_name,
+                                                trading_pair=connector_pair.trading_pair))
         if len(rates_required) > 0:
             self.market_data_provider.initialize_rate_sources(rates_required)
 
