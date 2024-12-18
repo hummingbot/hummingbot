@@ -55,6 +55,8 @@ class ExecutorOrchestrator:
             controller_id = executor.controller_id
             if controller_id not in self.cached_performance:
                 self.cached_performance[controller_id] = PerformanceReport()
+                self.active_executors[controller_id] = []
+                self.archived_executors[controller_id] = []
             self._update_cached_performance(controller_id, executor)
 
     def _update_cached_performance(self, controller_id: str, executor_info: ExecutorInfo):
@@ -87,7 +89,7 @@ class ExecutorOrchestrator:
         Execute the action and handle executors based on action type.
         """
         controller_id = action.controller_id
-        if controller_id not in self.active_executors:
+        if controller_id not in self.cached_performance:
             self.active_executors[controller_id] = []
             self.archived_executors[controller_id] = []
             self.cached_performance[controller_id] = PerformanceReport()
@@ -186,18 +188,22 @@ class ExecutorOrchestrator:
         active_executors = self.active_executors.get(controller_id, [])
         for executor in active_executors:
             executor_info = executor.executor_info
+            side = executor_info.custom_info.get("side", None)
             if executor_info.is_active:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
+                if side:
+                    report.inventory_imbalance += executor_info.filled_amount_quote \
+                        if side == TradeType.BUY else -executor_info.filled_amount_quote
+                if executor_info.type == "dca_executor":
+                    report.open_order_volume += sum(
+                        executor_info.config.amounts_quote) - executor_info.filled_amount_quote
+                elif executor_info.type == "position_executor":
+                    report.open_order_volume += (executor_info.config.amount *
+                                                 executor_info.config.entry_price) - executor_info.filled_amount_quote
+
             else:
                 report.realized_pnl_quote += executor_info.net_pnl_quote
             report.volume_traded += executor_info.filled_amount_quote
-            side = executor_info.custom_info.get("side", None)
-            if side:
-                report.inventory_imbalance += executor_info.filled_amount_quote if side == TradeType.BUY else -executor_info.filled_amount_quote
-            if executor_info.type == "dca_executor":
-                report.open_order_volume += sum(executor_info.config.amounts_quote) - executor_info.filled_amount_quote
-            elif executor_info.type == "position_executor":
-                report.open_order_volume += (executor_info.config.amount * executor_info.config.entry_price) - executor_info.filled_amount_quote
 
         # Calculate global PNL values
         report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote

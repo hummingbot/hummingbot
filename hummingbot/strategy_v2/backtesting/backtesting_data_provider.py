@@ -9,6 +9,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_con
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import PriceType
+from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig, HistoricalCandlesConfig
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
@@ -22,7 +23,8 @@ class BacktestingDataProvider(MarketDataProvider):
     CONNECTOR_TYPES = [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.Exchange,
                        ConnectorType.Derivative]
     EXCLUDED_CONNECTORS = ["vega_perpetual", "hyperliquid_perpetual", "dydx_perpetual", "cube",
-                           "polkadex", "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc"]
+                           "polkadex", "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc",
+                           "hyperliquid"]
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
@@ -100,11 +102,12 @@ class BacktestingDataProvider(MarketDataProvider):
                 return existing_feed
         # Create a new feed or restart the existing one with updated max_records
         candle_feed = CandlesFactory.get_candle(config)
+        candles_buffer = config.max_records * CandlesBase.interval_to_seconds[config.interval]
         candles_df = await candle_feed.get_historical_candles(config=HistoricalCandlesConfig(
             connector_name=config.connector,
             trading_pair=config.trading_pair,
             interval=config.interval,
-            start_time=self.start_time,
+            start_time=self.start_time - candles_buffer,
             end_time=self.end_time,
         ))
         self.candles_feeds[key] = candles_df

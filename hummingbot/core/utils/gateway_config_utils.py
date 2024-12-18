@@ -21,7 +21,8 @@ native_tokens = {
     "xrpl": "XRP",
     "kujira": "KUJI",
     "telos": "TLOS",
-    "ethereum-classic": "ETC"
+    "ethereum-classic": "ETC",
+    "solana": "SOL"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
