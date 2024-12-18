@@ -7,6 +7,7 @@ from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
@@ -70,6 +71,11 @@ class GridStrike(ControllerBase):
         self._last_grid_levels_update = 0
         self.trading_rules = None
         self.grid_levels = []
+        self.initialize_rate_sources()
+
+    def initialize_rate_sources(self):
+        self.market_data_provider.initialize_rate_sources([ConnectorPair(connector_name=self.config.connector_name,
+                                                                         trading_pair=self.config.trading_pair)])
 
     def active_executors(self) -> List[ExecutorInfo]:
         return [
