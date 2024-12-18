@@ -700,21 +700,21 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "code": 1000,
             "trace": "a06a5c53-8e6f-42d6-8082-2ff4718d221c",
             "data": [
-                    {
-                        "tradeId": self.expected_fill_trade_id,
-                        "orderId": exchange_order_id,
-                        "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                        "createTime": 1590462303000,
-                        "side": order.trade_type.name.lower(),
-                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "feeCoinName": self.expected_fill_fee.flat_fees[0].token,
-                        "notional": str(order.amount * order.price),
-                        "price": str(order.price),
-                        "size": str(order.amount),
-                        "exec_type": "M",
-                        "clientOrderId": order.client_order_id
-                    },
-                    ]
+                {
+                    "tradeId": self.expected_fill_trade_id,
+                    "orderId": exchange_order_id,
+                    "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "createTime": 1590462303000,
+                    "side": order.trade_type.name.lower(),
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "feeCoinName": self.expected_fill_fee.flat_fees[0].token,
+                    "notional": str(order.amount * order.price),
+                    "price": str(order.price),
+                    "size": str(order.amount),
+                    "exec_type": "M",
+                    "clientOrderId": order.client_order_id
+                },
+            ]
         }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
@@ -773,21 +773,21 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "code": 1000,
             "trace": "a06a5c53-8e6f-42d6-8082-2ff4718d221c",
             "data": [
-                    {
-                        "tradeId": self.expected_fill_trade_id,
-                        "orderId": exchange_order_id,
-                        "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                        "createTime": 1590462303000,
-                        "side": order.trade_type.name.lower(),
-                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "feeCoinName": self.expected_fill_fee.flat_fees[0].token,
-                        "notional": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
-                        "price": str(self.expected_partial_fill_price),
-                        "size": str(self.expected_partial_fill_amount),
-                        "exec_type": "M",
-                        "clientOrderId": order.client_order_id
-                    },
-                ]
+                {
+                    "tradeId": self.expected_fill_trade_id,
+                    "orderId": exchange_order_id,
+                    "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "createTime": 1590462303000,
+                    "side": order.trade_type.name.lower(),
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "feeCoinName": self.expected_fill_fee.flat_fees[0].token,
+                    "notional": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
+                    "price": str(self.expected_partial_fill_price),
+                    "size": str(self.expected_partial_fill_amount),
+                    "exec_type": "M",
+                    "clientOrderId": order.client_order_id
+                },
+            ]
         }
 
     @aioresponses()
@@ -823,4 +823,3 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertFalse(order.is_done)
 
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
-        
