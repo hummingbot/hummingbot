@@ -6,6 +6,7 @@ from typing import Dict, Union
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
@@ -62,6 +63,15 @@ class ArbitrageExecutor(ExecutorBase):
         self._last_sell_price = Decimal("1")
         self._trade_pnl_pct = Decimal("0")
         self._last_tx_cost = Decimal("1")
+        self._current_profitability = Decimal("0")
+
+        # Quote asset conversion rate
+        _, buy_quote_asset = split_hb_trading_pair(self.buying_market.trading_pair)
+        _, sell_quote_asset = split_hb_trading_pair(self.selling_market.trading_pair)
+
+        # Define the conversion trading pair (e.g., SOL/USDT or USDT/SOL)
+        self.quote_conversion_pair = f"{sell_quote_asset}-{buy_quote_asset}"
+        self.rate_oracle = RateOracle.get_instance()
         self._cumulative_failures = 0
 
     async def validate_sufficient_balance(self):
@@ -95,8 +105,7 @@ class ArbitrageExecutor(ExecutorBase):
     def is_arbitrage_valid(self, pair1, pair2):
         base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
         base_asset2, quote_asset2 = split_hb_trading_pair(pair2)
-        return self._are_tokens_interchangeable(base_asset1, base_asset2) and \
-            self._are_tokens_interchangeable(quote_asset1, quote_asset2)
+        return self._are_tokens_interchangeable(base_asset1, base_asset2)
 
     def get_net_pnl_quote(self) -> Decimal:
         if self.close_type == CloseType.COMPLETED:
@@ -142,8 +151,8 @@ class ArbitrageExecutor(ExecutorBase):
             try:
                 await self.update_trade_pnl_pct()
                 await self.update_tx_cost()
-                profitability = (self._trade_pnl_pct * self.order_amount - self._last_tx_cost) / self.order_amount
-                if profitability > self.min_profitability:
+                self._current_profitability = (self._trade_pnl_pct * self.order_amount - self._last_tx_cost) / self.order_amount
+                if self._current_profitability > self.min_profitability:
                     await self.execute_arbitrage()
             except Exception as e:
                 self.logger().error(f"Error calculating profitability: {e}")
@@ -189,7 +198,7 @@ class ArbitrageExecutor(ExecutorBase):
             price=self._last_sell_price,
         )
 
-    async def update_tx_cost(self) -> Decimal:
+    async def update_tx_cost(self):
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
         # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
         base_without_wrapped = base[1:] if base.startswith("W") else base
@@ -225,9 +234,31 @@ class ArbitrageExecutor(ExecutorBase):
 
     async def update_trade_pnl_pct(self):
         self._last_buy_price, self._last_sell_price = await self.get_buy_and_sell_prices()
+
         if not self._last_buy_price or not self._last_sell_price:
             raise Exception("Could not get buy and sell prices")
-        self._trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
+
+        # Fetch the conversion rate between quote assets
+        conversion_rate = await self.get_quote_asset_conversion_rate()
+
+        # Normalize the sell price to the same quote asset as the buy price
+        normalized_sell_price = self._last_sell_price * conversion_rate
+
+        # Calculate the profitability (PnL percentage)
+        self._trade_pnl_pct = (normalized_sell_price - self._last_buy_price) / self._last_buy_price
+
+    async def get_quote_asset_conversion_rate(self) -> Decimal:
+        """
+        Fetch the conversion rate between the quote assets of the buying and selling markets.
+        Example: For M3M3/USDT and M3M3/SOL, fetch the SOL/USDT rate.
+        """
+        # Fetch the conversion rate from the connector
+        try:
+            conversion_rate = self.rate_oracle.get_pair_rate(self.quote_conversion_pair)
+            return conversion_rate
+        except Exception as e:
+            self.logger().error(f"Error fetching conversion rate for {self.quote_conversion_pair}: {e}")
+            raise
 
     async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal, asset: str):
         connector = self.connectors[exchange]
@@ -275,10 +306,11 @@ class ArbitrageExecutor(ExecutorBase):
             "sell_connector": self.selling_market.connector_name,
             "buy_trading_pair": self.buying_market.trading_pair,
             "sell_trading_pair": self.selling_market.trading_pair,
-            "last_sell_price": self._last_sell_price,
             "last_buy_price": self._last_buy_price,
+            "last_sell_price": self._last_sell_price,
             "trade_pnl_pct": self._trade_pnl_pct,
-            "last_tx_cost": self._last_tx_cost,
+            "last_tx_cost_pct": self._last_tx_cost / self.order_amount,
+            "current_profitability": self._current_profitability,
             "cumulative_failures": self._cumulative_failures
         }
 
