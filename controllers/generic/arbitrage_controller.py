@@ -22,6 +22,7 @@ class ArbitrageControllerConfig(ControllerConfigBase):
     delay_between_executors: int = 10  # in seconds
     max_executors_imbalance: int = 1
     rate_connector: str = "binance"
+    quote_conversion_asset: str = "USDT"
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         markets = {self.exchange_pair_1.connector_name: {self.exchange_pair_1.trading_pair},
@@ -44,15 +45,22 @@ class ArbitrageController(ControllerBase):
         self._last_sell_closed_timestamp = 0
         self._len_active_buy_arbitrages = 0
         self._len_active_sell_arbitrages = 0
+        self.initialize_rate_sources()
+
+    def initialize_rate_sources(self):
         rates_required = []
-        for connector_pair in [config.exchange_pair_1, config.exchange_pair_2]:
+        for connector_pair in [self.config.exchange_pair_1, self.config.exchange_pair_2]:
+            base, quote = connector_pair.trading_pair.split("-")
             if connector_pair.is_amm_connector():
                 gas_token = self.get_gas_token(connector_pair.connector_name)
-                base, quote = connector_pair.trading_pair.split("-")
-                rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
-                                                    trading_pair=f"{gas_token}-{quote}"))
+                if gas_token != quote:
+                    rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
+                                                        trading_pair=f"{gas_token}-{quote}"))
                 rates_required.append(ConnectorPair(connector_name=connector_pair.connector_name,
                                                     trading_pair=connector_pair.trading_pair))
+            if quote != self.config.quote_conversion_asset:
+                rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
+                                                    trading_pair=f"{quote}-{self.config.quote_conversion_asset}"))
         if len(rates_required) > 0:
             self.market_data_provider.initialize_rate_sources(rates_required)
 
@@ -67,7 +75,7 @@ class ArbitrageController(ControllerBase):
         self.update_arbitrage_stats()
         executor_actions = []
         current_time = self.market_data_provider.time()
-        if (self._imbalance >= self.config.max_executors_imbalance or
+        if (abs(self._imbalance) >= self.config.max_executors_imbalance or
                 self._last_buy_closed_timestamp + self.config.delay_between_executors > current_time or
                 self._last_sell_closed_timestamp + self.config.delay_between_executors > current_time):
             return executor_actions
