@@ -138,13 +138,8 @@ class GatewaySolanaAMM(GatewayEVMAMM):
                     new_state=OrderState.FILLED,
                 )
                 self._order_tracker.process_order_update(order_update)
-            elif tx_status in [0, 2, 3]:
-                # 0: in the mempool but we dont have data to guess its status
-                # 2: in the mempool and likely to succeed
-                # 3: in the mempool and likely to fail
-                pass
 
-            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
+            elif tx_status == -1:
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
