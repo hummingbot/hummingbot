@@ -92,7 +92,16 @@ class PositionExecutor(ExecutorBase):
 
         :return: The filled amount of the open order if it exists, otherwise 0.
         """
-        return self._open_order.executed_amount_base if self._open_order else Decimal("0")
+        if self._open_order:
+            if self._open_order.fee_asset == self.config.trading_pair.split("-")[0]:
+                open_filled_amount = self._open_order.executed_amount_base - self._open_order.cum_fees_base
+            else:
+                open_filled_amount = self._open_order.executed_amount_base
+            return self.connectors[self.config.connector_name].quantize_order_amount(
+                trading_pair=self.config.trading_pair,
+                amount=open_filled_amount)
+        else:
+            return Decimal("0")
 
     @property
     def amount_to_close(self) -> Decimal:
