@@ -12,12 +12,12 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class AMMDataFeedExample(ScriptStrategyBase):
     amm_data_feed_uniswap = AmmGatewayDataFeed(
         connector_chain_network="uniswap_polygon_mainnet",
-        trading_pairs={"LINK-USDC", "AAVE-USDC", "WMATIC-USDT"},
+        trading_pairs={"LINK-USDC", "AAVE-USDC", "WPOL-USDT"},
         order_amount_in_base=Decimal("1"),
     )
     amm_data_feed_quickswap = AmmGatewayDataFeed(
         connector_chain_network="quickswap_polygon_mainnet",
-        trading_pairs={"LINK-USDC", "AAVE-USDC", "WMATIC-USDT"},
+        trading_pairs={"LINK-USDC", "AAVE-USDC", "WPOL-USDT"},
         order_amount_in_base=Decimal("1"),
     )
     markets = {}
