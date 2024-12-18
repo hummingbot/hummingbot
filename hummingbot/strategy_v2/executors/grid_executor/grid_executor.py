@@ -728,7 +728,8 @@ class GridExecutor(ExecutorBase):
         """
         open_filled_levels = self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
         side_multiplier = 1 if self.config.side == TradeType.BUY else -1
-        if len(open_filled_levels) == 0:
+        executed_amount_base = Decimal(sum([level.active_open_order.executed_amount_base for level in open_filled_levels]))
+        if executed_amount_base == Decimal("0"):
             self.position_size_base = Decimal("0")
             self.position_size_quote = Decimal("0")
             self.position_fees_quote = Decimal("0")
@@ -738,10 +739,10 @@ class GridExecutor(ExecutorBase):
         else:
             self.position_break_even_price = sum(
                 [level.active_open_order.average_executed_price * level.active_open_order.executed_amount_base for level in
-                 open_filled_levels]) / sum([level.active_open_order.executed_amount_base for level in open_filled_levels])
+                 open_filled_levels]) / executed_amount_base
             close_order_size_quote = self._close_order.executed_amount_quote if self._close_order else Decimal("0")
             close_order_size_base = self._close_order.executed_amount_base if self._close_order else Decimal("0")
-            self.position_size_base = sum([level.active_open_order.executed_amount_base for level in open_filled_levels]) - close_order_size_base
+            self.position_size_base = executed_amount_base - close_order_size_base
             self.position_size_quote = sum([level.active_open_order.executed_amount_quote for level in open_filled_levels]) - close_order_size_quote
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
             self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
