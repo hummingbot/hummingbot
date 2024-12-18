@@ -137,6 +137,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_config = self.get_position_config_market_short()
         position_executor = self.get_position_executor_running_from_config(position_config)
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890 + 61)
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = Decimal("0")
         position_executor._open_order = TrackedOrder(order_id="OID-SELL-1")
         position_executor._open_order.order = InFlightOrder(
             client_order_id="OID-SELL-1",
@@ -203,6 +204,8 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                 fill_timestamp=10,
             )
         )
+
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
         await position_executor.control_task()
         self.assertEqual(position_executor._take_profit_limit_order.order_id, "OID-BUY-1")
         self.assertEqual(position_executor.trade_pnl_pct, Decimal("-0.01"))
@@ -243,6 +246,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                 fill_timestamp=10,
             )
         )
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
         await position_executor.control_task()
         self.assertEqual(position_executor._close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
@@ -284,6 +288,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                 fill_timestamp=10,
             )
         )
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
         await position_executor.control_task()
         self.assertEqual(position_executor._close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
@@ -325,6 +330,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                 fill_timestamp=10,
             )
         )
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
 
         await position_executor.control_task()
         self.assertEqual(position_executor._close_order.order_id, "OID-SELL-2")
@@ -376,6 +382,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                 timestamp=1640001112.223,
                 order_type=OrderType.MARKET)
         )
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
         await position_executor.control_task()
         self.assertEqual(position_executor._close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
@@ -515,6 +522,8 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                 fill_timestamp=10,
             )
         )
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
+
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL (%): 0.80%", status[0])
@@ -550,6 +559,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             )
         )
         type(position_executor).close_price = PropertyMock(return_value=Decimal(101))
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL (%): 0.80%", status[0])
