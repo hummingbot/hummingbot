@@ -864,7 +864,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_grid_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.on_start()
-        self.assertEqual(executor._status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor._status, RunnableStatus.SHUTTING_DOWN)
         self.assertEqual(executor.close_type, CloseType.TIME_LIMIT)
 
     @patch.object(GridExecutor, "get_price")
@@ -898,7 +898,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_grid_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.on_start()
-        self.assertEqual(executor._status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor._status, RunnableStatus.SHUTTING_DOWN)
         self.assertEqual(executor.close_type, CloseType.STOP_LOSS)
 
     @patch.object(GridExecutor, "get_price")
@@ -932,7 +932,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_grid_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
         await executor.on_start()
-        self.assertEqual(executor._status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor._status, RunnableStatus.SHUTTING_DOWN)
         self.assertEqual(executor.close_type, CloseType.TAKE_PROFIT)
 
     @patch.object(GridExecutor, "get_price")
