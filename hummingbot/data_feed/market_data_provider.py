@@ -39,7 +39,6 @@ class MarketDataProvider:
         self._rate_sources = {}
         self._rates_required = {}
         self.gateway_client = GatewayHttpClient.get_instance()
-        self.rate_oracle = RateOracle.get_instance()
         self.conn_settings = AllConnectorSettings.get_connector_settings()
 
     def stop(self):
@@ -99,7 +98,7 @@ class MarketDataProvider:
                     try:
                         results = await asyncio.gather(*tasks)
                         for connector_pair, rate in zip(connector_pairs, results):
-                            self.rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
+                            RateOracle.get_instance().set_price(connector_pair.trading_pair, Decimal(rate["price"]))
                     except Exception as e:
                         self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                 else:
@@ -107,7 +106,7 @@ class MarketDataProvider:
                     prices = await self._safe_get_last_traded_prices(connector,
                                                                      [pair.trading_pair for pair in connector_pairs])
                     for pair, rate in prices.items():
-                        self.rate_oracle.set_price(pair, rate)
+                        RateOracle.get_instance().set_price(pair, rate)
             await asyncio.sleep(self._rates_update_interval)
 
     def initialize_candles_feed(self, config: CandlesConfig):
@@ -350,7 +349,7 @@ class MarketDataProvider:
         :param pair: A trading pair, e.g. BTC-USDT
         :return A conversion rate
         """
-        return self.rate_oracle.get_pair_rate(pair)
+        return RateOracle.get_instance().get_pair_rate(pair)
 
     async def _safe_get_last_traded_prices(self, connector, trading_pairs, timeout=5):
         try:
