@@ -2,7 +2,7 @@ import re
 from typing import List, Match, Optional, Pattern
 
 # W{TOKEN} only applies to a few special tokens. It should NOT match all W-prefixed token names like WAVE or WOW.
-CAPITAL_W_SYMBOLS_PATTERN = re.compile(r"^W(BTC|ETH|AVAX|ALBT|XRP|MATIC)")
+CAPITAL_W_SYMBOLS_PATTERN = re.compile(r"^W(BTC|ETH|AVAX|ALBT|XRP|POL)")
 
 # w{TOKEN} generally means a wrapped token on the Ethereum network. e.g. wNXM, wDGLD.
 SMALL_W_SYMBOLS_PATTERN = re.compile(r"^w(\w+)")
