@@ -184,7 +184,7 @@ class TradeFeeBase(ABC):
     ) -> Decimal:
         from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
-        if exchange is not None and trading_pair in exchange.order_books:
+        if (exchange is not None and hasattr(exchange, "order_books") and exchange.order_books is not None and trading_pair in exchange.order_books):
             rate = exchange.get_price_by_type(trading_pair, PriceType.MidPrice)
         else:
             local_rate_source: Optional[RateOracle] = rate_source or RateOracle.get_instance()
@@ -223,7 +223,7 @@ class TradeFeeBase(ABC):
             else:
                 conversion_pair: str = combine_to_hb_trading_pair(base=flat_fee.token, quote=token)
                 conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)
-                fee_amount += (flat_fee.amount * conversion_rate)
+                fee_amount += (Decimal(str(flat_fee.amount)) * conversion_rate)
         return fee_amount
 
     def _are_tokens_interchangeable(self, first_token: str, second_token: str):

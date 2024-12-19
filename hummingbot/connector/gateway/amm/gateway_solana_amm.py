@@ -104,9 +104,11 @@ class GatewaySolanaAMM(GatewayEVMAMM):
         tx_hash_list: List[str] = await safe_gather(
             *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
         )
-        self.logger().debug(
-            "Polling for order status updates of %d orders.",
-            len(tracked_orders)
+        # tx_hash_list = [order.exchange_order_id for order in tracked_orders]
+        self.logger().info(
+            "Polling for order status updates of %d orders. Order details: %s",
+            len(tracked_orders),
+            [{"tx_hash": order.exchange_order_id, "client_order_id": order.client_order_id} for order in tracked_orders]
         )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             self._get_gateway_instance().get_transaction_status(
