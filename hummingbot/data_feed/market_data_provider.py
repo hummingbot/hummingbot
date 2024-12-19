@@ -84,6 +84,7 @@ class MarketDataProvider:
         Updates the rates for all rate sources.
         """
         while True:
+            rate_oracle = RateOracle.get_instance()
             for connector, connector_pairs in self._rates_required.items():
                 if connector == "gateway":
                     tasks = []
@@ -98,7 +99,7 @@ class MarketDataProvider:
                     try:
                         results = await asyncio.gather(*tasks)
                         for connector_pair, rate in zip(connector_pairs, results):
-                            RateOracle.get_instance().set_price(connector_pair.trading_pair, Decimal(rate["price"]))
+                            rate_oracle.set_price(connector_pair.trading_pair, Decimal(rate["price"]))
                     except Exception as e:
                         self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                 else:
@@ -106,7 +107,7 @@ class MarketDataProvider:
                     prices = await self._safe_get_last_traded_prices(connector,
                                                                      [pair.trading_pair for pair in connector_pairs])
                     for pair, rate in prices.items():
-                        RateOracle.get_instance().set_price(pair, rate)
+                        rate_oracle.set_price(pair, rate)
             await asyncio.sleep(self._rates_update_interval)
 
     def initialize_candles_feed(self, config: CandlesConfig):
