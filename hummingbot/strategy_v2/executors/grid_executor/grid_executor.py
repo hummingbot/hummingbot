@@ -271,7 +271,7 @@ class GridExecutor(ExecutorBase):
                 self._current_retries += 1
         else:
             self.cancel_open_orders()
-        await asyncio.sleep(5.0)
+        await self._sleep(5.0)
 
     async def control_close_order(self):
         """
@@ -808,3 +808,12 @@ class GridExecutor(ExecutorBase):
         :return: The net pnl percentage.
         """
         return self.get_net_pnl_quote() / self.filled_amount_quote if self.filled_amount_quote > 0 else Decimal("0")
+
+    async def _sleep(self, delay: float):
+        """
+        This method is responsible for sleeping the executor for a specific time.
+
+        :param delay: The time to sleep.
+        :return: None
+        """
+        await asyncio.sleep(delay)
