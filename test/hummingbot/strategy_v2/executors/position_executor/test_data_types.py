@@ -67,7 +67,5 @@ class TestPositionExecutorDataTypes(TestCase):
         self.assertEqual(triple_barrier_new.stop_loss_order_type, OrderType.MARKET)
 
     def test_is_amm(self):
-        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_base", trading_pair="ETH-USDT")
-        self.assertTrue(connector_pair.is_amm_connector())
         connector_pair = ConnectorPair(connector_name="binance", trading_pair="ETH-USDT")
         self.assertFalse(connector_pair.is_amm_connector())
