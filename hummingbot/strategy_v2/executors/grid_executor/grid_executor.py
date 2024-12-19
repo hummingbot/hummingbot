@@ -232,13 +232,14 @@ class GridExecutor(ExecutorBase):
         completed = self.levels_by_state[GridLevelStates.COMPLETE]
         # Get completed orders and store them in the filled orders list
         for level in completed:
-            open_order = level.active_open_order.order.to_json()
-            close_order = level.active_close_order.order.to_json()
-            self._filled_orders.append(open_order)
-            self._filled_orders.append(close_order)
-            self.levels_by_state[GridLevelStates.COMPLETE].remove(level)
-            level.reset_level()
-            self.levels_by_state[GridLevelStates.NOT_ACTIVE].append(level)
+            if level.active_open_order.order.completely_filled_event.is_set() and level.active_close_order.order.completely_filled_event.is_set():
+                open_order = level.active_open_order.order.to_json()
+                close_order = level.active_close_order.order.to_json()
+                self._filled_orders.append(open_order)
+                self._filled_orders.append(close_order)
+                self.levels_by_state[GridLevelStates.COMPLETE].remove(level)
+                level.reset_level()
+                self.levels_by_state[GridLevelStates.NOT_ACTIVE].append(level)
 
     async def control_shutdown_process(self):
         """
@@ -284,10 +285,6 @@ class GridExecutor(ExecutorBase):
                                                        self._close_order.order_id) if not self._close_order.order else self._close_order.order
             if in_flight_order:
                 self._close_order.order = in_flight_order
-                connector = self.connectors[self.config.connector_name]
-                await connector._update_orders_with_error_handler(
-                    orders=[in_flight_order],
-                    error_handler=connector._handle_update_error_for_lost_order)
                 self.logger().info("Waiting for close order to be filled")
             else:
                 self._failed_orders.append(self._close_order.order_id)
@@ -728,7 +725,7 @@ class GridExecutor(ExecutorBase):
         """
         open_filled_levels = self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
         side_multiplier = 1 if self.config.side == TradeType.BUY else -1
-        executed_amount_base = Decimal(sum([level.active_open_order.executed_amount_base for level in open_filled_levels]))
+        executed_amount_base = Decimal(sum([level.active_open_order.order.amount for level in open_filled_levels]))
         if executed_amount_base == Decimal("0"):
             self.position_size_base = Decimal("0")
             self.position_size_quote = Decimal("0")
@@ -738,10 +735,10 @@ class GridExecutor(ExecutorBase):
             self.close_liquidity_placed = Decimal("0")
         else:
             self.position_break_even_price = sum(
-                [level.active_open_order.average_executed_price * level.active_open_order.executed_amount_base for level in
+                [level.active_open_order.order.price * level.active_open_order.order.amount for level in
                  open_filled_levels]) / executed_amount_base
-            close_order_size_quote = self._close_order.executed_amount_quote if self._close_order else Decimal("0")
-            close_order_size_base = self._close_order.executed_amount_base if self._close_order else Decimal("0")
+            close_order_size_quote = self._close_order.executed_amount_quote if self._close_order and self._close_order.is_done else Decimal("0")
+            close_order_size_base = self._close_order.executed_amount_base if self._close_order and self._close_order.is_done else Decimal("0")
             self.position_size_base = executed_amount_base - close_order_size_base
             self.position_size_quote = sum([level.active_open_order.executed_amount_quote for level in open_filled_levels]) - close_order_size_quote
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
