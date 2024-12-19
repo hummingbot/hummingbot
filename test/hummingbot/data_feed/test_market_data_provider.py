@@ -10,6 +10,7 @@ from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResu
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy.strategy_v2_base import MarketDataProvider
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 
 class TestMarketDataProvider(unittest.TestCase):
@@ -24,6 +25,18 @@ class TestMarketDataProvider(unittest.TestCase):
             config = CandlesConfig(connector="mock_connector", trading_pair="BTC-USDT", interval="1m", max_records=100)
             self.provider.initialize_candles_feed(config)
             self.assertTrue("mock_connector_BTC-USDT_1m" in self.provider.candles_feeds)
+
+    def test_initialize_candles_feed_list(self):
+        with patch('hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle', return_value=MagicMock()):
+            config = [CandlesConfig(connector="mock_connector", trading_pair="BTC-USDT", interval="1m", max_records=100)]
+            self.provider.initialize_candles_feed_list(config)
+            self.assertTrue("mock_connector_BTC-USDT_1m" in self.provider.candles_feeds)
+
+    def test_get_non_trading_connector(self):
+        connector = self.provider.get_non_trading_connector("binance")
+        self.assertEqual(connector._trading_required, False)
+        with self.assertRaises(ValueError):
+            self.provider.get_non_trading_connector("binance_invalid")
 
     def test_stop(self):
         mock_candles_feed = MagicMock()
@@ -135,3 +148,16 @@ class TestMarketDataProvider(unittest.TestCase):
         self.mock_connector.quantize_order_amount.return_value = 100
         result = self.provider.quantize_order_amount("mock_connector", "BTC-USDT", Decimal(100.0001))
         self.assertEqual(result, 100)
+
+    def test_get_rate(self):
+        with patch("hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance") as mock_get_instance:
+            mock_get_instance.return_value.get_pair_rate.return_value = 100
+            result = self.provider.get_rate("BTC-USDT")
+            self.assertEqual(result, 100)
+
+    @patch.object(MarketDataProvider, "update_rates_task", MagicMock())
+    def test_initialize_rate_sources(self):
+        self.provider.initialize_rate_sources(
+            [ConnectorPair(connector_name="binance", trading_pair="BTC-USDT"),
+             ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="UNI-WETH")])
+        self.assertEqual(len(self.provider.rate_sources), 1)

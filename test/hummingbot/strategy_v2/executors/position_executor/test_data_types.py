@@ -3,6 +3,7 @@ from unittest import TestCase
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
@@ -64,3 +65,9 @@ class TestPositionExecutorDataTypes(TestCase):
         self.assertEqual(triple_barrier_new.open_order_type, OrderType.LIMIT)
         self.assertEqual(triple_barrier_new.take_profit_order_type, OrderType.MARKET)
         self.assertEqual(triple_barrier_new.stop_loss_order_type, OrderType.MARKET)
+
+    def test_is_amm(self):
+        connector_pair = ConnectorPair(connector_name="uniswap_ethereum_base", trading_pair="ETH-USDT")
+        self.assertTrue(connector_pair.is_amm_connector())
+        connector_pair = ConnectorPair(connector_name="binance", trading_pair="ETH-USDT")
+        self.assertFalse(connector_pair.is_amm_connector())
