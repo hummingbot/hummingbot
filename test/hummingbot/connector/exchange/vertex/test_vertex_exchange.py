@@ -130,7 +130,7 @@ class TestVertexExchange(unittest.TestCase):
             {"product_id": 8, "symbol": "BNB-PERP"},
             {"product_id": 10, "symbol": "XRP-PERP"},
             {"product_id": 12, "symbol": "SOL-PERP"},
-            {"product_id": 14, "symbol": "MATIC-PERP"},
+            {"product_id": 14, "symbol": "POL-PERP"},
         ]
         return exchange_symbols
 

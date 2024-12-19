@@ -504,7 +504,7 @@ class GatewayHttpClient:
             "quote": quote_asset,
             "side": side.name,
             "amount": f"{amount:.18f}",
-            "limitPrice": f"{price:.20f}",
+            # "limitPrice": f"{price:.20f}",
             # "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
         if pool_id not in ["", None]:

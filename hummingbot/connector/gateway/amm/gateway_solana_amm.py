@@ -104,9 +104,11 @@ class GatewaySolanaAMM(GatewayEVMAMM):
         tx_hash_list: List[str] = await safe_gather(
             *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
         )
-        self.logger().debug(
-            "Polling for order status updates of %d orders.",
-            len(tracked_orders)
+        # tx_hash_list = [order.exchange_order_id for order in tracked_orders]
+        self.logger().info(
+            "Polling for order status updates of %d orders. Order details: %s",
+            len(tracked_orders),
+            [{"tx_hash": order.exchange_order_id, "client_order_id": order.client_order_id} for order in tracked_orders]
         )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             self._get_gateway_instance().get_transaction_status(
@@ -138,13 +140,8 @@ class GatewaySolanaAMM(GatewayEVMAMM):
                     new_state=OrderState.FILLED,
                 )
                 self._order_tracker.process_order_update(order_update)
-            elif tx_status in [0, 2, 3]:
-                # 0: in the mempool but we dont have data to guess its status
-                # 2: in the mempool and likely to succeed
-                # 3: in the mempool and likely to fail
-                pass
 
-            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
+            elif tx_status == -1:
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."

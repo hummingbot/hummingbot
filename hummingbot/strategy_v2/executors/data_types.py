@@ -5,6 +5,8 @@ import time
 import base58
 from pydantic import BaseModel, validator
 
+from hummingbot.client.settings import AllConnectorSettings
+
 
 class ExecutorConfigBase(BaseModel):
     id: str = None  # Make ID optional
@@ -27,3 +29,8 @@ class ExecutorConfigBase(BaseModel):
 class ConnectorPair(BaseModel):
     connector_name: str
     trading_pair: str
+
+    def is_amm_connector(self) -> bool:
+        return self.connector_name in sorted(
+            AllConnectorSettings.get_gateway_amm_connector_names()
+        )
