@@ -118,7 +118,6 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             triple_barrier_config=TripleBarrierConfig(
                 take_profit=Decimal("0.001"),
                 stop_loss=Decimal("0.05"),
-                time_limit=100,
                 trailing_stop=TrailingStop(
                     activation_price=Decimal("0.05"),
                     trailing_delta=Decimal("0.005")
@@ -200,7 +199,6 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             triple_barrier_config=TripleBarrierConfig(
                 take_profit=Decimal("0.001"),
                 stop_loss=Decimal("0.05"),
-                time_limit=100,
                 trailing_stop=TrailingStop(
                     activation_price=Decimal("0.05"),
                     trailing_delta=Decimal("0.005")
@@ -1016,3 +1014,33 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(custom_info["position_pnl_quote"], executor.position_pnl_quote)
         self.assertEqual(custom_info["open_liquidity_placed"], executor.open_liquidity_placed)
         self.assertEqual(custom_info["close_liquidity_placed"], executor.close_liquidity_placed)
+
+    def test_creating_grid_with_unsupported_stop_loss_order(self, ):
+        config = GridExecutorConfig(
+            id="test",
+            timestamp=1234567890,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            start_price=Decimal("100"),
+            end_price=Decimal("120"),
+            total_amount_quote=Decimal("100"),
+            min_spread_between_orders=Decimal("0.01"),
+            min_order_amount_quote=Decimal("10"),
+            order_frequency=1.0,
+            max_open_orders=5,
+            max_orders_per_batch=2,
+            limit_price=Decimal("90"),
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.001"),
+                stop_loss=Decimal("0.05"),
+                stop_loss_order_type=OrderType.LIMIT,
+                time_limit=100,
+                trailing_stop=TrailingStop(
+                    activation_price=Decimal("0.05"),
+                    trailing_delta=Decimal("0.005")
+                )
+            )
+        )
+        with self.assertRaises(ValueError):
+            self.get_grid_executor_from_config(config)
