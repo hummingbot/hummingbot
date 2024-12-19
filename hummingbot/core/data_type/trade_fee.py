@@ -230,7 +230,7 @@ class TradeFeeBase(ABC):
         interchangeable_tokens = [
             {"WETH", "ETH"},
             {"WBNB", "BNB"},
-            {"WMATIC", "MATIC"},
+            {"WPOL", "POL"},
             {"WAVAX", "AVAX"},
             {"WONE", "ONE"},
             {"USDC", "USDC.E"},
