@@ -1,6 +1,6 @@
-import unittest
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 
@@ -13,7 +13,7 @@ from hummingbot.strategy.strategy_v2_base import MarketDataProvider
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 
-class TestMarketDataProvider(unittest.TestCase):
+class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
     def setUp(self):
         self.mock_connector = MagicMock()
         self.mock_connector.trading_rules = {"BTC-USDT": TradingRule("BTC-USDT", 0.01, 0.01, 0.01, 0.01, 0.01, 0.01)}
@@ -157,7 +157,15 @@ class TestMarketDataProvider(unittest.TestCase):
 
     @patch.object(MarketDataProvider, "update_rates_task", MagicMock())
     def test_initialize_rate_sources(self):
-        self.provider.initialize_rate_sources(
-            [ConnectorPair(connector_name="binance", trading_pair="BTC-USDT"),
-             ConnectorPair(connector_name="uniswap_ethereum_mainnet", trading_pair="UNI-WETH")])
-        self.assertEqual(len(self.provider.rate_sources), 1)
+        self.provider.initialize_rate_sources([ConnectorPair(connector_name="binance", trading_pair="BTC-USDT")])
+        self.assertEqual(len(self.provider._rate_sources), 1)
+        self.provider.stop()
+
+    async def test_safe_get_last_traded_prices(self):
+        connector = AsyncMock()
+        connector.get_last_traded_prices.return_value = {"BTC-USDT": 100}
+        result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
+        self.assertEqual(result, {"BTC-USDT": 100})
+        connector.get_last_traded_prices.side_effect = Exception("Error")
+        result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
+        self.assertEqual(result, {})
