@@ -647,8 +647,9 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         executor = PositionExecutor(self.strategy, config)
         self.assertEqual(executor.entry_price, Decimal("101"))
 
+    @patch.object(PositionExecutor, "_sleep")
     @patch.object(PositionExecutor, "place_close_order_and_cancel_open_orders")
-    async def test_control_shutdown_process(self, place_order_mock):
+    async def test_control_shutdown_process(self, place_order_mock, _):
         position_config = self.get_position_config_market_long()
         position_executor = self.get_position_executor_running_from_config(position_config)
         position_executor._open_order = TrackedOrder("OID-BUY-1")

@@ -446,9 +446,10 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.realized_pnl_quote, Decimal("-145"))  # 165 - 310
         self.assertAlmostEqual(round(executor.realized_pnl_pct, 4), round(Decimal("-0.4677419355"), 4))  # -145 / 310
 
+    @patch.object(GridExecutor, "_sleep")
     @patch.object(GridExecutor, "get_price")
     @patch.object(GridExecutor, "place_close_order_and_cancel_open_orders")
-    async def test_control_shutdown_process(self, place_order_mock, get_price_mock):
+    async def test_control_shutdown_process(self, place_order_mock, get_price_mock, _):
         get_price_mock.return_value = Decimal("100")
         config = GridExecutorConfig(
             id="test",
