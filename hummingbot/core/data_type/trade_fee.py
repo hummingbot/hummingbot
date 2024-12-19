@@ -184,7 +184,8 @@ class TradeFeeBase(ABC):
     ) -> Decimal:
         from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
-        if exchange is not None and trading_pair in exchange.order_books:
+        if (exchange is not None and hasattr(exchange, "order_books") and exchange.order_books is not None and
+                trading_pair in exchange.order_books):
             rate = exchange.get_price_by_type(trading_pair, PriceType.MidPrice)
         else:
             local_rate_source: Optional[RateOracle] = rate_source or RateOracle.get_instance()
