@@ -9,6 +9,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, TradeTyp
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 
 class InFlightOrderPyUnitTests(unittest.TestCase):
@@ -364,7 +365,9 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(expected_order, order_from_json)
         self.assertTrue(order_from_json.completely_filled_event.is_set())
 
-    def test_to_json(self):
+    @patch.object(RateOracle, "get_pair_rate")
+    def test_to_json(self, mock_get_pair_rate):
+        mock_get_pair_rate.return_value = Decimal("1.0")
         fee = AddedToCostTradeFee(
             percent=Decimal("0.5"),
             percent_token=self.quote_asset

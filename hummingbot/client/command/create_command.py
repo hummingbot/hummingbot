@@ -97,7 +97,7 @@ class CreateCommand:
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
                 file_name = await self.save_config(controller_name, config_map, settings.CONTROLLERS_CONF_DIR_PATH)
-                self.notify(f"A new config file has been created: {file_name}")
+                self.notify(f"A new config file has been created. Edit the file in your IDE to adjust the parameters: {file_name}")
 
             self.app.change_prompt(prompt=">>> ")
             self.app.input_field.completer = load_completer(self)

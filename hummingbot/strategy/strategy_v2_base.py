@@ -282,7 +282,7 @@ class StrategyV2Base(ScriptStrategyBase):
         for i in range(self.max_executors_close_attempts):
             if all([executor.is_done for executor in self.get_all_executors()]):
                 continue
-            await asyncio.sleep(1)
+            await asyncio.sleep(5.0)
         self.executor_orchestrator.store_all_executors()
 
     def on_tick(self):
