@@ -33,7 +33,7 @@ class GridExecutorConfig(ExecutorConfigBase):
     triple_barrier_config: TripleBarrierConfig
     leverage: int = 20
     level_id: Optional[str] = None
-    deduct_base_fees: bool = True
+    deduct_base_fees: bool = False
 
 
 class GridLevelStates(Enum):
