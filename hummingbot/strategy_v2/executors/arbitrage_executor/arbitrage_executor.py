@@ -265,7 +265,7 @@ class ArbitrageExecutor(ExecutorBase):
         price = await self.get_resulting_price_for_amount(exchange, trading_pair, is_buy, order_amount)
         if self.is_amm_connector(exchange=exchange):
             gas_cost = connector.network_transaction_fee
-            return gas_cost.amount * self.config.gas_conversion_price
+            return gas_cost.amount / self.config.gas_conversion_price
         else:
             fee = connector.get_fee(
                 base_currency=asset,
