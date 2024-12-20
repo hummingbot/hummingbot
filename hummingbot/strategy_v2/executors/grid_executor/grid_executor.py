@@ -80,6 +80,7 @@ class GridExecutor(ExecutorBase):
         self.realized_pnl_pct = Decimal("0")
         self.max_open_creation_timestamp = 0
         self.max_close_creation_timestamp = 0
+        self._open_fee_in_base = False
 
         self._trailing_stop_trigger_pct: Optional[Decimal] = None
         self._current_retries = 0
@@ -366,6 +367,7 @@ class GridExecutor(ExecutorBase):
             take_profit_price = self.current_close_quote * (1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (1 - self.config.safe_extra_spread)
         if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0] and self.config.deduct_base_fees:
             amount = level.active_open_order.executed_amount_base - level.active_open_order.cum_fees_base
+            self._open_fee_in_base = True
         else:
             amount = level.active_open_order.executed_amount_base
         if self.is_perpetual:
@@ -734,13 +736,13 @@ class GridExecutor(ExecutorBase):
             self.position_pnl_pct = Decimal("0")
             self.close_liquidity_placed = Decimal("0")
         else:
-            self.position_break_even_price = sum(
-                [level.active_open_order.order.price * level.active_open_order.order.amount for level in
-                 open_filled_levels]) / executed_amount_base
-            close_order_size_quote = self._close_order.executed_amount_quote if self._close_order and self._close_order.is_done else Decimal("0")
+            self.position_break_even_price = sum([level.active_open_order.order.price * level.active_open_order.order.amount
+                                                  for level in open_filled_levels]) / executed_amount_base
+            if self._open_fee_in_base:
+                executed_amount_base -= sum([level.active_open_order.cum_fees_base for level in open_filled_levels])
             close_order_size_base = self._close_order.executed_amount_base if self._close_order and self._close_order.is_done else Decimal("0")
             self.position_size_base = executed_amount_base - close_order_size_base
-            self.position_size_quote = sum([level.active_open_order.executed_amount_quote for level in open_filled_levels]) - close_order_size_quote
+            self.position_size_quote = self.position_size_base * self.position_break_even_price
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
             self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
             self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal("0")
@@ -764,10 +766,11 @@ class GridExecutor(ExecutorBase):
             self.realized_pnl_quote = Decimal("0")
             self.realized_pnl_pct = Decimal("0")
         else:
-            self.realized_buy_size_quote = sum(
-                [Decimal(order["executed_amount_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.BUY.name])
-            self.realized_sell_size_quote = sum(
-                [Decimal(order["executed_amount_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.SELL.name])
+            if self._open_fee_in_base:
+                self.realized_buy_size_quote = sum([Decimal(order["executed_amount_quote"]) - Decimal(order["cumulative_fee_paid_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.BUY.name])
+            else:
+                self.realized_buy_size_quote = sum([Decimal(order["executed_amount_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.BUY.name])
+            self.realized_sell_size_quote = sum([Decimal(order["executed_amount_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.SELL.name])
             self.realized_imbalance_quote = self.realized_buy_size_quote - self.realized_sell_size_quote
             self.realized_fees_quote = sum([Decimal(order["cumulative_fee_paid_quote"]) for order in self._filled_orders])
             self.realized_pnl_quote = self.realized_sell_size_quote - self.realized_buy_size_quote - self.realized_fees_quote
