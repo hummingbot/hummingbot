@@ -224,7 +224,7 @@ class TradeFeeBase(ABC):
             else:
                 conversion_pair: str = combine_to_hb_trading_pair(base=flat_fee.token, quote=token)
                 conversion_rate: Decimal = self._get_exchange_rate(conversion_pair, exchange, rate_source)
-                fee_amount += (flat_fee.amount * conversion_rate)
+                fee_amount += (Decimal(str(flat_fee.amount)) * conversion_rate)
         return fee_amount
 
     def _are_tokens_interchangeable(self, first_token: str, second_token: str):
