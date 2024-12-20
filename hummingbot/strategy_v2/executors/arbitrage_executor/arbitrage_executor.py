@@ -46,7 +46,8 @@ class ArbitrageExecutor(ExecutorBase):
         if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
                                        pair2=config.selling_market.trading_pair):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
-        super().__init__(strategy=strategy, connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
+        super().__init__(strategy=strategy,
+                         connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval)
         self.config = config
         self.buying_market = config.buying_market
@@ -62,8 +63,12 @@ class ArbitrageExecutor(ExecutorBase):
         self._last_buy_price = Decimal("1")
         self._last_sell_price = Decimal("1")
         self._trade_pnl_pct = Decimal("0")
-        self._last_tx_cost = Decimal("1")
+        self._last_tx_cost = Decimal("0")
+        self._last_buy_fee = Decimal("0")
+        self._last_sell_fee = Decimal("0")
         self._current_profitability = Decimal("0")
+        self._amm_gas_amount = Decimal("0")
+        self._amm_gas_cost = Decimal("0")
 
         # Quote asset conversion rate
         _, buy_quote_asset = split_hb_trading_pair(self.buying_market.trading_pair)
@@ -143,7 +148,8 @@ class ArbitrageExecutor(ExecutorBase):
     def sell_order(self, value: TrackedOrder):
         self._sell_order = value
 
-    async def get_resulting_price_for_amount(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal):
+    async def get_resulting_price_for_amount(self, exchange: str, trading_pair: str, is_buy: bool,
+                                             order_amount: Decimal):
         return await self.connectors[exchange].get_quote_price(trading_pair, is_buy, order_amount)
 
     async def control_task(self):
@@ -215,7 +221,9 @@ class ArbitrageExecutor(ExecutorBase):
             is_buy=False,
             order_amount=self.order_amount,
             asset=base_without_wrapped)
-        self._last_tx_cost = buy_fee + sell_fee
+        self._last_buy_fee = buy_fee
+        self._last_sell_fee = sell_fee
+        self._last_tx_cost = self._last_buy_fee + self._last_sell_fee
 
     async def get_buy_and_sell_prices(self):
         buy_price_task = asyncio.create_task(self.get_resulting_price_for_amount(
@@ -260,7 +268,8 @@ class ArbitrageExecutor(ExecutorBase):
             self.logger().error(f"Error fetching conversion rate for {self.quote_conversion_pair}: {e}")
             raise
 
-    async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal, asset: str):
+    async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal,
+                                   asset: str):
         connector = self.connectors[exchange]
         price = await self.get_resulting_price_for_amount(exchange, trading_pair, is_buy, order_amount)
         if self.is_amm_connector(exchange=exchange):
@@ -304,14 +313,20 @@ class ArbitrageExecutor(ExecutorBase):
         return {
             "buy_connector": self.buying_market.connector_name,
             "sell_connector": self.selling_market.connector_name,
-            "buy_trading_pair": self.buying_market.trading_pair,
-            "sell_trading_pair": self.selling_market.trading_pair,
-            "last_buy_price": self._last_buy_price,
-            "last_sell_price": self._last_sell_price,
+            "buy_pair": self.buying_market.trading_pair,
+            "sell_pair": self.selling_market.trading_pair,
+            "buy_price": self._last_buy_price,
+            "sell_price": self._last_sell_price,
             "trade_pnl_pct": self._trade_pnl_pct,
-            "last_tx_cost_pct": self._last_tx_cost / self.order_amount,
-            "current_profitability": self._current_profitability,
-            "cumulative_failures": self._cumulative_failures
+            "amm_gas_price": self.config.gas_conversion_price,
+            "amm_gas_amount": self._amm_gas_amount,
+            "amm_gas_cost": self._amm_gas_cost,
+            "buy_fee": self._last_buy_fee,
+            "sell_fee": self._last_sell_fee,
+            "total_fee": self._last_tx_cost,
+            "tx_cost_pct": self._last_tx_cost / self.order_amount,
+            "profit_pct": self._current_profitability,
+            "failures": self._cumulative_failures,
         }
 
     def to_format_status(self):
