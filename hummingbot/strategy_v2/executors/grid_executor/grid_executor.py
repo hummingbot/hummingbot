@@ -364,7 +364,7 @@ class GridExecutor(ExecutorBase):
         if ((level.side == TradeType.BUY and take_profit_price <= self.current_close_quote) or
                 (level.side == TradeType.SELL and take_profit_price >= self.current_close_quote)):
             take_profit_price = self.current_close_quote * (1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (1 - self.config.safe_extra_spread)
-        if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0]:
+        if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0] and self.config.deduct_base_fees:
             amount = level.active_open_order.executed_amount_base - level.active_open_order.cum_fees_base
         else:
             amount = level.active_open_order.executed_amount_base
