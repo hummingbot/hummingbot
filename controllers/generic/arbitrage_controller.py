@@ -15,8 +15,8 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 class ArbitrageControllerConfig(ControllerConfigBase):
     controller_name: str = "arbitrage_controller"
     candles_config: List[CandlesConfig] = []
-    exchange_pair_1: ConnectorPair = ConnectorPair(connector_name="mexc", trading_pair="BAI-USDT")
-    exchange_pair_2: ConnectorPair = ConnectorPair(connector_name="uniswap_ethereum_base", trading_pair="BAI-USDC")
+    exchange_pair_1: ConnectorPair = ConnectorPair(connector_name="binance", trading_pair="PENGU-USDT")
+    exchange_pair_2: ConnectorPair = ConnectorPair(connector_name="solana_jupiter_mainnet-beta", trading_pair="PENGU-USDC")
     order_amount: Decimal = Decimal("10")  # in base asset
     min_profitability: Decimal = Decimal("0.01")
     delay_between_executors: int = 10  # in seconds
@@ -48,6 +48,7 @@ class ArbitrageController(ControllerBase):
         self._last_sell_closed_timestamp = 0
         self._len_active_buy_arbitrages = 0
         self._len_active_sell_arbitrages = 0
+        self.base_asset = self.config.exchange_pair_1.trading_pair.split("-")[0]
         self.initialize_rate_sources()
 
     def initialize_rate_sources(self):
@@ -108,11 +109,15 @@ class ArbitrageController(ControllerBase):
                 gas_conversion_price = self.market_data_provider.get_rate(pair)
             else:
                 gas_conversion_price = None
+            rate = self.market_data_provider.get_rate(self.base_asset + "-" + self.config.quote_conversion_asset)
+            amount_quantized = self.market_data_provider.quantize_order_amount(
+                buying_exchange_pair.connector_name, buying_exchange_pair.trading_pair,
+                self.config.total_amount_quote / rate)
             arbitrage_config = ArbitrageExecutorConfig(
                 timestamp=self.market_data_provider.time(),
                 buying_market=buying_exchange_pair,
                 selling_market=selling_exchange_pair,
-                order_amount=self.config.order_amount,
+                order_amount=amount_quantized,
                 min_profitability=self.config.min_profitability,
                 gas_conversion_price=gas_conversion_price,
             )

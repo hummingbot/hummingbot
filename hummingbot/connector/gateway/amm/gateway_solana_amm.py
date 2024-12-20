@@ -127,7 +127,7 @@ class GatewaySolanaAMM(GatewayEVMAMM):
             tx_status: int = tx_details["txStatus"]
             tx_receipt: Optional[Dict[str, Any]] = tx_details["txData"]
             if tx_status == 1 and (tx_receipt is not None):
-                fee: Decimal = tx_receipt["meta"]["fee"] / -1000000000
+                fee: Decimal = Decimal(tx_receipt["meta"]["fee"] / 1000000000)
 
                 super().processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 
