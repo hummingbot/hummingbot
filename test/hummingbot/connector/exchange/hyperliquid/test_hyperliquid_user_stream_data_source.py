@@ -95,7 +95,7 @@ class TestHyperliquidAPIUserStreamDataSource(unittest.TestCase):
     def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_orders = {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'ETH', 'side': 'A',
+        result_subscribe_orders = {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'COINALPHA', 'side': 'A',
                                                                                   'limitPx': '2112.8', 'sz': '0.01',
                                                                                   'oid': 2260108845,
                                                                                   'timestamp': 1700688451563,
@@ -104,7 +104,7 @@ class TestHyperliquidAPIUserStreamDataSource(unittest.TestCase):
                                                                         'status': 'canceled',
                                                                         'statusTimestamp': 1700688453173}]}
         result_subscribe_trades = {'channel': 'userFills', 'data': {'fills': [
-            {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
+            {'coin': 'COINALPHA/USDC', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
              'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
              # noqa: mock
