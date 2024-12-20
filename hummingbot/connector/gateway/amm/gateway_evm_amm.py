@@ -814,7 +814,7 @@ class GatewayEVMAMM(ConnectorBase):
             if tx_status == 1 and (tx_receipt is not None and tx_receipt.get("status") == 1):
                 gas_used: int = tx_receipt["gasUsed"]
                 gas_price: Decimal = tracked_order.gas_price
-                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(-1e9))
 
                 self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 

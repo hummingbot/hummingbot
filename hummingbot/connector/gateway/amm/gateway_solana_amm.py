@@ -127,7 +127,7 @@ class GatewaySolanaAMM(GatewayEVMAMM):
             tx_status: int = tx_details["txStatus"]
             tx_receipt: Optional[Dict[str, Any]] = tx_details["txData"]
             if tx_status == 1 and (tx_receipt is not None):
-                fee: Decimal = tx_receipt["meta"]["fee"] / 1000000000
+                fee: Decimal = tx_receipt["meta"]["fee"] / -1000000000
 
                 super().processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 
@@ -144,7 +144,7 @@ class GatewaySolanaAMM(GatewayEVMAMM):
                 # 3: in the mempool and likely to fail
                 pass
 
-            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
+            elif tx_status == -1:
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
