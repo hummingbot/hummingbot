@@ -507,8 +507,9 @@ class HyperliquidExchange(ExchangePyBase):
                 self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
                 return
             tracked_order = _cli_tracked_orders[0]
-        trading_pair_base_coin = tracked_order.base_asset
-        if trade["coin"] == trading_pair_base_coin:
+        trading_pair_base_coin = tracked_order.trading_pair
+        exchange_symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=trade["coin"])
+        if exchange_symbol == trading_pair_base_coin:
             fee_asset = trade["feeToken"]
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),

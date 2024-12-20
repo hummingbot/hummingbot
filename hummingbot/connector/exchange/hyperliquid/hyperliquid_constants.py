@@ -45,7 +45,7 @@ DEPTH_ENDPOINT_NAME = "l2Book"
 
 
 USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
-USEREVENT_ENDPOINT_NAME = "user"
+USEREVENT_ENDPOINT_NAME = "userFills"
 
 DIFF_EVENT_TYPE = "order_book_snapshot"
 TRADE_EVENT_TYPE = "trades"
