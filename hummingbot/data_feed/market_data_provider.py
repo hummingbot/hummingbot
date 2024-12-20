@@ -354,13 +354,9 @@ class MarketDataProvider:
 
     async def _safe_get_last_traded_prices(self, connector, trading_pairs, timeout=5):
         try:
-            last_traded = await asyncio.wait_for(connector.get_last_traded_prices(trading_pairs=trading_pairs),
-                                                 timeout=timeout)
+            last_traded = await connector.get_last_traded_prices(trading_pairs=trading_pairs)
             return {pair: Decimal(rate) for pair, rate in last_traded.items()}
-        except asyncio.TimeoutError:
-            logging.error(f"Timeout getting last traded prices for trading pairs {trading_pairs}")
-            return {pair: Decimal("0") for pair in trading_pairs}
         except Exception as e:
             logging.error(
                 f"Error getting last traded prices in connector {connector} for trading pairs {trading_pairs}: {e}")
-            return {pair: Decimal("0") for pair in trading_pairs}
+            return {}

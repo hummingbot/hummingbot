@@ -58,17 +58,24 @@ class ArbitrageController(ControllerBase):
             if connector_pair.is_amm_connector():
                 gas_token = self.get_gas_token(connector_pair.connector_name)
                 if gas_token != quote:
-                    rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
-                                                        trading_pair=f"{gas_token}-{quote}"))
+                    rate_pair = ConnectorPair(connector_name=self.config.rate_connector,
+                                              trading_pair=f"{gas_token}-{quote}")
+                    self.logger().info(f"Adding gas token rate source: {rate_pair}")
+                    rates_required.append(rate_pair)
 
             # Add rate source for quote conversion asset
             if quote != self.config.quote_conversion_asset:
-                rates_required.append(ConnectorPair(connector_name=self.config.rate_connector,
-                                                    trading_pair=f"{quote}-{self.config.quote_conversion_asset}"))
+                rate_pair = ConnectorPair(connector_name=self.config.rate_connector,
+                                          trading_pair=f"{quote}-{self.config.quote_conversion_asset}")
+                self.logger().info(f"Adding quote conversion rate source: {rate_pair}")
+                rates_required.append(rate_pair)
 
             # Add rate source for trading pairs
-            rates_required.append(ConnectorPair(connector_name=connector_pair.connector_name,
-                                                trading_pair=connector_pair.trading_pair))
+            rate_pair = ConnectorPair(connector_name=connector_pair.connector_name,
+                                      trading_pair=connector_pair.trading_pair)
+            self.logger().info(f"Adding trading pair rate source: {rate_pair}")
+            rates_required.append(rate_pair)
+
         if len(rates_required) > 0:
             self.market_data_provider.initialize_rate_sources(rates_required)
 
@@ -100,14 +107,17 @@ class ArbitrageController(ControllerBase):
         try:
             if buying_exchange_pair.is_amm_connector():
                 gas_token = self.get_gas_token(buying_exchange_pair.connector_name)
-                pair = buying_exchange_pair.trading_pair.split("-")[0] + "-" + gas_token
+                base_token = buying_exchange_pair.trading_pair.split("-")[0]
+                pair = f"{base_token}-{gas_token}"
                 gas_conversion_price = self.market_data_provider.get_rate(pair)
             elif selling_exchange_pair.is_amm_connector():
                 gas_token = self.get_gas_token(selling_exchange_pair.connector_name)
-                pair = selling_exchange_pair.trading_pair.split("-")[0] + "-" + gas_token
+                base_token = selling_exchange_pair.trading_pair.split("-")[0]
+                pair = f"{base_token}-{gas_token}"
                 gas_conversion_price = self.market_data_provider.get_rate(pair)
             else:
                 gas_conversion_price = None
+                self.logger().info("No AMM connector involved, gas conversion price set to None")
             arbitrage_config = ArbitrageExecutorConfig(
                 timestamp=self.market_data_provider.time(),
                 buying_market=buying_exchange_pair,

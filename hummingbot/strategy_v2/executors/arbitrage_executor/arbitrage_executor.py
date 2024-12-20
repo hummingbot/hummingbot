@@ -62,8 +62,12 @@ class ArbitrageExecutor(ExecutorBase):
         self._last_buy_price = Decimal("1")
         self._last_sell_price = Decimal("1")
         self._trade_pnl_pct = Decimal("0")
-        self._last_tx_cost = Decimal("1")
+        self._last_tx_cost = Decimal("0")
+        self._last_buy_fee = Decimal("0")
+        self._last_sell_fee = Decimal("0")
         self._current_profitability = Decimal("0")
+        self._amm_gas_amount = Decimal("0")
+        self._amm_gas_cost = Decimal("0")
 
         # Quote asset conversion rate
         _, buy_quote_asset = split_hb_trading_pair(self.buying_market.trading_pair)
@@ -215,7 +219,9 @@ class ArbitrageExecutor(ExecutorBase):
             is_buy=False,
             order_amount=self.order_amount,
             asset=base_without_wrapped)
-        self._last_tx_cost = buy_fee + sell_fee
+        self._last_buy_fee = buy_fee
+        self._last_sell_fee = sell_fee
+        self._last_tx_cost = self._last_buy_fee + self._last_sell_fee
 
     async def get_buy_and_sell_prices(self):
         buy_price_task = asyncio.create_task(self.get_resulting_price_for_amount(
@@ -265,7 +271,9 @@ class ArbitrageExecutor(ExecutorBase):
         price = await self.get_resulting_price_for_amount(exchange, trading_pair, is_buy, order_amount)
         if self.is_amm_connector(exchange=exchange):
             gas_cost = connector.network_transaction_fee
-            return gas_cost.amount * self.config.gas_conversion_price
+            self._amm_gas_amount = gas_cost.amount
+            self._amm_gas_cost = gas_cost.amount / self.config.gas_conversion_price
+            return self._amm_gas_cost
         else:
             fee = connector.get_fee(
                 base_currency=asset,
@@ -304,14 +312,20 @@ class ArbitrageExecutor(ExecutorBase):
         return {
             "buy_connector": self.buying_market.connector_name,
             "sell_connector": self.selling_market.connector_name,
-            "buy_trading_pair": self.buying_market.trading_pair,
-            "sell_trading_pair": self.selling_market.trading_pair,
-            "last_buy_price": self._last_buy_price,
-            "last_sell_price": self._last_sell_price,
-            "trade_pnl_pct": self._trade_pnl_pct,
-            "last_tx_cost_pct": self._last_tx_cost / self.order_amount,
-            "current_profitability": self._current_profitability,
-            "cumulative_failures": self._cumulative_failures
+            "buy_pair": self.buying_market.trading_pair,
+            "sell_pair": self.selling_market.trading_pair,
+            "buy_price": self._last_buy_price,
+            "sell_price": self._last_sell_price,
+            "trade_pnl_%": self._trade_pnl_pct,
+            "amm_gas_price": self.config.gas_conversion_price,
+            "amm_gas_amount": self._amm_gas_amount,
+            "amm_gas_cost": self._amm_gas_cost,
+            "buy_fee": self._last_buy_fee,
+            "sell_fee": self._last_sell_fee,
+            "total_fee": self._last_tx_cost,
+            "tx_cost_%": self._last_tx_cost / self.order_amount,
+            "profit_%": self._current_profitability,
+            "failures": self._cumulative_failures,
         }
 
     def to_format_status(self):
@@ -324,6 +338,7 @@ class ArbitrageExecutor(ExecutorBase):
     Arbitrage Status: {self.status} | Close Type: {self.close_type}
     - BUY: {self.buying_market.connector_name}:{self.buying_market.trading_pair}  --> SELL: {self.selling_market.connector_name}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
     - Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
+    - Buy Fee: {self._last_buy_fee:.6f} | Sell Fee: {self._last_sell_fee:.6f} | Total Fee: {self._last_tx_cost:.6f}
     -------------------------------------------------------------------------------
     """])
             if self.close_type == CloseType.COMPLETED:

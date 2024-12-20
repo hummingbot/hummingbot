@@ -51,8 +51,8 @@ class GatewaySolanaAMM(GatewayEVMAMM):
                          additional_spenders=additional_spenders,
                          trading_required=trading_required)
         self._native_currency = "SOL"
-        self._default_fee = Decimal("0")
-        self._network_transaction_fee: Optional[TokenAmount] = TokenAmount(token=self._native_currency, amount=self._default_fee)  # No Solana fees
+        self._default_fee = Decimal("0")  # No Solana network fees
+        self._network_transaction_fee: Optional[TokenAmount] = TokenAmount(token=self._native_currency, amount=self._default_fee)
 
     @classmethod
     def logger(cls) -> HummingbotLogger:

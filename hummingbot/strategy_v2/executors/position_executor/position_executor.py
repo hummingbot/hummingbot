@@ -330,7 +330,7 @@ class PositionExecutor(ExecutorBase):
             await self.control_close_order()
             self.cancel_open_orders()
             self._current_retries += 1
-        await asyncio.sleep(2.0)
+        await self._sleep(5.0)
 
     def open_and_close_volume_match(self):
         if self.open_filled_amount == Decimal("0"):
@@ -794,3 +794,12 @@ class PositionExecutor(ExecutorBase):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.logger().error("Not enough budget to open position.")
             self.stop()
+
+    async def _sleep(self, delay: float):
+        """
+        This method is responsible for sleeping the executor for a specific time.
+
+        :param delay: The time to sleep.
+        :return: None
+        """
+        await asyncio.sleep(delay)
