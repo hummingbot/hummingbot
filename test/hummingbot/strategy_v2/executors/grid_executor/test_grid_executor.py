@@ -446,8 +446,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(GridExecutor, "_sleep")
     @patch.object(GridExecutor, "get_price")
-    @patch.object(GridExecutor, "place_close_order_and_cancel_open_orders")
-    async def test_control_shutdown_process(self, place_order_mock, get_price_mock, _):
+    async def test_control_shutdown_process(self, get_price_mock, _):
         get_price_mock.return_value = Decimal("100")
         config = GridExecutorConfig(
             id="test",
@@ -485,14 +484,27 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             creation_timestamp=1640001112.223,
             initial_state=OrderState.OPEN
         )
-        executor.update_grid_levels()
-        executor.update_metrics()
         await executor.control_task()
         self.strategy.cancel.assert_called_with(
             connector_name="binance",
             trading_pair="ETH-USDT",
             order_id="OID-BUY-1"
         )
+        executor.grid_levels[0].active_open_order = TrackedOrder("OID-BUY-1")
+        executor.grid_levels[0].active_open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("0.1"),
+            price=Decimal("100"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        await executor.control_task()
+        self.assertEqual(len(executor.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]), 1)
+        self.assertIsInstance(executor._close_order, TrackedOrder)
 
     @patch.object(GridExecutor, "get_in_flight_order")
     @patch.object(GridExecutor, "get_price", return_value=Decimal("100"))
@@ -693,6 +705,27 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.process_order_canceled_event(None, None, event)
         executor.update_grid_levels()
         self.assertEqual(len(executor.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]), 0)
+        executor.grid_levels[0].active_open_order = TrackedOrder("OID-BUY-1")
+        executor.grid_levels[0].active_open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("0.1"),
+            price=Decimal("100"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        executor.grid_levels[0].active_close_order = TrackedOrder("OID-SELL-1")
+        event = OrderCancelledEvent(
+            timestamp=1234567890,
+            order_id="OID-SELL-1",
+            exchange_order_id="EOID4"
+        )
+        executor.process_order_canceled_event(None, None, event)
+        executor.update_grid_levels()
+        self.assertEqual(len(executor.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]), 0)
 
     @patch.object(GridExecutor, "get_price", return_value=Decimal("100"))
     def test_process_order_failed_event(self, _):
@@ -727,6 +760,27 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.process_order_failed_event(None, None, event)
         executor.update_grid_levels()
         self.assertEqual(len(executor.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]), 0)
+        executor.grid_levels[0].active_open_order = TrackedOrder("OID-BUY-1")
+        executor.grid_levels[0].active_open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("0.1"),
+            price=Decimal("100"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        executor.grid_levels[0].active_close_order = TrackedOrder("OID-SELL-1")
+        event = MarketOrderFailureEvent(
+            timestamp=1234567890,
+            order_id="OID-SELL-1",
+            order_type=OrderType.LIMIT
+        )
+        executor.process_order_failed_event(None, None, event)
+        executor.update_grid_levels()
+        self.assertEqual(len(executor.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]), 0)
 
     @patch.object(GridExecutor, 'adjust_order_candidates')
     @patch.object(GridExecutor, "get_price")
@@ -999,7 +1053,8 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_grid_executor_from_config(config)
         executor_info = executor.executor_info
         custom_info = executor_info.custom_info
-        self.assertEqual(custom_info["levels_by_state"], {key.name: value for key, value in executor.levels_by_state.items()})
+        self.assertEqual(custom_info["levels_by_state"],
+                         {key.name: value for key, value in executor.levels_by_state.items()})
         self.assertEqual(custom_info["filled_orders"], executor._filled_orders)
         self.assertEqual(custom_info["failed_orders"], executor._failed_orders)
         self.assertEqual(custom_info["canceled_orders"], executor._canceled_orders)
@@ -1044,3 +1099,36 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         with self.assertRaises(ValueError):
             self.get_grid_executor_from_config(config)
+
+    @patch.object(GridExecutor, "get_price")
+    async def test_evaluate_max_retries(self, mock_price):
+        mock_price.return_value = Decimal("100")
+        config = GridExecutorConfig(
+            id="test",
+            timestamp=1234567890,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            start_price=Decimal("100"),
+            end_price=Decimal("120"),
+            total_amount_quote=Decimal("100"),
+            min_spread_between_orders=Decimal("0.01"),
+            min_order_amount_quote=Decimal("10"),
+            order_frequency=1.0,
+            max_open_orders=5,
+            max_orders_per_batch=2,
+            limit_price=Decimal("90"),
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.001"),
+                stop_loss=Decimal("0.05"),
+                time_limit=100,
+                trailing_stop=TrailingStop(
+                    activation_price=Decimal("0.05"),
+                    trailing_delta=Decimal("0.005")
+                )
+            )
+        )
+        executor = self.get_grid_executor_from_config(config)
+        executor._current_retries = 11
+        await executor.control_task()
+        self.assertEqual(executor._status, RunnableStatus.TERMINATED)
