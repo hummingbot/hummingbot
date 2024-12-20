@@ -22,6 +22,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -297,7 +298,7 @@ class BitmartExchange(ExchangePyBase):
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_post(
             path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL,
-            data={"symbol": await self.exchange_symbol_associated_to_pair(order.trading_pair)},
+            data={"orderId": order.exchange_order_id},
             is_auth_required=True)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:

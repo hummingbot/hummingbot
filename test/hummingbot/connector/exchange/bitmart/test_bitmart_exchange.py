@@ -433,7 +433,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_DETAIL_PATH_URL)
         response = self._order_status_request_completely_filled_mock_response(order=order)
-        mock_api.get(url, body=json.dumps(response), callback=callback)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_canceled_order_status_response(self,
@@ -624,18 +624,6 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
         # Disabling this test because the connector has not been updated yet to validate
         # order not found during status update (check _is_order_not_found_during_status_update_error)
-        pass
-
-    @aioresponses()
-    def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during status update (check _is_order_not_found_during_status_update_error)
-        pass
-
-    @aioresponses()
-    def test_update_order_status_when_filled_correctly_processed_even_when_trade_fill_update_fails(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # correct processing when receiving an http error back from API (check _is_order_not_found_during_status_update_error)
         pass
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:

@@ -27,7 +27,7 @@ CREATE_ORDER_PATH_URL = "spot/v2/submit_order"
 CANCEL_ORDER_PATH_URL = "spot/v3/cancel_order"
 GET_ACCOUNT_SUMMARY_PATH_URL = "spot/v1/wallet"
 GET_ORDER_DETAIL_PATH_URL = "spot/v4/query/order"
-GET_TRADE_DETAIL_PATH_URL = "spot/v4/query/trades"
+GET_TRADE_DETAIL_PATH_URL = "spot/v4/query/order-trades"
 SERVER_TIME_PATH = "system/time"
 
 # WS API ENDPOINTS
