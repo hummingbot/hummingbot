@@ -374,8 +374,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = dict(json.loads(request_call.kwargs["data"]))
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["symbol"])
+        self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def configure_successful_cancelation_response(self,
                                                   order: InFlightOrder,
