@@ -17,7 +17,6 @@ class ArbitrageControllerConfig(ControllerConfigBase):
     candles_config: List[CandlesConfig] = []
     exchange_pair_1: ConnectorPair = ConnectorPair(connector_name="binance", trading_pair="PENGU-USDT")
     exchange_pair_2: ConnectorPair = ConnectorPair(connector_name="solana_jupiter_mainnet-beta", trading_pair="PENGU-USDC")
-    order_amount: Decimal = Decimal("10")  # in base asset
     min_profitability: Decimal = Decimal("0.01")
     delay_between_executors: int = 10  # in seconds
     max_executors_imbalance: int = 1
