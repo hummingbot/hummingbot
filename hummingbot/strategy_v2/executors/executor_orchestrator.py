@@ -169,8 +169,13 @@ class ExecutorOrchestrator:
         if executor.is_active:
             self.logger().error(f"Executor ID {executor_id} is still active.")
             return
-        MarketsRecorder.get_instance().store_or_update_executor(executor)
-        self._update_cached_performance(controller_id, executor.executor_info)
+        try:
+            MarketsRecorder.get_instance().store_or_update_executor(executor)
+            self._update_cached_performance(controller_id, executor.executor_info)
+        except Exception as e:
+            self.logger().error(f"Error storing executor id {executor_id}: {str(e)}.")
+            self.logger().error(f"Executor info: {executor.executor_info} | Config: {executor.config}")
+
         self.active_executors[controller_id].remove(executor)
         self.archived_executors[controller_id].append(executor.executor_info)
         del executor
