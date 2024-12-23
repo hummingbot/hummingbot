@@ -196,8 +196,9 @@ class MexcExchange(ExchangePyBase):
                         amount
                     ).result_price
                 del api_params['quantity']
+                quote_order_quantity = self.quantize_order_amount(trading_pair, price * amount)
                 api_params.update({
-                    "quoteOrderQty": f"{price * amount:f}",
+                    "quoteOrderQty": f"{quote_order_quantity}",
                 })
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
