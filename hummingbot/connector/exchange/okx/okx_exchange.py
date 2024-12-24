@@ -409,7 +409,7 @@ class OkxExchange(ExchangePyBase):
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=fillable_order.trade_type,
                                 percent_token=data["fillFeeCcy"],
-                                flat_fees=[TokenAmount(amount=Decimal(data["fillFee"]), token=data["fillFeeCcy"])]
+                                flat_fees=[TokenAmount(amount=-Decimal(data["fillFee"]), token=data["fillFeeCcy"])]
                             )
                             trade_update = TradeUpdate(
                                 trade_id=str(trade_id),
