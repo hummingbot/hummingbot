@@ -68,7 +68,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._poll_notifier = asyncio.Event()
 
         # init Auth and Api factory
-        self._auth: AuthBase = self.authenticator
+        self._auth: AuthBase = self.authenticator if self._trading_required else None
         self._web_assistants_factory: WebAssistantsFactory = self._create_web_assistants_factory()
 
         # init OrderBook Data Source and Tracker
