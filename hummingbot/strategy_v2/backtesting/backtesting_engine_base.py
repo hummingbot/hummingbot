@@ -123,9 +123,7 @@ class BacktestingEngineBase:
         self.active_executor_simulations: List[ExecutorSimulation] = []
         self.stopped_executors_info: List[ExecutorInfo] = []
         for i, row in processed_features.iterrows():
-            self.update_market_data(row)
-            await self.update_processed_data(row)
-            self.update_executors_info(row["timestamp"])
+            await self.update_state(row)
             for action in self.controller.determine_executor_actions():
                 if isinstance(action, CreateExecutorAction):
                     executor_simulation = self.simulate_executor(action.executor_config, processed_features.loc[i:], trade_cost)
@@ -135,6 +133,13 @@ class BacktestingEngineBase:
                     self.handle_stop_action(action, row["timestamp"])
 
         return self.controller.executors_info
+
+    async def update_state(self, row):
+        key = f"{self.controller.config.connector_name}_{self.controller.config.trading_pair}"
+        self.controller.market_data_provider.prices = {key: Decimal(row["close_bt"])}
+        self.controller.market_data_provider._time = row["timestamp"]
+        self.controller.processed_data.update(row.to_dict())
+        self.update_executors_info(row["timestamp"])
 
     def update_executors_info(self, timestamp: float):
         active_executors_info = []
@@ -188,18 +193,6 @@ class BacktestingEngineBase:
         backtesting_candles.dropna(inplace=True)
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
-
-    def update_market_data(self, row: pd.Series):
-        """
-        Updates market data in the controller with the current price and timestamp.
-
-        Args:
-            row (pd.Series): The current row of market data.
-        """
-        connector_name = self.controller.config.connector_name
-        trading_pair = self.controller.config.trading_pair
-        self.controller.market_data_provider.prices = {f"{connector_name}_{trading_pair}": Decimal(row["close_bt"])}
-        self.controller.market_data_provider._time = row["timestamp"]
 
     def simulate_executor(self, config: Union[PositionExecutorConfig, DCAExecutorConfig], df: pd.DataFrame,
                           trade_cost: float) -> Optional[ExecutorSimulation]:

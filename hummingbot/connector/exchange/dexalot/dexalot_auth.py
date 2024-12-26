@@ -11,7 +11,6 @@ class DexalotAuth(AuthBase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
-        self.wallet = Account.from_key(secret_key)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
@@ -21,8 +20,8 @@ class DexalotAuth(AuthBase):
         """
 
         message = encode_defunct(text="dexalot")
-        signed_message = self.wallet.sign_message(signable_message=message)
-        headers = {"x-signature": f"{self.wallet.address}:{signed_message.signature.hex()}"}
+        signed_message = Account.from_key(self.secret_key).sign_message(signable_message=message)
+        headers = {"x-signature": f"{Account.from_key(self.secret_key).address}:{signed_message.signature.hex()}"}
         if request.headers is not None:
             headers.update(request.headers)
         request.headers = headers
@@ -35,6 +34,6 @@ class DexalotAuth(AuthBase):
         functionality
         """
         message = encode_defunct(text="dexalot")
-        signed_message = self.wallet.sign_message(signable_message=message)
-        request.payload["signature"] = f"{self.wallet.address}:{signed_message.signature.hex()}"
+        signed_message = Account.from_key(self.secret_key).sign_message(signable_message=message)
+        request.payload["signature"] = f"{Account.from_key(self.secret_key).address}:{signed_message.signature.hex()}"
         return request

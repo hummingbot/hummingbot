@@ -11,6 +11,8 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor impo
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
+from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
+from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
@@ -55,6 +57,8 @@ class ExecutorOrchestrator:
             controller_id = executor.controller_id
             if controller_id not in self.cached_performance:
                 self.cached_performance[controller_id] = PerformanceReport()
+                self.active_executors[controller_id] = []
+                self.archived_executors[controller_id] = []
             self._update_cached_performance(controller_id, executor)
 
     def _update_cached_performance(self, controller_id: str, executor_info: ExecutorInfo):
@@ -87,7 +91,7 @@ class ExecutorOrchestrator:
         Execute the action and handle executors based on action type.
         """
         controller_id = action.controller_id
-        if controller_id not in self.active_executors:
+        if controller_id not in self.cached_performance:
             self.active_executors[controller_id] = []
             self.archived_executors[controller_id] = []
             self.cached_performance[controller_id] = PerformanceReport()
@@ -119,6 +123,8 @@ class ExecutorOrchestrator:
 
         if isinstance(executor_config, PositionExecutorConfig):
             executor = PositionExecutor(self.strategy, executor_config, self.executors_update_interval)
+        elif isinstance(executor_config, GridExecutorConfig):
+            executor = GridExecutor(self.strategy, executor_config, self.executors_update_interval)
         elif isinstance(executor_config, DCAExecutorConfig):
             executor = DCAExecutor(self.strategy, executor_config, self.executors_update_interval)
         elif isinstance(executor_config, ArbitrageExecutorConfig):
@@ -163,8 +169,13 @@ class ExecutorOrchestrator:
         if executor.is_active:
             self.logger().error(f"Executor ID {executor_id} is still active.")
             return
-        MarketsRecorder.get_instance().store_or_update_executor(executor)
-        self._update_cached_performance(controller_id, executor.executor_info)
+        try:
+            MarketsRecorder.get_instance().store_or_update_executor(executor)
+            self._update_cached_performance(controller_id, executor.executor_info)
+        except Exception as e:
+            self.logger().error(f"Error storing executor id {executor_id}: {str(e)}.")
+            self.logger().error(f"Executor info: {executor.executor_info} | Config: {executor.config}")
+
         self.active_executors[controller_id].remove(executor)
         self.archived_executors[controller_id].append(executor.executor_info)
         del executor
@@ -186,18 +197,22 @@ class ExecutorOrchestrator:
         active_executors = self.active_executors.get(controller_id, [])
         for executor in active_executors:
             executor_info = executor.executor_info
+            side = executor_info.custom_info.get("side", None)
             if executor_info.is_active:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
+                if side:
+                    report.inventory_imbalance += executor_info.filled_amount_quote \
+                        if side == TradeType.BUY else -executor_info.filled_amount_quote
+                if executor_info.type == "dca_executor":
+                    report.open_order_volume += sum(
+                        executor_info.config.amounts_quote) - executor_info.filled_amount_quote
+                elif executor_info.type == "position_executor":
+                    report.open_order_volume += (executor_info.config.amount *
+                                                 executor_info.config.entry_price) - executor_info.filled_amount_quote
+
             else:
                 report.realized_pnl_quote += executor_info.net_pnl_quote
             report.volume_traded += executor_info.filled_amount_quote
-            side = executor_info.custom_info.get("side", None)
-            if side:
-                report.inventory_imbalance += executor_info.filled_amount_quote if side == TradeType.BUY else -executor_info.filled_amount_quote
-            if executor_info.type == "dca_executor":
-                report.open_order_volume += sum(executor_info.config.amounts_quote) - executor_info.filled_amount_quote
-            elif executor_info.type == "position_executor":
-                report.open_order_volume += (executor_info.config.amount * executor_info.config.entry_price) - executor_info.filled_amount_quote
 
         # Calculate global PNL values
         report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote
