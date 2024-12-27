@@ -223,7 +223,8 @@ class MarketMakingControllerBase(ControllerBase):
     def __init__(self, config: MarketMakingControllerConfigBase, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
-        self.market_data_provider.initialize_rate_sources([ConnectorPair(config.connector_name, config.trading_pair)])
+        self.market_data_provider.initialize_rate_sources([ConnectorPair(
+            connector_name=config.connector_name, trading_pair=config.trading_pair)])
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         """
