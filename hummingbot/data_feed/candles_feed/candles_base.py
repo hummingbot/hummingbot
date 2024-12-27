@@ -178,6 +178,7 @@ class CandlesBase(NetworkBase):
                 new_end_time = self.ensure_timestamp_in_seconds(candles[0][0])
                 # Ensure current_end_time progresses correctly
                 if new_end_time >= current_end_time:
+                    self.logger().warning(f"Loop halted: new_end_time ({new_end_time}) >= current_end_time ({current_end_time})")
                     break  # Prevent infinite loop due to faulty updates
                 current_end_time = new_end_time
                 fetched_candles_df = pd.DataFrame(candles, columns=self.columns)
@@ -185,9 +186,12 @@ class CandlesBase(NetworkBase):
                 candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
                 candles_df.reset_index(drop=True, inplace=True)
                 self.check_candles_sorted_and_equidistant(candles_df.values)
-            candles_df = candles_df[
-                (candles_df["timestamp"] <= config.end_time) & (candles_df["timestamp"] >= config.start_time)]
-            return candles_df
+            if not candles_df.empty:
+                candles_df = candles_df[
+                    (candles_df["timestamp"] <= config.end_time) & (candles_df["timestamp"] >= config.start_time)]
+                return candles_df
+            else:
+                raise ValueError(f"No available candles for timerange {config.start_time} - {config.end_time}")
         except ValueError as e:
             self.logger().error(f"Error fetching historical candles: {str(e)}")
             raise e
