@@ -175,7 +175,11 @@ class CandlesBase(NetworkBase):
                 if len(candles) <= 1 or missing_records == 0:
                     break
                 candles = candles[candles[:, 0] <= current_end_time]
-                current_end_time = self.ensure_timestamp_in_seconds(candles[0][0])
+                new_end_time = self.ensure_timestamp_in_seconds(candles[0][0])
+                # Ensure current_end_time progresses correctly
+                if new_end_time >= current_end_time:
+                    break  # Prevent infinite loop due to faulty updates
+                current_end_time = new_end_time
                 fetched_candles_df = pd.DataFrame(candles, columns=self.columns)
                 candles_df = pd.concat([fetched_candles_df, candles_df])
                 candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
