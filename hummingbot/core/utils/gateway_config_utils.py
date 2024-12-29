@@ -10,7 +10,7 @@ native_tokens = {
     "cosmos": "ATOM",
     "celo": "CELO",
     "osmosis": "OSMO",
-    "polygon": "MATIC",
+    "polygon": "POL",
     "harmony": "ONE",
     "binance-smart-chain": "BNB",
     "cronos": "CRO",

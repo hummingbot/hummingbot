@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
-from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
@@ -51,8 +50,6 @@ class GatewaySolanaAMM(GatewayEVMAMM):
                          additional_spenders=additional_spenders,
                          trading_required=trading_required)
         self._native_currency = "SOL"
-        self._default_fee = Decimal("0")
-        self._network_transaction_fee: Optional[TokenAmount] = TokenAmount(token=self._native_currency, amount=self._default_fee)  # No Solana fees
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -83,6 +80,7 @@ class GatewaySolanaAMM(GatewayEVMAMM):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
@@ -91,6 +89,9 @@ class GatewaySolanaAMM(GatewayEVMAMM):
             self._status_polling_task = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
+            self._get_chain_info_task = None
+        if self._get_gas_estimate_task is not None:
+            self._get_gas_estimate_task.cancel()
             self._get_chain_info_task = None
 
     async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
@@ -127,7 +128,7 @@ class GatewaySolanaAMM(GatewayEVMAMM):
             tx_status: int = tx_details["txStatus"]
             tx_receipt: Optional[Dict[str, Any]] = tx_details["txData"]
             if tx_status == 1 and (tx_receipt is not None):
-                fee: Decimal = tx_receipt["meta"]["fee"] / 1000000000
+                fee: Decimal = Decimal(tx_receipt["meta"]["fee"] / 1000000000)
 
                 super().processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 
@@ -144,7 +145,7 @@ class GatewaySolanaAMM(GatewayEVMAMM):
                 # 3: in the mempool and likely to fail
                 pass
 
-            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
+            elif tx_status == -1:
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."

@@ -181,27 +181,12 @@ class MexcExchange(ExchangePyBase):
         api_params = {"symbol": symbol,
                       "side": side_str,
                       "quantity": amount_str,
-                      # "quoteOrderQty": amount_str,
                       "type": type_str,
                       "newClientOrderId": order_id}
         if order_type.is_limit_type():
             price_str = f"{price:f}"
             api_params["price"] = price_str
-        else:
-            if trade_type == TradeType.BUY:
-                if price.is_nan():
-                    price = self.get_price_for_volume(
-                        trading_pair,
-                        True,
-                        amount
-                    ).result_price
-                del api_params['quantity']
-                api_params.update({
-                    "quoteOrderQty": f"{price * amount:f}",
-                })
-        if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
-
         try:
             order_result = await self._api_post(
                 path_url=CONSTANTS.ORDER_PATH_URL,
