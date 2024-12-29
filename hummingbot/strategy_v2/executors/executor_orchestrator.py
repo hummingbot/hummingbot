@@ -11,6 +11,8 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor impo
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
+from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
+from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
@@ -121,6 +123,8 @@ class ExecutorOrchestrator:
 
         if isinstance(executor_config, PositionExecutorConfig):
             executor = PositionExecutor(self.strategy, executor_config, self.executors_update_interval)
+        elif isinstance(executor_config, GridExecutorConfig):
+            executor = GridExecutor(self.strategy, executor_config, self.executors_update_interval)
         elif isinstance(executor_config, DCAExecutorConfig):
             executor = DCAExecutor(self.strategy, executor_config, self.executors_update_interval)
         elif isinstance(executor_config, ArbitrageExecutorConfig):
@@ -165,8 +169,13 @@ class ExecutorOrchestrator:
         if executor.is_active:
             self.logger().error(f"Executor ID {executor_id} is still active.")
             return
-        MarketsRecorder.get_instance().store_or_update_executor(executor)
-        self._update_cached_performance(controller_id, executor.executor_info)
+        try:
+            MarketsRecorder.get_instance().store_or_update_executor(executor)
+            self._update_cached_performance(controller_id, executor.executor_info)
+        except Exception as e:
+            self.logger().error(f"Error storing executor id {executor_id}: {str(e)}.")
+            self.logger().error(f"Executor info: {executor.executor_info} | Config: {executor.config}")
+
         self.active_executors[controller_id].remove(executor)
         self.archived_executors[controller_id].append(executor.executor_info)
         del executor
