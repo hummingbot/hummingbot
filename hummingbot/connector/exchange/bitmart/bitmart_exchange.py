@@ -118,9 +118,8 @@ class BitmartExchange(ExchangePyBase):
     def supported_order_types(self) -> List[OrderType]:
         """
         :return a list of OrderType supported by this connector.
-        Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
