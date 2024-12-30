@@ -122,8 +122,6 @@ class RateOracle(NetworkBase):
         if self._fetch_price_task is not None:
             self._fetch_price_task.cancel()
             self._fetch_price_task = None
-        # Reset stored prices so that they are not used if they are not being updated
-        self._prices = {}
 
     async def check_network(self) -> NetworkStatus:
         try:
