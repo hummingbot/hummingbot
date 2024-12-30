@@ -64,19 +64,17 @@ class HyperliquidExchange(ExchangePyBase):
         self.name_to_coin: Dict[str, str] = {}
         super().__init__(client_config_map)
 
-    SHORT_POLL_INTERVAL = 5.0
-
-    LONG_POLL_INTERVAL = 12.0
-
     @property
     def name(self) -> str:
         # Note: domain here refers to the entire exchange name. i.e. hyperliquid_ or hyperliquid_testnet
         return self._domain
 
     @property
-    def authenticator(self) -> HyperliquidAuth:
-        return HyperliquidAuth(self.hyperliquid_api_key, self.hyperliquid_secret_key,
-                               self._use_vault, self._trading_required)
+    def authenticator(self) -> Optional[HyperliquidAuth]:
+        if self._trading_required:
+            return HyperliquidAuth(self.hyperliquid_api_key, self.hyperliquid_secret_key,
+                                   self._use_vault)
+        return None
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
