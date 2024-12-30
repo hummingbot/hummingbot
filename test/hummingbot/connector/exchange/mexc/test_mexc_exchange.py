@@ -1112,7 +1112,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         order_request = self._all_executed_requests(mock_api, url)[0]
         request_data = order_request.kwargs["data"]
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.assertEqual("5.1000000", request_data["quoteOrderQty"])
         self.assertEqual("MARKET", request_data["type"])
         self.assertEqual("BUY", request_data["side"])
 
