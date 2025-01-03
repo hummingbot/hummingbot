@@ -196,14 +196,9 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            if 'AMM' in self.type.name:
-                # AMMs currently have multiple generic connectors. chain_type is used to determine the right connector to use.
-                connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
-                return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain_type'].lower()}_{self._get_module_package()}"
-            elif 'CLOB' in self.type.name:
-                return f"gateway.{self.type.name.lower()}.gateway_{self._get_module_package()}"
-            else:
-                raise ValueError(f"Unsupported connector type: {self.type}")
+            # Gateway DEX connectors may be on different types of chains (EVM, SOLANA, etc)
+            connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
+            return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain_type'].lower()}_{self._get_module_package()}"
         return f"{self.base_name()}_{self._get_module_package()}"
 
     def module_path(self) -> str:
