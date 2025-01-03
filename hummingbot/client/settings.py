@@ -66,7 +66,6 @@ class ConnectorType(Enum):
 
     AMM = "AMM"
     AMM_LP = "AMM_LP"
-    AMM_Perpetual = "AMM_Perpetual"
     CLOB_SPOT = "CLOB_SPOT"
     CLOB_PERP = "CLOB_PERP"
     Connector = "connector"
@@ -511,11 +510,7 @@ class AllConnectorSettings:
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.Derivative, ConnectorType.AMM_Perpetual, ConnectorType.CLOB_PERP]}
-
-    @classmethod
-    def get_derivative_dex_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.AMM_Perpetual}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.Derivative, ConnectorType.CLOB_PERP]}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:

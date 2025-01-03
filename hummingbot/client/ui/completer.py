@@ -56,7 +56,7 @@ class HummingbotCompleter(Completer):
         self._evm_amm_lp_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
-        self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(AllConnectorSettings.get_derivative_dex_names()), ignore_case=True)
+        self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
