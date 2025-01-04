@@ -694,29 +694,31 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                     )
                     continue
                 for trade in trades["data"]:
-                    order_id = trade.get("orderId")
+                    order_id = trade.get("client_order_id")
                     if order_id is not None and order_id in order_map:
                         tracked_order: InFlightOrder = order_map.get(order_id)
-                        position_side = trade["positionSide"]
+                        position_side = PositionSide.LONG if trade["side"] == 1 else PositionSide.SHORT
                         position_action = (PositionAction.OPEN
                                            if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
                                                or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
                                            else PositionAction.CLOSE)
+                        quote_asset = trading_pair.split("-")[1]
+                        fee_amount = Decimal(trade["paid_fees"])
                         fee = TradeFeeBase.new_perpetual_fee(
                             fee_schema=self.trade_fee_schema(),
                             position_action=position_action,
-                            percent_token=trade["commissionAsset"],
-                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                            percent_token=quote_asset,
+                            flat_fees=[TokenAmount(amount=fee_amount, token=quote_asset)]
                         )
                         trade_update: TradeUpdate = TradeUpdate(
-                            trade_id=str(trade["id"]),
+                            trade_id=str(trade["trade_id"]),
                             client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=trade["orderId"],
+                            exchange_order_id=trade["order_id"],
                             trading_pair=tracked_order.trading_pair,
-                            fill_timestamp=trade["time"] * 1e-3,
+                            fill_timestamp=trade["create_time"] * 1e-3,
                             fill_price=Decimal(trade["price"]),
-                            fill_base_amount=Decimal(trade["qty"]),
-                            fill_quote_amount=Decimal(trade["quoteQty"]),
+                            fill_base_amount=Decimal(trade["vol"]),
+                            fill_quote_amount=Decimal(trade["vol"]) * Decimal(trade["price"]),
                             fee=fee,
                         )
                         self._order_tracker.process_trade_update(trade_update)
