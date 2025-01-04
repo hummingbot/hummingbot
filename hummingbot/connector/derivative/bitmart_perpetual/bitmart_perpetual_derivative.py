@@ -727,25 +727,33 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             results: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
 
             for order_update, tracked_order in zip(results, tracked_orders):
-                exchange_order_id = tracked_order.exchange_order_id
-                if exchange_order_id not in self._order_tracker.all_orders:
+                client_order_id = tracked_order.client_order_id
+                if client_order_id not in self._order_tracker.all_orders:
                     continue
                 if isinstance(order_update, Exception) or "code" in order_update:
                     not_found_error = (order_update["code"] in (CONSTANTS.UNKNOWN_ORDER_ERROR_CODE,
                                                                 CONSTANTS.UNKNOWN_ORDER_ERROR_CODE))
                     if not isinstance(order_update, Exception) and not_found_error:
-                        await self._order_tracker.process_order_not_found(exchange_order_id)
+                        await self._order_tracker.process_order_not_found(client_order_id)
                     else:
                         self.logger().network(
-                            f"Error fetching status update for the order {exchange_order_id}: " f"{order_update}."
+                            f"Error fetching status update for the order {client_order_id}: " f"{order_update}."
                         )
                     continue
-                order_state_mapping = self.state_mapping()
-                order_state = order_update["action"], order_update["order"]["state"]
+                if order_update["state"] == 2 and Decimal(order_update["deal_size"]) == 0:
+                    order_state = OrderState.OPEN
+                elif order_update["state"] == 2 and (0 < Decimal(order_update["deal_size"]) < Decimal(order_update["size"])):
+                    order_state = OrderState.PARTIALLY_FILLED
+                elif order_update["state"] == 4 and Decimal(order_update["deal_size"] < Decimal(order_update["size"])):
+                    order_state = OrderState.CANCELED
+                elif order_update["state"] == 4 and Decimal(order_update["deal_size"] == Decimal(order_update["size"])):
+                    order_state = OrderState.FILLED
+                else:
+                    raise Exception("Order state not tracked. Please report to a developer to fix it")
                 new_order_update: OrderUpdate = OrderUpdate(
                     trading_pair=await self.trading_pair_associated_to_exchange_symbol(order_update['symbol']),
                     update_timestamp=order_update["update_time"] * 1e-3,
-                    new_state=order_state_mapping[order_state],
+                    new_state=order_state,
                     client_order_id=order_update["client_order_id"],
                     exchange_order_id=order_update["order_id"],
                 )
