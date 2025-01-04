@@ -265,13 +265,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             }
         )
 
-    @staticmethod
-    def state_mapping():
-        return {
-            (2, 2): OrderState.OPEN,
-            (3, 4): OrderState.CANCELED,
-        }
-
     async def _place_order(
             self,
             order_id: str,
@@ -354,33 +347,10 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        # Since Bitmart doesn't offer a full breakdown view of orders, there is a need to get through REST
-        # all and partially filled orders and then re-construct the information
-        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        orders = await asyncio.gather(
-            self._api_get(
-                path_url=CONSTANTS.ALL_OPEN_ORDERS,
-                params={
-                    "symbol": trading_pair,
-                    "order_state": "all"
-                },
-                is_auth_required=True
-            ),
-            self._api_get(
-                path_url=CONSTANTS.ALL_OPEN_ORDERS,
-                params={
-                    "symbol": trading_pair,
-                    "order_state": "partially_filled"
-                },
-                is_auth_required=True
-            )
-        )
-        all_orders_response, partially_filled_orders_response = orders
-
         order_update = await self._api_get(
             path_url=CONSTANTS.ORDER_DETAILS,
             params={
-                "symbol": trading_pair,
+                "symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
                 "order_id": tracked_order.exchange_order_id
             },
             is_auth_required=True)
@@ -393,12 +363,17 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                     client_order_id=tracked_order.client_order_id,
                 )
                 return _order_update
+        order_update_data = order_update["data"]
+        deal_size = Decimal(order_update_data["deal_size"])
+        size = Decimal(order_update_data["size"])
+        state = order_update_data["state"]
+        order_state = self.get_order_state(size, state, deal_size)
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update["update_time"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[order_update["state"]],
-            client_order_id=order_update["clientOrderId"],
-            exchange_order_id=order_update["orderId"],
+            update_timestamp=order_update_data["update_time"] * 1e-3,
+            new_state=order_state,
+            client_order_id=order_update_data["client_order_id"],
+            exchange_order_id=order_update_data["order_id"],
         )
         return _order_update
 
@@ -430,6 +405,34 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
                 await self._sleep(5.0)
 
+    @staticmethod
+    def get_order_state(size: Decimal, state: int, deal_size: Decimal) -> OrderState:
+        """
+        Determines the state of an order based on the provided parameters. Valid until Bitmart implements spot order
+        states.
+
+        Args:
+            size (Decimal): The total size of the order.
+            state (int): The state code of the order (e.g., 2 for active, 4 for closed).
+            deal_size (Decimal): The size of the order that has been executed.
+
+        Returns:
+            OrderState: The determined order state (OPEN, PARTIALLY_FILLED, CANCELED, FILLED).
+
+        Raises:
+            UnknownOrderStateException: If the order state is not tracked or does not match any known conditions.
+        """
+        if state == 2 and deal_size == 0:
+            return OrderState.OPEN
+        elif state == 2 and (0 < deal_size < size):
+            return OrderState.PARTIALLY_FILLED
+        elif state == 4 and deal_size < size:
+            return OrderState.CANCELED
+        elif state == 4 and deal_size == size:
+            return OrderState.FILLED
+        else:
+            raise UnknownOrderStateException(state, size, deal_size)
+
     async def _process_user_stream_event(self, event_message: Dict[str, Any]):
         event_data = event_message.get("data", {})
         event_group: str = event_message.get("group", "")
@@ -459,22 +462,24 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                         client_order_id=client_order_id,
                         exchange_order_id=str(order_message["order_id"]),
                         trading_pair=tracked_order.trading_pair,
-                        fill_timestamp=order_message["update_time"] * 1e-3,  # TODO: Check if this is the fill timestamp
+                        fill_timestamp=order_message["update_time"] * 1e-3,
                         fill_price=Decimal(trades_dict["fillPrice"]),
-                        fill_base_amount=Decimal(order_message["fillQty"]),
-                        fill_quote_amount=Decimal(order_message["fillQty"]) * Decimal(order_message["fillPrice"]),
+                        fill_base_amount=Decimal(trades_dict["fillQty"]),
+                        fill_quote_amount=Decimal(trades_dict["fillQty"]) * Decimal(trades_dict["fillPrice"]),
                         fee=fee,
                     )
                     self._order_tracker.process_trade_update(trade_update)
 
             tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
             if tracked_order is not None:
-                ex_order_state = event_data[0]["action"], order_message["state"]
-                order_state_mapping = self.state_mapping()
+                deal_size = Decimal(order_message["deal_size"])
+                size = Decimal(order_message["size"])
+                state = order_message["state"]
+                order_state = self.get_order_state(size, state, deal_size)
                 order_update: OrderUpdate = OrderUpdate(
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=order_message["update_time"] * 1e-3,
-                    new_state=order_state_mapping[ex_order_state],  # TODO: wait for bitmart definitions
+                    new_state=order_state,
                     client_order_id=client_order_id,
                     exchange_order_id=str(order_message["order_id"]),
                 )
@@ -743,7 +748,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 client_order_id = tracked_order.client_order_id
                 if client_order_id not in self._order_tracker.all_orders:
                     continue
-                if isinstance(order_update, Exception) or "code" in order_update:
+                if isinstance(order_update, Exception) or order_update["code"] != 1000:
                     not_found_error = (order_update["code"] in (CONSTANTS.UNKNOWN_ORDER_ERROR_CODE,
                                                                 CONSTANTS.UNKNOWN_ORDER_ERROR_CODE))
                     if not isinstance(order_update, Exception) and not_found_error:
@@ -753,22 +758,17 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                             f"Error fetching status update for the order {client_order_id}: " f"{order_update}."
                         )
                     continue
-                if order_update["state"] == 2 and Decimal(order_update["deal_size"]) == 0:
-                    order_state = OrderState.OPEN
-                elif order_update["state"] == 2 and (0 < Decimal(order_update["deal_size"]) < Decimal(order_update["size"])):
-                    order_state = OrderState.PARTIALLY_FILLED
-                elif order_update["state"] == 4 and Decimal(order_update["deal_size"] < Decimal(order_update["size"])):
-                    order_state = OrderState.CANCELED
-                elif order_update["state"] == 4 and Decimal(order_update["deal_size"] == Decimal(order_update["size"])):
-                    order_state = OrderState.FILLED
-                else:
-                    raise Exception("Order state not tracked. Please report to a developer to fix it")
+                order_update_data = order_update["data"]
+                size = Decimal(order_update_data["size"])
+                deal_size = Decimal(order_update_data["deal_size"])
+                state = order_update_data["state"]
+                order_state = self.get_order_state(size, state, deal_size)
                 new_order_update: OrderUpdate = OrderUpdate(
-                    trading_pair=await self.trading_pair_associated_to_exchange_symbol(order_update['symbol']),
-                    update_timestamp=order_update["update_time"] * 1e-3,
+                    trading_pair=await self.trading_pair_associated_to_exchange_symbol(order_update_data['symbol']),
+                    update_timestamp=order_update_data["update_time"] * 1e-3,
                     new_state=order_state,
-                    client_order_id=order_update["client_order_id"],
-                    exchange_order_id=order_update["order_id"],
+                    client_order_id=order_update_data["client_order_id"],
+                    exchange_order_id=order_update_data["order_id"],
                 )
 
                 self._order_tracker.process_order_update(new_order_update)
@@ -821,3 +821,10 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             timestamp = funding_payment["time"]
             funding_rate = Decimal(funding_info_response["funding_rate"])
         return timestamp, funding_rate, payment
+
+
+class UnknownOrderStateException(Exception):
+    """Custom exception for unknown order states."""
+    def __init__(self, state, size, deal_size):
+        super().__init__(f"Order state {state} with size {size} and deal size {deal_size} not tracked. "
+                         f"Please report this to a developer for review.")
