@@ -46,14 +46,10 @@ class HummingbotCompleter(Completer):
             sorted(
                 AllConnectorSettings.get_exchange_names().union(
                     AllConnectorSettings.get_gateway_amm_connector_names()
-                ).union(
-                    AllConnectorSettings.get_gateway_clob_connector_names()
                 )
             ), ignore_case=True
         )
-        self._exchange_clob_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(
-            AllConnectorSettings.get_gateway_clob_connector_names())), ignore_case=True)
-        self._evm_amm_lp_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()), ignore_case=True)
+        self._exchange_clob_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
@@ -63,33 +59,9 @@ class HummingbotCompleter(Completer):
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "list", "approve-tokens"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
-        self._gateway_connector_tokens_completer = WordCompleter(
-            sorted(
-                AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_clob_connector_names().union(
-                        AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
-                    )
-                )
-            ), ignore_case=True
-        )
-        self._gateway_balance_completer = WordCompleter(
-            sorted(
-                AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_clob_connector_names().union(
-                        AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
-                    )
-                )
-            ), ignore_case=True
-        )
-        self._gateway_approve_tokens_completer = WordCompleter(
-            sorted(
-                AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_clob_connector_names().union(
-                        AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
-                    )
-                )
-            ), ignore_case=True
-        )
+        self._gateway_connector_tokens_completer = self._exchange_amm_completer
+        self._gateway_balance_completer = self._exchange_amm_completer
+        self._gateway_approve_tokens_completer = self._exchange_amm_completer
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
@@ -230,9 +202,6 @@ class HummingbotCompleter(Completer):
     def _complete_spot_exchanges(self, document: Document) -> bool:
         return "spot" in self.prompt_text
 
-    def _complete_lp_connector(self, document: Document) -> bool:
-        return " LP" in self.prompt_text
-
     def _complete_trading_timeframe(self, document: Document) -> bool:
         return any(x for x in ("trading timeframe", "execution timeframe")
                    if x in self.prompt_text.lower())
@@ -371,10 +340,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_wallet_addresses(document):
             for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
-                yield c
-
-        if self._complete_lp_connector(document):
-            for c in self._evm_amm_lp_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchange_amm_connectors(document):

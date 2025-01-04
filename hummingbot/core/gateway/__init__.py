@@ -115,15 +115,13 @@ def check_transaction_exceptions(
     # check for gas limit set to low
     if chain == Chain.ETHEREUM:
         gas_limit_threshold: int = 21000
-    elif chain == Chain.TEZOS.chain:
-        gas_limit_threshold: int = 0
     else:
         raise ValueError(f"Unsupported chain: {chain}")
     if gas_limit < gas_limit_threshold:
         exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
 
     # check for insufficient token allowance
-    if allowances[asset_out] < amount:
+    if chain == Chain.ETHEREUM and allowances[asset_out] < amount:
         exception_list.append(f"Insufficient {asset_out} allowance {asset_out_allowance}. Amount to trade: {amount}")
 
     return exception_list

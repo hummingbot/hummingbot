@@ -5,23 +5,6 @@ import pandas as pd
 
 native_tokens = {
     "ethereum": "ETH",
-    "avalanche": "AVAX",
-    "algorand": "ALGO",
-    "cosmos": "ATOM",
-    "celo": "CELO",
-    "osmosis": "OSMO",
-    "polygon": "POL",
-    "harmony": "ONE",
-    "binance-smart-chain": "BNB",
-    "cronos": "CRO",
-    "near": "NEAR",
-    "injective": "INJ",
-    "xdc": "XDC",
-    "tezos": "XTZ",
-    "xrpl": "XRP",
-    "kujira": "KUJI",
-    "telos": "TLOS",
-    "ethereum-classic": "ETC",
     "solana": "SOL"
 }
 
