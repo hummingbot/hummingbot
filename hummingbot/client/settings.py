@@ -65,7 +65,6 @@ class ConnectorType(Enum):
     """
 
     AMM = "AMM"
-    AMM_LP = "AMM_LP"
     CLOB_SPOT = "CLOB_SPOT"
     CLOB_PERP = "CLOB_PERP"
     Connector = "connector"
@@ -518,17 +517,6 @@ class AllConnectorSettings:
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.AMM}
-
-    @classmethod
-    def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.AMM_LP}
-
-    @classmethod
-    def get_gateway_clob_connector_names(cls) -> Set[str]:
-        return {
-            cs.name for cs in cls.all_connector_settings.values()
-            if cs.type == ConnectorType.CLOB_SPOT
-        }
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
