@@ -576,6 +576,14 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         price = float(response["last_price"])
         return price
 
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
+        response = await self._api_get(path_url=CONSTANTS.EXCHANGE_INFO_URL)
+        last_traded_prices = {
+            await self.trading_pair_associated_to_exchange_symbol(ticker["symbol"]): float(ticker["last_price"])
+            for ticker in response["data"]["symbols"]
+        }
+        return last_traded_prices
+
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
         """Resolves name conflicts provoked by futures contracts.
 
