@@ -22,7 +22,7 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, PriceType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
@@ -504,9 +504,14 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                         pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
                         self._perpetual_trading.remove_position(pos_key)
                     else:
+                        # TODO: check if taking midprice or bb or ba for long and short
+                        price = self.get_price_by_type(hb_trading_pair, PriceType.MidPrice)
+                        bep = Decimal(asset["hold_avg_price"])
+                        sign = 1 if position_side == PositionSide.LONG else -1
+                        unrealized_pnl = Decimal(str(sign)) * (price / bep - 1)
                         position.update_position(position_side=position_side,
-                                                 unrealized_pnl=Decimal(asset["up"]),  # TODO: check if unrealized pnl is available
-                                                 entry_price=Decimal(asset["hold_avg_price"]),
+                                                 unrealized_pnl=unrealized_pnl,
+                                                 entry_price=bep,
                                                  amount=Decimal(asset["hold_volume"]))  # TODO: check if volume is base
                 else:
                     await self._update_positions()
