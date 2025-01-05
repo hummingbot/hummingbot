@@ -190,8 +190,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return bidict(
             {
                 (PositionAction.OPEN, TradeType.BUY): 1,  # buy_open_long
-                (PositionAction.CLOSE, TradeType.SELL): 2,  # buy_close_short
-                (PositionAction.CLOSE, TradeType.BUY): 3,  # sell_close_long
+                (PositionAction.CLOSE, TradeType.BUY): 2,  # buy_close_short
+                (PositionAction.CLOSE, TradeType.SELL): 3,  # sell_close_long
                 (PositionAction.OPEN, TradeType.SELL): 4,  # sell_open_short
             }
         )
@@ -274,7 +274,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             "type": "market" if order_type == OrderType.MARKET else "limit",
             "side": self.side_mapping.get((position_action, trade_type)),
             "mode": self.mode_mapping.get(order_type),
-            "size": self._format_amount_to_size(trading_pair, amount),  # TODO: It's in contracts so we need to translate before
+            "size": self._format_amount_to_size(trading_pair, amount),
         }
         if order_type.is_limit_type():
             api_params["price"] = price_str
@@ -433,7 +433,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             self._account_balances[asset_name] = Decimal(event_data["available_balance"]) + Decimal(event_data["frozen_balance"])
             self._account_available_balances[asset_name] = Decimal(event_data["available_balance"])
 
-        # TODO
         elif CONSTANTS.WS_POSITIONS_CHANNEL in event_group and bool(event_data):
             for asset in event_data:
                 trading_pair = asset["symbol"]
@@ -442,16 +441,14 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 except KeyError:
                     # Ignore results for which their symbols is not tracked by the connector
                     continue
-
                 position_side = PositionSide["LONG" if asset['position_type'] == 1 else "SHORT"]
                 position = self._perpetual_trading.get_position(hb_trading_pair, position_side)
                 if position is not None:
-                    amount = Decimal(asset["hold_volume"])  # TODO: check if it's base or contracts
+                    amount = Decimal(asset["hold_volume"])
                     if amount == Decimal("0"):
                         pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
                         self._perpetual_trading.remove_position(pos_key)
                     else:
-                        # TODO: check if taking midprice or bb or ba for long and short
                         price = self.get_price_by_type(hb_trading_pair, PriceType.MidPrice)
                         bep = Decimal(asset["hold_avg_price"])
                         sign = 1 if position_side == PositionSide.LONG else -1
@@ -459,7 +456,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                         position.update_position(position_side=position_side,
                                                  unrealized_pnl=unrealized_pnl,
                                                  entry_price=bep,
-                                                 amount=Decimal(asset["hold_volume"]))  # TODO: check if volume is base
+                                                 amount=Decimal("-1") * amount if position_side == PositionSide.SHORT else amount)
                 else:
                     await self._update_positions()
 
@@ -609,7 +606,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
-                    amount=amount,
+                    amount=Decimal("-1") * amount if position_side == PositionSide.SHORT else amount,
                     leverage=leverage
                 )
                 self._perpetual_trading.set_position(pos_key, _position)
