@@ -626,7 +626,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         if current_tick > last_tick and len(self._order_tracker.active_orders) > 0:
             trading_pairs_to_order_map: Dict[str, Dict[str, Any]] = defaultdict(lambda: {})
             for order in self._order_tracker.active_orders.values():
-                trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
+                trading_pairs_to_order_map[order.trading_pair][order.client_order_id] = order
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [
                 self._api_get(
