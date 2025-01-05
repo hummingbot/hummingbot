@@ -11,8 +11,10 @@ from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -150,6 +152,13 @@ class GatewaySolanaAMM(ConnectorBase):
             in_flight_order
             for in_flight_order in self._order_tracker.active_orders.values()
             if in_flight_order.is_open
+        ]
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self.amm_orders
         ]
 
     @property
@@ -699,3 +708,10 @@ class GatewaySolanaAMM(ConnectorBase):
         """
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
         return gateway_instance
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        This is intentionally left blank, because cancellation is expensive on blockchains. It's not worth it for
+        Hummingbot to force cancel all orders whenever Hummingbot quits.
+        """
+        return []
