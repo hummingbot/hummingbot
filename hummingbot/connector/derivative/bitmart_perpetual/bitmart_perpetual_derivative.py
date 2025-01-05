@@ -210,14 +210,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         """
         pass
 
-    async def _status_polling_loop_fetch_updates(self):
-        await safe_gather(
-            self._update_order_fills_from_trades(),
-            self._update_order_status(),
-            self._update_balances(),
-            self._update_positions(),
-        )
-
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
@@ -235,9 +227,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{cancel_result.get('code')} - {cancel_result['msg']}")
-        if cancel_result.get("status") == "CANCELED":
-            return True
-        return False
+        return cancel_result.get("status") == "CANCELED"
 
     def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
         return int(amount / self._contract_sizes[trading_pair])
@@ -245,8 +235,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
     def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
         return size * self._contract_sizes[trading_pair]
 
-    @staticmethod
-    def side_mapping():
+    @property
+    def side_mapping(self):
         return bidict(
             {
                 (PositionAction.OPEN, TradeType.BUY): 1,  # buy_open_long
@@ -256,8 +246,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             }
         )
 
-    @staticmethod
-    def mode_mapping():
+    @property
+    def mode_mapping(self):
         return bidict(
             {
                 OrderType.LIMIT: CONSTANTS.TIME_IN_FORCE_GTC,  # GTC
@@ -278,14 +268,12 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
     ) -> Tuple[str, float]:
         price_str = f"{price:f}"
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        side_mapping = self.side_mapping()
-        mode_mapping = self.mode_mapping()
         api_params = {
             "symbol": symbol,
             "client_order_id": order_id,
             "type": "market" if order_type == OrderType.MARKET else "limit",
-            "side": side_mapping.get((position_action, trade_type)),
-            "mode": mode_mapping.get(order_type),
+            "side": self.side_mapping.get((position_action, trade_type)),
+            "mode": self.mode_mapping.get(order_type),
             "size": self._format_amount_to_size(trading_pair, amount),  # TODO: It's in contracts so we need to translate before
         }
         if order_type.is_limit_type():
@@ -300,51 +288,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         if response_code != 1000:
             raise IOError(f"Error submitting order {order_id}: {order_result['message']}")
         return o_id, transact_time
-
-    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        trade_updates = []
-        try:
-            exchange_order_id = await order.get_exchange_order_id()
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
-            all_fills_response = await self._api_get(
-                path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                params={
-                    "symbol": trading_pair,
-                },
-                is_auth_required=True)
-
-            for trade in all_fills_response:
-                order_id = str(trade.get("order_id"))
-                if order_id == exchange_order_id:
-                    position_side = trade["side"]
-                    position_action = (PositionAction.OPEN
-                                       if (order.trade_type is TradeType.BUY and position_side == 1
-                                           or order.trade_type is TradeType.SELL and position_side == 4)
-                                       else PositionAction.CLOSE)
-                    # TODO: Check if hardcode usdt or handle in other place
-                    fee = TradeFeeBase.new_perpetual_fee(
-                        fee_schema=self.trade_fee_schema(),
-                        position_action=position_action,
-                        flat_fees=[TokenAmount(amount=Decimal(trade["paid_fees"]), token="USDT")]
-                    )
-                    trade_update: TradeUpdate = TradeUpdate(
-                        trade_id=trade["trade_id"],
-                        client_order_id=order.client_order_id,
-                        exchange_order_id=trade["order_id"],
-                        trading_pair=order.trading_pair,
-                        fill_timestamp=trade["create_time"] * 1e-3,
-                        fill_price=Decimal(trade["price"]),
-                        fill_base_amount=Decimal(trade["vol"]),
-                        fill_quote_amount=Decimal(trade["price"]) * Decimal(trade["vol"]),
-                        fee=fee,
-                    )
-                    trade_updates.append(trade_update)
-
-        except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
-                          "- waiting for exchange order id.")
-
-        return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         order_update = await self._api_get(
@@ -441,8 +384,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             client_order_id = order_message.get("client_order_id", None)
             tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
             position_side = order_message.get("side")
-            side_mapping = self.side_mapping().inv
-            position_action = side_mapping[position_side][0]
+            position_action = self.side_mapping.inv[position_side][0]
             if tracked_order is not None:
                 trades_dict = order_message.get("last_trade")
                 if trades_dict is not None:
@@ -613,6 +555,14 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
+    async def _status_polling_loop_fetch_updates(self):
+        await safe_gather(
+            self._update_trade_history(),
+            self._update_order_status(),
+            self._update_balances(),
+            self._update_positions(),
+        )
+
     async def _update_balances(self):
         """
         Calls the REST API to update total and available balances.
@@ -666,8 +616,11 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 self._perpetual_trading.remove_position(pos_key)
 
-    # TODO: if bitmart doesn't provide definition in order opdates, try to handle logic here
-    async def _update_order_fills_from_trades(self):
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        # since current connector standard reimplemented _update_order_status this method is never reached
+        pass
+
+    async def _update_trade_history(self):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._order_tracker.active_orders) > 0:
@@ -776,7 +729,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                 self._order_tracker.process_order_update(new_order_update)
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-        # TODO: Currently there is no position mode settings in Bitmart
+        # TODO: Currently there are no position mode settings in Bitmart
         return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
