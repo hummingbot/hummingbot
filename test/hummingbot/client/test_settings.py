@@ -78,7 +78,6 @@ class SettingsTest(unittest.TestCase):
             "trading_type": "AMM",
             "chain_type": "EVM",
             "wallet_address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
-            "additional_spenders": [],
         }
         conn_settings = ConnectorSetting(
             name="vvs_cronos_mainnet",
@@ -99,7 +98,6 @@ class SettingsTest(unittest.TestCase):
             "chain": "cronos",
             "network": "mainnet",
             "address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
-            "additional_spenders": [],
             "trading_pairs": [],
             "trading_required": False,
             "client_config_map": None,
@@ -118,7 +116,6 @@ class SettingsTest(unittest.TestCase):
             "network": "mainnet",
             "trading_type": "CLOB_SPOT",
             "wallet_address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
-            "additional_spenders": [],
         }
         conn_settings = ConnectorSetting(
             name="injective_injective_mainnet",
@@ -162,7 +159,6 @@ class SettingsTest(unittest.TestCase):
             "network": "mainnet",
             "trading_type": "CLOB_SPOT",
             "wallet_address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
-            "additional_spenders": [],
         }
         conn_settings = ConnectorSetting(
             name="kujira_kujira_mainnet",
