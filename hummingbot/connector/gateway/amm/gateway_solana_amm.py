@@ -128,7 +128,7 @@ class GatewaySolanaAMM(ConnectorBase):
 
     @property
     def address(self):
-        return self._address
+        return self._wallet_address
 
     async def all_trading_pairs(self) -> List[str]:
         """
@@ -674,8 +674,7 @@ class GatewaySolanaAMM(ConnectorBase):
                 chain=self.chain,
                 network=self.network,
                 address=self.address,
-                token_symbols=token_list,
-                connector=self.connector_name
+                token_symbols=token_list
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
