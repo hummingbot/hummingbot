@@ -318,7 +318,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             'trading_type': 'AMM',
             'chain_type': 'EVM',
             'wallet_address': '0xXXXXX',
-            'additional_spenders': []
         }
 
         return settings
