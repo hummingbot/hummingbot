@@ -41,9 +41,31 @@ debug_price_shim: false
 gateway_transaction_cancel_interval: 600
 
 # What rate source should be used for quote assets pair - between fixed_rate_source and rate_oracle_source?
+# When true: Uses an oracle (like CoinGecko) to get real-time conversion rates between quote assets
+# When false: Uses the fixed conversion rate specified in quote_conversion_rate
 rate_oracle_enabled: true
 
 # What is the fixed_rate used to convert quote assets?
+# Only used when rate_oracle_enabled is false
+# Example: If trading between USDT-XXX and USDC-XXX pairs, and quote_conversion_rate is 1,
+# then 1 USDT = 1 USDC for profit calculations
+# Set this value based on the expected conversion rate between your quote assets
 quote_conversion_rate: 1
 
+# Specify a pool to swap with on the AMM connector
+# This ID is appended to the trading pair name for AMM connectors to identify specific liquidity pools
+# For example, if trading WETH-USDC with pool_id "3", the full market would be "WETH-USDC_3"
+# Leave as null to use the default pool
 pool_id: null
+
+# What is the symbol of the token used to pay gas?
+# Specifies which token is used for transaction fees on the blockchain
+# Default is ETH for Ethereum-based networks, but could be different for other chains
+# This is used to calculate profitability by factoring in gas costs
+gas_token: ETH
+
+# What is the gas price, expressed in the quote asset?
+# Sets the conversion rate between the gas token and the quote asset
+# For example, if gas_price is 3500 and quote asset is USDC, then 1 ETH = 3500 USDC
+# This rate is used to convert gas fees to quote asset for profit calculations
+gas_price: 3500

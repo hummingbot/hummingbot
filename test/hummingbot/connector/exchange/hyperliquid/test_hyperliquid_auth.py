@@ -14,6 +14,7 @@ class HyperliquidAuthTests(TestCase):
         self.api_key = "testApiKey"
         self.secret_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930" # noqa: mock
         self.use_vault = False # noqa: mock
+        self.trading_required = True # noqa: mock
         self.auth = HyperliquidAuth(api_key=self.api_key, api_secret=self.secret_key, use_vault=self.use_vault)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
