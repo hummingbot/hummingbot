@@ -770,11 +770,11 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             },
         )
         if bool(payment_data):
-            sorted_payment_response = sorted(payment_response, key=lambda a: a["data"].get('time', 0), reverse=True)
+            sorted_payment_response = sorted(payment_data, key=lambda a: a["time"], reverse=True)
             funding_payment = sorted_payment_response[0]
             payment = Decimal(funding_payment["amount"])
-            timestamp = funding_payment["time"]
-            funding_rate = Decimal(funding_info_response["funding_rate"])
+            timestamp = int(funding_payment["time"])
+            funding_rate = Decimal(funding_info_response["data"]["rate_value"])
         return timestamp, funding_rate, payment
 
 
