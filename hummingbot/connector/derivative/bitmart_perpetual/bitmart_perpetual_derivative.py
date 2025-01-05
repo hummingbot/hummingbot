@@ -179,6 +179,32 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
         )
 
+    def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
+        return int(amount / self._contract_sizes[trading_pair])
+
+    def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
+        return size * self._contract_sizes[trading_pair]
+
+    @property
+    def side_mapping(self):
+        return bidict(
+            {
+                (PositionAction.OPEN, TradeType.BUY): 1,  # buy_open_long
+                (PositionAction.CLOSE, TradeType.SELL): 2,  # buy_close_short
+                (PositionAction.CLOSE, TradeType.BUY): 3,  # sell_close_long
+                (PositionAction.OPEN, TradeType.SELL): 4,  # sell_open_short
+            }
+        )
+
+    @property
+    def mode_mapping(self):
+        return bidict(
+            {
+                OrderType.LIMIT: CONSTANTS.TIME_IN_FORCE_GTC,  # GTC
+                OrderType.LIMIT_MAKER: CONSTANTS.TIME_IN_FORCE_MAKER_ONLY  # Maker only
+            }
+        )
+
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -228,32 +254,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{cancel_result.get('code')} - {cancel_result['msg']}")
         return cancel_result.get("status") == "CANCELED"
-
-    def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
-        return int(amount / self._contract_sizes[trading_pair])
-
-    def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
-        return size * self._contract_sizes[trading_pair]
-
-    @property
-    def side_mapping(self):
-        return bidict(
-            {
-                (PositionAction.OPEN, TradeType.BUY): 1,  # buy_open_long
-                (PositionAction.CLOSE, TradeType.SELL): 2,  # buy_close_short
-                (PositionAction.CLOSE, TradeType.BUY): 3,  # sell_close_long
-                (PositionAction.OPEN, TradeType.SELL): 4,  # sell_open_short
-            }
-        )
-
-    @property
-    def mode_mapping(self):
-        return bidict(
-            {
-                OrderType.LIMIT: CONSTANTS.TIME_IN_FORCE_GTC,  # GTC
-                OrderType.LIMIT_MAKER: CONSTANTS.TIME_IN_FORCE_MAKER_ONLY  # Maker only
-            }
-        )
 
     async def _place_order(
             self,
