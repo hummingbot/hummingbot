@@ -22,6 +22,39 @@ class GatewaySolanaAMM(GatewayAMMBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    async def start_network(self):
+        if self._trading_required:
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
+        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+
+    async def stop_network(self):
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+            self._status_polling_task = None
+        if self._get_chain_info_task is not None:
+            self._get_chain_info_task.cancel()
+            self._get_chain_info_task = None
+        if self._get_gas_estimate_task is not None:
+            self._get_gas_estimate_task.cancel()
+            self._get_chain_info_task = None
+
+    async def _status_polling_loop(self):
+        await self.update_balances(on_interval=False)
+        while True:
+            try:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
+                await safe_gather(
+                    self.update_balances(on_interval=True),
+                    self.update_order_status(self.amm_orders)
+                )
+                self._last_poll_timestamp = self.current_timestamp
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+
     def parse_price_response(
         self,
         base: str,
@@ -123,36 +156,3 @@ class GatewaySolanaAMM(GatewayAMMBase):
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
                 )
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-
-    async def start_network(self):
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
-        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
-
-    async def stop_network(self):
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._get_chain_info_task is not None:
-            self._get_chain_info_task.cancel()
-            self._get_chain_info_task = None
-        if self._get_gas_estimate_task is not None:
-            self._get_gas_estimate_task.cancel()
-            self._get_chain_info_task = None
-
-    async def _status_polling_loop(self):
-        await self.update_balances(on_interval=False)
-        while True:
-            try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-                await safe_gather(
-                    self.update_balances(on_interval=True),
-                    self.update_order_status(self.in_flight_orders.values())
-                )
-                self._last_poll_timestamp = self.current_timestamp
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)

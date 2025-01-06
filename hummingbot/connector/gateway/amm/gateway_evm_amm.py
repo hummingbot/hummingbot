@@ -42,6 +42,45 @@ class GatewayEVMAMM(GatewayAMMBase):
         self._allowances = {}
         self._update_allowances = None
 
+    async def start_network(self):
+        if self._trading_required:
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._update_allowances = safe_ensure_future(self.update_allowances())
+            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
+        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+
+    async def stop_network(self):
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+            self._status_polling_task = None
+        if self._update_allowances is not None:
+            self._update_allowances.cancel()
+            self._update_allowances = None
+        if self._get_chain_info_task is not None:
+            self._get_chain_info_task.cancel()
+            self._get_chain_info_task = None
+        if self._get_gas_estimate_task is not None:
+            self._get_gas_estimate_task.cancel()
+            self._get_chain_info_task = None
+
+    async def _status_polling_loop(self):
+        await self.update_balances(on_interval=False)
+        while True:
+            try:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
+                await safe_gather(
+                    self.update_balances(on_interval=True),
+                    self.update_canceling_transactions(self.canceling_orders),
+                    self.update_token_approval_status(self.approval_orders),
+                    self.update_order_status(self.amm_orders)
+                )
+                self._last_poll_timestamp = self.current_timestamp
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+
     @property
     def approval_orders(self) -> List[GatewayInFlightOrder]:
         return [
@@ -374,27 +413,6 @@ class GatewayEVMAMM(GatewayAMMBase):
         return ((len(self._allowances.values()) == len(self._tokens)) and
                 (allowances_available))
 
-    async def start_network(self):
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._update_allowances = safe_ensure_future(self.update_allowances())
-            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
-        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
-
-    async def stop_network(self):
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._update_allowances is not None:
-            self._update_allowances.cancel()
-            self._update_allowances = None
-        if self._get_chain_info_task is not None:
-            self._get_chain_info_task.cancel()
-            self._get_chain_info_task = None
-        if self._get_gas_estimate_task is not None:
-            self._get_gas_estimate_task.cancel()
-            self._get_chain_info_task = None
-
     async def _update_nonce(self, new_nonce: Optional[int] = None):
         """
         Call the gateway API to get the current nonce for self.address
@@ -404,24 +422,6 @@ class GatewayEVMAMM(GatewayAMMBase):
             new_nonce: int = resp_json.get("nonce")
 
         self._nonce = new_nonce
-
-    async def _status_polling_loop(self):
-        await self.update_balances(on_interval=False)
-        while True:
-            try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-                await safe_gather(
-                    self.update_balances(on_interval=True),
-                    self.update_canceling_transactions(self.canceling_orders),
-                    self.update_token_approval_status(self.approval_orders),
-                    self.update_order_status(self.amm_orders)
-                )
-                self._last_poll_timestamp = self.current_timestamp
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
 
     async def _execute_cancel(self, order_id: str, cancel_age: int) -> Optional[str]:
         """
