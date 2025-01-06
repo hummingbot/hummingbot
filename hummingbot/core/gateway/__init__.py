@@ -85,7 +85,6 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
 
 
 def check_transaction_exceptions(
-        allowances: Dict[str, Decimal],
         balances: Dict[str, Decimal],
         base_asset: str,
         quote_asset: str,
@@ -95,6 +94,7 @@ def check_transaction_exceptions(
         gas_cost: Decimal,
         gas_asset: str,
         swaps_count: int,
+        allowances: Optional[Dict[str, Decimal]] = None,
         chain: Chain = Chain.ETHEREUM
 ) -> List[str]:
     """
@@ -103,6 +103,7 @@ def check_transaction_exceptions(
     exception_list = []
     swaps_message: str = f"Total swaps: {swaps_count}"
     gas_asset_balance: Decimal = balances.get(gas_asset, S_DECIMAL_0)
+    allowances = allowances or {}
 
     # check for sufficient gas
     if gas_asset_balance < gas_cost:
@@ -121,7 +122,7 @@ def check_transaction_exceptions(
         exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
 
     # check for insufficient token allowance
-    if chain == Chain.ETHEREUM and allowances[asset_out] < amount:
+    if chain == Chain.ETHEREUM and asset_out in allowances and allowances[asset_out] < amount:
         exception_list.append(f"Insufficient {asset_out} allowance {asset_out_allowance}. Amount to trade: {amount}")
 
     return exception_list
