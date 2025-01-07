@@ -48,92 +48,68 @@ class MQTTBridgeConfigMap(BaseClientModel):
     mqtt_host: str = Field(
         default="localhost",
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the MQTT hostname to connect to (e.g. localhost)"
-            ),
+            prompt=lambda cm: ("Set the MQTT hostname to connect to (e.g. localhost)"),
         ),
     )
     mqtt_port: int = Field(
         default=1883,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the MQTT port to connect to (e.g. 1883)"
-            ),
+            prompt=lambda cm: ("Set the MQTT port to connect to (e.g. 1883)"),
         ),
     )
     mqtt_username: str = Field(
         default="",
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the username for connecting to the MQTT broker"
-            ),
+            prompt=lambda cm: ("Set the username for connecting to the MQTT broker"),
         ),
     )
     mqtt_password: str = Field(
         default="",
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the password for connecting to the MQTT broker"
-            ),
+            prompt=lambda cm: ("Set the password for connecting to the MQTT broker"),
         ),
     )
     mqtt_namespace: str = Field(
-        default='hbot',
+        default="hbot",
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the mqtt uri namespace (Default='hbot')"
-            ),
+            prompt=lambda cm: ("Set the mqtt uri namespace (Default='hbot')"),
         ),
     )
     mqtt_ssl: bool = Field(
         default=False,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable SSL for MQTT connections"
-            ),
+            prompt=lambda cm: ("Enable/Disable SSL for MQTT connections"),
         ),
     )
-    mqtt_logger: bool = Field(
-        default=True
-    )
+    mqtt_logger: bool = Field(default=True)
     mqtt_notifier: bool = Field(
         default=True,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable MQTT Notifier"
-            ),
+            prompt=lambda cm: ("Enable/Disable MQTT Notifier"),
         ),
     )
     mqtt_commands: bool = Field(
         default=True,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable MQTT Commands"
-            ),
+            prompt=lambda cm: ("Enable/Disable MQTT Commands"),
         ),
     )
     mqtt_events: bool = Field(
         default=True,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable Events forwarding to MQTT broker"
-            ),
+            prompt=lambda cm: ("Enable/Disable Events forwarding to MQTT broker"),
         ),
     )
     mqtt_external_events: bool = Field(
         default=True,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable External MQTT Event listener"
-            ),
+            prompt=lambda cm: ("Enable/Disable External MQTT Event listener"),
         ),
     )
     mqtt_autostart: bool = Field(
         default=False,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable autostart"
-            ),
+            prompt=lambda cm: ("Enable/Disable autostart"),
         ),
     )
 
@@ -145,27 +121,21 @@ class MarketDataCollectionConfigMap(BaseClientModel):
     market_data_collection_enabled: bool = Field(
         default=False,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable Market Data Collection"
-            ),
+            prompt=lambda cm: ("Enable/Disable Market Data Collection"),
         ),
     )
     market_data_collection_interval: int = Field(
         default=60,
         ge=1,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the market data collection interval in seconds (Default=60)"
-            ),
+            prompt=lambda cm: ("Set the market data collection interval in seconds (Default=60)"),
         ),
     )
     market_data_collection_depth: int = Field(
         default=20,
         ge=2,
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the order book collection depth (Default=20)"
-            ),
+            prompt=lambda cm: ("Set the order book collection depth (Default=20)"),
         ),
     )
 
@@ -284,7 +254,7 @@ class ColorConfigMap(BaseClientModel):
         pre=True,
     )
     def validate_color(cls, v: str):
-        if not re.search(r'^#(?:[0-9a-fA-F]{2}){3}$', v):
+        if not re.search(r"^#(?:[0-9a-fA-F]{2}){3}$", v):
             raise ValueError("Invalid color code")
         return v
 
@@ -311,8 +281,7 @@ class PaperTradeConfigMap(BaseClientModel):
         },
         client_data=ClientFieldData(
             prompt=lambda cm: (
-                "Enter paper trade balance settings (Input must be valid json — "
-                "e.g. {\"ETH\": 10, \"USDC\": 50000})"
+                "Enter paper trade balance settings (Input must be valid json — " 'e.g. {"ETH": 10, "USDC": 50000})'
             ),
         ),
     )
@@ -326,8 +295,7 @@ class PaperTradeConfigMap(BaseClientModel):
 
 class KillSwitchMode(BaseClientModel, ABC):
     @abstractmethod
-    def get_kill_switch(self, hb: "HummingbotApplication") -> KillSwitch:
-        ...
+    def get_kill_switch(self, hb: "HummingbotApplication") -> KillSwitch: ...
 
 
 class KillSwitchEnabledMode(KillSwitchMode):
@@ -337,8 +305,7 @@ class KillSwitchEnabledMode(KillSwitchMode):
         le=Decimal(100),
         client_data=ClientFieldData(
             prompt=lambda cm: (
-                "At what profit/loss rate would you like the bot to stop?"
-                " (e.g. -5 equals 5 percent loss)"
+                "At what profit/loss rate would you like the bot to stop?" " (e.g. -5 equals 5 percent loss)"
             ),
         ),
     )
@@ -379,8 +346,7 @@ class AutofillImportEnum(str, ClientConfigEnum):
 
 class TelegramMode(BaseClientModel, ABC):
     @abstractmethod
-    def get_notifiers(self, hb: "HummingbotApplication") -> List[TelegramNotifier]:
-        ...
+    def get_notifiers(self, hb: "HummingbotApplication") -> List[TelegramNotifier]: ...
 
 
 class TelegramEnabledMode(TelegramMode):
@@ -397,9 +363,7 @@ class TelegramEnabledMode(TelegramMode):
         title = "telegram_enabled"
 
     def get_notifiers(self, hb: "HummingbotApplication") -> List[TelegramNotifier]:
-        notifiers = [
-            TelegramNotifier(token=self.telegram_token, chat_id=self.telegram_chat_id, hb=hb)
-        ]
+        notifiers = [TelegramNotifier(token=self.telegram_token, chat_id=self.telegram_chat_id, hb=hb)]
         return notifiers
 
 
@@ -419,8 +383,7 @@ TELEGRAM_MODES = {
 
 class DBMode(BaseClientModel, ABC):
     @abstractmethod
-    def get_url(self, db_path: str) -> str:
-        ...
+    def get_url(self, db_path: str) -> str: ...
 
 
 class DBSqliteMode(DBMode):
@@ -521,15 +484,13 @@ class GlobalTokenConfigMap(BaseClientModel):
     global_token_name: str = Field(
         default="USDT",
         client_data=ClientFieldData(
-            prompt=lambda
-                cm: "What is your default display token? (e.g. USD,EUR,BTC)",
+            prompt=lambda cm: "What is your default display token? (e.g. USD,EUR,BTC)",
         ),
     )
     global_token_symbol: str = Field(
         default="$",
         client_data=ClientFieldData(
-            prompt=lambda
-                cm: "What is your default display token symbol? (e.g. $,€)",
+            prompt=lambda cm: "What is your default display token symbol? (e.g. $,€)",
         ),
     )
 
@@ -589,13 +550,12 @@ class CommandsTimeoutConfigMap(BaseClientModel):
 class AnonymizedMetricsMode(BaseClientModel, ABC):
     @abstractmethod
     def get_collector(
-            self,
-            connector: ConnectorBase,
-            rate_provider: RateOracle,
-            instance_id: str,
-            valuation_token: str = "USDT",
-    ) -> MetricsCollector:
-        ...
+        self,
+        connector: ConnectorBase,
+        rate_provider: RateOracle,
+        instance_id: str,
+        valuation_token: str = "USDT",
+    ) -> MetricsCollector: ...
 
 
 class AnonymizedMetricsDisabledMode(AnonymizedMetricsMode):
@@ -603,11 +563,11 @@ class AnonymizedMetricsDisabledMode(AnonymizedMetricsMode):
         title = "anonymized_metrics_disabled"
 
     def get_collector(
-            self,
-            connector: ConnectorBase,
-            rate_provider: RateOracle,
-            instance_id: str,
-            valuation_token: str = "USDT",
+        self,
+        connector: ConnectorBase,
+        rate_provider: RateOracle,
+        instance_id: str,
+        valuation_token: str = "USDT",
     ) -> MetricsCollector:
         return DummyMetricsCollector()
 
@@ -625,11 +585,11 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
         title = "anonymized_metrics_enabled"
 
     def get_collector(
-            self,
-            connector: ConnectorBase,
-            rate_provider: RateOracle,
-            instance_id: str,
-            valuation_token: str = "USDT",
+        self,
+        connector: ConnectorBase,
+        rate_provider: RateOracle,
+        instance_id: str,
+        valuation_token: str = "USDT",
     ) -> MetricsCollector:
         instance = TradeVolumeMetricCollector(
             connector=connector,
@@ -654,8 +614,7 @@ METRICS_MODES = {
 
 class RateSourceModeBase(BaseClientModel, ABC):
     @abstractmethod
-    def build_rate_source(self) -> RateSourceBase:
-        ...
+    def build_rate_source(self) -> RateSourceBase: ...
 
 
 class ExchangeRateSourceModeBase(RateSourceModeBase):
@@ -695,6 +654,47 @@ class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
     class Config:
         title = "binance_us"
 
+class XagoIoRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="xago_io",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "xago_io"
+
+class KrakenRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="kraken",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "kraken"
+
+class XagoIoRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="xago_io",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "xago_io"
+
+
+class KrakenRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="kraken",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "kraken"
+
 
 class CubeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
@@ -722,16 +722,14 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
                 " in CoinGecko rates query (e.g. frontier-token,pax-gold,rbtc — empty to skip)"
             ),
             prompt_on_new=True,
-        )
+        ),
     )
 
     class Config:
         title = "coin_gecko"
 
     def build_rate_source(self) -> RateSourceBase:
-        rate_source = RATE_ORACLE_SOURCES[self.Config.title](
-            extra_token_ids=self.extra_tokens
-        )
+        rate_source = RATE_ORACLE_SOURCES[self.Config.title](extra_token_ids=self.extra_tokens)
         rate_source.extra_token_ids = self.extra_tokens
         return rate_source
 
@@ -755,7 +753,8 @@ class CoinCapRateSourceMode(RateSourceModeBase):
     assets_map: Dict[str, str] = Field(
         default=",".join(
             [
-                ":".join(pair) for pair in {
+                ":".join(pair)
+                for pair in {
                     "BTC": "bitcoin",
                     "ETH": "ethereum",
                     "USDT": "tether",
@@ -821,9 +820,7 @@ class CoinCapRateSourceMode(RateSourceModeBase):
 
     @classmethod
     def _build_rate_source_cls(cls, assets_map: Dict[str, str], api_key: SecretStr) -> RateSourceBase:
-        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
-            assets_map=assets_map, api_key=api_key.get_secret_value()
-        )
+        rate_source = RATE_ORACLE_SOURCES["coin_cap"](assets_map=assets_map, api_key=api_key.get_secret_value())
         return rate_source
 
 
@@ -894,6 +891,8 @@ RATE_SOURCE_MODES = {
     CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.Config.title: CubeRateSourceMode,
     HyperliquidRateSourceMode.Config.title: HyperliquidRateSourceMode,
+    KrakenRateSourceMode.Config.title: KrakenRateSourceMode,
+    XagoIoRateSourceMode.Config.title: XagoIoRateSourceMode,
 }
 
 
@@ -943,17 +942,17 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: (
                 f"What to auto-fill in the prompt after each import command? ({'/'.join(list(AutofillImportEnum))})"
             ),
-        )
+        ),
     )
     telegram_mode: Union[tuple(TELEGRAM_MODES.values())] = Field(
         default=TelegramDisabledMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
-        )
+        ),
     )
     mqtt_bridge: MQTTBridgeConfigMap = Field(
         default=MQTTBridgeConfigMap(),
-        description=('MQTT Bridge configuration.'),
+        description=("MQTT Bridge configuration."),
     )
     send_error_logs: bool = Field(
         default=True,
@@ -963,33 +962,34 @@ class ClientConfigMap(BaseClientModel):
         ),
     )
     previous_strategy: Optional[str] = Field(
-        default=None,
-        description="Can store the previous strategy ran for quick retrieval."
+        default=None, description="Can store the previous strategy ran for quick retrieval."
     )
     db_mode: Union[tuple(DB_MODES.values())] = Field(
         default=DBSqliteMode(),
-        description=("Advanced database options, currently supports SQLAlchemy's included dialects"
-                     "\nReference: https://docs.sqlalchemy.org/en/13/dialects/"
-                     "\nTo use an instance of SQLite DB the required configuration is \n  db_engine: sqlite"
-                     "\nTo use a DBMS the required configuration is"
-                     "\n  db_host: 127.0.0.1\n  db_port: 3306\n  db_username: username\n  db_password: password"
-                     "\n  db_name: dbname"),
+        description=(
+            "Advanced database options, currently supports SQLAlchemy's included dialects"
+            "\nReference: https://docs.sqlalchemy.org/en/13/dialects/"
+            "\nTo use an instance of SQLite DB the required configuration is \n  db_engine: sqlite"
+            "\nTo use a DBMS the required configuration is"
+            "\n  db_host: 127.0.0.1\n  db_port: 3306\n  db_username: username\n  db_password: password"
+            "\n  db_name: dbname"
+        ),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired db mode ({'/'.join(list(DB_MODES.keys()))})",
         ),
     )
     balance_asset_limit: Dict[str, Dict[str, Decimal]] = Field(
         default={exchange: {} for exchange in AllConnectorSettings.get_exchange_names()},
-        description=("Balance Limit Configurations"
-                     "\ne.g. Setting USDT and BTC limits on Binance."
-                     "\nbalance_asset_limit:"
-                     "\n  binance:"
-                     "\n    BTC: 0.1"
-                     "\n    USDT: 1000"),
+        description=(
+            "Balance Limit Configurations"
+            "\ne.g. Setting USDT and BTC limits on Binance."
+            "\nbalance_asset_limit:"
+            "\n  binance:"
+            "\n    BTC: 0.1"
+            "\n    USDT: 1000"
+        ),
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Use the `balance limit` command e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]"
-            ),
+            prompt=lambda cm: ("Use the `balance limit` command e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]"),
         ),
     )
     manual_gas_price: Decimal = Field(
@@ -1002,9 +1002,11 @@ class ClientConfigMap(BaseClientModel):
     )
     gateway: GatewayConfigMap = Field(
         default=GatewayConfigMap(),
-        description=("Gateway API Configurations"
-                     "\ndefault host to only use localhost"
-                     "\nPort need to match the final installation port for Gateway"),
+        description=(
+            "Gateway API Configurations"
+            "\ndefault host to only use localhost"
+            "\nPort need to match the final installation port for Gateway"
+        ),
     )
     certs_path: Path = Field(
         default=DEFAULT_GATEWAY_CERTS_PATH,
@@ -1026,12 +1028,12 @@ class ClientConfigMap(BaseClientModel):
                 command="spreads",
                 help="Set bid and ask spread",
                 arguments=["Bid Spread", "Ask Spread"],
-                output=["config bid_spread $1", "config ask_spread $2"]
+                output=["config bid_spread $1", "config ask_spread $2"],
             )
         ],
-        description=("Command Shortcuts"
-                     "\nDefine abbreviations for often used commands"
-                     "\nor batch grouped commands together"),
+        description=(
+            "Command Shortcuts" "\nDefine abbreviations for often used commands" "\nor batch grouped commands together"
+        ),
     )
     rate_oracle_source: Union[tuple(RATE_SOURCE_MODES.values())] = Field(
         default=BinanceRateSourceMode(),
@@ -1044,13 +1046,15 @@ class ClientConfigMap(BaseClientModel):
     )
     global_token: GlobalTokenConfigMap = Field(
         default=GlobalTokenConfigMap(),
-        description="A universal token which to display tokens values in, e.g. USD,EUR,BTC"
+        description="A universal token which to display tokens values in, e.g. USD,EUR,BTC",
     )
     rate_limits_share_pct: Decimal = Field(
         default=Decimal("100"),
-        description=("Percentage of API rate limits (on any exchange and any end point) allocated to this bot instance."
-                     "\nEnter 50 to indicate 50%. E.g. if the API rate limit is 100 calls per second, and you allocate "
-                     "\n50% to this setting, the bot will have a maximum (limit) of 50 calls per second"),
+        description=(
+            "Percentage of API rate limits (on any exchange and any end point) allocated to this bot instance."
+            "\nEnter 50 to indicate 50%. E.g. if the API rate limit is 100 calls per second, and you allocate "
+            "\n50% to this setting, the bot will have a maximum (limit) of 50 calls per second"
+        ),
         gt=Decimal("0"),
         le=Decimal("100"),
         client_data=ClientFieldData(
@@ -1081,12 +1085,10 @@ class ClientConfigMap(BaseClientModel):
         default=1.0,
         ge=0.1,
         description="The tick size is the frequency with which the clock notifies the time iterators by calling the"
-                    "\nc_tick() method, that means for example that if the tick size is 1, the logic of the strategy"
-                    " \nwill run every second.",
+        "\nc_tick() method, that means for example that if the tick size is 1, the logic of the strategy"
+        " \nwill run every second.",
         client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "What tick size (in seconds) do you want to use? (Enter 0.5 to indicate 0.5 seconds)"
-            ),
+            prompt=lambda cm: ("What tick size (in seconds) do you want to use? (Enter 0.5 to indicate 0.5 seconds)"),
         ),
     )
     market_data_collection: MarketDataCollectionConfigMap = Field(default=MarketDataCollectionConfigMap())
@@ -1099,9 +1101,7 @@ class ClientConfigMap(BaseClientModel):
         if isinstance(v, tuple(KILL_SWITCH_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in KILL_SWITCH_MODES:
-            raise ValueError(
-                f"Invalid kill switch mode, please choose a value from {list(KILL_SWITCH_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid kill switch mode, please choose a value from {list(KILL_SWITCH_MODES.keys())}.")
         else:
             sub_model = KILL_SWITCH_MODES[v].construct()
         return sub_model
@@ -1117,9 +1117,7 @@ class ClientConfigMap(BaseClientModel):
         if isinstance(v, tuple(TELEGRAM_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in TELEGRAM_MODES:
-            raise ValueError(
-                f"Invalid telegram mode, please choose a value from {list(TELEGRAM_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid telegram mode, please choose a value from {list(TELEGRAM_MODES.keys())}.")
         else:
             sub_model = TELEGRAM_MODES[v].construct()
         return sub_model
@@ -1138,9 +1136,7 @@ class ClientConfigMap(BaseClientModel):
         if isinstance(v, tuple(DB_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in DB_MODES:
-            raise ValueError(
-                f"Invalid DB mode, please choose a value from {list(DB_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid DB mode, please choose a value from {list(DB_MODES.keys())}.")
         else:
             sub_model = DB_MODES[v].construct()
         return sub_model
@@ -1150,9 +1146,7 @@ class ClientConfigMap(BaseClientModel):
         if isinstance(v, tuple(METRICS_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in METRICS_MODES:
-            raise ValueError(
-                f"Invalid metrics mode, please choose a value from {list(METRICS_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid metrics mode, please choose a value from {list(METRICS_MODES.keys())}.")
         else:
             sub_model = METRICS_MODES[v].construct()
         return sub_model
@@ -1162,9 +1156,7 @@ class ClientConfigMap(BaseClientModel):
         if isinstance(v, tuple(RATE_SOURCE_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in RATE_SOURCE_MODES:
-            raise ValueError(
-                f"Invalid rate source, please choose a value from {list(RATE_SOURCE_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid rate source, please choose a value from {list(RATE_SOURCE_MODES.keys())}.")
         else:
             sub_model = RATE_SOURCE_MODES[v].construct()
         return sub_model

@@ -32,6 +32,7 @@ class ExecutorOrchestrator:
     """
     Orchestrator for various executors.
     """
+
     _logger = None
 
     @classmethod
@@ -69,7 +70,9 @@ class ExecutorOrchestrator:
         report.realized_pnl_quote += executor_info.net_pnl_quote
         report.volume_traded += executor_info.filled_amount_quote
         if executor_info.close_type:
-            report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type, 0) + 1
+            report.close_type_counts[executor_info.close_type] = (
+                report.close_type_counts.get(executor_info.close_type, 0) + 1
+            )
 
     def stop(self):
         """
@@ -147,8 +150,9 @@ class ExecutorOrchestrator:
         controller_id = action.controller_id
         executor_id = action.executor_id
 
-        executor = next((executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
-                        None)
+        executor = next(
+            (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id), None
+        )
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
@@ -161,8 +165,9 @@ class ExecutorOrchestrator:
         controller_id = action.controller_id
         executor_id = action.executor_id
 
-        executor = next((executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
-                        None)
+        executor = next(
+            (executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id), None
+        )
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
@@ -201,14 +206,19 @@ class ExecutorOrchestrator:
             if executor_info.is_active:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
                 if side:
-                    report.inventory_imbalance += executor_info.filled_amount_quote \
-                        if side == TradeType.BUY else -executor_info.filled_amount_quote
+                    report.inventory_imbalance += (
+                        executor_info.filled_amount_quote
+                        if side == TradeType.BUY
+                        else -executor_info.filled_amount_quote
+                    )
                 if executor_info.type == "dca_executor":
-                    report.open_order_volume += sum(
-                        executor_info.config.amounts_quote) - executor_info.filled_amount_quote
+                    report.open_order_volume += (
+                        sum(executor_info.config.amounts_quote) - executor_info.filled_amount_quote
+                    )
                 elif executor_info.type == "position_executor":
-                    report.open_order_volume += (executor_info.config.amount *
-                                                 executor_info.config.entry_price) - executor_info.filled_amount_quote
+                    report.open_order_volume += (
+                        executor_info.config.amount * executor_info.config.entry_price
+                    ) - executor_info.filled_amount_quote
 
             else:
                 report.realized_pnl_quote += executor_info.net_pnl_quote
@@ -216,11 +226,17 @@ class ExecutorOrchestrator:
 
         # Calculate global PNL values
         report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote
-        report.global_pnl_pct = (report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        report.global_pnl_pct = (
+            (report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        )
 
         # Calculate individual PNL percentages
-        report.unrealized_pnl_pct = (report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
-        report.realized_pnl_pct = (report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        report.unrealized_pnl_pct = (
+            (report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        )
+        report.realized_pnl_pct = (
+            (report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        )
 
         return report
 
@@ -239,8 +255,20 @@ class ExecutorOrchestrator:
                 global_report.close_type_counts[close_type] = global_report.close_type_counts.get(close_type, 0) + count
 
         global_report.global_pnl_quote = global_report.realized_pnl_quote + global_report.unrealized_pnl_quote
-        global_report.global_pnl_pct = (global_report.global_pnl_quote / global_report.volume_traded) * 100 if global_report.volume_traded != 0 else Decimal(0)
-        global_report.realized_pnl_pct = (global_report.realized_pnl_quote / global_report.volume_traded) * 100 if global_report.volume_traded != 0 else Decimal(0)
-        global_report.unrealized_pnl_pct = (global_report.unrealized_pnl_quote / global_report.volume_traded) * 100 if global_report.volume_traded != 0 else Decimal(0)
+        global_report.global_pnl_pct = (
+            (global_report.global_pnl_quote / global_report.volume_traded) * 100
+            if global_report.volume_traded != 0
+            else Decimal(0)
+        )
+        global_report.realized_pnl_pct = (
+            (global_report.realized_pnl_quote / global_report.volume_traded) * 100
+            if global_report.volume_traded != 0
+            else Decimal(0)
+        )
+        global_report.unrealized_pnl_pct = (
+            (global_report.unrealized_pnl_quote / global_report.volume_traded) * 100
+            if global_report.volume_traded != 0
+            else Decimal(0)
+        )
 
         return global_report

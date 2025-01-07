@@ -64,7 +64,8 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         self.resume_test_event = asyncio.Event()
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair}))
+            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair})
+        )
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -75,8 +76,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -92,34 +92,92 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
     def get_rest_snapshot_msg(self) -> Dict:
         return {
-            "coin": "COINALPHA/USDC", "levels": [
-                [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-                 {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-                [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-                 {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]],
-            "time": 1700687397643
+            "coin": "COINALPHA/USDC",
+            "levels": [
+                [
+                    {"px": "2080.3", "sz": "74.6923", "n": 2},
+                    {"px": "2080.0", "sz": "162.2829", "n": 2},
+                    {"px": "1825.5", "sz": "0.0259", "n": 1},
+                    {"px": "1823.6", "sz": "0.0259", "n": 1},
+                ],
+                [
+                    {"px": "2080.5", "sz": "73.018", "n": 2},
+                    {"px": "2080.6", "sz": "74.6799", "n": 2},
+                    {"px": "2118.9", "sz": "377.495", "n": 1},
+                    {"px": "2122.1", "sz": "348.8644", "n": 1},
+                ],
+            ],
+            "time": 1700687397643,
         }
 
     def get_ws_snapshot_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA/USDC', 'time': 1700687397641, 'levels': [
-            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
+        return {
+            "channel": "l2Book",
+            "data": {
+                "coin": "COINALPHA/USDC",
+                "time": 1700687397641,
+                "levels": [
+                    [
+                        {"px": "2080.3", "sz": "74.6923", "n": 2},
+                        {"px": "2080.0", "sz": "162.2829", "n": 2},
+                        {"px": "1825.5", "sz": "0.0259", "n": 1},
+                        {"px": "1823.6", "sz": "0.0259", "n": 1},
+                    ],
+                    [
+                        {"px": "2080.5", "sz": "73.018", "n": 2},
+                        {"px": "2080.6", "sz": "74.6799", "n": 2},
+                        {"px": "2118.9", "sz": "377.495", "n": 1},
+                        {"px": "2122.1", "sz": "348.8644", "n": 1},
+                    ],
+                ],
+            },
+        }
 
     def get_ws_diff_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA/USDC', 'time': 1700687397642, 'levels': [
-            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
+        return {
+            "channel": "l2Book",
+            "data": {
+                "coin": "COINALPHA/USDC",
+                "time": 1700687397642,
+                "levels": [
+                    [
+                        {"px": "2080.3", "sz": "74.6923", "n": 2},
+                        {"px": "2080.0", "sz": "162.2829", "n": 2},
+                        {"px": "1825.5", "sz": "0.0259", "n": 1},
+                        {"px": "1823.6", "sz": "0.0259", "n": 1},
+                    ],
+                    [
+                        {"px": "2080.5", "sz": "73.018", "n": 2},
+                        {"px": "2080.6", "sz": "74.6799", "n": 2},
+                        {"px": "2118.9", "sz": "377.495", "n": 1},
+                        {"px": "2122.1", "sz": "348.8644", "n": 1},
+                    ],
+                ],
+            },
+        }
 
     def get_ws_diff_msg_2(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'COINALPHA/USDC', 'time': 1700687397642, 'levels': [
-            [{'px': '2080.4', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
+        return {
+            "channel": "l2Book",
+            "data": {
+                "coin": "COINALPHA/USDC",
+                "time": 1700687397642,
+                "levels": [
+                    [
+                        {"px": "2080.4", "sz": "74.6923", "n": 2},
+                        {"px": "2080.0", "sz": "162.2829", "n": 2},
+                        {"px": "1825.5", "sz": "0.0259", "n": 1},
+                        {"px": "1823.6", "sz": "0.0259", "n": 1},
+                    ],
+                    [
+                        {"px": "2080.5", "sz": "73.018", "n": 2},
+                        {"px": "2080.6", "sz": "74.6799", "n": 2},
+                        {"px": "2118.9", "sz": "377.495", "n": 1},
+                        {"px": "2122.1", "sz": "348.8644", "n": 1},
+                    ],
+                ],
+            },
+        }
 
     def get_trading_rule_rest_msg(self):
         return [
@@ -133,7 +191,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
                         "tokenId": "0x6d1e7cde53ba9467b783cb7c530ce054",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
+                        "fullName": None,
                     },
                     {
                         "name": self.base_asset,
@@ -143,7 +201,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
+                        "fullName": None,
                     },
                     {
                         "name": "PURR",
@@ -153,42 +211,32 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
-                    }
+                        "fullName": None,
+                    },
                 ],
                 "universe": [
-                    {
-                        "name": "COINALPHA/USDC",
-                        "tokens": [1, 0],
-                        "index": 0,
-                        "isCanonical": True
-                    },
-                    {
-                        "name": "@1",
-                        "tokens": [2, 0],
-                        "index": 1,
-                        "isCanonical": True
-                    }
-                ]
+                    {"name": "COINALPHA/USDC", "tokens": [1, 0], "index": 0, "isCanonical": True},
+                    {"name": "@1", "tokens": [2, 0], "index": 1, "isCanonical": True},
+                ],
             },
             [
                 {
-                    'prevDayPx': '0.22916',
-                    'dayNtlVlm': '4265022.87833',
-                    'markPx': '0.22923',
-                    'midPx': '0.229235',
-                    'circulatingSupply': '598274922.83822',
-                    'coin': 'COINALPHA/USDC'
+                    "prevDayPx": "0.22916",
+                    "dayNtlVlm": "4265022.87833",
+                    "markPx": "0.22923",
+                    "midPx": "0.229235",
+                    "circulatingSupply": "598274922.83822",
+                    "coin": "COINALPHA/USDC",
                 },
                 {
-                    'prevDayPx': '25.236',
-                    'dayNtlVlm': '315299.16652',
-                    'markPx': '25.011',
-                    'midPx': '24.9835',
-                    'circulatingSupply': '997372.88712882',
-                    'coin': '@1'
-                }
-            ]
+                    "prevDayPx": "25.236",
+                    "dayNtlVlm": "315299.16652",
+                    "markPx": "25.011",
+                    "midPx": "24.9835",
+                    "circulatingSupply": "997372.88712882",
+                    "coin": "@1",
+                },
+            ],
         ]
 
     @aioresponses()
@@ -200,9 +248,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         resp = self.get_rest_snapshot_msg()
         mock_api.post(regex_url, body=json.dumps(resp))
 
-        order_book = self.async_run_with_timeout(
-            self.data_source.get_new_order_book(self.trading_pair)
-        )
+        order_book = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 
         self.assertEqual(1700687397643, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
@@ -254,9 +300,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[1]["subscription"]["type"])
         self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[1]["subscription"]["coin"])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade channels...")
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -279,8 +323,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
             )
         )
 
@@ -290,9 +333,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_channels(mock_ws)
-            )
+            self.listening_task = self.ev_loop.create_task(self.data_source._subscribe_channels(mock_ws))
             self.async_run_with_timeout(self.listening_task)
 
     def test_subscribe_to_channels_raises_exception_and_logs_error(self):
@@ -300,14 +341,10 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_channels(mock_ws)
-            )
+            self.listening_task = self.ev_loop.create_task(self.data_source._subscribe_channels(mock_ws))
             self.async_run_with_timeout(self.listening_task)
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
-        )
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams."))
 
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -317,18 +354,18 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-            )
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, msg_queue))
             self.async_run_with_timeout(self.listening_task)
 
     def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.connector._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
-        self.connector.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
-                                        enumerate(mocked_response[0]["tokens"])}
-        self.connector.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in
-                                       mocked_response[0]["universe"]}
+        self.connector.coin_to_asset = {
+            asset_info["name"]: asset for (asset, asset_info) in enumerate(mocked_response[0]["tokens"])
+        }
+        self.connector.name_to_coin = {
+            asset_info["name"]: asset_info["name"] for asset_info in mocked_response[0]["universe"]
+        }
         self.connector._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
@@ -352,7 +389,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
+                    "is_block_trade": False,
                 },
                 {
                     "created_at": 1642994704241,
@@ -363,9 +400,9 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
-                }
-            ]
+                    "is_block_trade": False,
+                },
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -374,32 +411,38 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-        )
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, msg_queue))
 
         try:
             self.async_run_with_timeout(self.listening_task)
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     def test_listen_for_trades_successful(self):
         self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
-        trade_event = {'channel': 'trades', 'data': [
-            {'coin': 'COINALPHA/USDC', 'side': 'A', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156061468,
-             'hash': '0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902'}]}  # noqa: mock
+        trade_event = {
+            "channel": "trades",
+            "data": [
+                {
+                    "coin": "COINALPHA/USDC",
+                    "side": "A",
+                    "px": "2009.0",
+                    "sz": "0.0079",
+                    "time": 1701156061468,
+                    "hash": "0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902",
+                }
+            ],
+        }  # noqa: mock
 
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue))
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
@@ -441,7 +484,8 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     def test_listen_for_order_book_diffs_successful(self):
         self._simulate_trading_rules_initialized()
@@ -453,7 +497,8 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
@@ -481,9 +526,7 @@ class HyperliquidAPIOrderBookDataSourceTests(TestCase):
         mock_api.post(regex_url, exception=asyncio.CancelledError)
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(
-                self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
-            )
+            self.async_run_with_timeout(self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue()))
 
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")

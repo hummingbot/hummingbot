@@ -20,11 +20,24 @@ logger = logging.getLogger(__name__)
 
 
 class BacktestingDataProvider(MarketDataProvider):
-    CONNECTOR_TYPES = [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.Exchange,
-                       ConnectorType.Derivative]
-    EXCLUDED_CONNECTORS = ["vega_perpetual", "hyperliquid_perpetual", "dydx_perpetual", "cube",
-                           "polkadex", "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc",
-                           "hyperliquid"]
+    CONNECTOR_TYPES = [
+        ConnectorType.CLOB_SPOT,
+        ConnectorType.CLOB_PERP,
+        ConnectorType.Exchange,
+        ConnectorType.Derivative,
+    ]
+    EXCLUDED_CONNECTORS = [
+        "vega_perpetual",
+        "hyperliquid_perpetual",
+        "dydx_perpetual",
+        "cube",
+        "polkadex",
+        "coinbase_advanced_trade",
+        "kraken",
+        "dydx_v4_perpetual",
+        "hitbtc",
+        "hyperliquid",
+    ]
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
@@ -34,9 +47,11 @@ class BacktestingDataProvider(MarketDataProvider):
         self._time = None
         self.trading_rules = {}
         self.conn_settings = AllConnectorSettings.get_connector_settings()
-        self.connectors = {name: self.get_connector(name) for name, settings in self.conn_settings.items()
-                           if settings.type in self.CONNECTOR_TYPES and name not in self.EXCLUDED_CONNECTORS and
-                           "testnet" not in name}
+        self.connectors = {
+            name: self.get_connector(name)
+            for name, settings in self.conn_settings.items()
+            if settings.type in self.CONNECTOR_TYPES and name not in self.EXCLUDED_CONNECTORS and "testnet" not in name
+        }
 
     def get_connector(self, connector_name: str):
         conn_setting = self.conn_settings.get(connector_name)
@@ -103,13 +118,15 @@ class BacktestingDataProvider(MarketDataProvider):
         # Create a new feed or restart the existing one with updated max_records
         candle_feed = CandlesFactory.get_candle(config)
         candles_buffer = config.max_records * CandlesBase.interval_to_seconds[config.interval]
-        candles_df = await candle_feed.get_historical_candles(config=HistoricalCandlesConfig(
-            connector_name=config.connector,
-            trading_pair=config.trading_pair,
-            interval=config.interval,
-            start_time=self.start_time - candles_buffer,
-            end_time=self.end_time,
-        ))
+        candles_df = await candle_feed.get_historical_candles(
+            config=HistoricalCandlesConfig(
+                connector_name=config.connector,
+                trading_pair=config.trading_pair,
+                interval=config.interval,
+                start_time=self.start_time - candles_buffer,
+                end_time=self.end_time,
+            )
+        )
         self.candles_feeds[key] = candles_df
         return candles_df
 

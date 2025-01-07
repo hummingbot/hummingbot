@@ -856,6 +856,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
             self._trading_rules[trading_rule.trading_pair] = trading_rule
+
         self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     async def _api_get(self, *args, **kwargs):
@@ -1072,7 +1073,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         try:
             exchange_info = await self._make_trading_pairs_request()
             self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
-        except Exception:
+        except Exception as e:
             self.logger().exception("There was an error requesting exchange info.")
 
     async def _make_network_check_request(self):

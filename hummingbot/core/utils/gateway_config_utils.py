@@ -22,7 +22,7 @@ native_tokens = {
     "kujira": "KUJI",
     "telos": "TLOS",
     "ethereum-classic": "ETC",
-    "solana": "SOL"
+    "solana": "SOL",
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
@@ -53,7 +53,7 @@ def build_wallet_display(native_token: str, wallets: List[Dict[str, Any]]) -> pd
     columns = ["Wallet", native_token]
     data = []
     for dict in wallets:
-        data.extend([[dict['address'], dict['balance']]])
+        data.extend([[dict["address"], dict["balance"]]])
 
     return pd.DataFrame(data=data, columns=columns)
 
@@ -65,13 +65,15 @@ def build_connector_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     columns = ["Exchange", "Network", "Wallet"]
     data = []
     for connector_spec in connectors:
-        data.extend([
+        data.extend(
             [
-                connector_spec["connector"],
-                f"{connector_spec['chain']} - {connector_spec['network']}",
-                connector_spec["wallet_address"],
+                [
+                    connector_spec["connector"],
+                    f"{connector_spec['chain']} - {connector_spec['network']}",
+                    connector_spec["wallet_address"],
+                ]
             ]
-        ])
+        )
 
     return pd.DataFrame(data=data, columns=columns)
 
@@ -83,12 +85,14 @@ def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     columns = ["Exchange", "Chains"]
     data = []
     for connector_spec in connectors:
-        data.extend([
+        data.extend(
             [
-                connector_spec["name"],
-                ', '.join(connector_spec['chains']),
+                [
+                    connector_spec["name"],
+                    ", ".join(connector_spec["chains"]),
+                ]
             ]
-        ])
+        )
 
     return pd.DataFrame(data=data, columns=columns)
 
@@ -100,12 +104,14 @@ def build_connector_tokens_display(connectors_chain_network: List[Dict[str, Any]
     columns = ["Exchange", "Report Token Balances"]
     data = []
     for connector_spec in connectors_chain_network:
-        data.extend([
+        data.extend(
             [
-                f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}",
-                connector_spec.get("tokens", ""),
+                [
+                    f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}",
+                    connector_spec.get("tokens", ""),
+                ]
             ]
-        ])
+        )
 
     return pd.DataFrame(data=data, columns=columns)
 
@@ -117,13 +123,7 @@ def build_balances_allowances_display(symbols: List[str], balances: List[str], a
     columns = ["Symbol", "Balance", "Allowances"]
     data = []
     for i in range(len(symbols)):
-        data.extend([
-            [
-                symbols[i],
-                balances[i],
-                allowances[i]
-            ]
-        ])
+        data.extend([[symbols[i], balances[i], allowances[i]]])
 
     return pd.DataFrame(data=data, columns=columns)
 
@@ -168,8 +168,7 @@ def build_config_namespace_keys(namespace_keys: List[str], config_dict: Dict[str
             build_config_namespace_keys(namespace_keys, v, f"{prefix}{k}.")
 
 
-def search_configs(config_dict: Dict[str, Any], namespace_key: str) \
-        -> Optional[Dict[str, Any]]:
+def search_configs(config_dict: Dict[str, Any], namespace_key: str) -> Optional[Dict[str, Any]]:
     """
     Search the config dictionary for a given namespace key and preserve the key hierarchy.
     For example:

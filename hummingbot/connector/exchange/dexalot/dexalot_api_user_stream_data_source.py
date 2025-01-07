@@ -13,10 +13,7 @@ from hummingbot.logger import HummingbotLogger
 class DexalotAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: DexalotAuth,
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(self, auth: DexalotAuth, api_factory: WebAssistantsFactory, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
         self._auth: DexalotAuth = auth
         self._domain = domain

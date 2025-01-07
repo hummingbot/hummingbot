@@ -75,7 +75,8 @@ class MarketDataProvider:
             self._rates_required[connector_pair.connector_name].append(connector_pair)
             if connector_pair.connector_name not in self._rate_sources:
                 self._rate_sources[connector_pair.connector_name] = self.get_non_trading_connector(
-                    connector_pair.connector_name)
+                    connector_pair.connector_name
+                )
         if not self._rates_update_task:
             self._rates_update_task = safe_ensure_future(self.update_rates_task())
 
@@ -93,9 +94,15 @@ class MarketDataProvider:
                         base, quote = connector_pair.trading_pair.split("-")
                         tasks.append(
                             self.gateway_client.get_price(
-                                chain=chain, network=network, connector=connector,
-                                base_asset=base, quote_asset=quote, amount=Decimal("1"),
-                                side=TradeType.BUY))
+                                chain=chain,
+                                network=network,
+                                connector=connector,
+                                base_asset=base,
+                                quote_asset=quote,
+                                amount=Decimal("1"),
+                                side=TradeType.BUY,
+                            )
+                        )
                     try:
                         results = await asyncio.gather(*tasks)
                         for connector_pair, rate in zip(connector_pairs, results):
@@ -104,8 +111,9 @@ class MarketDataProvider:
                         self.logger().error(f"Error fetching prices from {connector_pairs}: {e}", exc_info=True)
                 else:
                     connector = self._rate_sources[connector]
-                    prices = await self._safe_get_last_traded_prices(connector,
-                                                                     [pair.trading_pair for pair in connector_pairs])
+                    prices = await self._safe_get_last_traded_prices(
+                        connector, [pair.trading_pair for pair in connector_pairs]
+                    )
                     for pair, rate in prices.items():
                         rate_oracle.set_price(pair, rate)
             await asyncio.sleep(self._rates_update_interval)
@@ -142,7 +150,7 @@ class MarketDataProvider:
             # Create a new feed or restart the existing one with updated max_records
             candle_feed = CandlesFactory.get_candle(config)
             self.candles_feeds[key] = candle_feed
-            if hasattr(candle_feed, 'start'):
+            if hasattr(candle_feed, "start"):
                 candle_feed.start()
             return candle_feed
 
@@ -162,7 +170,7 @@ class MarketDataProvider:
         """
         key = self._generate_candle_feed_key(config)
         candle_feed = self.candles_feeds.get(key)
-        if candle_feed and hasattr(candle_feed, 'stop'):
+        if candle_feed and hasattr(candle_feed, "stop"):
             candle_feed.stop()
             del self.candles_feeds[key]
 
@@ -226,12 +234,14 @@ class MarketDataProvider:
         :param max_records: int
         :return: Candles dataframe.
         """
-        candles = self.get_candles_feed(CandlesConfig(
-            connector=connector_name,
-            trading_pair=trading_pair,
-            interval=interval,
-            max_records=max_records,
-        ))
+        candles = self.get_candles_feed(
+            CandlesConfig(
+                connector=connector_name,
+                trading_pair=trading_pair,
+                interval=interval,
+                max_records=max_records,
+            )
+        )
         return candles.candles_df.iloc[-max_records:]
 
     def get_trading_pairs(self, connector_name: str):
@@ -260,8 +270,9 @@ class MarketDataProvider:
         connector = self.get_connector(connector_name)
         return connector.quantize_order_amount(trading_pair, amount)
 
-    def get_price_for_volume(self, connector_name: str, trading_pair: str, volume: float,
-                             is_buy: bool) -> OrderBookQueryResult:
+    def get_price_for_volume(
+        self, connector_name: str, trading_pair: str, volume: float, is_buy: bool
+    ) -> OrderBookQueryResult:
         """
         Gets the price for a specified volume on the order book.
 
@@ -286,8 +297,9 @@ class MarketDataProvider:
         order_book = self.get_order_book(connector_name, trading_pair)
         return order_book.snapshot
 
-    def get_price_for_quote_volume(self, connector_name: str, trading_pair: str, quote_volume: float,
-                                   is_buy: bool) -> OrderBookQueryResult:
+    def get_price_for_quote_volume(
+        self, connector_name: str, trading_pair: str, quote_volume: float, is_buy: bool
+    ) -> OrderBookQueryResult:
         """
         Gets the price for a specified quote volume on the order book.
 
@@ -300,8 +312,9 @@ class MarketDataProvider:
         order_book = self.get_order_book(connector_name, trading_pair)
         return order_book.get_price_for_quote_volume(is_buy, quote_volume)
 
-    def get_volume_for_price(self, connector_name: str, trading_pair: str, price: float,
-                             is_buy: bool) -> OrderBookQueryResult:
+    def get_volume_for_price(
+        self, connector_name: str, trading_pair: str, price: float, is_buy: bool
+    ) -> OrderBookQueryResult:
         """
         Gets the volume for a specified price on the order book.
 
@@ -314,8 +327,9 @@ class MarketDataProvider:
         order_book = self.get_order_book(connector_name, trading_pair)
         return order_book.get_volume_for_price(is_buy, price)
 
-    def get_quote_volume_for_price(self, connector_name: str, trading_pair: str, price: float,
-                                   is_buy: bool) -> OrderBookQueryResult:
+    def get_quote_volume_for_price(
+        self, connector_name: str, trading_pair: str, price: float, is_buy: bool
+    ) -> OrderBookQueryResult:
         """
         Gets the quote volume for a specified price on the order book.
 
@@ -328,8 +342,9 @@ class MarketDataProvider:
         order_book = self.get_order_book(connector_name, trading_pair)
         return order_book.get_quote_volume_for_price(is_buy, price)
 
-    def get_vwap_for_volume(self, connector_name: str, trading_pair: str, volume: float,
-                            is_buy: bool) -> OrderBookQueryResult:
+    def get_vwap_for_volume(
+        self, connector_name: str, trading_pair: str, volume: float, is_buy: bool
+    ) -> OrderBookQueryResult:
         """
         Gets the VWAP (Volume Weighted Average Price) for a specified volume on the order book.
 
@@ -358,5 +373,6 @@ class MarketDataProvider:
             return {pair: Decimal(rate) for pair, rate in last_traded.items()}
         except Exception as e:
             logging.error(
-                f"Error getting last traded prices in connector {connector} for trading pairs {trading_pairs}: {e}")
+                f"Error getting last traded prices in connector {connector} for trading pairs {trading_pairs}: {e}"
+            )
             return {}

@@ -53,22 +53,44 @@ class TestExecutorOrchestrator(unittest.TestCase):
     @patch.object(DCAExecutor, "start")
     @patch.object(ArbitrageExecutor, "start")
     @patch.object(TWAPExecutor, "start")
-    def test_execute_actions_create_executor(self, arbitrage_start_mock: MagicMock, dca_start_mock: MagicMock,
-                                             position_start_mock: MagicMock, twap_start_mock: MagicMock):
+    def test_execute_actions_create_executor(
+        self,
+        arbitrage_start_mock: MagicMock,
+        dca_start_mock: MagicMock,
+        position_start_mock: MagicMock,
+        twap_start_mock: MagicMock,
+    ):
         position_executor_config = PositionExecutorConfig(
-            timestamp=1234, connector_name="binance",
-            trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
+            timestamp=1234,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            entry_price=Decimal(100),
+            amount=Decimal(10),
+        )
         arbitrage_executor_config = ArbitrageExecutorConfig(
-            timestamp=1234, order_amount=Decimal(10), min_profitability=Decimal(0.01),
+            timestamp=1234,
+            order_amount=Decimal(10),
+            min_profitability=Decimal(0.01),
             buying_market=ConnectorPair(connector_name="binance", trading_pair="ETH-USDT"),
             selling_market=ConnectorPair(connector_name="coinbase", trading_pair="ETH-USDT"),
         )
         dca_executor_config = DCAExecutorConfig(
-            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
-            side=TradeType.BUY, amounts_quote=[Decimal(10)], prices=[Decimal(100)],)
+            timestamp=1234,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            amounts_quote=[Decimal(10)],
+            prices=[Decimal(100)],
+        )
         twap_executor_config = TWAPExecutorConfig(
-            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
-            side=TradeType.BUY, total_amount_quote=Decimal(100), total_duration=10, order_interval=5,
+            timestamp=1234,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            total_amount_quote=Decimal(100),
+            total_duration=10,
+            order_interval=5,
         )
         actions = [
             CreateExecutorAction(executor_config=position_executor_config, controller_id="test"),
@@ -109,53 +131,93 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.orchestrator.execute_actions(actions)
         self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
 
-    @patch('hummingbot.connector.markets_recorder.MarketsRecorder.get_instance')
+    @patch("hummingbot.connector.markets_recorder.MarketsRecorder.get_instance")
     def test_generate_performance_report(self, mock_get_instance):
         # Create a mock for MarketsRecorder and its get_executors_by_controller method
         mock_markets_recorder = MagicMock(spec=MarketsRecorder)
         mock_markets_recorder.get_executors_by_controller.return_value = []
         mock_get_instance.return_value = mock_markets_recorder
         config_mock = PositionExecutorConfig(
-            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
-            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+            timestamp=1234,
+            trading_pair="ETH-USDT",
+            connector_name="binance",
+            side=TradeType.BUY,
+            amount=Decimal(10),
+            entry_price=Decimal(100),
         )
         position_executor_non_active = MagicMock(spec=PositionExecutor)
         position_executor_non_active.executor_info = ExecutorInfo(
-            id="123", timestamp=1234, type="position_executor",
-            status=RunnableStatus.RUNNING, config=config_mock,
-            filled_amount_quote=Decimal(0), net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
-            cum_fees_quote=Decimal(0), is_trading=False, is_active=True, custom_info={"side": TradeType.BUY}
+            id="123",
+            timestamp=1234,
+            type="position_executor",
+            status=RunnableStatus.RUNNING,
+            config=config_mock,
+            filled_amount_quote=Decimal(0),
+            net_pnl_quote=Decimal(0),
+            net_pnl_pct=Decimal(0),
+            cum_fees_quote=Decimal(0),
+            is_trading=False,
+            is_active=True,
+            custom_info={"side": TradeType.BUY},
         )
         position_executor_active = MagicMock(spec=PositionExecutor)
         position_executor_active.executor_info = ExecutorInfo(
-            id="123", timestamp=1234, type="position_executor",
-            status=RunnableStatus.RUNNING, config=config_mock,
-            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
-            cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY}
+            id="123",
+            timestamp=1234,
+            type="position_executor",
+            status=RunnableStatus.RUNNING,
+            config=config_mock,
+            filled_amount_quote=Decimal(100),
+            net_pnl_quote=Decimal(10),
+            net_pnl_pct=Decimal(10),
+            cum_fees_quote=Decimal(1),
+            is_trading=True,
+            is_active=True,
+            custom_info={"side": TradeType.BUY},
         )
         position_executor_failed = MagicMock(spec=PositionExecutor)
         position_executor_failed.executor_info = ExecutorInfo(
-            id="123", timestamp=1234, type="position_executor",
-            status=RunnableStatus.TERMINATED, config=config_mock,
+            id="123",
+            timestamp=1234,
+            type="position_executor",
+            status=RunnableStatus.TERMINATED,
+            config=config_mock,
             close_type=CloseType.FAILED,
-            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
-            cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY}
+            filled_amount_quote=Decimal(100),
+            net_pnl_quote=Decimal(0),
+            net_pnl_pct=Decimal(0),
+            cum_fees_quote=Decimal(1),
+            is_trading=True,
+            is_active=True,
+            custom_info={"side": TradeType.BUY},
         )
         position_executor_tp = MagicMock(spec=PositionExecutor)
         position_executor_tp.executor_info = ExecutorInfo(
-            id="123", timestamp=1234, type="position_executor",
-            status=RunnableStatus.TERMINATED, config=config_mock,
+            id="123",
+            timestamp=1234,
+            type="position_executor",
+            status=RunnableStatus.TERMINATED,
+            config=config_mock,
             close_type=CloseType.TAKE_PROFIT,
-            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
-            cum_fees_quote=Decimal(1), is_trading=False, is_active=False, custom_info={"side": TradeType.BUY}
+            filled_amount_quote=Decimal(100),
+            net_pnl_quote=Decimal(10),
+            net_pnl_pct=Decimal(10),
+            cum_fees_quote=Decimal(1),
+            is_trading=False,
+            is_active=False,
+            custom_info={"side": TradeType.BUY},
         )
-        self.orchestrator.active_executors["test"] = [position_executor_non_active, position_executor_active,
-                                                      position_executor_failed, position_executor_tp]
+        self.orchestrator.active_executors["test"] = [
+            position_executor_non_active,
+            position_executor_active,
+            position_executor_failed,
+            position_executor_tp,
+        ]
         report = self.orchestrator.generate_performance_report(controller_id="test")
         self.assertEqual(report.realized_pnl_quote, Decimal(10))
         self.assertEqual(report.unrealized_pnl_quote, Decimal(10))
 
-    @patch('hummingbot.connector.markets_recorder.MarketsRecorder.get_instance')
+    @patch("hummingbot.connector.markets_recorder.MarketsRecorder.get_instance")
     def test_generate_global_performance_report(self, mock_get_instance):
         # Mock MarketsRecorder and its get_executors_by_controller method
         mock_markets_recorder = MagicMock(spec=MarketsRecorder)
@@ -164,13 +226,22 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         # Set up mock executors for two different controllers
         config_mock_pe = PositionExecutorConfig(
-            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
-            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+            timestamp=1234,
+            trading_pair="ETH-USDT",
+            connector_name="binance",
+            side=TradeType.BUY,
+            amount=Decimal(10),
+            entry_price=Decimal(100),
         )
         config_mock_dca = DCAExecutorConfig(
-            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
-            side=TradeType.BUY, amounts_quote=[Decimal(10)], prices=[Decimal(100)],
-            take_profit=Decimal(0.01), stop_loss=Decimal(0.01)
+            timestamp=1234,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            amounts_quote=[Decimal(10)],
+            prices=[Decimal(100)],
+            take_profit=Decimal(0.01),
+            stop_loss=Decimal(0.01),
         )
         controller_ids = ["controller_1", "controller_2"]
         filled_amount_quote = [Decimal(200), Decimal(300)]
@@ -186,11 +257,18 @@ class TestExecutorOrchestrator(unittest.TestCase):
         for i, controller_id in enumerate(controller_ids):
             executor_mock = MagicMock(spec=PositionExecutor)
             executor_mock.executor_info = ExecutorInfo(
-                id="123", timestamp=1234, type=configs[i].type,
-                status=status[i], config=configs[i],
-                filled_amount_quote=filled_amount_quote[i], net_pnl_quote=net_pnl_quote[i],
-                net_pnl_pct=net_pnl_pct[i], cum_fees_quote=cum_fees_quote[i],
-                is_trading=is_trading[i], is_active=is_active[i], custom_info=custom_info[i]
+                id="123",
+                timestamp=1234,
+                type=configs[i].type,
+                status=status[i],
+                config=configs[i],
+                filled_amount_quote=filled_amount_quote[i],
+                net_pnl_quote=net_pnl_quote[i],
+                net_pnl_pct=net_pnl_pct[i],
+                cum_fees_quote=cum_fees_quote[i],
+                is_trading=is_trading[i],
+                is_active=is_active[i],
+                custom_info=custom_info[i],
             )
 
             self.orchestrator.active_executors[controller_id] = [executor_mock]
@@ -204,8 +282,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(global_report.unrealized_pnl_quote, expected_total_realized_pnl)
         self.assertEqual(global_report.volume_traded, expected_total_volume_traded)
         self.assertAlmostEqual(global_report.global_pnl_quote, expected_total_realized_pnl)
-        self.assertAlmostEqual(global_report.global_pnl_pct,
-                               (expected_total_realized_pnl / expected_total_volume_traded) * 100)
+        self.assertAlmostEqual(
+            global_report.global_pnl_pct, (expected_total_realized_pnl / expected_total_volume_traded) * 100
+        )
 
     @patch("hummingbot.strategy_v2.executors.executor_orchestrator.MarketsRecorder.get_instance")
     def test_initialize_cached_performance(self, mock_get_instance: MagicMock):
@@ -215,13 +294,25 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         # Create mock executor info
         executor_info = ExecutorInfo(
-            id="123", timestamp=1234, type="position_executor",
-            status=RunnableStatus.RUNNING, config=PositionExecutorConfig(
-                timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
-                side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+            id="123",
+            timestamp=1234,
+            type="position_executor",
+            status=RunnableStatus.RUNNING,
+            config=PositionExecutorConfig(
+                timestamp=1234,
+                trading_pair="ETH-USDT",
+                connector_name="binance",
+                side=TradeType.BUY,
+                amount=Decimal(10),
+                entry_price=Decimal(100),
             ),
-            filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(10),
-            cum_fees_quote=Decimal(1), is_trading=True, is_active=True, custom_info={"side": TradeType.BUY},
+            filled_amount_quote=Decimal(100),
+            net_pnl_quote=Decimal(10),
+            net_pnl_pct=Decimal(10),
+            cum_fees_quote=Decimal(1),
+            is_trading=True,
+            is_active=True,
+            custom_info={"side": TradeType.BUY},
             controller_id="test",
         )
 

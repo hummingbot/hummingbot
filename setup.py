@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
 from Cython.Build import cythonize
 
-is_posix = (os.name == "posix")
+is_posix = os.name == "posix"
 
 if is_posix:
     os_name = subprocess.check_output("uname").decode("utf8")
@@ -34,18 +34,16 @@ class BuildExt(build_ext):
 def main():
     cpu_count = os.cpu_count() or 8
     version = "20241227"
-    all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
+    all_packages = find_packages(
+        include=["hummingbot", "hummingbot.*"],
+    )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
-        "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual"
+        "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual",
     ]
     packages = [pkg for pkg in all_packages if not any(fnmatch.fnmatch(pkg, pattern) for pattern in excluded_paths)]
     package_data = {
-        "hummingbot": [
-            "core/cpp/*",
-            "VERSION",
-            "templates/*TEMPLATE.yml"
-        ],
+        "hummingbot": ["core/cpp/*", "VERSION", "templates/*TEMPLATE.yml"],
     }
     install_requires = [
         "bidict",
@@ -126,43 +124,40 @@ def main():
         "annotation_typing": False,
     }
     if os.environ.get("WITHOUT_CYTHON_OPTIMIZATIONS"):
-        compiler_directives.update({
-            "optimize.use_switch": False,
-            "optimize.unpack_method_calls": False,
-        })
+        compiler_directives.update(
+            {
+                "optimize.use_switch": False,
+                "optimize.unpack_method_calls": False,
+            }
+        )
 
     if is_posix:
         cython_kwargs["nthreads"] = cpu_count
 
     if "DEV_MODE" in os.environ:
         version += ".dev1"
-        package_data[""] = [
-            "*.pxd", "*.pyx", "*.h"
-        ]
+        package_data[""] = ["*.pxd", "*.pyx", "*.h"]
         package_data["hummingbot"].append("core/cpp/*.cpp")
 
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext" and is_posix:
         sys.argv.append(f"--parallel={cpu_count}")
 
-    setup(name="hummingbot",
-          version=version,
-          description="Hummingbot",
-          url="https://github.com/hummingbot/hummingbot",
-          author="Hummingbot Foundation",
-          author_email="dev@hummingbot.org",
-          license="Apache 2.0",
-          packages=packages,
-          package_data=package_data,
-          install_requires=install_requires,
-          ext_modules=cythonize(cython_sources, compiler_directives=compiler_directives, **cython_kwargs),
-          include_dirs=[
-              np.get_include()
-          ],
-          scripts=[
-              "bin/hummingbot_quickstart.py"
-          ],
-          cmdclass={"build_ext": BuildExt},
-          )
+    setup(
+        name="hummingbot",
+        version=version,
+        description="Hummingbot",
+        url="https://github.com/hummingbot/hummingbot",
+        author="Hummingbot Foundation",
+        author_email="dev@hummingbot.org",
+        license="Apache 2.0",
+        packages=packages,
+        package_data=package_data,
+        install_requires=install_requires,
+        ext_modules=cythonize(cython_sources, compiler_directives=compiler_directives, **cython_kwargs),
+        include_dirs=[np.get_include()],
+        scripts=["bin/hummingbot_quickstart.py"],
+        cmdclass={"build_ext": BuildExt},
+    )
 
 
 if __name__ == "__main__":

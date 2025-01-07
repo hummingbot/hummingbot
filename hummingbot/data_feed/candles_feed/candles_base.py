@@ -25,26 +25,39 @@ class CandlesBase(NetworkBase):
     Also implements the Throttler module for API rate limiting, but it's not so necessary since the realtime data should
     be updated via websockets mainly.
     """
-    interval_to_seconds = bidict({
-        "1s": 1,
-        "1m": 60,
-        "3m": 180,
-        "5m": 300,
-        "15m": 900,
-        "30m": 1800,
-        "1h": 3600,
-        "2h": 7200,
-        "4h": 14400,
-        "6h": 21600,
-        "8h": 28800,
-        "12h": 43200,
-        "1d": 86400,
-        "3d": 259200,
-        "1w": 604800,
-        "1M": 2592000
-    })
-    columns = ["timestamp", "open", "high", "low", "close", "volume", "quote_asset_volume",
-               "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
+
+    interval_to_seconds = bidict(
+        {
+            "1s": 1,
+            "1m": 60,
+            "3m": 180,
+            "5m": 300,
+            "15m": 900,
+            "30m": 1800,
+            "1h": 3600,
+            "2h": 7200,
+            "4h": 14400,
+            "6h": 21600,
+            "8h": 28800,
+            "12h": 43200,
+            "1d": 86400,
+            "3d": 259200,
+            "1w": 604800,
+            "1M": 2592000,
+        }
+    )
+    columns = [
+        "timestamp",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "quote_asset_volume",
+        "n_trades",
+        "taker_buy_base_volume",
+        "taker_buy_quote_volume",
+    ]
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__()
@@ -61,7 +74,8 @@ class CandlesBase(NetworkBase):
             self.interval = interval
         else:
             self.logger().exception(
-                f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
+                f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}"
+            )
             raise
 
     async def start_network(self):
@@ -169,9 +183,9 @@ class CandlesBase(NetworkBase):
             current_start_time = self._round_timestamp_to_interval_multiple(config.start_time)
             while current_end_time >= current_start_time:
                 missing_records = int((current_end_time - current_start_time) / self.interval_in_seconds)
-                candles = await self.fetch_candles(start_time=current_start_time,
-                                                   end_time=current_end_time,
-                                                   limit=missing_records)
+                candles = await self.fetch_candles(
+                    start_time=current_start_time, end_time=current_end_time, limit=missing_records
+                )
                 if len(candles) <= 1 or missing_records == 0:
                     break
                 candles = candles[candles[:, 0] <= current_end_time]
@@ -182,7 +196,8 @@ class CandlesBase(NetworkBase):
                 candles_df.reset_index(drop=True, inplace=True)
                 self.check_candles_sorted_and_equidistant(candles_df.values)
             candles_df = candles_df[
-                (candles_df["timestamp"] <= config.end_time) & (candles_df["timestamp"] >= config.start_time)]
+                (candles_df["timestamp"] <= config.end_time) & (candles_df["timestamp"] >= config.start_time)
+            ]
             return candles_df
         except ValueError as e:
             self.logger().error(f"Error fetching historical candles: {str(e)}")
@@ -225,10 +240,9 @@ class CandlesBase(NetworkBase):
     def _rest_throttler_limit_id(self):
         return self.candles_endpoint
 
-    async def fetch_candles(self,
-                            start_time: Optional[int] = None,
-                            end_time: Optional[int] = None,
-                            limit: Optional[int] = None):
+    async def fetch_candles(
+        self, start_time: Optional[int] = None, end_time: Optional[int] = None, limit: Optional[int] = None
+    ):
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
 
@@ -244,29 +258,25 @@ class CandlesBase(NetworkBase):
             fixed_start_time = self._calculate_start_time(end_time - self.interval_in_seconds * candles_to_fetch)
             fixed_end_time = self._calculate_end_time(end_time)
 
-        kwargs = {
-            "start_time": fixed_start_time,
-            "end_time": fixed_end_time,
-            "limit": limit
-        }
+        kwargs = {"start_time": fixed_start_time, "end_time": fixed_end_time, "limit": limit}
 
-        params = self._get_rest_candles_params(fixed_start_time,
-                                               fixed_end_time)
+        params = self._get_rest_candles_params(fixed_start_time, fixed_end_time)
         headers = self._get_rest_candles_headers()
         rest_assistant = await self._api_factory.get_rest_assistant()
-        candles = await rest_assistant.execute_request(url=self.candles_url,
-                                                       throttler_limit_id=self._rest_throttler_limit_id,
-                                                       params=params,
-                                                       data=self._rest_payload(**kwargs),
-                                                       headers=headers,
-                                                       method=self._rest_method)
+        candles = await rest_assistant.execute_request(
+            url=self.candles_url,
+            throttler_limit_id=self._rest_throttler_limit_id,
+            params=params,
+            data=self._rest_payload(**kwargs),
+            headers=headers,
+            method=self._rest_method,
+        )
         arr = self._parse_rest_candles(candles, end_time)
         return np.array(arr).astype(float)
 
-    def _get_rest_candles_params(self,
-                                 start_time: Optional[int] = None,
-                                 end_time: Optional[int] = None,
-                                 limit: Optional[int] = None) -> dict:
+    def _get_rest_candles_params(
+        self, start_time: Optional[int] = None, end_time: Optional[int] = None, limit: Optional[int] = None
+    ) -> dict:
         """
         This method returns the parameters for the candles REST request. In specific implementations, if the last candle
         is not included in rest request then when filtering the candles data, the end_time should be less than the
@@ -386,10 +396,7 @@ class CandlesBase(NetworkBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to public klines...",
-                exc_info=True
-            )
+            self.logger().error("Unexpected error occurred subscribing to public klines...", exc_info=True)
             raise
 
     def ws_subscription_payload(self):
@@ -407,16 +414,20 @@ class CandlesBase(NetworkBase):
             if isinstance(parsed_message, WSJSONRequest):
                 await websocket_assistant.send(request=parsed_message)
             elif isinstance(parsed_message, dict):
-                candles_row = np.array([parsed_message["timestamp"],
-                                        parsed_message["open"],
-                                        parsed_message["high"],
-                                        parsed_message["low"],
-                                        parsed_message["close"],
-                                        parsed_message["volume"],
-                                        parsed_message["quote_asset_volume"],
-                                        parsed_message["n_trades"],
-                                        parsed_message["taker_buy_base_volume"],
-                                        parsed_message["taker_buy_quote_volume"]]).astype(float)
+                candles_row = np.array(
+                    [
+                        parsed_message["timestamp"],
+                        parsed_message["open"],
+                        parsed_message["high"],
+                        parsed_message["low"],
+                        parsed_message["close"],
+                        parsed_message["volume"],
+                        parsed_message["quote_asset_volume"],
+                        parsed_message["n_trades"],
+                        parsed_message["taker_buy_base_volume"],
+                        parsed_message["taker_buy_quote_volume"],
+                    ]
+                ).astype(float)
                 if len(self._candles) == 0:
                     self._candles.append(candles_row)
                     self._ws_candle_available.set()
@@ -432,8 +443,10 @@ class CandlesBase(NetworkBase):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         while True:
             try:
-                await asyncio.wait_for(self._process_websocket_messages_task(websocket_assistant=websocket_assistant),
-                                       timeout=self._ping_timeout)
+                await asyncio.wait_for(
+                    self._process_websocket_messages_task(websocket_assistant=websocket_assistant),
+                    timeout=self._ping_timeout,
+                )
             except asyncio.TimeoutError:
                 if self._ping_timeout is not None:
                     ping_request = WSJSONRequest(payload=self._ping_payload)
@@ -505,7 +518,8 @@ class CandlesBase(NetworkBase):
             return timestamp_int
         else:
             raise ValueError(
-                "Timestamp is not in a recognized format. Must be in seconds, milliseconds, microseconds or nanoseconds.")
+                "Timestamp is not in a recognized format. Must be in seconds, milliseconds, microseconds or nanoseconds."
+            )
 
     @staticmethod
     def _time():
