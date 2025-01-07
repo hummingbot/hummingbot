@@ -307,3 +307,13 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     def test_to_format_status(self):
         self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
+
+    def test_early_stop(self):
+        self.executor._status = RunnableStatus.RUNNING
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.is_open = True
+        self.executor.early_stop()
+        self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
+
+    def test_get_cum_fees_quote_not_executed(self):
+        self.assertEqual(self.executor.get_cum_fees_quote(), Decimal('0'))
