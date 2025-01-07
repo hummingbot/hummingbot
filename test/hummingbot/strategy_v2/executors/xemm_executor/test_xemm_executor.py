@@ -305,5 +305,5 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                                                            'tx_cost': Decimal('1'),
                                                            'tx_cost_pct': Decimal('1')})
 
-        def test_to_format_status(self):
-            self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
+    def test_to_format_status(self):
+        self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
