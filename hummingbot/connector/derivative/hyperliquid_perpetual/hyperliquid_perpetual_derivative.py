@@ -65,19 +65,17 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self.coin_to_asset: Dict[str, int] = {}
         super().__init__(client_config_map)
 
-    SHORT_POLL_INTERVAL = 5.0
-
-    LONG_POLL_INTERVAL = 12.0
-
     @property
     def name(self) -> str:
         # Note: domain here refers to the entire exchange name. i.e. hyperliquid_perpetual or hyperliquid_perpetual_testnet
         return self._domain
 
     @property
-    def authenticator(self) -> HyperliquidPerpetualAuth:
-        return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key,
-                                        self._use_vault)
+    def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
+        if self._trading_required:
+            return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key,
+                                            self._use_vault)
+        return None
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
