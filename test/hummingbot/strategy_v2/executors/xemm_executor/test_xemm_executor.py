@@ -79,7 +79,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertTrue(self.executor.is_arbitrage_valid('ETH-BUSD', 'ETH-USDT'))
         self.assertTrue(self.executor.is_arbitrage_valid('ETH-USDT', 'WETH-USDT'))
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'BTC-USDT'))
-        self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
+        self.assertTrue(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
 
     def test_net_pnl_long(self):
         self.executor._status = RunnableStatus.TERMINATED
@@ -110,7 +110,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @patch.object(XEMMExecutor, 'get_trading_rules')
     @patch.object(XEMMExecutor, 'adjust_order_candidates')
-    def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+    async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
         trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
                                     min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
@@ -125,13 +125,13 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
-        self.executor.validate_sufficient_balance()
+        await self.executor.validate_sufficient_balance()
         self.assertNotEqual(self.executor.close_type, CloseType.INSUFFICIENT_BALANCE)
 
         # Test for insufficient balance
         order_candidate.amount = Decimal("0")
         mock_adjust_order_candidates.return_value = [order_candidate]
-        self.executor.validate_sufficient_balance()
+        await self.executor.validate_sufficient_balance()
         self.assertEqual(self.executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(self.executor.status, RunnableStatus.TERMINATED)
 
@@ -290,11 +290,15 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     def test_get_custom_info(self):
         self.assertEqual(self.executor.get_custom_info(), {'maker_connector': 'binance',
+                                                           'maker_target_price': Decimal('1'),
                                                            'maker_trading_pair': 'ETH-USDT',
                                                            'max_profitability': Decimal('0.02'),
                                                            'min_profitability': Decimal('0.01'),
+                                                           'net_profitability': Decimal('-1'),
+                                                           'order_amount': Decimal('100'),
                                                            'side': TradeType.BUY,
                                                            'taker_connector': 'kucoin',
+                                                           'taker_price': Decimal('1'),
                                                            'taker_trading_pair': 'ETH-USDT',
                                                            'target_profitability_pct': Decimal('0.015'),
                                                            'trade_profitability': Decimal('0'),
