@@ -111,7 +111,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                  'premium': '0.00036632', 'prevDayPx': '35242.0'},
                 {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
                  'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'midPx': '1923.05', 'openInterest': '638.89157', 'oraclePx': '1921.7',
                  'premium': '0.00067648',
                  'prevDayPx': '1877.1'
                  }]
