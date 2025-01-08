@@ -306,8 +306,12 @@ class BybitExchange(ExchangePyBase):
         # await self._update_exchange_fee_rates()
         fee_rates = await self._get_exchange_fee_rates()
         for tpfee in fee_rates:
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=tpfee["symbol"])
-            self._trading_fees[trading_pair] = tpfee
+            try:
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=tpfee["symbol"])
+                self._trading_fees[trading_pair] = tpfee
+            except KeyError:
+                # Skip pairs that are not trade enabled ie. they are not present in the trading pair map
+                continue
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
