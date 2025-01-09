@@ -569,7 +569,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
         account_info = await self._api_get(path_url=CONSTANTS.ASSETS_DETAIL,
                                            is_auth_required=True)
-        assets = account_info.get("data")
+        assets = account_info.get("data", [])
         for asset in assets:
             asset_name = asset.get("currency")
             available_balance = Decimal(asset.get("available_balance"))
