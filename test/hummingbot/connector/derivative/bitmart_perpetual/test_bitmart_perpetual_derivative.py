@@ -646,128 +646,103 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(margin_asset, self.exchange.get_buy_collateral_token(self.trading_pair))
         self.assertEqual(margin_asset, self.exchange.get_sell_collateral_token(self.trading_pair))
 
+    def _get_order_channel_mock_response(self,
+                                         order_id="OID1",
+                                         exchange_order_id="8886774",
+                                         price="10000",
+                                         deal_size="0",
+                                         state=2,
+                                         amount=Decimal("1"),
+                                         fee="-0.00027",
+                                         fill_qty="0",
+                                         last_trade_id=1234):
+        mocked_response = {
+            "group": "futures/order",
+            "data": [
+                {
+                    "action": 3,
+                    "order": {
+                        "order_id": exchange_order_id,
+                        "client_order_id": order_id,
+                        "price": price,
+                        "size": amount,
+                        "symbol": self.symbol,
+                        "state": state,
+                        "side": 1,
+                        "type": "limit",
+                        "leverage": "5",
+                        "open_type": "isolated",
+                        "deal_avg_price": price,
+                        "deal_size": deal_size,
+                        "create_time": 1662368173000,
+                        "update_time": 1662368173000,
+                        "plan_order_id": "220901412155341",
+                        "last_trade": {
+                            "lastTradeID": last_trade_id,
+                            "fillQty": fill_qty,
+                            "fillPrice": price,
+                            "fee": fee,
+                            "feeCcy": "USDT"
+                        },
+                        "trigger_price": "-",
+                        "trigger_price_type": "-",
+                        "execution_price": "-",
+                        "activation_price_type": "-",
+                        "activation_price": "-",
+                        "callback_rate": "-"
+                    }
+                }
+            ]
+        }
+        return mocked_response
+
     def test_buy_order_fill_event_takes_fee_from_update_event(self):
+        order_id = "test_id"
+        exchange_order_id = "ex_test_id"
+        price = "10.0"
+        amount = "5.0"
         self.exchange.start_tracking_order(
-            order_id="OID1",
-            exchange_order_id="8886774",
+            order_id=order_id,
+            exchange_order_id=exchange_order_id,
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("1"),
+            price=Decimal(price),
+            amount=Decimal(amount),
             order_type=OrderType.LIMIT,
-            leverage=1,
+            leverage=5,
             position_action=PositionAction.OPEN,
         )
 
-        order = self.exchange.in_flight_orders.get("OID1")
-
-        partial_fill = {
-            "e": "ORDER_TRADE_UPDATE",
-            "E": 1568879465651,
-            "T": 1568879465650,
-            "o": {
-                "s": self.trading_pair,
-                "c": order.client_order_id,
-                "S": "BUY",
-                "o": "TRAILING_STOP_MARKET",
-                "f": "GTC",
-                "q": "1",
-                "p": "10000",
-                "ap": "0",
-                "sp": "7103.04",
-                "x": "TRADE",
-                "X": "PARTIALLY_FILLED",
-                "i": 8886774,
-                "l": "0.1",
-                "z": "0.1",
-                "L": "10000",
-                "N": "HBOT",
-                "n": "20",
-                "T": 1568879465651,
-                "t": 1,
-                "b": "0",
-                "a": "9.91",
-                "m": False,
-                "R": False,
-                "wt": "CONTRACT_PRICE",
-                "ot": "TRAILING_STOP_MARKET",
-                "ps": "LONG",
-                "cp": False,
-                "AP": "7476.89",
-                "cr": "5.0",
-                "rp": "0"
-            }
-
-        }
-
-        mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: partial_fill)
-
-        self.exchange._user_stream_tracker._user_stream = mock_user_stream
-
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
+        partial_fill = self._get_order_channel_mock_response(order_id=order_id,
+                                                             exchange_order_id=exchange_order_id,
+                                                             amount=amount,
+                                                             state=2,
+                                                             deal_size="2",
+                                                             fill_qty="2",
+                                                             last_trade_id=1234)
+        self.async_run_with_timeout(self.exchange._process_user_stream_event(partial_fill))
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual(
-            [TokenAmount(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees
-        )
+        fee = TokenAmount(token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
+                          amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
+        self.assertEqual([fee], fill_event.trade_fee.flat_fees)
 
-        complete_fill = {
-            "e": "ORDER_TRADE_UPDATE",
-            "E": 1568879465651,
-            "T": 1568879465650,
-            "o": {
-                "s": self.trading_pair,
-                "c": order.client_order_id,
-                "S": "BUY",
-                "o": "TRAILING_STOP_MARKET",
-                "f": "GTC",
-                "q": "1",
-                "p": "10000",
-                "ap": "0",
-                "sp": "7103.04",
-                "x": "TRADE",
-                "X": "FILLED",
-                "i": 8886774,
-                "l": "0.9",
-                "z": "1",
-                "L": "10000",
-                "N": "HBOT",
-                "n": "30",
-                "T": 1568879465651,
-                "t": 2,
-                "b": "0",
-                "a": "9.91",
-                "m": False,
-                "R": False,
-                "wt": "CONTRACT_PRICE",
-                "ot": "TRAILING_STOP_MARKET",
-                "ps": "LONG",
-                "cp": False,
-                "AP": "7476.89",
-                "cr": "5.0",
-                "rp": "0"
-            }
-
-        }
-
-        self.resume_test_event = asyncio.Event()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: complete_fill)
-
-        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        complete_fill = self._get_order_channel_mock_response(order_id=order_id,
+                                                              exchange_order_id=exchange_order_id,
+                                                              amount=amount,
+                                                              state=4,
+                                                              deal_size="5",
+                                                              fill_qty="3",
+                                                              last_trade_id=1235)
+        self.async_run_with_timeout(self.exchange._process_user_stream_event(complete_fill))
 
         self.assertEqual(2, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
         self.assertEqual(Decimal("0"), fill_event.trade_fee.percent)
-        self.assertEqual([TokenAmount(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
-                         fill_event.trade_fee.flat_fees)
-
+        fee = TokenAmount(token=partial_fill["data"][0]["order"]["last_trade"]["feeCcy"],
+                          amount=Decimal(partial_fill["data"][0]["order"]["last_trade"]["fee"]))
+        self.assertEqual([fee], fill_event.trade_fee.flat_fees)
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
 
     def test_sell_order_fill_event_takes_fee_from_update_event(self):
