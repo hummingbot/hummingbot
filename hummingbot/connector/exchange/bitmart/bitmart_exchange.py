@@ -188,7 +188,7 @@ class BitmartExchange(ExchangePyBase):
 
         api_params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
                       "side": trade_type.name.lower(),
-                      "type": "limit",
+                      "type": order_type.name.lower(),
                       "size": f"{amount:f}",
                       "price": f"{price:f}",
                       "client_order_id": order_id,
