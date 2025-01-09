@@ -253,7 +253,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{cancel_result.get('code')} - {cancel_result['msg']}")
-        return cancel_result.get("status") == "CANCELED"
+        return cancel_result.get("code") == CONSTANTS.CODE_OK
 
     async def _place_order(
             self,

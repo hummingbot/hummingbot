@@ -1480,12 +1480,12 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_cancel_all_successful(self, mocked_api):
         url = web_utils.private_rest_url(
-            CONSTANTS.ORDER_URL, domain=self.domain
+            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        cancel_response = {"code": 200, "msg": "success", "status": "CANCELED"}
-        mocked_api.delete(regex_url, body=json.dumps(cancel_response))
+        cancel_response = self._get_cancel_order_successful_response_mock()
+        mocked_api.post(regex_url, body=json.dumps(cancel_response))
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1525,12 +1525,14 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     def test_cancel_all_unknown_order(self, req_mock):
         self._simulate_trading_rules_initialized()
         url = web_utils.private_rest_url(
-            CONSTANTS.ORDER_URL, domain=self.domain
+            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        cancel_response = {"code": -2011, "msg": "Unknown order sent."}
-        req_mock.delete(regex_url, body=json.dumps(cancel_response))
+        cancel_response = self._get_cancel_order_successful_response_mock()
+        cancel_response["code"] = CONSTANTS.UNKNOWN_ORDER_ERROR_CODE
+        cancel_response["msg"] = CONSTANTS.UNKNOWN_ORDER_MESSAGE
+        req_mock.post(regex_url, body=json.dumps(cancel_response))
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1556,7 +1558,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged(
             "DEBUG",
-            "The order OID1 does not exist on Bitmart Perpetuals. "
+            "The order OID1 does not exist on Bitmart Perpetual. "
             "No cancelation needed."
         ))
 
@@ -1565,7 +1567,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_cancel_all_exception(self, req_mock):
         url = web_utils.private_rest_url(
-            CONSTANTS.ORDER_URL, domain=self.domain
+            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -1600,39 +1602,19 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
+    @staticmethod
+    def _get_cancel_order_successful_response_mock():
+        mocked_response = {
+            "code": 1000,
+            "trace": "0cc6f4c4-8b8c-4253-8e90-8d3195aa109c",
+            "message": "Ok",
+            "data": {}
+        }
+        return mocked_response
+
     @aioresponses()
     def test_cancel_order_successful(self, mock_api):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.ORDER_URL, domain=self.domain
-        )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        cancel_response = {
-            "clientOrderId": "ODI1",
-            "cumQty": "0",
-            "cumQuote": "0",
-            "executedQty": "0",
-            "orderId": 283194212,
-            "origQty": "11",
-            "origType": "TRAILING_STOP_MARKET",
-            "price": "0",
-            "reduceOnly": False,
-            "side": "BUY",
-            "positionSide": "SHORT",
-            "status": "CANCELED",
-            "stopPrice": "9300",
-            "closePosition": False,
-            "symbol": "BTCUSDT",
-            "timeInForce": "GTC",
-            "type": "TRAILING_STOP_MARKET",
-            "activatePrice": "9020",
-            "priceRate": "0.3",
-            "updateTime": 1571110484038,
-            "workingType": "CONTRACT_PRICE",
-            "priceProtect": False
-        }
-        mock_api.delete(regex_url, body=json.dumps(cancel_response))
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1647,50 +1629,34 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         )
         tracked_order = self.exchange._order_tracker.fetch_order("OID1")
         tracked_order.current_state = OrderState.OPEN
-
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
+        url = web_utils.private_rest_url(
+            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        cancel_response = self._get_cancel_order_successful_response_mock()
+        mock_api.post(regex_url, body=json.dumps(cancel_response))
         canceled_order_id = self.async_run_with_timeout(self.exchange._execute_cancel(trading_pair=self.trading_pair,
                                                                                       order_id="OID1"))
 
         order_cancelled_events = self.order_cancelled_logger.event_log
 
-        self.assertEqual(1, len(order_cancelled_events))
         self.assertEqual("OID1", canceled_order_id)
+        self.assertEqual(1, len(order_cancelled_events))
 
     @aioresponses()
     def test_cancel_order_failed(self, mock_api):
         self._simulate_trading_rules_initialized()
         url = web_utils.private_rest_url(
-            CONSTANTS.ORDER_URL, domain=self.domain
+            CONSTANTS.CANCEL_ORDER_URL, domain=self.domain
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        cancel_response = {
-            "clientOrderId": "ODI1",
-            "cumQty": "0",
-            "cumQuote": "0",
-            "executedQty": "0",
-            "orderId": 283194212,
-            "origQty": "11",
-            "origType": "TRAILING_STOP_MARKET",
-            "price": "0",
-            "reduceOnly": False,
-            "side": "BUY",
-            "positionSide": "SHORT",
-            "status": "FILLED",
-            "stopPrice": "9300",
-            "closePosition": False,
-            "symbol": "BTCUSDT",
-            "timeInForce": "GTC",
-            "type": "TRAILING_STOP_MARKET",
-            "activatePrice": "9020",
-            "priceRate": "0.3",
-            "updateTime": 1571110484038,
-            "workingType": "CONTRACT_PRICE",
-            "priceProtect": False
-        }
-        mock_api.delete(regex_url, body=json.dumps(cancel_response))
+        cancel_response = self._get_cancel_order_successful_response_mock()
+        cancel_response["code"] = 1001
+        mock_api.post(regex_url, body=json.dumps(cancel_response))
 
         self.exchange.start_tracking_order(
             order_id="OID1",
