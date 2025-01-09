@@ -11,14 +11,14 @@ import pandas as pd
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
+import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
-    BinancePerpetualAPIOrderBookDataSource,
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_api_order_book_data_source import (
+    BitmartPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
+from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative import BitmartPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
@@ -30,7 +30,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
 
-class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
+class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -43,8 +43,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.symbol = f"{cls.base_asset}{cls.quote_asset}"
-        cls.domain = CONSTANTS.TESTNET_DOMAIN
-        cls.listen_key = "TEST_LISTEN_KEY"
+        cls.domain = CONSTANTS.DOMAIN
 
         cls.ev_loop = asyncio.get_event_loop()
 
@@ -58,10 +57,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.resume_test_event = asyncio.Event()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        self.exchange = BinancePerpetualDerivative(
+        self.exchange = BitmartPerpetualDerivative(
             client_config_map=self.client_config_map,
-            binance_perpetual_api_key="testAPIKey",
-            binance_perpetual_api_secret="testSecret",
+            bitmart_perpetual_api_key="testAPIKey",
+            bitmart_perpetual_api_secret="testSecret",
+            bitmart_perpetual_memo="testMemo",
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )
@@ -71,7 +71,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             self.exchange._time_synchronizer.logger().setLevel(1)
             self.exchange._time_synchronizer.logger().addHandler(self)
 
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
+        BitmartPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
             self.domain: bidict({self.symbol: self.trading_pair})
         }
 
@@ -87,36 +87,42 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @property
     def all_symbols_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                                        domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def latest_prices_url(self):
         url = web_utils.public_rest_url(
-            path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL
+            path_url=CONSTANTS.EXCHANGE_INFO_URL,
+            domain=CONSTANTS.DOMAIN
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def network_status_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.PING_URL)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL,
+                                        domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def trading_rules_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                                        domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def balance_url(self):
-        url = web_utils.private_rest_url(path_url=CONSTANTS.ACCOUNT_INFO_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.ASSETS_DETAIL,
+                                         domain=CONSTANTS.DOMAIN)
         return url
 
     @property
     def funding_info_url(self):
         url = web_utils.public_rest_url(
-            path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL
+            path_url=CONSTANTS.EXCHANGE_INFO_URL,
+            domain=CONSTANTS.DOMAIN
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
@@ -124,14 +130,15 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @property
     def funding_payment_url(self):
         url = web_utils.private_rest_url(
-            path_url=CONSTANTS.GET_INCOME_HISTORY_URL
+            path_url=CONSTANTS.GET_INCOME_HISTORY_URL,
+            domain=CONSTANTS.DOMAIN
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        BitmartPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
         super().tearDown()
 
     def _initialize_event_loggers(self):
@@ -288,46 +295,51 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         trading_pair_symbol_map = {self.symbol: f"{self.base_asset}-{self.quote_asset}"}
         return trading_pair_symbol_map
 
-    def _get_exchange_info_mock_response(
-            self,
-            margin_asset: str = "HBOT",
-            min_order_size: float = 1,
-            min_price_increment: float = 2,
-            min_base_amount_increment: float = 3,
-            min_notional_size: float = 4,
-    ) -> Dict[str, Any]:
-        mocked_exchange_info = {  # irrelevant fields removed
-            "symbols": [
-                {
-                    "symbol": self.symbol,
-                    "pair": self.symbol,
-                    "contractType": "PERPETUAL",
-                    "baseAsset": self.base_asset,
-                    "quoteAsset": self.quote_asset,
-                    "marginAsset": margin_asset,
-                    "status": "TRADING",
-                    "filters": [
-                        {
-                            "filterType": "PRICE_FILTER",
-                            "maxPrice": "300",
-                            "minPrice": "0.0001",
-                            "tickSize": str(min_price_increment),
-                        },
-                        {
-                            "filterType": "LOT_SIZE",
-                            "maxQty": "10000000",
-                            "minQty": str(min_order_size),
-                            "stepSize": str(min_base_amount_increment),
-                        },
-                        {
-                            "filterType": "MIN_NOTIONAL",
-                            "notional": str(min_notional_size),
-                        },
-                    ],
-                }
-            ],
+    def _get_exchange_info_mock_response(self,
+                                         contract_size: int = 10,
+                                         min_volume: int = 1,
+                                         vol_precision: float = 0.1,
+                                         price_precision: float = 0.01,
+                                         last_price: float = 10.0) -> Dict[str, Any]:
+        mocked_exchange_info = {
+            "code": 1000,
+            "message": "Ok",
+            "trace": "9b92a999-9463-4c96-91a4-93ad1cad0d72",
+            "data": {
+                "symbols": [
+                    {
+                        "symbol": self.symbol,
+                        "product_type": 1,
+                        "open_timestamp": 1594080000123,
+                        "expire_timestamp": 0,
+                        "settle_timestamp": 0,
+                        "base_currency": self.base_asset,
+                        "quote_currency": self.quote_asset,
+                        "last_price": str(last_price),
+                        "volume_24h": "18969368",
+                        "turnover_24h": "458933659.7858",
+                        "index_price": "23945.25191635",
+                        "index_name": "BTCUSDT",
+                        "contract_size": str(contract_size),
+                        "min_leverage": "1",
+                        "max_leverage": "100",
+                        "price_precision": str(price_precision),
+                        "vol_precision": str(vol_precision),
+                        "max_volume": "500000",
+                        "market_max_volume": "500000",
+                        "min_volume": str(min_volume),
+                        "funding_rate": "0.0001",
+                        "expected_funding_rate": "0.00011",
+                        "open_interest": "4134180870",
+                        "open_interest_value": "94100888927.0433258",
+                        "high_24h": "23900",
+                        "low_24h": "23100",
+                        "change_24h": "0.004",
+                        "funding_interval_hours": 8
+                    }
+                ]
+            }
         }
-
         return mocked_exchange_info
 
     def _get_exchange_info_error_mock_response(
@@ -357,7 +369,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_existing_account_position_detected_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
-
+        # self.exchange._initialize_trading_pair_symbols_from_exchange_info()
         url = web_utils.private_rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
         )
@@ -661,27 +673,26 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
     def test_format_trading_rules(self):
-        margin_asset = self.quote_asset
-        min_order_size = 1
-        min_price_increment = 2
-        min_base_amount_increment = 3
-        min_notional_size = 4
-        mocked_response = self._get_exchange_info_mock_response(
-            margin_asset, min_order_size, min_price_increment, min_base_amount_increment, min_notional_size
-        )
+        contract_size = 1.0
+        min_volume = 2.0
+        vol_precision = 3.0
+        price_precision = 1.0
+        last_price = 6.0
+        mocked_response = self._get_exchange_info_mock_response(contract_size, min_volume, vol_precision,
+                                                                price_precision, last_price)
         self._simulate_trading_rules_initialized()
         trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
 
         self.assertEqual(1, len(trading_rules))
 
         trading_rule = trading_rules[0]
-
+        min_order_size = min_volume * contract_size
         self.assertEqual(min_order_size, trading_rule.min_order_size)
-        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
-        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
-        self.assertEqual(min_notional_size, trading_rule.min_notional_size)
-        self.assertEqual(margin_asset, trading_rule.buy_order_collateral_token)
-        self.assertEqual(margin_asset, trading_rule.sell_order_collateral_token)
+        self.assertEqual(price_precision, trading_rule.min_price_increment)
+        self.assertEqual(vol_precision, trading_rule.min_base_amount_increment)
+        self.assertEqual(min_order_size * last_price, trading_rule.min_notional_size)
+        self.assertEqual(self.quote_asset, trading_rule.buy_order_collateral_token)
+        self.assertEqual(self.quote_asset, trading_rule.sell_order_collateral_token)
 
     def test_format_trading_rules_exception(self):
         margin_asset = self.quote_asset
@@ -1293,8 +1304,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ))
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualDerivative.current_timestamp")
+    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
+           "BitmartPerpetualDerivative.current_timestamp")
     def test_update_order_fills_from_trades_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -1408,8 +1419,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                                         f"Error fetching trades update for the order {self.trading_pair}: ."))
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualDerivative.current_timestamp")
+    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
+           "BitmartPerpetualDerivative.current_timestamp")
     def test_update_order_status_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -1482,8 +1493,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0, len(in_flight_orders["OID1"].order_fills))
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
-           "BinancePerpetualDerivative.current_timestamp")
+    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative."
+           "BitmartPerpetualDerivative.current_timestamp")
     def test_request_order_status_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -1720,7 +1731,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged(
             "DEBUG",
-            "The order OID1 does not exist on Binance Perpetuals. "
+            "The order OID1 does not exist on Bitmart Perpetuals. "
             "No cancelation needed."
         ))
 
@@ -1902,7 +1913,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils.get_current_server_time")
+    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_web_utils.get_current_server_time")
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api, mock_seconds_counter: MagicMock):
         mock_seconds_counter.return_value = 1640780000
         self.exchange._set_current_timestamp(1640780000)
@@ -1969,7 +1980,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("OID1" not in self.exchange._order_tracker._in_flight_orders)
 
         # The order amount is quantizied
-        # "Error submitting buy LIMIT order to Binance_perpetual for 9999 COINALPHA-HBOT 1010."
+        # "Error submitting buy LIMIT order to Bitmart_perpetual for 9999 COINALPHA-HBOT 1010."
         self.assertTrue(self._is_logged(
             "NETWORK",
             f"Error submitting {TradeType.BUY.name.lower()} {OrderType.LIMIT.name.upper()} order to {self.exchange.name_cap} for "
