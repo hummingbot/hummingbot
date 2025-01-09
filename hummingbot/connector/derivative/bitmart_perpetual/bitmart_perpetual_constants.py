@@ -75,6 +75,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=POSITION_INFORMATION_URL, limit=6, time_interval=2),
 ]
 
+CODE_OK = 1000
 ORDER_NOT_EXIST_ERROR_CODE = 40035
 ORDER_NOT_EXIST_MESSAGE = "The order is not exist"
 UNKNOWN_ORDER_ERROR_CODE = 40037
