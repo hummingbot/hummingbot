@@ -200,6 +200,38 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "close_avg_price": "20700.7",
                     "open_avg_price": "20200",
                     "entry_price": "20201",
+                    "current_amount": "1",
+                    "unrealized_value": "1903.956643943943943944339",
+                    "realized_value": "55.049173071454605573",
+                    "position_type": 1
+                }
+            ],
+            "trace": "ae96cae5-1f09-4ea5-971e-4474a6724bc8"
+        }
+        return positions
+
+    def _get_wrong_symbol_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
+        positions = {
+            "code": 1000,
+            "message": "Ok",
+            "data": [
+                {
+                    "symbol": f"{self.symbol}_20250108",
+                    "leverage": "5",
+                    "timestamp": self.start_timestamp,
+                    "current_fee": "5.00409471",
+                    "open_timestamp": 1662714817820,
+                    "current_value": "16680.3157",
+                    "mark_value": "16673.27053207877",
+                    "mark_price": "93000.50",
+                    "position_value": "18584.272343943943943944339",
+                    "position_cross": "3798.397624451826977945",
+                    "maintenance_margin": "4798.397624451826977945",
+                    "margin_type": "Isolated",
+                    "close_vol": "100",
+                    "close_avg_price": "20700.7",
+                    "open_avg_price": "20200",
+                    "entry_price": "20201",
                     "current_amount": "899",
                     "unrealized_value": "1903.956643943943943944339",
                     "realized_value": "55.049173071454605573",
@@ -208,28 +240,6 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
             ],
             "trace": "ae96cae5-1f09-4ea5-971e-4474a6724bc8"
         }
-        return positions
-
-    def _get_wrong_symbol_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
-        positions = [
-            {
-                "symbol": f"{self.symbol}_230331",
-                "positionAmt": "1",
-                "entryPrice": "10",
-                "markPrice": "11",
-                "unRealizedProfit": "1",
-                "liquidationPrice": "100",
-                "leverage": "1",
-                "maxNotionalValue": "9",
-                "marginType": "cross",
-                "isolatedMargin": "0",
-                "isAutoAddMargin": "false",
-                "positionSide": "BOTH",
-                "notional": "11",
-                "isolatedWallet": "0",
-                "updateTime": int(self.start_timestamp),
-            }
-        ]
         return positions
 
     def _get_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
@@ -451,7 +461,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         pos = list(self.exchange.account_positions.values())[0]
         self.assertEqual(pos.amount, 1)
 
-        positions[0]["positionAmt"] = "2"
+        positions["data"][0]["current_amount"] = "2"
         req_mock.get(regex_url, body=json.dumps(positions))
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -467,7 +477,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        req_mock.get(regex_url, body=json.dumps([]))
+        req_mock.get(regex_url, body=json.dumps({"data": []}))
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
@@ -497,7 +507,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
-        positions[0]["positionAmt"] = "0"
+        positions["data"][0]["current_amount"] = "0"
         req_mock.get(regex_url, body=json.dumps(positions))
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
