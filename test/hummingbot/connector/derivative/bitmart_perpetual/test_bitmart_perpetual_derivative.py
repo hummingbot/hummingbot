@@ -2164,86 +2164,39 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {"serverTime": 1640000003000}
-
-        mock_api.get(regex_url,
-                     body=json.dumps(response))
-
-        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain)
+        url = web_utils.private_rest_url(CONSTANTS.ASSETS_DETAIL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
-            "feeTier": 0,
-            "canTrade": True,
-            "canDeposit": True,
-            "canWithdraw": True,
-            "updateTime": 0,
-            "totalInitialMargin": "0.00000000",
-            "totalMaintMargin": "0.00000000",
-            "totalWalletBalance": "23.72469206",
-            "totalUnrealizedProfit": "0.00000000",
-            "totalMarginBalance": "23.72469206",
-            "totalPositionInitialMargin": "0.00000000",
-            "totalOpenOrderInitialMargin": "0.00000000",
-            "totalCrossWalletBalance": "23.72469206",
-            "totalCrossUnPnl": "0.00000000",
-            "availableBalance": "23.72469206",
-            "maxWithdrawAmount": "23.72469206",
-            "assets": [
+            "code": 1000,
+            "message": "Ok",
+            "data": [
                 {
-                    "asset": "USDT",
-                    "walletBalance": "23.72469206",
-                    "unrealizedProfit": "0.00000000",
-                    "marginBalance": "23.72469206",
-                    "maintMargin": "0.00000000",
-                    "initialMargin": "0.00000000",
-                    "positionInitialMargin": "0.00000000",
-                    "openOrderInitialMargin": "0.00000000",
-                    "crossWalletBalance": "23.72469206",
-                    "crossUnPnl": "0.00000000",
-                    "availableBalance": "23.72469206",
-                    "maxWithdrawAmount": "23.72469206",
-                    "marginAvailable": True,
-                    "updateTime": 1625474304765,
+                    "currency": "USDT",
+                    "position_deposit": "100",
+                    "frozen_balance": "100",
+                    "available_balance": "100",
+                    "equity": "100",
+                    "unrealized": "100"
                 },
                 {
-                    "asset": "BUSD",
-                    "walletBalance": "103.12345678",
-                    "unrealizedProfit": "0.00000000",
-                    "marginBalance": "103.12345678",
-                    "maintMargin": "0.00000000",
-                    "initialMargin": "0.00000000",
-                    "positionInitialMargin": "0.00000000",
-                    "openOrderInitialMargin": "0.00000000",
-                    "crossWalletBalance": "103.12345678",
-                    "crossUnPnl": "0.00000000",
-                    "availableBalance": "100.12345678",
-                    "maxWithdrawAmount": "103.12345678",
-                    "marginAvailable": True,
-                    "updateTime": 1625474304765,
+                    "currency": "BTC",
+                    "available_balance": "0.1",
+                    "frozen_balance": "0",
+                    "unrealized": "0",
+                    "equity": "0.1",
+                    "position_deposit": "0"
+                },
+                {
+                    "currency": "ETH",
+                    "available_balance": "3.5",
+                    "frozen_balance": "0",
+                    "unrealized": "0",
+                    "equity": "7",
+                    "position_deposit": "0"
                 }
             ],
-            "positions": [{
-                "symbol": "BTCUSDT",
-                "initialMargin": "0",
-                "maintMargin": "0",
-                "unrealizedProfit": "0.00000000",
-                "positionInitialMargin": "0",
-                "openOrderInitialMargin": "0",
-                "leverage": "100",
-                "isolated": True,
-                "entryPrice": "0.00000",
-                "maxNotional": "250000",
-                "bidNotional": "0",
-                "askNotional": "0",
-                "positionSide": "BOTH",
-                "positionAmt": "0",
-                "updateTime": 0,
-            }
-            ]
+            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988"
         }
 
         mock_api.get(regex_url, body=json.dumps(response))
@@ -2252,105 +2205,10 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
 
-        self.assertEqual(Decimal("23.72469206"), available_balances["USDT"])
-        self.assertEqual(Decimal("100.12345678"), available_balances["BUSD"])
-        self.assertEqual(Decimal("23.72469206"), total_balances["USDT"])
-        self.assertEqual(Decimal("103.12345678"), total_balances["BUSD"])
-
-    @aioresponses()
-    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
-    def test_account_info_request_includes_timestamp(self, mock_api, mock_seconds_counter):
-        mock_seconds_counter.return_value = 1000
-
-        url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {"serverTime": 1640000003000}
-
-        mock_api.get(regex_url,
-                     body=json.dumps(response))
-
-        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {
-            "feeTier": 0,
-            "canTrade": True,
-            "canDeposit": True,
-            "canWithdraw": True,
-            "updateTime": 0,
-            "totalInitialMargin": "0.00000000",
-            "totalMaintMargin": "0.00000000",
-            "totalWalletBalance": "23.72469206",
-            "totalUnrealizedProfit": "0.00000000",
-            "totalMarginBalance": "23.72469206",
-            "totalPositionInitialMargin": "0.00000000",
-            "totalOpenOrderInitialMargin": "0.00000000",
-            "totalCrossWalletBalance": "23.72469206",
-            "totalCrossUnPnl": "0.00000000",
-            "availableBalance": "23.72469206",
-            "maxWithdrawAmount": "23.72469206",
-            "assets": [
-                {
-                    "asset": "USDT",
-                    "walletBalance": "23.72469206",
-                    "unrealizedProfit": "0.00000000",
-                    "marginBalance": "23.72469206",
-                    "maintMargin": "0.00000000",
-                    "initialMargin": "0.00000000",
-                    "positionInitialMargin": "0.00000000",
-                    "openOrderInitialMargin": "0.00000000",
-                    "crossWalletBalance": "23.72469206",
-                    "crossUnPnl": "0.00000000",
-                    "availableBalance": "23.72469206",
-                    "maxWithdrawAmount": "23.72469206",
-                    "marginAvailable": True,
-                    "updateTime": 1625474304765,
-                },
-                {
-                    "asset": "BUSD",
-                    "walletBalance": "103.12345678",
-                    "unrealizedProfit": "0.00000000",
-                    "marginBalance": "103.12345678",
-                    "maintMargin": "0.00000000",
-                    "initialMargin": "0.00000000",
-                    "positionInitialMargin": "0.00000000",
-                    "openOrderInitialMargin": "0.00000000",
-                    "crossWalletBalance": "103.12345678",
-                    "crossUnPnl": "0.00000000",
-                    "availableBalance": "100.12345678",
-                    "maxWithdrawAmount": "103.12345678",
-                    "marginAvailable": True,
-                    "updateTime": 1625474304765,
-                }
-            ],
-            "positions": [{
-                "symbol": "BTCUSDT",
-                "initialMargin": "0",
-                "maintMargin": "0",
-                "unrealizedProfit": "0.00000000",
-                "positionInitialMargin": "0",
-                "openOrderInitialMargin": "0",
-                "leverage": "100",
-                "isolated": True,
-                "entryPrice": "0.00000",
-                "maxNotional": "250000",
-                "bidNotional": "0",
-                "askNotional": "0",
-                "positionSide": "BOTH",
-                "positionAmt": "0",
-                "updateTime": 0,
-            }
-            ]
-        }
-
-        mock_api.get(regex_url, body=json.dumps(response))
-        self.async_run_with_timeout(self.exchange._update_balances())
-
-        account_request = next(((key, value) for key, value in mock_api.requests.items()
-                                if key[1].human_repr().startswith(url)))
-        request_params = account_request[1][0].kwargs["params"]
-        self.assertIsInstance(request_params["timestamp"], int)
+        self.assertEqual(Decimal("100"), available_balances["USDT"])
+        self.assertEqual(Decimal("0.1"), available_balances["BTC"])
+        self.assertEqual(Decimal("3.5"), available_balances["ETH"])
+        self.assertEqual(Decimal("7"), total_balances["ETH"])
 
     def test_limit_orders(self):
         self.exchange.start_tracking_order(
