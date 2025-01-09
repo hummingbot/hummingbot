@@ -244,53 +244,45 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
 
     def _get_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
         account_update = {
-            "e": "ACCOUNT_UPDATE",
-            "E": 1564745798939,
-            "T": 1564745798938,
-            "a": {
-                "m": "POSITION",
-                "B": [
-                    {"a": "USDT", "wb": "122624.12345678", "cw": "100.12345678", "bc": "50.12345678"},
-                ],
-                "P": [
-                    {
-                        "s": self.symbol,
-                        "pa": "1",
-                        "ep": "10",
-                        "cr": "200",
-                        "up": "1",
-                        "mt": "cross",
-                        "iw": "0.00000000",
-                        "ps": "BOTH",
-                    },
-                ],
-            },
+            "group": "futures/position",
+            "data": [
+                {
+                    "symbol": self.symbol,
+                    "hold_volume": "2000",
+                    "position_type": 1,
+                    "open_type": 1,
+                    "frozen_volume": "0",
+                    "close_volume": "0",
+                    "hold_avg_price": "19406.2092",
+                    "close_avg_price": "0",
+                    "open_avg_price": "19406.2092",
+                    "liquidate_price": "15621.998406",
+                    "create_time": 1662692862255,
+                    "update_time": 1662692862255
+                }
+            ]
         }
         return account_update
 
     def _get_wrong_symbol_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
         account_update = {
-            "e": "ACCOUNT_UPDATE",
-            "E": 1564745798939,
-            "T": 1564745798938,
-            "a": {
-                "m": "POSITION",
-                "B": [
-                    {"a": "USDT", "wb": "122624.12345678", "cw": "100.12345678", "bc": "50.12345678"},
-                ],
-                "P": [
-                    {
-                        "s": f"{self.symbol}_230331",
-                        "pa": "1",
-                        "ep": "10",
-                        "cr": "200",
-                        "up": "1",
-                        "mt": "cross",
-                        "iw": "0.00000000",
-                        "ps": "BOTH",
-                    },
-                ],
-            },
+            "group": "futures/position",
+            "data": [
+                {
+                    "symbol": f"{self.symbol}_20250108",
+                    "hold_volume": "2000",
+                    "position_type": 1,
+                    "open_type": 1,
+                    "frozen_volume": "0",
+                    "close_volume": "0",
+                    "hold_avg_price": "19406.2092",
+                    "close_avg_price": "0",
+                    "open_avg_price": "19406.2092",
+                    "liquidate_price": "15621.998406",
+                    "create_time": 1662692862255,
+                    "update_time": 1662692862255
+                }
+            ]
         }
         return account_update
 
@@ -515,21 +507,13 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 0)
 
     @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
+    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type")
+    def test_new_account_position_detected_on_stream_event(self, mock_api, mock_price):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
 
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.assertEqual(len(self.exchange.account_positions), 0)
-
-        account_update = self._get_account_update_ws_event_single_position_dict()
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         url = web_utils.private_rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
@@ -538,14 +522,15 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        account_update = self._get_account_update_ws_event_single_position_dict()
+        self.async_run_with_timeout(self.exchange._process_user_stream_event(account_update))
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
     @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_account_position_updated_on_stream_event(self, mock_api, ws_connect_mock):
+    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type")
+    def test_account_position_updated_on_stream_event(self, mock_api, mock_price):
+
         self._simulate_trading_rules_initialized()
         url = web_utils.private_rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
@@ -557,12 +542,6 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
 
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.assertEqual(len(self.exchange.account_positions), 1)
@@ -570,19 +549,17 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(pos.amount, 1)
 
         account_update = self._get_account_update_ws_event_single_position_dict()
-        account_update["a"]["P"][0]["pa"] = 2
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        mock_price.return_value = Decimal("18452.2")
+        self.async_run_with_timeout(self.exchange._process_user_stream_event(account_update))
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
-        self.assertEqual(pos.amount, 2)
+        self.assertEqual(pos.amount, 2000)
 
     @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_closed_account_position_removed_on_stream_event(self, mock_api, ws_connect_mock):
+    @patch("hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_derivative.BitmartPerpetualDerivative.get_price_by_type")
+    def test_closed_account_position_removed_on_stream_event(self, mock_api, mock_price):
         self._simulate_trading_rules_initialized()
         url = web_utils.private_rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
@@ -594,41 +571,24 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.async_run_with_timeout(task)
 
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
         account_update = self._get_account_update_ws_event_single_position_dict()
-        account_update["a"]["P"][0]["pa"] = 0
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
+        account_update["data"][0]["hold_volume"] = "0.0"
+        mock_price.return_value = Decimal("18452.2")
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.async_run_with_timeout(self.exchange._process_user_stream_event(account_update))
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
     @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_wrong_symbol_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
+    def test_wrong_symbol_new_account_position_detected_on_stream_event(self, mock_api):
         self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.assertEqual(len(self.exchange.account_positions), 0)
-
-        account_update = self._get_wrong_symbol_account_update_ws_event_single_position_dict()
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         url = web_utils.private_rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
@@ -637,8 +597,8 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         positions = self._get_position_risk_api_endpoint_single_position_list()
         mock_api.get(regex_url, body=json.dumps(positions))
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        account_update = self._get_wrong_symbol_account_update_ws_event_single_position_dict()
+        self.async_run_with_timeout(self.exchange._process_user_stream_event(account_update))
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
