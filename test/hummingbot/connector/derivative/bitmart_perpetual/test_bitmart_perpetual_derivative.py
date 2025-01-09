@@ -179,25 +179,35 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         return calculation(*args, **kwargs)
 
     def _get_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
-        positions = [
-            {
-                "symbol": self.symbol,
-                "positionAmt": "1",
-                "entryPrice": "10",
-                "markPrice": "11",
-                "unRealizedProfit": "1",
-                "liquidationPrice": "100",
-                "leverage": "1",
-                "maxNotionalValue": "9",
-                "marginType": "cross",
-                "isolatedMargin": "0",
-                "isAutoAddMargin": "false",
-                "positionSide": "BOTH",
-                "notional": "11",
-                "isolatedWallet": "0",
-                "updateTime": int(self.start_timestamp),
-            }
-        ]
+        positions = {
+            "code": 1000,
+            "message": "Ok",
+            "data": [
+                {
+                    "symbol": self.symbol,
+                    "leverage": "5",
+                    "timestamp": self.start_timestamp,
+                    "current_fee": "5.00409471",
+                    "open_timestamp": 1662714817820,
+                    "current_value": "16680.3157",
+                    "mark_value": "16673.27053207877",
+                    "mark_price": "93000.50",
+                    "position_value": "18584.272343943943943944339",
+                    "position_cross": "3798.397624451826977945",
+                    "maintenance_margin": "4798.397624451826977945",
+                    "margin_type": "Isolated",
+                    "close_vol": "100",
+                    "close_avg_price": "20700.7",
+                    "open_avg_price": "20200",
+                    "entry_price": "20201",
+                    "current_amount": "899",
+                    "unrealized_value": "1903.956643943943943944339",
+                    "realized_value": "55.049173071454605573",
+                    "position_type": 2
+                }
+            ],
+            "trace": "ae96cae5-1f09-4ea5-971e-4474a6724bc8"
+        }
         return positions
 
     def _get_wrong_symbol_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
@@ -342,34 +352,55 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         }
         return mocked_exchange_info
 
-    def _get_exchange_info_error_mock_response(
-            self,
-            margin_asset: str = "HBOT",
-            min_order_size: float = 1,
-            min_price_increment: float = 2,
-            min_base_amount_increment: float = 3,
-            min_notional_size: float = 4,
-    ) -> Dict[str, Any]:
-        mocked_exchange_info = {  # irrelevant fields removed
-            "symbols": [
-                {
-                    "symbol": self.symbol,
-                    "pair": self.symbol,
-                    "contractType": "PERPETUAL",
-                    "baseAsset": self.base_asset,
-                    "quoteAsset": self.quote_asset,
-                    "marginAsset": margin_asset,
-                    "status": "TRADING",
-                }
-            ],
+    def _get_exchange_info_error_mock_response(self,
+                                               contract_size: int = 10,
+                                               min_volume: int = 1,
+                                               vol_precision: float = 0.1,
+                                               price_precision: float = 0.01,
+                                               last_price: float = 10.0) -> Dict[str, Any]:
+        mocked_exchange_info = {
+            "code": 1000,
+            "message": "Ok",
+            "trace": "9b92a999-9463-4c96-91a4-93ad1cad0d72",
+            "data": {
+                "symbols": [
+                    {
+                        "symbol": self.symbol,
+                        "product_type": 1,
+                        "open_timestamp": 1594080000123,
+                        "expire_timestamp": 0,
+                        "settle_timestamp": 0,
+                        "base_currency": self.base_asset,
+                        "last_price": str(last_price),
+                        "volume_24h": "18969368",
+                        "turnover_24h": "458933659.7858",
+                        "index_price": "23945.25191635",
+                        "index_name": "BTCUSDT",
+                        "contract_size": str(contract_size),
+                        "min_leverage": "1",
+                        "max_leverage": "100",
+                        "price_precision": str(price_precision),
+                        "vol_precision": str(vol_precision),
+                        "max_volume": "500000",
+                        "market_max_volume": "500000",
+                        "min_volume": str(min_volume),
+                        "funding_rate": "0.0001",
+                        "expected_funding_rate": "0.00011",
+                        "open_interest": "4134180870",
+                        "open_interest_value": "94100888927.0433258",
+                        "high_24h": "23900",
+                        "low_24h": "23100",
+                        "change_24h": "0.004",
+                        "funding_interval_hours": 8
+                    }
+                ]
+            }
         }
-
         return mocked_exchange_info
 
     @aioresponses()
     def test_existing_account_position_detected_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
-        # self.exchange._initialize_trading_pair_symbols_from_exchange_info()
         url = web_utils.private_rest_url(
             CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
         )
@@ -695,20 +726,13 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, trading_rule.sell_order_collateral_token)
 
     def test_format_trading_rules_exception(self):
-        margin_asset = self.quote_asset
-        min_order_size = 1
-        min_price_increment = 2
-        min_base_amount_increment = 3
-        min_notional_size = 4
-        mocked_response = self._get_exchange_info_error_mock_response(
-            margin_asset, min_order_size, min_price_increment, min_base_amount_increment, min_notional_size
-        )
+        mocked_response = self._get_exchange_info_error_mock_response()
         self._simulate_trading_rules_initialized()
 
         self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
         self.assertTrue(self._is_logged(
             "ERROR",
-            f"Error parsing the trading pair rule {mocked_response['symbols'][0]}. Error: 'filters'. Skipping..."
+            f"Error parsing the trading pair rule {mocked_response['data']['symbols'][0]}. Error: 'quote_currency'. Skipping..."
         ))
 
     def test_get_collateral_token(self):
