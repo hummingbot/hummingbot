@@ -589,7 +589,7 @@ class HyperliquidExchange(ExchangePyBase):
                 return_val.append(
                     TradingRule(
                         trading_pair,
-                        min_order_size=step_size,
+                        min_order_size=step_size,  # asset_price,
                         min_base_amount_increment=step_size,
                         min_price_increment=price_size
                     )
