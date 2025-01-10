@@ -623,7 +623,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         if current_tick > last_tick and len(self._order_tracker.active_orders) > 0:
             trading_pairs_to_order_map: Dict[str, Dict[str, Any]] = defaultdict(lambda: {})
             for order in self._order_tracker.active_orders.values():
-                trading_pairs_to_order_map[order.trading_pair][order.client_order_id] = order
+                trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [
                 self._api_get(
@@ -644,7 +644,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                     )
                     continue
                 for trade in trades["data"]:
-                    order_id = trade.get("client_order_id")
+                    order_id = trade.get("order_id")
                     if order_id is not None and order_id in order_map:
                         tracked_order: InFlightOrder = order_map.get(order_id)
                         position_side = PositionSide.LONG if trade["side"] == 1 else PositionSide.SHORT
@@ -741,8 +741,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         )
         success = False
         msg = ""
-        if set_leverage["data"]["leverage"] == leverage_str:
-            success = True
+        if set_leverage["code"] == CONSTANTS.CODE_OK:
+            success = set_leverage["data"]["leverage"] == leverage_str
         else:
             msg = 'Unable to set leverage'
         return success, msg
