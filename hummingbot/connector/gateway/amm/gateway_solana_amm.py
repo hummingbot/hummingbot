@@ -139,6 +139,7 @@ class GatewaySolanaAMM(GatewayAMMBase):
             tx_status: int = tx_details["txStatus"]
             tx_receipt: Optional[Dict[str, Any]] = tx_details["txData"]
             if tx_status == 1 and (tx_receipt is not None):
+                # 1: confirmed
                 fee: Decimal = Decimal(tx_receipt["meta"]["fee"] / 1000000000)
 
                 self.process_trade_fill_update(tracked_order=tracked_order, fee=fee)
@@ -150,7 +151,12 @@ class GatewaySolanaAMM(GatewayAMMBase):
                     new_state=OrderState.FILLED,
                 )
                 self._order_tracker.process_order_update(order_update)
+            # TO-DO: handles retries and fee-stepping here
+            elif tx_status == 0:
+                # 0: fulfilled but not yet confirmed
+                pass
             elif tx_status == -1:
+                # -1: confirmed but failed
                 self.logger().network(
                     f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
                     app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
