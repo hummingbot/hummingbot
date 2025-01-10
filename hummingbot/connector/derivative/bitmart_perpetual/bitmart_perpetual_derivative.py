@@ -214,8 +214,6 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = is_maker or False
-        # TODO: Check if replacing build_trade_fee by build_perpetual_trade_fee is correct. ExchangePyBase has
-        # different signature from PerpetualDerivativePyBase
         fee = build_perpetual_trade_fee(
             self.name,
             is_maker,
@@ -282,10 +280,10 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             data=api_params,
             is_auth_required=True)
         response_code = order_result.get("code")
-        o_id = str(order_result["data"]["order_id"])
-        transact_time = self._time_synchronizer.time()
         if response_code != 1000:
             raise IOError(f"Error submitting order {order_id}: {order_result['message']}")
+        o_id = str(order_result["data"]["order_id"])
+        transact_time = self._time_synchronizer.time()
         return o_id, transact_time
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
@@ -305,19 +303,20 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                     client_order_id=tracked_order.client_order_id,
                 )
                 return _order_update
-        order_update_data = order_update["data"]
-        deal_size = Decimal(order_update_data["deal_size"])
-        size = Decimal(order_update_data["size"])
-        state = order_update_data["state"]
-        order_state = self.get_order_state(size, state, deal_size)
-        _order_update: OrderUpdate = OrderUpdate(
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update_data["update_time"] * 1e-3,
-            new_state=order_state,
-            client_order_id=order_update_data["client_order_id"],
-            exchange_order_id=order_update_data["order_id"],
-        )
-        return _order_update
+        order_update_data = order_update.get("data")
+        if order_update is not None:
+            deal_size = Decimal(order_update_data["deal_size"])
+            size = Decimal(order_update_data["size"])
+            state = order_update_data["state"]
+            order_state = self.get_order_state(size, state, deal_size)
+            _order_update: OrderUpdate = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=order_update_data["update_time"] * 1e-3,
+                new_state=order_state,
+                client_order_id=order_update_data["client_order_id"],
+                exchange_order_id=order_update_data["order_id"],
+            )
+            return _order_update
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
