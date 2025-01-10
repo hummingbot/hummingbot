@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from decimal import Decimal
 from typing import Dict
@@ -50,10 +51,9 @@ class XEMMExecutor(ExecutorBase):
         return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
 
     def is_arbitrage_valid(self, pair1, pair2):
-        base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
-        base_asset2, quote_asset2 = split_hb_trading_pair(pair2)
-        return self._are_tokens_interchangeable(base_asset1, base_asset2) and \
-            self._are_tokens_interchangeable(quote_asset1, quote_asset2)
+        base_asset1, _ = split_hb_trading_pair(pair1)
+        base_asset2, _ = split_hb_trading_pair(pair2)
+        return self._are_tokens_interchangeable(base_asset1, base_asset2)
 
     def __init__(self, strategy: ScriptStrategyBase, config: XEMMExecutorConfig, update_interval: float = 1.0,
                  max_retries: int = 10):
@@ -61,6 +61,7 @@ class XEMMExecutor(ExecutorBase):
                                        pair2=config.selling_market.trading_pair):
             raise Exception("XEMM is not valid since the trading pairs are not interchangeable.")
         self.config = config
+        self.rate_oracle = RateOracle.get_instance()
         if config.maker_side == TradeType.BUY:
             self.maker_connector = config.buying_market.connector_name
             self.maker_trading_pair = config.buying_market.trading_pair
@@ -75,6 +76,12 @@ class XEMMExecutor(ExecutorBase):
             self.taker_connector = config.buying_market.connector_name
             self.taker_trading_pair = config.buying_market.trading_pair
             self.taker_order_side = TradeType.BUY
+
+        # Set up quote conversion pair
+        _, maker_quote = split_hb_trading_pair(self.maker_trading_pair)
+        _, taker_quote = split_hb_trading_pair(self.taker_trading_pair)
+        self.quote_conversion_pair = f"{taker_quote}-{maker_quote}"
+
         taker_connector = strategy.connectors[self.taker_connector]
         if not self.is_amm_connector(exchange=self.taker_connector):
             if OrderType.MARKET not in taker_connector.supported_order_types():
@@ -83,6 +90,7 @@ class XEMMExecutor(ExecutorBase):
         self._maker_target_price = Decimal("1")
         self._tx_cost = Decimal("1")
         self._tx_cost_pct = Decimal("1")
+        self._current_trade_profitability = Decimal("0")
         self.maker_order = None
         self.taker_order = None
         self.failed_orders = []
@@ -92,7 +100,7 @@ class XEMMExecutor(ExecutorBase):
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval)
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         mid_price = self.get_price(self.maker_connector, self.maker_trading_pair,
                                    price_type=PriceType.MidPrice)
         maker_order_candidate = OrderCandidate(
@@ -135,33 +143,35 @@ class XEMMExecutor(ExecutorBase):
             trading_pair=self.taker_trading_pair,
             is_buy=self.taker_order_side == TradeType.BUY,
             order_amount=self.config.order_amount)
-        self._tx_cost = await self.get_tx_cost()
-        self._tx_cost_pct = self._tx_cost / self.config.order_amount
+        await self.update_tx_costs()
         if self.taker_order_side == TradeType.BUY:
             self._maker_target_price = self._taker_result_price * (1 + self.config.target_profitability + self._tx_cost_pct)
         else:
             self._maker_target_price = self._taker_result_price * (1 - self.config.target_profitability - self._tx_cost_pct)
 
-    async def get_tx_cost(self):
+    async def update_tx_costs(self):
         base, quote = split_hb_trading_pair(trading_pair=self.config.buying_market.trading_pair)
-        # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
         base_without_wrapped = base[1:] if base.startswith("W") else base
-        taker_fee = await self.get_tx_cost_in_asset(
+        taker_fee_task = asyncio.create_task(self.get_tx_cost_in_asset(
             exchange=self.taker_connector,
             trading_pair=self.taker_trading_pair,
             order_type=OrderType.MARKET,
-            is_buy=True,
+            is_buy=self.taker_order_side == TradeType.BUY,
             order_amount=self.config.order_amount,
             asset=base_without_wrapped
-        )
-        maker_fee = await self.get_tx_cost_in_asset(
+        ))
+        maker_fee_task = asyncio.create_task(self.get_tx_cost_in_asset(
             exchange=self.maker_connector,
             trading_pair=self.maker_trading_pair,
             order_type=OrderType.LIMIT,
-            is_buy=False,
+            is_buy=self.maker_order_side == TradeType.BUY,
             order_amount=self.config.order_amount,
-            asset=base_without_wrapped)
-        return taker_fee + maker_fee
+            asset=base_without_wrapped
+        ))
+
+        taker_fee, maker_fee = await asyncio.gather(taker_fee_task, maker_fee_task)
+        self._tx_cost = taker_fee + maker_fee
+        self._tx_cost_pct = self._tx_cost / self.config.order_amount
 
     async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal,
                                    asset: str, order_type: OrderType = OrderType.MARKET):
@@ -169,6 +179,9 @@ class XEMMExecutor(ExecutorBase):
         if self.is_amm_connector(exchange=exchange):
             gas_cost = connector.network_transaction_fee
             conversion_price = RateOracle.get_instance().get_pair_rate(f"{asset}-{gas_cost.token}")
+            if conversion_price is None:
+                self.logger().warning(f"Could not get conversion rate for {asset}-{gas_cost.token}")
+                return Decimal("0")
             return gas_cost.amount / conversion_price
         else:
             fee = connector.get_fee(
@@ -178,7 +191,7 @@ class XEMMExecutor(ExecutorBase):
                 order_side=TradeType.BUY if is_buy else TradeType.SELL,
                 amount=order_amount,
                 price=self._taker_result_price,
-                is_maker=False
+                is_maker=order_type.is_limit_type(),
             )
             return fee.fee_amount_in_token(
                 trading_pair=trading_pair,
@@ -209,24 +222,35 @@ class XEMMExecutor(ExecutorBase):
             self.stop()
 
     async def control_update_maker_order(self):
-        trade_profitability = self.get_current_trade_profitability()
-        if trade_profitability - self._tx_cost_pct < self.config.min_profitability:
-            self.logger().info(f"Trade profitability {trade_profitability - self._tx_cost_pct} is below minimum profitability. Cancelling order.")
+        await self.update_current_trade_profitability()
+        if self._current_trade_profitability - self._tx_cost_pct < self.config.min_profitability:
+            self.logger().info(f"Trade profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
             self.maker_order = None
-        if trade_profitability - self._tx_cost_pct > self.config.max_profitability:
-            self.logger().info(f"Trade profitability {trade_profitability - self._tx_cost_pct} is above target profitability. Cancelling order.")
+        elif self._current_trade_profitability - self._tx_cost_pct > self.config.max_profitability:
+            self.logger().info(f"Trade profitability {self._current_trade_profitability - self._tx_cost_pct} is above target profitability. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
             self.maker_order = None
 
-    def get_current_trade_profitability(self):
+    async def update_current_trade_profitability(self):
         trade_profitability = Decimal("0")
         if self.maker_order and self.maker_order.order and self.maker_order.order.is_open:
             maker_price = self.maker_order.order.price
-            if self.maker_order_side == TradeType.BUY:
-                trade_profitability = (self._taker_result_price - maker_price) / maker_price
-            else:
-                trade_profitability = (maker_price - self._taker_result_price) / maker_price
+            # Get the conversion rate to normalize prices to the same quote asset
+            try:
+                conversion_rate = await self.get_quote_asset_conversion_rate()
+                if self.maker_order_side == TradeType.BUY:
+                    # If maker is buying, normalize taker (sell) price to maker quote asset
+                    normalized_taker_price = self._taker_result_price * conversion_rate
+                    trade_profitability = (normalized_taker_price - maker_price) / maker_price
+                else:
+                    # If maker is selling, normalize taker (buy) price to maker quote asset
+                    normalized_taker_price = self._taker_result_price * conversion_rate
+                    trade_profitability = (maker_price - normalized_taker_price) / maker_price
+            except Exception as e:
+                self.logger().error(f"Error calculating trade profitability: {e}")
+                return Decimal("0")
+        self._current_trade_profitability = trade_profitability
         return trade_profitability
 
     def process_order_created_event(self,
@@ -269,7 +293,8 @@ class XEMMExecutor(ExecutorBase):
             self.place_taker_order()
 
     def get_custom_info(self) -> Dict:
-        trade_profitability = self.get_current_trade_profitability()
+        # Since we can't make this method async, we'll skip the profitability calculation
+        # The profitability will still be shown in the status message which is async
         return {
             "side": self.config.maker_side,
             "maker_connector": self.maker_connector,
@@ -279,9 +304,13 @@ class XEMMExecutor(ExecutorBase):
             "min_profitability": self.config.min_profitability,
             "target_profitability_pct": self.config.target_profitability,
             "max_profitability": self.config.max_profitability,
-            "trade_profitability": trade_profitability,
+            "trade_profitability": self._current_trade_profitability,
             "tx_cost": self._tx_cost,
             "tx_cost_pct": self._tx_cost_pct,
+            "taker_price": self._taker_result_price,
+            "maker_target_price": self._maker_target_price,
+            "net_profitability": self._current_trade_profitability - self._tx_cost_pct,
+            "order_amount": self.config.order_amount,
         }
 
     def early_stop(self):
@@ -309,14 +338,28 @@ class XEMMExecutor(ExecutorBase):
         pnl_quote = self.get_net_pnl_quote()
         return pnl_quote / self.config.order_amount
 
+    async def get_quote_asset_conversion_rate(self) -> Decimal:
+        """
+        Fetch the conversion rate between the quote assets of the buying and selling markets.
+        Example: For M3M3/USDT and M3M3/USDC, fetch the USDC/USDT rate.
+        """
+        try:
+            conversion_rate = self.rate_oracle.get_pair_rate(self.quote_conversion_pair)
+            if conversion_rate is None:
+                self.logger().error(f"Could not fetch conversion rate for {self.quote_conversion_pair}")
+                raise ValueError(f"Could not fetch conversion rate for {self.quote_conversion_pair}")
+            return conversion_rate
+        except Exception as e:
+            self.logger().error(f"Error fetching conversion rate for {self.quote_conversion_pair}: {e}")
+            raise
+
     def to_format_status(self):
-        trade_profitability = self.get_current_trade_profitability()
         return f"""
 Maker Side: {self.maker_order_side}
 -----------------------------------------------------------------------------------------------------------------------
     - Maker: {self.maker_connector} {self.maker_trading_pair} | Taker: {self.taker_connector} {self.taker_trading_pair}
-    - Min profitability: {self.config.min_profitability*100:.2f}% | Target profitability: {self.config.target_profitability*100:.2f}% | Max profitability: {self.config.max_profitability*100:.2f}% | Current profitability: {(trade_profitability - self._tx_cost_pct)*100:.2f}%
-    - Trade profitability: {trade_profitability*100:.2f}% | Tx cost: {self._tx_cost_pct*100:.2f}%
+    - Min profitability: {self.config.min_profitability*100:.2f}% | Target profitability: {self.config.target_profitability*100:.2f}% | Max profitability: {self.config.max_profitability*100:.2f}% | Current profitability: {(self._current_trade_profitability - self._tx_cost_pct)*100:.2f}%
+    - Trade profitability: {self._current_trade_profitability*100:.2f}% | Tx cost: {self._tx_cost_pct*100:.2f}%
     - Taker result price: {self._taker_result_price:.3f} | Tx cost: {self._tx_cost:.3f} {self.maker_trading_pair.split('-')[-1]} | Order amount (Base): {self.config.order_amount:.2f}
 -----------------------------------------------------------------------------------------------------------------------
 """
