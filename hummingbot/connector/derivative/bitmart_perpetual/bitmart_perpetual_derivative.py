@@ -141,9 +141,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
-        # TODO: try a future request to study behaviour
-        is_time_synchronizer_related = ("-1021" in error_description
-                                        and "Timestamp for this request" in error_description)
+        is_time_synchronizer_related = ("40039" in error_description
+                                        and "The timestamp is invalid" in error_description)
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
