@@ -403,7 +403,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
                            min_price_increment=price_size,
-                           )
+                           min_order_size=step_size)
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
