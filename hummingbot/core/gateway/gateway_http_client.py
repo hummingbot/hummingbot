@@ -35,6 +35,8 @@ class GatewayError(Enum):
     InvalidNonceError = 1012
     PriceFailed = 1013
     UnknownError = 1099
+    InsufficientBaseBalance = 1022
+    InsufficientQuoteBalance = 1023
 
 
 class GatewayHttpClient:
@@ -135,8 +137,14 @@ class GatewayHttpClient:
                 self.logger().network("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
             elif error_code == GatewayError.UnknownChainError.value:
                 self.logger().network("An unknown chain error has occurred on gateway. Make sure your gateway settings are correct.")
+            elif error_code == GatewayError.InsufficientBaseBalance.value:
+                self.logger().network("Insufficient base token balance needed to execute the trade.")
+            elif error_code == GatewayError.InsufficientQuoteBalance.value:
+                self.logger().network("Insufficient quote token balance needed to execute the trade.")
             elif error_code == GatewayError.UnknownError.value:
-                self.logger().network("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
+                self.logger().network("An unknown error has occurred on gateway. Please send your logs to operations@hummingbot.org.")
+            else:
+                self.logger().network("An unknown error has occurred on gateway. Please send your logs to operations@hummingbot.org.")
 
     @staticmethod
     def is_timeout_error(e) -> bool:
