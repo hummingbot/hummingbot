@@ -169,11 +169,11 @@ class ExecutorBase(RunnableBase):
         super().stop()
         self.unregister_events()
 
-    def on_start(self):
+    async def on_start(self):
         """
         Called when the executor is started.
         """
-        self.validate_sufficient_balance()
+        await self.validate_sufficient_balance()
 
     def on_stop(self):
         """
@@ -187,7 +187,7 @@ class ExecutorBase(RunnableBase):
         """
         raise NotImplementedError
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         """
         Validates that the executor has sufficient balance to place orders.
         """

@@ -384,7 +384,7 @@ class GatewayEVMAMM(ConnectorBase):
             gas_price_token: str = price_response["gasPriceToken"]
             gas_cost: Decimal = Decimal(price_response["gasCost"])
             price: Decimal = Decimal(price_response["price"])
-            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
             if process_exception is True:
                 gas_limit: int = int(price_response["gasLimit"])
                 exceptions: List[str] = check_transaction_exceptions(
@@ -450,9 +450,9 @@ class GatewayEVMAMM(ConnectorBase):
                     resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
                         self.chain, self.network, self.connector_name, base, quote, amount, side
                     )
-                    gas_price_token: str = resp["gasPriceToken"]
-                    gas_cost: Decimal = Decimal(resp["gasCost"])
-                    self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+                    # gas_price_token: str = resp["gasPriceToken"]
+                    # gas_cost: Decimal = Decimal(resp["gasCost"])
+                    # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
                 except asyncio.CancelledError:
                     raise
                 except Exception:
@@ -570,9 +570,9 @@ class GatewayEVMAMM(ConnectorBase):
             )
             transaction_hash: Optional[str] = order_result.get("txHash")
             if transaction_hash is not None and transaction_hash != "":
-                gas_cost: Decimal = Decimal(order_result.get("gasCost"))
-                gas_price_token: str = order_result.get("gasPriceToken")
-                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+                # gas_cost: Decimal = Decimal(order_result.get("gasCost"))
+                # gas_price_token: str = order_result.get("gasPriceToken")
+                # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order_id,

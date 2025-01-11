@@ -92,7 +92,16 @@ class PositionExecutor(ExecutorBase):
 
         :return: The filled amount of the open order if it exists, otherwise 0.
         """
-        return self._open_order.executed_amount_base if self._open_order else Decimal("0")
+        if self._open_order:
+            if self._open_order.fee_asset == self.config.trading_pair.split("-")[0]:
+                open_filled_amount = self._open_order.executed_amount_base - self._open_order.cum_fees_base
+            else:
+                open_filled_amount = self._open_order.executed_amount_base
+            return self.connectors[self.config.connector_name].quantize_order_amount(
+                trading_pair=self.config.trading_pair,
+                amount=open_filled_amount)
+        else:
+            return Decimal("0")
 
     @property
     def amount_to_close(self) -> Decimal:
@@ -321,7 +330,7 @@ class PositionExecutor(ExecutorBase):
             await self.control_close_order()
             self.cancel_open_orders()
             self._current_retries += 1
-        await asyncio.sleep(2.0)
+        await self._sleep(5.0)
 
     def open_and_close_volume_match(self):
         if self.open_filled_amount == Decimal("0"):
@@ -362,14 +371,14 @@ class PositionExecutor(ExecutorBase):
             self.close_type = CloseType.FAILED
             self.stop()
 
-    def on_start(self):
+    async def on_start(self):
         """
         This method is responsible for starting the executor and validating if the position is expired. The base method
         validates if there is enough balance to place the open order.
 
         :return: None
         """
-        super().on_start()
+        await super().on_start()
         if self.is_expired:
             self.close_type = CloseType.EXPIRED
             self.stop()
@@ -760,7 +769,7 @@ class PositionExecutor(ExecutorBase):
                 if net_pnl_pct - self.config.triple_barrier_config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
                     self._trailing_stop_trigger_pct = net_pnl_pct - self.config.triple_barrier_config.trailing_stop.trailing_delta
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         if self.is_perpetual:
             order_candidate = PerpetualOrderCandidate(
                 trading_pair=self.config.trading_pair,
@@ -785,3 +794,12 @@ class PositionExecutor(ExecutorBase):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.logger().error("Not enough budget to open position.")
             self.stop()
+
+    async def _sleep(self, delay: float):
+        """
+        This method is responsible for sleeping the executor for a specific time.
+
+        :param delay: The time to sleep.
+        :return: None
+        """
+        await asyncio.sleep(delay)
