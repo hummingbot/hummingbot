@@ -111,7 +111,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                  'premium': '0.00036632', 'prevDayPx': '35242.0'},
                 {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
                  'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'midPx': '1923.05', 'openInterest': '638.89157', 'oraclePx': '1921.7',
                  'premium': '0.00067648',
                  'prevDayPx': '1877.1'
                  }]
@@ -480,6 +480,20 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         response = {"code": -2013, "msg": "order"}
+        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        return url_order_status
+
+    def configure_order_not_found_unknow_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ):
+        url_order_status = web_utils.public_rest_url(
+            CONSTANTS.ORDER_URL
+        )
+
+        regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
+
+        response = {'status': 'unknownOid'}
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url_order_status
 
@@ -1042,6 +1056,28 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         # Disabling this test because the connector has not been updated yet to validate
         # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
         pass
+
+    @aioresponses()
+    def test_update_order_status_when_exchange_order_id_timeout(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self.configure_order_not_found_unknow_error_order_status_response(
+            order=order,
+            mock_api=mock_api)
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout(self.exchange._update_order_status())
+        self.assertFalse(order.is_done)
 
     @aioresponses()
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
