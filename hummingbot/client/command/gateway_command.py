@@ -444,8 +444,12 @@ class GatewayCommand(GatewayChainApiManager):
             chain, network, address = (
                 conf["chain"], conf["network"], conf["wallet_address"]
             )
+            # Add native token to the tokens list
+            native_token = native_tokens[chain]
             tokens_str = conf.get("tokens", "")
             tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+            if native_token not in tokens:
+                tokens.append(native_token)
 
             connector_chain_network = [
                 w for w in gateway_connections

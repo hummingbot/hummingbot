@@ -116,9 +116,11 @@ class GatewaySolanaAMM(GatewayAMMBase):
         tx_hash_list: List[str] = await safe_gather(
             *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
         )
-        self.logger().debug(
-            "Polling for order status updates of %d orders.",
-            len(tracked_orders)
+
+        self.logger().info(
+            "Polling for order status updates of %d orders. Transaction hashes: %s",
+            len(tracked_orders),
+            tx_hash_list
         )
         update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
             self._get_gateway_instance().get_transaction_status(
@@ -151,7 +153,6 @@ class GatewaySolanaAMM(GatewayAMMBase):
                     new_state=OrderState.FILLED,
                 )
                 self._order_tracker.process_order_update(order_update)
-            # TO-DO: handles retries and fee-stepping here
             elif tx_status == 0:
                 # 0: fulfilled but not yet confirmed
                 pass
