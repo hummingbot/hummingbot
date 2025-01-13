@@ -148,6 +148,20 @@ class TegroExchange(ExchangePyBase):
             }
         return results
 
+    async def get_all_pairs_prices(self) -> Dict[str, Any]:
+        res = []
+        pairs_prices = await self._api_get(
+            path_url=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL.format(self.chain),
+            params={"page": 1, "sort_order": "desc", "sort_by": "volume", "page_size": 20, "verified": "true"},
+            limit_id=CONSTANTS.EXCHANGE_INFO_PATH_LIST_URL
+        )
+        for pair_price_data in pairs_prices:
+            result = {}
+            result["symbol"] = pair_price_data["symbol"]
+            result["price"] = pair_price_data["ticker"]["price"]
+            res.append(result)
+        return res
+
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
         is_time_synchronizer_related = ("-1021" in error_description
