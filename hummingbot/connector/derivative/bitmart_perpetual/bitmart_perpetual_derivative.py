@@ -182,7 +182,7 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         return int(amount / self._contract_sizes[trading_pair])
 
     def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
-        return size * self._contract_sizes[trading_pair]
+        return Decimal(size) * self._contract_sizes[trading_pair]
 
     @property
     def side_mapping(self):
@@ -396,7 +396,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                         percent_token=fee_asset,
                         flat_fees=flat_fees,
                     )
-
+                    fill_base_amount = Decimal(self._format_size_to_amount(tracked_order.trading_pair,
+                                                                           trades_dict["fillQty"]))
                     trade_update: TradeUpdate = TradeUpdate(
                         trade_id=trade_id,
                         client_order_id=client_order_id,
@@ -404,8 +405,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                         trading_pair=tracked_order.trading_pair,
                         fill_timestamp=order_message["update_time"] * 1e-3,
                         fill_price=Decimal(trades_dict["fillPrice"]),
-                        fill_base_amount=Decimal(trades_dict["fillQty"]),
-                        fill_quote_amount=Decimal(trades_dict["fillQty"]) * Decimal(trades_dict["fillPrice"]),
+                        fill_base_amount=fill_base_amount,
+                        fill_quote_amount=Decimal(str(fill_base_amount)) * Decimal(trades_dict["fillPrice"]),
                         fee=fee,
                     )
                     self._order_tracker.process_trade_update(trade_update)
@@ -658,6 +659,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                             percent_token=quote_asset,
                             flat_fees=[TokenAmount(amount=fee_amount, token=quote_asset)]
                         )
+                        fill_base_amount = Decimal(self._format_size_to_amount(tracked_order.trading_pair,
+                                                                               trade["vol"]))
                         trade_update: TradeUpdate = TradeUpdate(
                             trade_id=str(trade["trade_id"]),
                             client_order_id=tracked_order.client_order_id,
@@ -665,8 +668,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
                             trading_pair=tracked_order.trading_pair,
                             fill_timestamp=trade["create_time"] * 1e-3,
                             fill_price=Decimal(trade["price"]),
-                            fill_base_amount=Decimal(trade["vol"]),
-                            fill_quote_amount=Decimal(trade["vol"]) * Decimal(trade["price"]),
+                            fill_base_amount=fill_base_amount,
+                            fill_quote_amount=Decimal(str(fill_base_amount)) * Decimal(trade["price"]),
                             fee=fee,
                         )
                         self._order_tracker.process_trade_update(trade_update)

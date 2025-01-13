@@ -723,6 +723,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         return mocked_response
 
     def test_buy_order_fill_event_takes_fee_from_update_event(self):
+        self._simulate_trading_rules_initialized()
         order_id = "test_id"
         exchange_order_id = "ex_test_id"
         price = "10.0"
@@ -744,7 +745,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                                                              amount=amount,
                                                              state=2,
                                                              deal_size="2",
-                                                             fill_qty="2",
+                                                             fill_qty="20",
                                                              last_trade_id=1234)
         self.async_run_with_timeout(self.exchange._process_user_stream_event(partial_fill))
         self.assertEqual(1, len(self.order_filled_logger.event_log))
@@ -772,6 +773,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
 
     def test_sell_order_fill_event_takes_fee_from_update_event(self):
+        self._simulate_trading_rules_initialized()
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="8886774",
@@ -827,6 +829,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.sell_order_completed_logger.event_log))
 
     def test_order_fill_event_ignored_for_repeated_trade_id(self):
+        self._simulate_trading_rules_initialized()
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="8886774",
@@ -879,6 +882,7 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
 
     def test_fee_is_zero_when_not_included_in_fill_event(self):
+        self._simulate_trading_rules_initialized()
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="8886774",
@@ -957,14 +961,15 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
         mock_timestamp.return_value = 1
-
+        price = 10000.0
+        amount = 100.0
         self.exchange.start_tracking_order(
             order_id="OID1",
             exchange_order_id="8886774",
             trading_pair=self.trading_pair,
             trade_type=TradeType.SELL,
-            price=Decimal("10000"),
-            amount=Decimal("1"),
+            price=Decimal(str(price)),
+            amount=Decimal(str(amount)),
             order_type=OrderType.LIMIT,
             leverage=1,
             position_action=PositionAction.OPEN,
@@ -979,8 +984,8 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
                     "trade_id": "698759",
                     "symbol": self.symbol,
                     "side": 1,
-                    "price": "19313.3",
-                    "vol": "108",
+                    "price": str(price),
+                    "vol": str(amount / self.exchange._contract_sizes[self.trading_pair]),
                     "exec_type": "Maker",
                     "profit": False,
                     "realised_profit": "-0.00832",
@@ -1008,15 +1013,15 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(f"{self.base_asset}-{self.quote_asset}", in_flight_orders["OID1"].trading_pair)
         self.assertEqual(OrderType.LIMIT, in_flight_orders["OID1"].order_type)
         self.assertEqual(TradeType.SELL, in_flight_orders["OID1"].trade_type)
-        self.assertEqual(10000, in_flight_orders["OID1"].price)
-        self.assertEqual(1, in_flight_orders["OID1"].amount)
+        self.assertEqual(price, in_flight_orders["OID1"].price)
+        self.assertEqual(amount, in_flight_orders["OID1"].amount)
         self.assertEqual("8886774", in_flight_orders["OID1"].exchange_order_id)
         self.assertEqual(OrderState.PENDING_CREATE, in_flight_orders["OID1"].current_state)
         self.assertEqual(1, in_flight_orders["OID1"].leverage)
         self.assertEqual(PositionAction.OPEN, in_flight_orders["OID1"].position)
 
-        self.assertEqual(108, in_flight_orders["OID1"].executed_amount_base)
-        self.assertEqual(Decimal(str(108 * 19313.3)), in_flight_orders["OID1"].executed_amount_quote)
+        self.assertEqual(amount, in_flight_orders["OID1"].executed_amount_base)
+        self.assertEqual(Decimal(str(amount * price)), in_flight_orders["OID1"].executed_amount_quote)
         self.assertEqual(1663663818.589, in_flight_orders["OID1"].last_update_timestamp)
 
         self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
