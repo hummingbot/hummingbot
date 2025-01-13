@@ -37,6 +37,8 @@ class GatewayError(Enum):
     UnknownError = 1099
     InsufficientBaseBalance = 1022
     InsufficientQuoteBalance = 1023
+    SimulationError = 1024
+    SwapRouteFetchError = 1025
 
 
 class GatewayHttpClient:
@@ -141,6 +143,10 @@ class GatewayHttpClient:
                 self.logger().network("Insufficient base token balance needed to execute the trade.")
             elif error_code == GatewayError.InsufficientQuoteBalance.value:
                 self.logger().network("Insufficient quote token balance needed to execute the trade.")
+            elif error_code == GatewayError.SimulationError.value:
+                self.logger().network("Transaction simulation failed.")
+            elif error_code == GatewayError.SwapRouteFetchError.value:
+                self.logger().network("Failed to fetch swap route.")
             elif error_code == GatewayError.UnknownError.value:
                 self.logger().network("An unknown error has occurred on gateway. Please send your logs to operations@hummingbot.org.")
             else:
