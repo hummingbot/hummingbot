@@ -289,7 +289,6 @@ class GatewayHttpClient:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
             request_params = {
-                "chain": chain,
                 "network": network,
                 "address": address,
                 "tokenSymbols": token_symbols,
@@ -298,7 +297,7 @@ class GatewayHttpClient:
                 request_params["connector"] = connector
             return await self.api_request(
                 method="post",
-                path_url="chain/balances",
+                path_url=f"{chain}/balances",
                 params=request_params,
                 fail_silently=fail_silently,
             )
@@ -311,8 +310,7 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "chain/tokens", {
-            "chain": chain,
+        return await self.api_request("get", f"{chain}/tokens", {
             "network": network
         }, fail_silently=fail_silently)
 
@@ -324,9 +322,9 @@ class GatewayHttpClient:
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         req_data: Dict[str, str] = {}
         if chain is not None and network is not None:
-            req_data["chain"] = chain
             req_data["network"] = network
-        return await self.api_request("get", "chain/status", req_data, fail_silently=fail_silently)
+            return await self.api_request("get", f"{chain}/status", req_data, fail_silently=fail_silently)
+        return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)  # Default endpoint when chain is None
 
     async def approve_token(
             self,
@@ -340,7 +338,6 @@ class GatewayHttpClient:
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
         request_payload: Dict[str, Any] = {
-            "chain": chain,
             "network": network,
             "address": address,
             "token": token,
@@ -354,7 +351,7 @@ class GatewayHttpClient:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request(
             "post",
-            "chain/approve",
+            "ethereum/approve",
             request_payload
         )
 
@@ -367,13 +364,71 @@ class GatewayHttpClient:
             spender: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "chain/allowances", {
-            "chain": chain,
+        return await self.api_request("post", "ethereum/allowances", {
             "network": network,
             "address": address,
             "tokenSymbols": token_symbols,
             "spender": spender
         }, fail_silently=fail_silently)
+
+    async def get_transaction_status(
+            self,
+            chain: str,
+            network: str,
+            transaction_hash: str,
+            connector: Optional[str] = None,
+            address: Optional[str] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        request = {
+            "network": network,
+            "txHash": transaction_hash
+        }
+        # if connector:
+        #     request["connector"] = connector
+        # if address:
+        #     request["address"] = address
+        return await self.api_request("post", f"{chain}/poll", request, fail_silently=fail_silently)
+
+    async def wallet_sign(
+        self,
+        chain: str,
+        network: str,
+        address: str,
+        message: str,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "address": address,
+            "message": message,
+        }
+        return await self.api_request("get", "wallet/sign", request)
+
+    async def get_evm_nonce(
+            self,
+            chain: str,
+            network: str,
+            address: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "ethereum/nextNonce", {
+            "network": network,
+            "address": address
+        }, fail_silently=fail_silently)
+
+    async def cancel_evm_transaction(
+            self,
+            chain: str,
+            network: str,
+            address: str,
+            nonce: int
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "ethereum/cancel", {
+            "network": network,
+            "address": address,
+            "nonce": nonce
+        })
 
     async def get_price(
             self,
@@ -404,75 +459,12 @@ class GatewayHttpClient:
         if pool_id not in ["", None]:
             request_payload["poolId"] = pool_id
 
-        # XXX(martin_kou): The amount is always output with 18 decimal places.
         return await self.api_request(
             "post",
-            "amm/price",
+            f"{connector}/price",
             request_payload,
             fail_silently=fail_silently,
         )
-
-    async def get_transaction_status(
-            self,
-            chain: str,
-            network: str,
-            transaction_hash: str,
-            connector: Optional[str] = None,
-            address: Optional[str] = None,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        request = {
-            "chain": chain,
-            "network": network,
-            "txHash": transaction_hash
-        }
-        if connector:
-            request["connector"] = connector
-        if address:
-            request["address"] = address
-        return await self.api_request("post", "chain/poll", request, fail_silently=fail_silently)  # type: ignore
-
-    async def wallet_sign(
-        self,
-        chain: str,
-        network: str,
-        address: str,
-        message: str,
-    ) -> Dict[str, Any]:
-        request = {
-            "chain": chain,
-            "network": network,
-            "address": address,
-            "message": message,
-        }
-        return await self.api_request("get", "wallet/sign", request)
-
-    async def get_evm_nonce(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            fail_silently: bool = False
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "chain/nextNonce", {
-            "chain": chain,
-            "network": network,
-            "address": address
-        }, fail_silently=fail_silently)
-
-    async def cancel_evm_transaction(
-            self,
-            chain: str,
-            network: str,
-            address: str,
-            nonce: int
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", "chain/cancel", {
-            "chain": chain,
-            "network": network,
-            "address": address,
-            "nonce": nonce
-        })
 
     async def amm_trade(
         self,
@@ -490,7 +482,6 @@ class GatewayHttpClient:
         max_priority_fee_per_gas: Optional[int] = None,
         pool_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        # XXX(martin_kou): The amount is always output with 18 decimal places.
         request_payload: Dict[str, Any] = {
             "chain": chain,
             "network": network,
@@ -511,7 +502,7 @@ class GatewayHttpClient:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
-        return await self.api_request("post", "amm/trade", request_payload)
+        return await self.api_request("post", f"{connector}/trade", request_payload)
 
     async def amm_estimate_gas(
             self,
@@ -519,7 +510,7 @@ class GatewayHttpClient:
             network: str,
             connector: str,
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "amm/estimateGas", {
+        return await self.api_request("post", f"{connector}/estimateGas", {
             "chain": chain,
             "network": network,
             "connector": connector,
