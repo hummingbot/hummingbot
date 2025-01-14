@@ -387,7 +387,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "isBuy": True if trade_type is TradeType.BUY else False,
                 "limitPx": float(price),
                 "sz": float(amount),
-                "reduceOnly": False,
+                "reduceOnly": position_action == PositionAction.CLOSE,
                 "orderType": param_order_type,
                 "cloid": order_id,
             }
@@ -481,20 +481,29 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         client_order_id = tracked_order.client_order_id
+        try:
+            if tracked_order.exchange_order_id:
+                exchange_order_id = tracked_order.exchange_order_id
+            else:
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+        except asyncio.TimeoutError:
+            exchange_order_id = None
         order_update = await self._api_post(
             path_url=CONSTANTS.ORDER_URL,
             data={
                 "type": CONSTANTS.ORDER_STATUS_TYPE,
                 "user": self.hyperliquid_perpetual_api_key,
-                "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
+                "oid": int(exchange_order_id) if exchange_order_id else client_order_id
             })
         current_state = order_update["order"]["status"]
+        _exchange_order_id = str(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else str(
+            order_update["order"]["order"]["oid"])
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
             new_state=CONSTANTS.ORDER_STATE[current_state],
             client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
-            exchange_order_id=str(tracked_order.exchange_order_id),
+            exchange_order_id=_exchange_order_id,
         )
         return _order_update
 
@@ -603,6 +612,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
         current_state = order_msg["status"]
+        tracked_order.update_exchange_order_id(str(order_msg["order"]["oid"]))
         order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_msg["statusTimestamp"] * 1e-3,
@@ -635,12 +645,14 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
 
                 price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
+                _min_order_size = Decimal(str(10 ** -len(price_info.get("openInterest").split('.')[1])))
                 collateral_token = CONSTANTS.CURRENCY
                 return_val.append(
                     TradingRule(
                         trading_pair,
                         min_base_amount_increment=step_size,
                         min_price_increment=price_size,
+                        min_order_size=_min_order_size,
                         buy_order_collateral_token=collateral_token,
                         sell_order_collateral_token=collateral_token,
                     )
