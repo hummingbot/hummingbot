@@ -247,19 +247,23 @@ class GatewayCommand(GatewayChainApiManager):
                 chains: List[str] = [d['chain'] for d in available_networks]
                 chain: str
 
-                # chains as options
-                while True:
-                    self.app.input_field.completer.set_gateway_chains(chains)
-                    chain = await self.app.prompt(
-                        prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
-                    )
-                    if self.app.to_stop_config:
-                        self.app.to_stop_config = False
-                        return
+                if len(chains) == 1:
+                    chain = chains[0]
+                    self.notify(f"Only {chain} chain is available. Selected automatically.")
+                else:
+                    # chains as options
+                    while True:
+                        self.app.input_field.completer.set_gateway_chains(chains)
+                        chain = await self.app.prompt(
+                            prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            self.app.to_stop_config = False
+                            return
 
-                    if chain in chains:
-                        break
-                    self.notify(f"{chain} chain not supported.\n")
+                        if chain in chains:
+                            break
+                        self.notify(f"{chain} chain not supported.\n")
 
                 # ask user to select a network. Automatically select if there is only one.
                 networks: List[str] = list(
@@ -268,17 +272,20 @@ class GatewayCommand(GatewayChainApiManager):
                 )
 
                 network: str
-                while True:
-                    self.app.input_field.completer.set_gateway_networks(
-                        networks)
-                    network = await self.app.prompt(
-                        prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
-                    )
-                    if self.app.to_stop_config:
-                        return
-                    if network in networks:
-                        break
-                    self.notify("Error: Invalid network")
+                if len(networks) == 1:
+                    network = networks[0]
+                    self.notify(f"Only {network} network is available. Selected automatically.")
+                else:
+                    while True:
+                        self.app.input_field.completer.set_gateway_networks(networks)
+                        network = await self.app.prompt(
+                            prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            return
+                        if network in networks:
+                            break
+                        self.notify("Error: Invalid network")
 
                 # test you can connect to the uri, otherwise request the url
                 await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
