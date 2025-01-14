@@ -15,6 +15,7 @@ class CloseType(Enum):
     INSUFFICIENT_BALANCE = 7
     FAILED = 8
     COMPLETED = 9
+    POSITION_HOLD = 10
 
 
 class TrackedOrder:
