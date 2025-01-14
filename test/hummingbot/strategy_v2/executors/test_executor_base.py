@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
@@ -134,6 +134,25 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         self.assertEqual(buy_order_id, "OID-BUY-1")
 
+    def test_place_buy_order_with_kwargs(self):
+        self.component.place_order(
+            connector_name="connector1",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            side=TradeType.BUY,
+            price=Decimal("1000.0"),
+            amount=Decimal("1.0"),
+            kwargs={"order_id0": "OID-BUY-1"}
+        )
+        self.strategy.buy.assert_called_with(
+            'connector1',
+            'ETH-USDT',
+            Decimal('1.0'),
+            OrderType.LIMIT,
+            Decimal('1000.0'),
+            PositionAction.NIL,
+            kwargs={'order_id0': 'OID-BUY-1'})
+
     def test_place_sell_order(self):
         sell_order_id = self.component.place_order(
             connector_name="connector1",
@@ -144,6 +163,25 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             amount=Decimal("1.0"),
         )
         self.assertEqual(sell_order_id, "OID-SELL-1")
+
+    def test_place_sell_order_with_kwargs(self):
+        self.component.place_order(
+            connector_name="connector1",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            side=TradeType.SELL,
+            price=Decimal("1000.0"),
+            amount=Decimal("1.0"),
+            kwargs={"order_id0": "OID-SELL-1"}
+        )
+        self.strategy.sell.assert_called_with(
+            'connector1',
+            'ETH-USDT',
+            Decimal('1.0'),
+            OrderType.LIMIT,
+            Decimal('1000.0'),
+            PositionAction.NIL,
+            kwargs={'order_id0': 'OID-SELL-1'})
 
     async def test_executor_starts_and_stops(self):
         self.assertEqual(RunnableStatus.NOT_STARTED, self.component.status)
