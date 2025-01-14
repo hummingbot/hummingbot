@@ -181,7 +181,7 @@ class ExecutorBase(RunnableBase):
         """
         pass
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         """
         This method allows strategy to stop the executor early.
         """

@@ -610,13 +610,19 @@ class PositionExecutor(ExecutorBase):
         )
         self.logger().debug("Removing close order")
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         """
         This method allows strategy to stop the executor early.
 
         :return: None
         """
-        self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
+        if keep_position:
+            self.close_type = CloseType.POSITION_HOLD
+            self.cancel_open_orders()
+            self.cancel_close_order()
+            self.stop()
+        else:
+            self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         """
