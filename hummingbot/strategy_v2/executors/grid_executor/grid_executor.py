@@ -193,8 +193,8 @@ class GridExecutor(ExecutorBase):
         self.update_metrics()
         if self.status == RunnableStatus.RUNNING:
             if self.control_triple_barrier():
-                self._status = RunnableStatus.SHUTTING_DOWN
                 self.cancel_open_orders()
+                self._status = RunnableStatus.SHUTTING_DOWN
                 return
             open_orders_to_create = self.get_open_orders_to_create()
             close_orders_to_create = self.get_close_orders_to_create()
@@ -215,15 +215,20 @@ class GridExecutor(ExecutorBase):
             await self.control_shutdown_process()
         self.evaluate_max_retries()
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         """
         This method allows strategy to stop the executor early.
 
         :return: None
         """
-        self._status = RunnableStatus.SHUTTING_DOWN
-        self.close_type = CloseType.EARLY_STOP
-        self.cancel_open_orders()
+        if keep_position:
+            self.close_type = CloseType.POSITION_HOLD
+            self.cancel_open_orders()
+            self.stop()
+        else:
+            self._status = RunnableStatus.SHUTTING_DOWN
+            self.close_type = CloseType.EARLY_STOP
+            self.cancel_open_orders()
 
     def update_grid_levels(self):
         self.levels_by_state = {state: [] for state in GridLevelStates}
@@ -251,7 +256,7 @@ class GridExecutor(ExecutorBase):
         self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
         close_orders_completed = self.close_liquidity_placed == Decimal("0")
-        order_execution_completed = self.position_size_base == Decimal("0")
+        order_execution_completed = self.position_size_base == Decimal("0") if self.config.keep_position else True
         if open_orders_completed and close_orders_completed:
             if order_execution_completed:
                 for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
@@ -290,7 +295,7 @@ class GridExecutor(ExecutorBase):
             else:
                 self._failed_orders.append(self._close_order.order_id)
                 self._close_order = None
-        else:
+        elif self.config.keep_position:
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def adjust_and_place_open_order(self, level: GridLevel):
@@ -484,17 +489,19 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
-        if self.stop_loss_condition() or self.limit_price_condition():
-            self.cancel_open_orders()
+        if self.stop_loss_condition():
             self.close_type = CloseType.STOP_LOSS
             return True
-        if self.is_expired:
+        elif self.limit_price_condition():
+            self.close_type = CloseType.POSITION_HOLD if self.config.keep_position else CloseType.STOP_LOSS
+            return True
+        elif self.is_expired:
             self.close_type = CloseType.TIME_LIMIT
             return True
-        if self.trailing_stop_condition():
+        elif self.trailing_stop_condition():
             self.close_type = CloseType.TRAILING_STOP
             return True
-        if self.take_profit_condition():
+        elif self.take_profit_condition():
             self.close_type = CloseType.TAKE_PROFIT
             return True
         return False
@@ -606,6 +613,7 @@ class GridExecutor(ExecutorBase):
             "realized_pnl_pct": self.realized_pnl_pct,
             "position_size_quote": self.position_size_quote,
             "position_fees_quote": self.position_fees_quote,
+            "break_even_price": self.position_break_even_price,
             "position_pnl_quote": self.position_pnl_quote,
             "open_liquidity_placed": self.open_liquidity_placed,
             "close_liquidity_placed": self.close_liquidity_placed,
@@ -622,6 +630,7 @@ class GridExecutor(ExecutorBase):
         self.update_metrics()
         if self.control_triple_barrier():
             self.logger().error(f"Grid is already expired by {self.close_type}.")
+
             self._status = RunnableStatus.SHUTTING_DOWN
 
     def evaluate_max_retries(self):

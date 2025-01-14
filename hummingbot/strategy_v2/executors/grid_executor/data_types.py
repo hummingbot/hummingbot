@@ -34,6 +34,7 @@ class GridExecutorConfig(ExecutorConfigBase):
     leverage: int = 20
     level_id: Optional[str] = None
     deduct_base_fees: bool = False
+    keep_position: bool = False
 
 
 class GridLevelStates(Enum):
