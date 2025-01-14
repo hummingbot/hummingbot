@@ -280,8 +280,9 @@ class GatewayHttpClient:
         request.update(kwargs)
         return await self.api_request(method="post", path_url="wallet/add", params=request)
 
-    async def get_configuration(self, chain: str, fail_silently: bool = False) -> Dict[str, Any]:
-        return await self.api_request("get", f"{chain}/config", fail_silently=fail_silently)
+    async def get_configuration(self, chain: str = None, fail_silently: bool = False) -> Dict[str, Any]:
+        path = "chain/config" if chain is None else f"{chain}/config"
+        return await self.api_request("get", path, fail_silently=fail_silently)
 
     async def get_balances(
             self,
