@@ -152,7 +152,7 @@ class ExecutorOrchestrator:
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
-        executor.early_stop()
+        executor.early_stop(action.keep_position)
 
     def store_executor(self, action: StoreExecutorAction):
         """
