@@ -121,7 +121,6 @@ class GatewayConnectionSetting:
         chain: str,
         network: str,
         trading_type: str,
-        chain_type: str,
         wallet_address: str,
         additional_prompt_values: Dict[str, str],
     ):
@@ -130,7 +129,6 @@ class GatewayConnectionSetting:
             "chain": chain,
             "network": network,
             "trading_type": trading_type,
-            "chain_type": chain_type,
             "wallet_address": wallet_address,
             "additional_prompt_values": additional_prompt_values,
         }
@@ -193,9 +191,9 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            # Gateway DEX connectors may be on different types of chains (EVM, SOLANA, etc)
+            # Gateway DEX connectors may be on different types of chains (ethereum, solana, etc)
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
-            return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain_type'].lower()}_{self._get_module_package()}"
+            return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain'].lower()}_{self._get_module_package()}"
         return f"{self.base_name()}_{self._get_module_package()}"
 
     def module_path(self) -> str:
@@ -207,10 +205,11 @@ class ConnectorSetting(NamedTuple):
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
         if self.uses_gateway_generic_connector():
-            file_name = self.module_name().split('.')[-1]
+            module_name = self.module_name()
+            file_name = module_name.split('.')[-1]
             splited_name = file_name.split('_')
             for i in range(len(splited_name)):
-                if splited_name[i] in ['evm', 'amm', 'clob', 'lp', 'sol', 'spot']:
+                if splited_name[i] in ['amm']:
                     splited_name[i] = splited_name[i].upper()
                 else:
                     splited_name[i] = splited_name[i].capitalize()

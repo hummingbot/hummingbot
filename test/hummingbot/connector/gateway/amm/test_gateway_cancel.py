@@ -15,7 +15,7 @@ from async_timeout import timeout
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
@@ -44,7 +44,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
     _patch_stack: ExitStack
     _clock: Clock
     _clock_task: Optional[asyncio.Task]
-    _connector: GatewayEVMAMM
+    _connector: GatewayEthereumAMM
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -52,7 +52,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
         cls._http_player = HttpPlayer(cls._db_path)
         cls._clock: Clock = Clock(ClockMode.REALTIME)
         cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
-        cls._connector: GatewayEVMAMM = GatewayEVMAMM(
+        cls._connector: GatewayEthereumAMM = GatewayEthereumAMM(
             client_config_map=cls._client_config_map,
             connector_name="uniswap",
             chain="ethereum",
@@ -108,7 +108,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_cancel_order(self):
         amount: Decimal = Decimal("0.001")
-        connector: GatewayEVMAMM = self._connector
+        connector: GatewayEthereumAMM = self._connector
         event_logger: EventLogger = EventLogger()
         connector.add_listener(MarketEvent.OrderCancelled, event_logger)
 
@@ -130,7 +130,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
                 self._http_player.replay_timestamp_ms = 1648503304951
                 await connector._create_order(
                     trade_type=TradeType.BUY,
-                    order_id=GatewayEVMAMM.create_market_order_id(TradeType.BUY, TRADING_PAIR),
+                    order_id=GatewayEthereumAMM.create_market_order_id(TradeType.BUY, TRADING_PAIR),
                     trading_pair=TRADING_PAIR,
                     amount=amount,
                     price=buy_price,
@@ -140,7 +140,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
                 self._http_player.replay_timestamp_ms = 1648503309059
                 await connector._create_order(
                     TradeType.SELL,
-                    GatewayEVMAMM.create_market_order_id(TradeType.SELL, TRADING_PAIR),
+                    GatewayEthereumAMM.create_market_order_id(TradeType.SELL, TRADING_PAIR),
                     TRADING_PAIR,
                     amount,
                     sell_price,
@@ -176,7 +176,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     async def test_cancel_approval(self):
-        connector: GatewayEVMAMM = self._connector
+        connector: GatewayEthereumAMM = self._connector
         event_logger: EventLogger = EventLogger()
         connector.add_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
 
