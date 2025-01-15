@@ -365,9 +365,7 @@ class AmmArbUnitTest(unittest.TestCase):
             "chain": "ethereum",
             "network": "mainnet",
             "trading_type": "AMM",
-            "chain_type": "EVM",
             "wallet_address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
-            "additional_spenders": [],
         }
         await asyncio.sleep(2)
         cancel_outdated_orders_func.assert_awaited()
