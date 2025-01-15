@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import time
+import urllib
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
@@ -54,11 +55,13 @@ class KrakenAuth(AuthBase):
         # Variables (API method, nonce, and POST data)
         api_path: bytes = bytes(uri, 'utf-8')
         api_nonce: str = self.get_tracking_nonce()
-        api_post: str = "nonce=" + api_nonce
+        api_post: str = f"nonce={api_nonce}"
 
         if data is not None:
             for key, value in data.items():
-                api_post += f"&{key}={value}"
+                encoded_key = urllib.parse.quote(str(key))
+                encoded_value = urllib.parse.quote(str(value))
+                api_post += f"&{encoded_key}={encoded_value}"
 
         # Cryptographic hash algorithms
         api_sha256: bytes = hashlib.sha256(bytes(api_nonce + api_post, 'utf-8')).digest()

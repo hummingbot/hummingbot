@@ -12,6 +12,13 @@ class OrderType(Enum):
     TAKE_PROFIT = 5
     TRAILING_STOP = 6
 
+    STOP_LOSS = 4
+    TAKE_PROFIT = 5
+    TRAILING_STOP = 6
+    STOP_LOSS_LIMIT = 7
+    TAKE_PROFIT_LIMIT = 8
+    TRAILING_STOP_LIMIT = 9
+
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
