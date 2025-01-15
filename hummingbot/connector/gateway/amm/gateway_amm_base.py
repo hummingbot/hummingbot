@@ -33,7 +33,7 @@ s_decimal_NaN = Decimal("nan")
 
 class GatewayAMMBase(ConnectorBase):
     """
-    Defines basic functions common to both EVM and Solana Gateway connectors
+    Defines basic functions common to all Gateway AMM connectors
     """
 
     API_CALL_TIMEOUT = 10.0

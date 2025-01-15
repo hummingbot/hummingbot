@@ -235,7 +235,6 @@ class GatewayCommand(GatewayChainApiManager):
                 available_networks: List[Dict[str, Any]
                                          ] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
-                chain_type: str = connector_config[0]["chain_type"]
                 additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
                     # If Gateway requires additional, prompts with secure info,
                     "additional_add_wallet_prompts",
@@ -389,7 +388,6 @@ class GatewayCommand(GatewayChainApiManager):
                     chain=chain,
                     network=network,
                     trading_type=trading_type,
-                    chain_type=chain_type,
                     wallet_address=wallet_address,
                     additional_prompt_values=additional_prompt_values,
                 )

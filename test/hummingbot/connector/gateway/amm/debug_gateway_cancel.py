@@ -10,7 +10,7 @@ from typing import Generator, Optional
 
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
@@ -37,7 +37,7 @@ class GatewayCancelDataCollector:
 
     def __init__(self):
         self._clock: Clock = Clock(ClockMode.REALTIME)
-        self._connector: GatewayEVMAMM = GatewayEVMAMM(
+        self._connector: GatewayEthereumAMM = GatewayEthereumAMM(
             "uniswap",
             "ethereum",
             NETWORK,
@@ -92,7 +92,7 @@ class GatewayCancelDataCollector:
 
     async def collect_cancel_order(self):
         print("Creating and then canceling Uniswap order...\t\t", end="", flush=True)
-        connector: GatewayEVMAMM = self._connector
+        connector: GatewayEthereumAMM = self._connector
         event_logger: EventLogger = EventLogger()
         connector.add_listener(MarketEvent.OrderCancelled, event_logger)
         try:
@@ -102,7 +102,7 @@ class GatewayCancelDataCollector:
                 sell_price: Decimal = await connector.get_order_price(TRADING_PAIR, False, amount) * Decimal("0.98")
                 await connector._create_order(
                     TradeType.BUY,
-                    GatewayEVMAMM.create_market_order_id(TradeType.BUY, TRADING_PAIR),
+                    GatewayEthereumAMM.create_market_order_id(TradeType.BUY, TRADING_PAIR),
                     TRADING_PAIR,
                     amount,
                     buy_price,
@@ -111,7 +111,7 @@ class GatewayCancelDataCollector:
                 )
                 await connector._create_order(
                     TradeType.SELL,
-                    GatewayEVMAMM.create_market_order_id(TradeType.SELL, TRADING_PAIR),
+                    GatewayEthereumAMM.create_market_order_id(TradeType.SELL, TRADING_PAIR),
                     TRADING_PAIR,
                     amount,
                     sell_price,
@@ -129,7 +129,7 @@ class GatewayCancelDataCollector:
 
     async def collect_cancel_approval(self):
         print("Creating and then canceling token approval...\t\t", end="", flush=True)
-        connector: GatewayEVMAMM = self._connector
+        connector: GatewayEthereumAMM = self._connector
         event_logger: EventLogger = EventLogger()
         connector.add_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
         try:

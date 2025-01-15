@@ -1,7 +1,7 @@
 from typing import List, Tuple, cast
 
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import (
     CrossExchangeMarketMakingStrategy,
@@ -44,7 +44,7 @@ def start(self):
 
     if taker_market in AllConnectorSettings.get_gateway_amm_connector_names():
         if debug_price_shim:
-            amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, self.market_pair.taker.market)
+            amm_connector: GatewayEthereumAMM = cast(GatewayEthereumAMM, self.market_pair.taker.market)
             GatewayPriceShim.get_instance().patch_prices(
                 maker_market,
                 maker_trading_pair,

@@ -24,9 +24,9 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class GatewayEVMAMM(GatewayAMMBase):
+class GatewayEthereumAMM(GatewayAMMBase):
     """
-    Defines EVM-specific functions for interacting with AMM protocols via Gateway.
+    Defines Ethereum-specific functions for interacting with AMM protocols via Gateway.
     """
 
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")

@@ -316,7 +316,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             'chain': 'ethereum',
             'network': 'kovan',
             'trading_type': 'AMM',
-            'chain_type': 'EVM',
             'wallet_address': '0xXXXXX',
         }
 

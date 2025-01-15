@@ -76,7 +76,6 @@ class SettingsTest(unittest.TestCase):
             "chain": "cronos",
             "network": "mainnet",
             "trading_type": "AMM",
-            "chain_type": "EVM",
             "wallet_address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
         }
         conn_settings = ConnectorSetting(
