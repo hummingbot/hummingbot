@@ -43,18 +43,22 @@ KRAKEN_TO_HB_MAP = {
 }
 
 BASE_URL = "https://api.kraken.com"
+STATUS_PATH_URL = "/0/public/SystemStatus"
 TICKER_PATH_URL = "/0/public/Ticker"
 SNAPSHOT_PATH_URL = "/0/public/Depth"
 ASSET_PAIRS_PATH_URL = "/0/public/AssetPairs"
 TIME_PATH_URL = "/0/public/Time"
+
 GET_TOKEN_PATH_URL = "/0/private/GetWebSocketsToken"
 ADD_ORDER_PATH_URL = "/0/private/AddOrder"
 CANCEL_ORDER_PATH_URL = "/0/private/CancelOrder"
+CANCEL_ORDER_BATCH_PATH_URL = "/0/private/CancelOrderBatch"
 BALANCE_PATH_URL = "/0/private/Balance"
 OPEN_ORDERS_PATH_URL = "/0/private/OpenOrders"
 QUERY_ORDERS_PATH_URL = "/0/private/QueryOrders"
 QUERY_TRADES_PATH_URL = "/0/private/QueryTrades"
 
+MAX_CANCEL_BATCH_SIZE = 50
 
 UNKNOWN_ORDER_MESSAGE = "Unknown order"
 # Order States
@@ -93,6 +97,12 @@ PUBLIC_API_LIMITS = [
         time_interval=PUBLIC_ENDPOINT_LIMIT_INTERVAL,
     ),
     # Public Endpoints
+    RateLimit(
+        limit_id=STATUS_PATH_URL,
+        limit=PUBLIC_ENDPOINT_LIMIT,
+        time_interval=PUBLIC_ENDPOINT_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=SNAPSHOT_PATH_URL,
         limit=PUBLIC_ENDPOINT_LIMIT,

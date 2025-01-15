@@ -2,8 +2,9 @@ import json
 import logging
 import re
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -19,6 +20,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 
 class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -48,7 +50,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def network_status_url(self):
-        url = web_utils.private_rest_url(CONSTANTS.TICKER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.STATUS_PATH_URL)
         return url
 
     @property
@@ -422,7 +424,17 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [
+            OrderType.LIMIT,
+            OrderType.LIMIT_MAKER,
+            OrderType.MARKET,
+            OrderType.STOP_LOSS,
+            OrderType.TAKE_PROFIT,
+            OrderType.TRAILING_STOP,
+            OrderType.STOP_LOSS_LIMIT,
+            OrderType.TAKE_PROFIT_LIMIT,
+            OrderType.TRAILING_STOP_LIMIT,
+        ]
 
     @property
     def expected_trading_rule(self):
@@ -1216,3 +1228,229 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 }
             }
         }
+
+
+class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
+
+    async def asyncSetUp(self):
+        # Mock values for the required parameters
+        client_config_map = ClientConfigMap()
+        kraken_api_key = "mock_api_key"
+        kraken_secret_key = "mock_secret_key"
+
+        self.exchange = KrakenExchange(client_config_map, kraken_api_key, kraken_secret_key)
+        self.exchange.exchange_symbol_associated_to_pair = AsyncMock(return_value="BTC-USD")
+        self.exchange._api_request_with_retry = AsyncMock(return_value={"txid": ["txid1"]})
+
+    async def test_place_order_happy_path_limit_buy(self):
+        order_id = "order1"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.LIMIT
+        price = Decimal("50000.0")
+
+        await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price)
+
+        self.exchange._api_request_with_retry.assert_called_once_with(
+            RESTMethod.POST,
+            CONSTANTS.ADD_ORDER_PATH_URL,
+            data={
+                "pair": "BTC-USD",
+                "type": "buy",
+                "volume": "1.0",
+                "userref": order_id,
+                "price": "50000.0",
+                "ordertype": "limit"
+            },
+            is_auth_required=True
+        )
+
+    async def test_place_order_happy_path_market_sell(self):
+        order_id = "order2"
+        amount = Decimal("2.0")
+        trade_type = TradeType.SELL
+        order_type = OrderType.MARKET
+        price = Decimal("0.0")
+
+        await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price)
+
+        self.exchange._api_request_with_retry.assert_called_once_with(
+            RESTMethod.POST,
+            CONSTANTS.ADD_ORDER_PATH_URL,
+            data={
+                "pair": "BTC-USD",
+                "type": "sell",
+                "volume": "2.0",
+                "userref": order_id,
+                "ordertype": "market"
+            },
+            is_auth_required=True
+        )
+
+    async def test_place_order_edge_case_small_amount(self):
+        order_id = "order3"
+        amount = Decimal("0.0001")
+        trade_type = TradeType.BUY
+        order_type = OrderType.LIMIT
+        price = Decimal("50000.0")
+
+        await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price)
+
+        self.exchange._api_request_with_retry.assert_called_once_with(
+            RESTMethod.POST,
+            CONSTANTS.ADD_ORDER_PATH_URL,
+            data={
+                "pair": "BTC-USD",
+                "type": "buy",
+                "volume": "0.0001",
+                "userref": order_id,
+                "price": "50000.0",
+                "ordertype": "limit"
+            },
+            is_auth_required=True
+        )
+
+    async def test_place_order_edge_case_trailing_stop(self):
+        order_id = "order4"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.TRAILING_STOP
+        price = Decimal("0.05")
+        kwargs = {"price_in_percent": True}
+
+        await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
+
+        self.exchange._api_request_with_retry.assert_called_once_with(
+            RESTMethod.POST,
+            CONSTANTS.ADD_ORDER_PATH_URL,
+            data={
+                "pair": "BTC-USD",
+                "type": "buy",
+                "volume": "1.0",
+                "userref": order_id,
+                "price": "+0.05%",
+                "ordertype": "trailing-stop"
+            },
+            is_auth_required=True
+        )
+
+    async def test_place_order_edge_case_stop_loss(self):
+        order_id = "order4"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.STOP_LOSS
+        price = Decimal("0.05")
+        kwargs = {"price_in_percent": True}
+
+        await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
+
+        self.exchange._api_request_with_retry.assert_called_once_with(
+            RESTMethod.POST,
+            CONSTANTS.ADD_ORDER_PATH_URL,
+            data={
+                "pair": "BTC-USD",
+                "type": "buy",
+                "volume": "1.0",
+                "userref": order_id,
+                "price": "#0.05%",
+                "ordertype": "stop-loss"
+            },
+            is_auth_required=True
+        )
+
+    async def test_place_order_edge_case_take_profit(self):
+        order_id = "order4"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.TAKE_PROFIT
+        price = Decimal("0.05")
+        kwargs = {"price_in_percent": True}
+
+        await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
+
+        self.exchange._api_request_with_retry.assert_called_once_with(
+            RESTMethod.POST,
+            CONSTANTS.ADD_ORDER_PATH_URL,
+            data={
+                "pair": "BTC-USD",
+                "type": "buy",
+                "volume": "1.0",
+                "userref": order_id,
+                "price": "#0.05%",
+                "ordertype": "take-profit"
+            },
+            is_auth_required=True
+        )
+
+    async def test_place_order_not_in_percent_trailing_stop(self):
+        order_id = "order4"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.TRAILING_STOP
+
+        price = Decimal("0.05")
+        kwargs = {"price_in_percent": False}
+
+        await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
+
+        self.exchange._api_request_with_retry.assert_called_once_with(
+            RESTMethod.POST,
+            CONSTANTS.ADD_ORDER_PATH_URL,
+            data={
+                "pair": "BTC-USD",
+                "type": "buy",
+                "volume": "1.0",
+                "userref": order_id,
+                "price": "0.05",  # <- Not in percent, with BTC above 30K, good luck!
+                "ordertype": "trailing-stop"
+            },
+            is_auth_required=True
+        )
+
+    async def test_place_order_fail_no_percent_trailing_stop(self):
+        order_id = "order4"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.TRAILING_STOP
+        price = Decimal("0.05")
+        kwargs = {}
+
+        with self.assertRaises(ValueError) as context:
+            await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
+        self.assertEqual(str(context.exception), "Trailing stop order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+
+    async def test_place_order_fail_no_percent_stop_loss(self):
+        order_id = "order4"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.STOP_LOSS
+        price = Decimal("0.05")
+        kwargs = {}
+
+        with self.assertRaises(ValueError) as context:
+            await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
+        self.assertEqual(str(context.exception), "Stop loss order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+
+    async def test_place_order_fail_no_percent_take_profit(self):
+        order_id = "order4"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = OrderType.TAKE_PROFIT
+        price = Decimal("0.05")
+        kwargs = {}
+
+        with self.assertRaises(ValueError) as context:
+            await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
+        self.assertEqual(str(context.exception), "Take profit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+
+    async def test_place_order_error_invalid_order_type(self):
+        order_id = "order5"
+        amount = Decimal("1.0")
+        trade_type = TradeType.BUY
+        order_type = 999
+        price = Decimal("50000.0")
+
+        with self.assertRaises(ValueError) as context:
+            await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price)
+
+        self.assertEqual(str(context.exception), "Order type 999 is invalid")

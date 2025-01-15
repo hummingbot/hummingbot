@@ -79,7 +79,8 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().info("Subscribed to private order changes and trades updates channels...")
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
+            self.logger().error(f"Error subscribing to user streams. {e}")
             self.logger().exception("Unexpected error occurred subscribing to user streams...")
             raise
 
