@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 from decimal import Decimal
 from typing import Dict, List, Optional, Union
 
@@ -59,9 +60,10 @@ class GridExecutor(ExecutorBase):
         self.grid_levels = self._generate_grid_levels()
         self.levels_by_state = {state: [] for state in GridLevelStates}
         self._close_order: Optional[TrackedOrder] = None
-        self._failed_orders: List[str] = []
-        self._filled_orders: List[Dict] = []
-        self._canceled_orders: List[str] = []
+        self._filled_orders = []
+        self._held_position_orders = []  # Keep track of orders that become held positions
+        self._failed_orders = []
+        self._canceled_orders = []
 
         self.step = Decimal("0")
         self.position_break_even_price = Decimal("0")
@@ -126,25 +128,79 @@ class GridExecutor(ExecutorBase):
     def _generate_grid_levels(self):
         grid_levels = []
         price = self.get_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
-        step_proposed = max(self.config.min_spread_between_orders, self.trading_rules.min_price_increment / price)
-        amount_proposed = max(self.config.min_order_amount_quote, self.trading_rules.min_notional_size)
-        total_amount = self.config.total_amount_quote
+        # Get minimum notional and base amount increment from trading rules
+        min_notional = max(
+            self.config.min_order_amount_quote,
+            self.trading_rules.min_notional_size
+        )
+        min_base_increment = self.trading_rules.min_base_amount_increment
+        # Add safety margin to minimum notional to account for price movements and quantization
+        min_notional_with_margin = min_notional * Decimal("1.2")  # 20% margin for safety
+        # Calculate minimum base amount that satisfies both min_notional and quantization
+        min_base_amount = max(
+            min_notional_with_margin / price,  # Minimum from notional requirement
+            min_base_increment * Decimal(str(math.ceil(float(min_notional) / float(min_base_increment * price))))
+        )
+        # Quantize the minimum base amount
+        min_base_amount = Decimal(
+            str(math.ceil(float(min_base_amount) / float(min_base_increment)))) * min_base_increment
+        # Verify the quantized amount meets minimum notional
+        min_quote_amount = min_base_amount * price
+        # Calculate grid range and minimum step size
         grid_range = (self.config.end_price - self.config.start_price) / self.config.start_price
-        theoretical_orders_by_step = grid_range // step_proposed
-        theoretical_orders_by_amount = total_amount // amount_proposed
-        orders = int(min(theoretical_orders_by_step, theoretical_orders_by_amount))
-        prices = Distributions.linear(orders, float(self.config.start_price), float(self.config.end_price))
-        self.step = (self.config.end_price - self.config.start_price) / self.config.end_price / orders
-        amount_quote = total_amount / orders
+        min_step_size = max(
+            self.config.min_spread_between_orders,
+            self.trading_rules.min_price_increment / price
+        )
+        # Calculate maximum possible levels based on total amount
+        max_possible_levels = int(self.config.total_amount_quote / min_quote_amount)
+        if max_possible_levels == 0:
+            # If we can't even create one level, create a single level with minimum amount
+            n_levels = 1
+            quote_amount_per_level = min_quote_amount
+        else:
+            # Calculate optimal number of levels
+            max_levels_by_step = int(grid_range / min_step_size)
+            n_levels = min(max_possible_levels, max_levels_by_step)
+            # Calculate quote amount per level ensuring it meets minimum after quantization
+            base_amount_per_level = max(
+                min_base_amount,
+                Decimal(str(math.floor(float(self.config.total_amount_quote / (price * n_levels)) /
+                                       float(min_base_increment)))) * min_base_increment
+            )
+            quote_amount_per_level = base_amount_per_level * price
+            # Adjust number of levels if total amount would be exceeded
+            n_levels = min(n_levels, int(self.config.total_amount_quote / quote_amount_per_level))
+        # Ensure we have at least one level
+        n_levels = max(1, n_levels)
+        # Generate price levels with even distribution
+        if n_levels > 1:
+            prices = Distributions.linear(n_levels, float(self.config.start_price), float(self.config.end_price))
+            self.step = grid_range / (n_levels - 1)
+        else:
+            # For single level, use mid-point of range
+            mid_price = (self.config.start_price + self.config.end_price) / 2
+            prices = [float(mid_price)]
+            self.step = grid_range
+        # Create grid levels
         for i, price in enumerate(prices):
-            grid_levels.append(GridLevel(id=f"L{i}",
-                                         price=price,
-                                         amount_quote=amount_quote,
-                                         take_profit=self.config.triple_barrier_config.take_profit,
-                                         side=self.config.side,
-                                         open_order_type=self.config.triple_barrier_config.open_order_type,
-                                         take_profit_order_type=self.config.triple_barrier_config.take_profit_order_type,
-                                         ))
+            grid_levels.append(
+                GridLevel(
+                    id=f"L{i}",
+                    price=price,
+                    amount_quote=quote_amount_per_level,
+                    take_profit=self.config.triple_barrier_config.take_profit,
+                    side=self.config.side,
+                    open_order_type=self.config.triple_barrier_config.open_order_type,
+                    take_profit_order_type=self.config.triple_barrier_config.take_profit_order_type,
+                )
+            )
+        # Log grid creation details
+        self.logger().info(
+            f"Created {len(grid_levels)} grid levels with "
+            f"amount per level: {quote_amount_per_level:.4f} {self.config.trading_pair.split('-')[1]} "
+            f"(base amount: {(quote_amount_per_level / price):.8f} {self.config.trading_pair.split('-')[0]})"
+        )
         return grid_levels
 
     @property
@@ -249,33 +305,46 @@ class GridExecutor(ExecutorBase):
 
     async def control_shutdown_process(self):
         """
-        This method is responsible for controlling the shutdown process of the executor.
-
-        :return: None
+        Control the shutdown process of the executor, handling held positions separately
         """
         self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
         close_orders_completed = self.close_liquidity_placed == Decimal("0")
-        order_execution_completed = self.position_size_base == Decimal("0") if self.config.keep_position else True
+
         if open_orders_completed and close_orders_completed:
-            if order_execution_completed:
+            if self.close_type == CloseType.POSITION_HOLD:
+                # Move filled orders to held positions instead of regular filled orders
                 for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
-                    order = level.active_open_order.order.to_json()
-                    self._filled_orders.append(order)
+                    if level.active_open_order and level.active_open_order.order:
+                        self._held_position_orders.append(level.active_open_order.order.to_json())
                     level.reset_level()
                 for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]:
-                    order = level.active_close_order.order.to_json()
-                    self._filled_orders.append(order)
+                    if level.active_close_order and level.active_close_order.order:
+                        self._held_position_orders.append(level.active_close_order.order.to_json())
                     level.reset_level()
-                if self._close_order and self._close_order.order:
-                    self._filled_orders.append(self._close_order.order.to_json())
-                    self._close_order = None
-                self.update_realized_pnl_metrics()
                 self.levels_by_state = {}
                 self.stop()
             else:
-                await self.control_close_order()
-                self._current_retries += 1
+                # Regular shutdown process for non-held positions
+                order_execution_completed = self.position_size_base == Decimal("0")
+                if order_execution_completed:
+                    for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
+                        if level.active_open_order and level.active_open_order.order:
+                            self._filled_orders.append(level.active_open_order.order.to_json())
+                        level.reset_level()
+                    for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]:
+                        if level.active_close_order and level.active_close_order.order:
+                            self._filled_orders.append(level.active_close_order.order.to_json())
+                        level.reset_level()
+                    if self._close_order and self._close_order.order:
+                        self._filled_orders.append(self._close_order.order.to_json())
+                        self._close_order = None
+                    self.update_realized_pnl_metrics()
+                    self.levels_by_state = {}
+                    self.stop()
+                else:
+                    await self.control_close_order()
+                    self._current_retries += 1
         else:
             self.cancel_open_orders()
         await self._sleep(5.0)
@@ -369,7 +438,9 @@ class GridExecutor(ExecutorBase):
         take_profit_price = self.get_take_profit_price(level)
         if ((level.side == TradeType.BUY and take_profit_price <= self.current_close_quote) or
                 (level.side == TradeType.SELL and take_profit_price >= self.current_close_quote)):
-            take_profit_price = self.current_close_quote * (1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (1 - self.config.safe_extra_spread)
+            take_profit_price = self.current_close_quote * (
+                1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (
+                1 - self.config.safe_extra_spread)
         if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0] and self.config.deduct_base_fees:
             amount = level.active_open_order.executed_amount_base - level.active_open_order.cum_fees_base
             self._open_fee_in_base = True
@@ -409,7 +480,8 @@ class GridExecutor(ExecutorBase):
         is an open order. If not, it will place a new orders from the proposed grid levels based on the current price,
         max open orders, max orders per batch, activation bounds and order frequency.
         """
-        n_open_orders = len([level.active_open_order for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]])
+        n_open_orders = len(
+            [level.active_open_order for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]])
         if (self.max_open_creation_timestamp > self._strategy.current_timestamp - self.config.order_frequency or
                 n_open_orders >= self.config.max_open_orders):
             return []
@@ -438,7 +510,8 @@ class GridExecutor(ExecutorBase):
     def get_open_order_ids_to_cancel(self):
         if self.config.activation_bounds:
             open_orders_to_cancel = []
-            open_orders_placed = [level.active_open_order for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
+            open_orders_placed = [level.active_open_order for level in
+                                  self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
             for order in open_orders_placed:
                 price = order.price
                 if price:
@@ -458,7 +531,8 @@ class GridExecutor(ExecutorBase):
         """
         if self.config.activation_bounds:
             close_orders_to_cancel = []
-            close_orders_placed = [level.active_close_order for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]]
+            close_orders_placed = [level.active_close_order for level in
+                                   self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]]
             for order in close_orders_placed:
                 price = order.price
                 if price:
@@ -600,9 +674,16 @@ class GridExecutor(ExecutorBase):
                 self.logger().debug(f"Executor ID: {self.config.id} - Canceling open order {order.order_id}")
 
     def get_custom_info(self) -> Dict:
+        held_position_value = sum([
+            Decimal(order["executed_amount_quote"])
+            for order in self._held_position_orders
+        ])
+
         return {
             "levels_by_state": {key.name: value for key, value in self.levels_by_state.items()},
             "filled_orders": self._filled_orders,
+            "held_position_orders": self._held_position_orders,
+            "held_position_value": held_position_value,
             "failed_orders": self._failed_orders,
             "canceled_orders": self._canceled_orders,
             "realized_buy_size_quote": self.realized_buy_size_quote,
@@ -734,7 +815,8 @@ class GridExecutor(ExecutorBase):
 
         :return: The unrealized pnl in quote asset.
         """
-        open_filled_levels = self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]
+        open_filled_levels = self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED] + self.levels_by_state[
+            GridLevelStates.CLOSE_ORDER_PLACED]
         side_multiplier = 1 if self.config.side == TradeType.BUY else -1
         executed_amount_base = Decimal(sum([level.active_open_order.order.amount for level in open_filled_levels]))
         if executed_amount_base == Decimal("0"):
@@ -745,16 +827,19 @@ class GridExecutor(ExecutorBase):
             self.position_pnl_pct = Decimal("0")
             self.close_liquidity_placed = Decimal("0")
         else:
-            self.position_break_even_price = sum([level.active_open_order.order.price * level.active_open_order.order.amount
-                                                  for level in open_filled_levels]) / executed_amount_base
+            self.position_break_even_price = sum(
+                [level.active_open_order.order.price * level.active_open_order.order.amount
+                 for level in open_filled_levels]) / executed_amount_base
             if self._open_fee_in_base:
                 executed_amount_base -= sum([level.active_open_order.cum_fees_base for level in open_filled_levels])
-            close_order_size_base = self._close_order.executed_amount_base if self._close_order and self._close_order.is_done else Decimal("0")
+            close_order_size_base = self._close_order.executed_amount_base if self._close_order and self._close_order.is_done else Decimal(
+                "0")
             self.position_size_base = executed_amount_base - close_order_size_base
             self.position_size_quote = self.position_size_base * self.position_break_even_price
             self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
             self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
-            self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal("0")
+            self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal(
+                "0")
             self.close_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED] if level.active_close_order and level.active_close_order.executed_amount_base == Decimal("0")])
         if len(self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]) > 0:
             self.open_liquidity_placed = sum([level.amount_quote for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED] if level.active_open_order and level.active_open_order.executed_amount_base == Decimal("0")])
@@ -763,27 +848,63 @@ class GridExecutor(ExecutorBase):
 
     def update_realized_pnl_metrics(self):
         """
-        Calculate the realized pnl in quote asset
-
-        :return: The realized pnl in quote asset.
+        Calculate the realized pnl in quote asset, excluding held positions
         """
         if len(self._filled_orders) == 0:
-            self.realized_buy_size_quote = Decimal("0")
-            self.realized_sell_size_quote = Decimal("0")
-            self.realized_imbalance_quote = Decimal("0")
-            self.realized_fees_quote = Decimal("0")
-            self.realized_pnl_quote = Decimal("0")
-            self.realized_pnl_pct = Decimal("0")
+            self._reset_metrics()
+            return
+        # Calculate metrics only for fully closed trades (not held positions)
+        regular_filled_orders = [order for order in self._filled_orders
+                                 if order not in self._held_position_orders]
+        if len(regular_filled_orders) == 0:
+            self._reset_metrics()
+            return
+        if self._open_fee_in_base:
+            self.realized_buy_size_quote = sum([
+                Decimal(order["executed_amount_quote"]) - Decimal(order["cumulative_fee_paid_quote"])
+                for order in regular_filled_orders if order["trade_type"] == TradeType.BUY.name
+            ])
         else:
-            if self._open_fee_in_base:
-                self.realized_buy_size_quote = sum([Decimal(order["executed_amount_quote"]) - Decimal(order["cumulative_fee_paid_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.BUY.name])
-            else:
-                self.realized_buy_size_quote = sum([Decimal(order["executed_amount_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.BUY.name])
-            self.realized_sell_size_quote = sum([Decimal(order["executed_amount_quote"]) for order in self._filled_orders if order["trade_type"] == TradeType.SELL.name])
-            self.realized_imbalance_quote = self.realized_buy_size_quote - self.realized_sell_size_quote
-            self.realized_fees_quote = sum([Decimal(order["cumulative_fee_paid_quote"]) for order in self._filled_orders])
-            self.realized_pnl_quote = self.realized_sell_size_quote - self.realized_buy_size_quote - self.realized_fees_quote
-            self.realized_pnl_pct = self.realized_pnl_quote / self.realized_buy_size_quote if self.realized_buy_size_quote > 0 else Decimal("0")
+            self.realized_buy_size_quote = sum([
+                Decimal(order["executed_amount_quote"])
+                for order in regular_filled_orders if order["trade_type"] == TradeType.BUY.name
+            ])
+        self.realized_sell_size_quote = sum([
+            Decimal(order["executed_amount_quote"])
+            for order in regular_filled_orders if order["trade_type"] == TradeType.SELL.name
+        ])
+        self.realized_imbalance_quote = self.realized_buy_size_quote - self.realized_sell_size_quote
+        self.realized_fees_quote = sum([
+            Decimal(order["cumulative_fee_paid_quote"])
+            for order in regular_filled_orders
+        ])
+        self.realized_pnl_quote = (
+            self.realized_sell_size_quote -
+            self.realized_buy_size_quote -
+            self.realized_fees_quote
+        )
+        self.realized_pnl_pct = (
+            self.realized_pnl_quote / self.realized_buy_size_quote
+            if self.realized_buy_size_quote > 0 else Decimal("0")
+        )
+
+    def _reset_metrics(self):
+        """Helper method to reset all PnL metrics"""
+        self.realized_buy_size_quote = Decimal("0")
+        self.realized_sell_size_quote = Decimal("0")
+        self.realized_imbalance_quote = Decimal("0")
+        self.realized_fees_quote = Decimal("0")
+        self.realized_pnl_quote = Decimal("0")
+        self.realized_pnl_pct = Decimal("0")
+
+    def mark_order_as_held(self, order_id: str):
+        """Mark an order as part of a held position"""
+        for order in self._filled_orders:
+            if order["client_order_id"] == order_id:
+                if order not in self._held_position_orders:
+                    self._held_position_orders.append(order)
+                break
+        self.update_realized_pnl_metrics()
 
     def get_net_pnl_quote(self) -> Decimal:
         """
