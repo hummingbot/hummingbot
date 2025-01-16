@@ -36,6 +36,8 @@ class BitmartPerpetualWebUtilsUnitTests(unittest.TestCase):
         )
 
         result_request: RESTRequest = self.async_run_with_timeout(self.pre_processor.pre_process(request))
+        self.assertIn("X-BM-BROKER-ID", result_request.headers)
+        self.assertEqual(result_request.headers["X-BM-BROKER-ID"], CONSTANTS.BROKER_ID)
 
         self.assertIn("Content-Type", result_request.headers)
         self.assertEqual(result_request.headers["Content-Type"], "application/x-www-form-urlencoded")
@@ -50,6 +52,8 @@ class BitmartPerpetualWebUtilsUnitTests(unittest.TestCase):
 
         self.assertIn("Content-Type", result_request.headers)
         self.assertEqual(result_request.headers["Content-Type"], "application/json")
+        self.assertIn("X-BM-BROKER-ID", result_request.headers)
+        self.assertEqual(result_request.headers["X-BM-BROKER-ID"], CONSTANTS.BROKER_ID)
 
     def test_bitmart_perpetual_rest_pre_processor_with_existing_headers(self):
         request: RESTRequest = RESTRequest(
@@ -64,6 +68,8 @@ class BitmartPerpetualWebUtilsUnitTests(unittest.TestCase):
         self.assertEqual(result_request.headers["Content-Type"], "application/json")
         self.assertIn("Authorization", result_request.headers)
         self.assertEqual(result_request.headers["Authorization"], "Bearer token")
+        self.assertIn("X-BM-BROKER-ID", result_request.headers)
+        self.assertEqual(result_request.headers["X-BM-BROKER-ID"], CONSTANTS.BROKER_ID)
 
     def test_rest_url_main_domain(self):
         path_url = "/TEST_PATH_URL"
