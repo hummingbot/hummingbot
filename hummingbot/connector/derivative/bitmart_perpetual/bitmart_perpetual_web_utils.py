@@ -18,6 +18,7 @@ class BitmartPerpetualRESTPreProcessor(RESTPreProcessorBase):
         request.headers["Content-Type"] = (
             "application/json" if request.method == RESTMethod.POST else "application/x-www-form-urlencoded"
         )
+        request.headers["X-BM-BROKER-ID"] = CONSTANTS.BROKER_ID
         return request
 
 
