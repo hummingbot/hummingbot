@@ -377,7 +377,10 @@ class KrakenExchange(ExchangePyBase):
             "volume": str(amount),
             "userref": order_id,  # This is a non-unique field, useful to group batches of orders
             # "cl_order_id": order_id, # Kraken supports unique client order id
-            "price": str(price)
+            "price": str(price),
+            # "timeinforce": "GTC",
+            # "starttm": "0",
+            # "expiretm": "0",
         }
 
         if kwargs.get("price_in_percent", False):
@@ -412,6 +415,24 @@ class KrakenExchange(ExchangePyBase):
             if "price_in_percent" not in kwargs:
                 self.logger().debug(f"kwargs: {kwargs}")
                 raise ValueError("Trailing stop order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+
+        elif order_type is OrderType.TRAILING_STOP_LIMIT:
+            data["ordertype"] = "trailing-stop-limit"
+            data["price"] = data["price"].replace("#", "+")
+            if "price_in_percent" not in kwargs:
+                self.logger().debug(f"kwargs: {kwargs}")
+                raise ValueError("Trailing stop limit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+            if "price2" not in kwargs and "limit_price" not in kwargs:
+                self.logger().debug(f"kwargs: {kwargs}")
+                raise ValueError("Trailing stop limit order requires a limit price: {'price2': str} or {'limit_price': str}")
+            if "price2" in kwargs and "limit_price" in kwargs:
+                self.logger().debug(f"kwargs: {kwargs}")
+                raise ValueError("Trailing stop limit order cannot specify both: {'price2': str} and {'limit_price': str}")
+            price2 = kwargs.get("price2", kwargs.get("limit_price"))
+            if not isinstance(price2, Decimal):
+                self.logger().debug(f"kwargs: {kwargs}")
+                raise ValueError("Trailing stop limit order linit price must be Decimal")
+            data["price2"] = f"{price2:+}%"
 
         elif hasattr(order_type, "name"):
             raise ValueError(f"Order type {order_type.name} not supported")
