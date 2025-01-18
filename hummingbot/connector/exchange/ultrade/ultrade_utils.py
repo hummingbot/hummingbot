@@ -19,6 +19,8 @@ DEFAULT_FEES = TradeFeeSchema(
     buy_percent_fee_deducted_from_returns=True
 )
 
+UUID_V4_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+
 
 def is_valid_evm_address(address: str) -> bool:
     return re.match(r"^0x[a-fA-F0-9]{40}$", address) is not None
@@ -77,10 +79,19 @@ class UltradeConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    ultrade_mnemonic: SecretStr = Field(
+    ultrade_mnemonic_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Ultrade Mnemonic",
+            prompt=lambda cm: "Enter your Ultrade Algorand Mnemonic or EVM Private Key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    ultrade_session_token: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Ultrade Session Token",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -100,15 +111,35 @@ class UltradeConfigMap(BaseConnectorConfigMap):
         is_valid = check_is_wallet_address_valid(wallet_address)
         if not is_valid:
             raise ValueError(
-                f'Invalid Ultrade Wallet Address provided. Please provide a valid {"/".join(WALLET_VALIDATORS.keys())} Wallet Address'
+                f"Invalid Ultrade Wallet Address provided. "
+                f"Please provide a valid {'/'.join(WALLET_VALIDATORS.keys())} Wallet Address"
             )
         return v
 
-    @validator("ultrade_mnemonic", always=True)
+    @validator("ultrade_mnemonic_key", always=True)
     def check_mnemonic(cls, v, values):
-        is_valid = AlgorandMnemonicValidator().IsValid(v.get_secret_value())
-        if not is_valid:
-            raise ValueError("Invalid Ultrade Mnemonic provided.")
+        mnemonic_or_key = v.get_secret_value()
+
+        algorand_ok = AlgorandMnemonicValidator().IsValid(mnemonic_or_key)
+
+        evm_ok = False
+        mk = mnemonic_or_key.strip().lower()
+        if mk.startswith("0x"):
+            mk = mk[2:]
+        if re.match(r"^[0-9a-f]{64}$", mk):
+            evm_ok = True
+
+        if not (algorand_ok or evm_ok):
+            raise ValueError(
+                "Invalid Ultrade Algorand Mnemonic or EVM Private Key provided."
+            )
+        return v
+
+    @validator("ultrade_session_token", always=True)
+    def check_session_token(cls, v, values):
+        token = v.get_secret_value().strip()
+        if not UUID_V4_REGEX.match(token):
+            raise ValueError("Invalid Ultrade Session Token. Must be a valid UUID.")
         return v
 
     class Config:
@@ -143,10 +174,19 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    ultrade_mnemonic: SecretStr = Field(
+    ultrade_mnemonic_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Ultrade Testnet Mnemonic",
+            prompt=lambda cm: "Enter your Ultrade Testnet Algorand Mnemonic or EVM Private Key",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    ultrade_session_token: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Ultrade Testnet Session Token",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -166,15 +206,35 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
         is_valid = check_is_wallet_address_valid(wallet_address)
         if not is_valid:
             raise ValueError(
-                f'Invalid Ultrade Testnet Wallet Address provided. Please provide a valid {"/".join(WALLET_VALIDATORS.keys())} Wallet Address'
+                f"Invalid Ultrade Testnet Wallet Address provided. "
+                f"Please provide a valid {'/'.join(WALLET_VALIDATORS.keys())} Wallet Address"
             )
         return v
 
-    @validator("ultrade_mnemonic", always=True)
+    @validator("ultrade_mnemonic_key", always=True)
     def check_mnemonic(cls, v, values):
-        is_valid = AlgorandMnemonicValidator().IsValid(v.get_secret_value())
-        if not is_valid:
-            raise ValueError("Invalid Testnet Ultrade Mnemonic provided.")
+        mnemonic_or_key = v.get_secret_value()
+
+        algorand_ok = AlgorandMnemonicValidator().IsValid(mnemonic_or_key)
+
+        evm_ok = False
+        mk = mnemonic_or_key.strip().lower()
+        if mk.startswith("0x"):
+            mk = mk[2:]
+        if re.match(r"^[0-9a-f]{64}$", mk):
+            evm_ok = True
+
+        if not (algorand_ok or evm_ok):
+            raise ValueError(
+                "Invalid Ultrade Testnet Algorand Mnemonic or EVM Private Key provided."
+            )
+        return v
+
+    @validator("ultrade_session_token", always=True)
+    def check_session_token_testnet(cls, v, values):
+        token = v.get_secret_value().strip()
+        if not UUID_V4_REGEX.match(token):
+            raise ValueError("Invalid Ultrade Testnet Session Token. Must be a valid UUID.")
         return v
 
     class Config:

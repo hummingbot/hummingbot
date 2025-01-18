@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
+from ultrade import Client as UltradeClient
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.ultrade import (
@@ -15,15 +16,12 @@ from hummingbot.connector.exchange.ultrade.ultrade_api_user_stream_data_source i
 from hummingbot.connector.exchange.ultrade.ultrade_auth import UltradeAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -37,19 +35,35 @@ class UltradeExchange(ExchangePyBase):
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
-                 ultrade_api_key: str,
-                 ultrade_api_secret: str,
+                 ultrade_trading_key: str,
+                 ultrade_wallet_address: str,
+                 ultrade_mnemonic_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
-        self.api_key = ultrade_api_key
-        self.secret_key = ultrade_api_secret
+        self.ultrade_trading_key = ultrade_trading_key
+        self.ultrade_wallet_address = ultrade_wallet_address
+        self.ultrade_mnemonic_key = ultrade_mnemonic_key
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_ultrade_timestamp = 1.0
+
+        self.available_trading_pairs = None
+        self.ultrade_client = self.create_ultrade_client()
+        self._ultrade_conversion_rules: Optional[Dict[str, int]] = None
+        self._ultrade_token_address_asset_map: Optional[Dict[str, str]] = {}
         super().__init__(client_config_map)
+
+    def create_ultrade_client(self) -> UltradeClient:
+        client = UltradeClient(network=self._domain)
+        client.set_trading_key(
+            trading_key=self.ultrade_trading_key,
+            address=self.ultrade_wallet_address,
+            trading_key_mnemonic=self.ultrade_mnemonic
+        )
+        return client
 
     @staticmethod
     def ultrade_order_type(order_type: OrderType) -> str:
@@ -62,13 +76,14 @@ class UltradeExchange(ExchangePyBase):
     @property
     def authenticator(self):
         return UltradeAuth(
-            api_key=self.api_key,
-            secret_key=self.secret_key,
+            trading_key=self.ultrade_trading_key,
+            wallet_address=self.ultrade_wallet_address,
+            mnemonic_key=self.ultrade_mnemonic_key,
             time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
-        if self._domain == "com":
+        if self._domain == "mainnet":
             return "ultrade"
         else:
             return f"ultrade_{self._domain}"
@@ -127,14 +142,10 @@ class UltradeExchange(ExchangePyBase):
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
-            status_update_exception
-        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
+        return CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
-            cancelation_exception
-        ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+        return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -179,108 +190,113 @@ class UltradeExchange(ExchangePyBase):
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
         order_result = None
-        amount_str = f"{amount:f}"
-        type_str = UltradeExchange.ultrade_order_type(order_type)
-        side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
-                      "side": side_str,
-                      "quantity": amount_str,
-                      "type": type_str,
-                      "newClientOrderId": order_id}
-        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-            price_str = f"{price:f}"
-            api_params["price"] = price_str
+        base, quote = list(map(lambda x: x, trading_pair.split("-")))
+
+        # this is for ensuring we have conversion rules for the amount and price
+        await self.trading_pair_symbol_map()
+
+        amount_int = self.to_fixed_point(base, amount)
+        price_int = self.to_fixed_point(quote, price)
         if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+            type_str = "L"
+        elif order_type == OrderType.LIMIT_MAKER:
+            type_str = "P"  # this is hummingsim's limit maker order type
+        elif order_type == OrderType.MARKET:
+            type_str = "M"
+        else:
+            raise ValueError(f"Unsupported order type {order_type}")
+
+        side_str = "B" if trade_type is TradeType.BUY else "S"
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        pair_id = self._pair_symbol_to_pair_id_map[symbol]
 
         try:
-            order_result = await self._api_post(
-                path_url=CONSTANTS.ORDER_PATH_URL,
-                data=api_params,
-                is_auth_required=True)
-            o_id = str(order_result["orderId"])
-            transact_time = order_result["transactTime"] * 1e-3
+            order_result = await self.ultrade_client.create_order(
+                pair_id=pair_id,
+                order_side=side_str,
+                order_type=type_str,
+                amount=amount_int,
+                price=price_int
+            )
+            exchange_order_id = str(order_result["id"])
+            transact_time = self._time_synchronizer.time()
         except IOError as e:
-            error_description = str(e)
-            is_server_overloaded = ("status is 503" in error_description
-                                    and "Unknown error, please check your request or try again later." in error_description)
-            if is_server_overloaded:
-                o_id = "UNKNOWN"
-                transact_time = self._time_synchronizer.time()
-            else:
-                raise
-        return o_id, transact_time
+            raise IOError(f"Error placing order on Ultrade: {e}")
+
+        return exchange_order_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        api_params = {
-            "symbol": symbol,
-            "origClientOrderId": order_id,
-        }
-        cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            params=api_params,
-            is_auth_required=True)
-        if cancel_result.get("status") == "CANCELED":
+        exchange_order_id = await tracked_order.get_exchange_order_id()
+        try:
+            cancel_result = await self.ultrade_client.cancel_order(int(exchange_order_id))
+        except Exception as e:
+            raise e
+
+        if cancel_result is None:
             return True
+
+        self.logger().error(f"Error cancelling order {exchange_order_id} on Ultrade: {cancel_result}")
         return False
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
         Example:
-        {
-            "symbol": "ETHBTC",
-            "baseAssetPrecision": 8,
-            "quotePrecision": 8,
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00100000"
-                }
-            ]
-        }
+        [
+            {
+                "base_chain_id": 6,
+                "base_currency": "amax",
+                "base_decimal": 18,
+                "base_id": "0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "base_token_id": 11,
+                "created_at": "2024-05-17T12:21:31.997Z",
+                "id": 55,
+                "is_active": true,
+                "min_order_size": "5000000000000000000",
+                "min_price_increment": "1000000000000000",
+                "min_size_increment": "1000000000000000000",
+                "pair_key": "amax_usdc",
+                "pair_name": "AMAX_USDC",
+                "pairId": 55,
+                "price_chain_id": 65537,
+                "price_currency": "usdc",
+                "price_decimal": 6,
+                "price_id": "0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "price_token_id": 20,
+                "updated_at": "2024-11-22T17:33:56.000Z",
+                "inuseWithPartners":
+                [
+                    1,
+                    63,
+                    77
+                ],
+                "restrictedCountries": [],
+                "pairSettings": {},
+                "partner_id": 210179851,
+                "delisting_date": null
+            },
+            ...
+        ]
         """
         trading_pair_rules = exchange_info_dict.get("symbols", [])
         retval = []
         for rule in filter(ultrade_utils.is_exchange_information_valid, trading_pair_rules):
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
-                filters = rule.get("filters")
-                price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
-                lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
-                min_notional_filter = [f for f in filters if f.get("filterType") in ["MIN_NOTIONAL", "NOTIONAL"]][0]
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("pair_key"))
 
-                min_order_size = Decimal(lot_size_filter.get("minQty"))
-                tick_size = price_filter.get("tickSize")
-                step_size = Decimal(lot_size_filter.get("stepSize"))
-                min_notional = Decimal(min_notional_filter.get("minNotional"))
+                base_decimal = int(rule.get("base_decimal"))
+                min_order_size = Decimal(rule.get("min_order_size")) / Decimal(10 ** base_decimal)
+                min_base_amount_increment = Decimal(rule.get("min_size_increment")) / Decimal(10 ** base_decimal)
+                min_price_increment = Decimal(rule.get("min_price_increment")) / Decimal(10 ** 18)  # 18 is the default
 
                 retval.append(
                     TradingRule(trading_pair,
                                 min_order_size=min_order_size,
-                                min_price_increment=Decimal(tick_size),
-                                min_base_amount_increment=Decimal(step_size),
-                                min_notional_size=Decimal(min_notional)))
+                                min_price_increment=min_price_increment,
+                                min_base_amount_increment=min_base_amount_increment))
 
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return retval
-
-    async def _status_polling_loop_fetch_updates(self):
-        await self._update_order_fills_from_trades()
-        await super()._status_polling_loop_fetch_updates()
 
     async def _update_trading_fees(self):
         """
@@ -297,8 +313,7 @@ class UltradeExchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
-                # Refer to https://github.com/ultrade-exchange/ultrade-official-api-docs/blob/master/user-data-stream.md
-                # As per the order update section in Ultrade the ID of the order being canceled is under the "C" key
+                # Refer to https://github.com/ultrade-org/ultrade-python-sdk/blob/master/ultrade/socket_client.py
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
@@ -354,157 +369,65 @@ class UltradeExchange(ExchangePyBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
-    async def _update_order_fills_from_trades(self):
-        """
-        This is intended to be a backup measure to get filled events with trade ID for orders,
-        in case Ultrade's user stream events are not working.
-        NOTE: It is not required to copy this functionality in other connectors.
-        This is separated from _update_order_status which only updates the order status without producing filled
-        events, since Ultrade's get order endpoint does not return trade IDs.
-        The minimum poll interval for order status is 10 seconds.
-        """
-        small_interval_last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        small_interval_current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        long_interval_last_tick = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
-        long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
-
-        if (long_interval_current_tick > long_interval_last_tick
-                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = int(self._last_trades_poll_ultrade_timestamp * 1e3)
-            self._last_trades_poll_ultrade_timestamp = self._time_synchronizer.time()
-            order_by_exchange_id_map = {}
-            for order in self._order_tracker.all_fillable_orders.values():
-                order_by_exchange_id_map[order.exchange_order_id] = order
-
-            tasks = []
-            trading_pairs = self.trading_pairs
-            for trading_pair in trading_pairs:
-                params = {
-                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                }
-                if self._last_poll_timestamp > 0:
-                    params["startTime"] = query_time
-                tasks.append(self._api_get(
-                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    params=params,
-                    is_auth_required=True))
-
-            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
-            results = await safe_gather(*tasks, return_exceptions=True)
-
-            for trades, trading_pair in zip(results, trading_pairs):
-
-                if isinstance(trades, Exception):
-                    self.logger().network(
-                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
-                    )
-                    continue
-                for trade in trades:
-                    exchange_order_id = str(trade["orderId"])
-                    if exchange_order_id in order_by_exchange_id_map:
-                        # This is a fill for a tracked order
-                        tracked_order = order_by_exchange_id_map[exchange_order_id]
-                        fee = TradeFeeBase.new_spot_fee(
-                            fee_schema=self.trade_fee_schema(),
-                            trade_type=tracked_order.trade_type,
-                            percent_token=trade["commissionAsset"],
-                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
-                        )
-                        trade_update = TradeUpdate(
-                            trade_id=str(trade["id"]),
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=exchange_order_id,
-                            trading_pair=trading_pair,
-                            fee=fee,
-                            fill_base_amount=Decimal(trade["qty"]),
-                            fill_quote_amount=Decimal(trade["quoteQty"]),
-                            fill_price=Decimal(trade["price"]),
-                            fill_timestamp=trade["time"] * 1e-3,
-                        )
-                        self._order_tracker.process_trade_update(trade_update)
-                    elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
-                        # This is a fill of an order registered in the DB but not tracked any more
-                        self._current_trade_fills.add(TradeFillOrderDetails(
-                            market=self.display_name,
-                            exchange_trade_id=str(trade["id"]),
-                            symbol=trading_pair))
-                        self.trigger_event(
-                            MarketEvent.OrderFilled,
-                            OrderFilledEvent(
-                                timestamp=float(trade["time"]) * 1e-3,
-                                order_id=self._exchange_order_ids.get(str(trade["orderId"]), None),
-                                trading_pair=trading_pair,
-                                trade_type=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                                order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
-                                price=Decimal(trade["price"]),
-                                amount=Decimal(trade["qty"]),
-                                trade_fee=DeductedFromReturnsTradeFee(
-                                    flat_fees=[
-                                        TokenAmount(
-                                            trade["commissionAsset"],
-                                            Decimal(trade["commission"])
-                                        )
-                                    ]
-                                ),
-                                exchange_trade_id=str(trade["id"])
-                            ))
-                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
-
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
 
         if order.exchange_order_id is not None:
             exchange_order_id = int(order.exchange_order_id)
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
-            all_fills_response = await self._api_get(
-                path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "symbol": trading_pair,
-                    "orderId": exchange_order_id
-                },
-                is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+            trading_pair = order.trading_pair
+            all_fills_response = await self.ultrade_client.get_order_by_id(exchange_order_id)
 
-            for trade in all_fills_response:
-                exchange_order_id = str(trade["orderId"])
+            base, quote = trading_pair.split("-")
+
+            # this is for ensuring we have conversion rules for the amount and price
+            await self.trading_pair_symbol_map()
+
+            for trade in all_fills_response["trades"]:
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    percent_token=trade["commissionAsset"],
-                    flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                    percent_token=quote,
+                    flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=quote)]
                 )
+                fill_base_amount = self.from_fixed_point(base, int(trade["trade_amount"]))
+                fill_price = self.from_fixed_point(quote, int(trade["trade_price"]))
+                fill_quote_amount = fill_base_amount * fill_price
                 trade_update = TradeUpdate(
-                    trade_id=str(trade["id"]),
+                    trade_id=str(trade["trades_id"]),
                     client_order_id=order.client_order_id,
                     exchange_order_id=exchange_order_id,
                     trading_pair=trading_pair,
                     fee=fee,
-                    fill_base_amount=Decimal(trade["qty"]),
-                    fill_quote_amount=Decimal(trade["quoteQty"]),
-                    fill_price=Decimal(trade["price"]),
-                    fill_timestamp=trade["time"] * 1e-3,
+                    fill_base_amount=fill_base_amount,
+                    fill_quote_amount=fill_quote_amount,
+                    fill_price=fill_price,
+                    fill_timestamp=self._time_synchronizer.time(),
                 )
                 trade_updates.append(trade_update)
 
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        updated_order_data = await self._api_get(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            params={
-                "symbol": trading_pair,
-                "origClientOrderId": tracked_order.client_order_id},
-            is_auth_required=True)
+        exchange_order_id = await tracked_order.get_exchange_order_id()
+        updated_order_data = await self.ultrade_client.get_order_by_id(int(exchange_order_id))
 
-        new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
+        order_status = updated_order_data["order_status"]
+        new_state = tracked_order.order_state
+        if order_status == 1:
+            if Decimal(updated_order_data["order_filled_total"]) > 0:
+                new_state = OrderState.PARTIALLY_FILLED
+            else:
+                new_state = OrderState.OPEN
+        elif order_status == 2:
+            new_state = OrderState.CANCELED
+        elif order_status == 3 or order_status == 4:
+            new_state = OrderState.FILLED
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(updated_order_data["orderId"]),
+            exchange_order_id=exchange_order_id,
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=updated_order_data["updateTime"] * 1e-3,
+            update_timestamp=self._time_synchronizer.time(),
             new_state=new_state,
         )
 
@@ -514,15 +437,14 @@ class UltradeExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_get(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            is_auth_required=True)
+        account_info = await self.ultrade_client.get_balances()
+        await self.trading_pair_symbol_map()
 
-        balances = account_info["balances"]
-        for balance_entry in balances:
-            asset_name = balance_entry["asset"]
-            free_balance = Decimal(balance_entry["free"])
-            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
+        for balance_entry in account_info:
+            asset_name = self._ultrade_token_address_asset_map.get(balance_entry["tokenAddress"])
+            free_balance = self.from_fixed_point(asset=asset_name, value=int(balance_entry["amount"]))
+            locked_balance = self.from_fixed_point(asset=asset_name, value=int(balance_entry["lockedAmount"]))
+            total_balance = free_balance + locked_balance
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -533,21 +455,72 @@ class UltradeExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        mapping = bidict()
+        trading_pair_mapping = bidict()
+        token_address_asset_mapping = {}
+        conversion_rules = {}
         for symbol_data in filter(ultrade_utils.is_exchange_information_valid, exchange_info["symbols"]):
-            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
-                                                                        quote=symbol_data["quoteAsset"])
-        self._set_trading_pair_symbol_map(mapping)
+            trading_pair_mapping[symbol_data["pair_key"]] = combine_to_hb_trading_pair(base=symbol_data["base_currency"].upper(),
+                                                                                       quote=symbol_data["price_currency"].upper())
+            token_address_asset_mapping[symbol_data["base_id"]] = symbol_data["base_currency"].upper()
+            token_address_asset_mapping[symbol_data["price_id"]] = symbol_data["price_currency"].upper()
+            conversion_rules[symbol_data["base_currency"].upper()] = int(symbol_data["base_decimal"])
+            conversion_rules[symbol_data["price_currency"].upper()] = int(symbol_data["price_decimal"])
+        self._set_trading_pair_symbol_map(trading_pair_mapping)
+        self._ultrade_token_address_asset_map.update(token_address_asset_mapping)
+        self._ultrade_conversion_rules.update(conversion_rules)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        resp_json = await self.ultrade_client.get_price(symbol)
+
+        return float(resp_json.get("lastPrice", 0))
+
+    def from_fixed_point(self, asset: str, value: int) -> Decimal:
+        if asset is None:
+            return Decimal(0)
+        value = Decimal(str(value)) / Decimal(str(10 ** self._conversion_rules_ultrade[asset]))
+
+        return value
+
+    def to_fixed_point(self, asset: str, value: Decimal) -> int:
+        if asset is None:
+            return 0
+        value = int(Decimal(str(value)) * Decimal(str(10 ** self._conversion_rules_ultrade[asset])))
+
+        return value
+
+    async def _make_network_check_request(self):
+        await self.ultrade_client.ping()
+
+    async def _make_trading_rules_request(self) -> Any:
+        exchange_info = await self.ultrade_client.get_pair_list()
+        exchange_info = {
+            "symbols": exchange_info
         }
+        return exchange_info
 
-        resp_json = await self._api_request(
-            method=RESTMethod.GET,
-            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
-            params=params
-        )
+    async def _make_trading_pairs_request(self) -> Any:
+        exchange_info = await self.ultrade_client.get_pair_list()
+        exchange_info = {
+            "symbols": exchange_info
+        }
+        return exchange_info
 
-        return float(resp_json["lastPrice"])
+    async def process_ultrade_order_book(self, order_book: Dict[str, Any]) -> Dict[str, Any]:
+        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order_book["pair"])
+        base, quote = trading_pair.split("-")
+
+        bids = order_book.get("bids", [])
+        asks = order_book.get("asks", [])
+        for bid in bids:
+            bid["price"] = float(self.from_fixed_point(quote, bid["price"]))
+            bid["amount"] = float(self.from_fixed_point(base, bid["amount"]))
+        for ask in asks:
+            ask["price"] = float(self.from_fixed_point(quote, ask["price"]))
+            ask["amount"] = float(self.from_fixed_point(base, ask["amount"]))
+
+        order_book["bids"] = bids
+        order_book["asks"] = asks
+
+        return order_book
