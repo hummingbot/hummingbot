@@ -37,8 +37,11 @@ TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
 TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
 # Websocket event types
-DIFF_EVENT_TYPE = "depthUpdate"
-TRADE_EVENT_TYPE = "trade"
+ORDERBOOK_SNAPSHOT_EVENT_TYPE = "depth"
+TRADE_EVENT_TYPE = "lastTrade"
+USER_TRADE_EVENT_TYPE = "userTrade"
+USER_BALANCE_EVENT_TYPE = "codexBalances"
+USER_ORDER_EVENT_TYPE = "order"
 
 RATE_LIMITS = []
 

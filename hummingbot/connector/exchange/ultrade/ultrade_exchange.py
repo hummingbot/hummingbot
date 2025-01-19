@@ -38,6 +38,7 @@ class UltradeExchange(ExchangePyBase):
                  ultrade_trading_key: str,
                  ultrade_wallet_address: str,
                  ultrade_mnemonic_key: str,
+                 ultra_session_token: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -45,6 +46,7 @@ class UltradeExchange(ExchangePyBase):
         self.ultrade_trading_key = ultrade_trading_key
         self.ultrade_wallet_address = ultrade_wallet_address
         self.ultrade_mnemonic_key = ultrade_mnemonic_key
+        self.ultrade_session_token = ultra_session_token
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -61,7 +63,7 @@ class UltradeExchange(ExchangePyBase):
         client.set_trading_key(
             trading_key=self.ultrade_trading_key,
             address=self.ultrade_wallet_address,
-            trading_key_mnemonic=self.ultrade_mnemonic
+            trading_key_mnemonic=self.ultrade_mnemonic_key
         )
         return client
 
@@ -522,5 +524,6 @@ class UltradeExchange(ExchangePyBase):
 
         order_book["bids"] = bids
         order_book["asks"] = asks
+        order_book["trading_pair"] = trading_pair
 
         return order_book

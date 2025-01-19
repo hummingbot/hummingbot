@@ -23,31 +23,9 @@ class UltradeOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
+            "update_id": msg["u"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp)
-
-    @classmethod
-    def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
-        """
-        Creates a diff message with the changes in the order book received from the exchange
-        :param msg: the changes in the order book
-        :param timestamp: the timestamp of the difference
-        :param metadata: a dictionary with extra information to add to the difference data
-        :return: a diff message with the changes in the order book notified by the exchange
-        """
-        if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["trading_pair"],
-            "first_update_id": msg["U"],
-            "update_id": msg["u"],
-            "bids": msg["b"],
-            "asks": msg["a"]
         }, timestamp=timestamp)
 
     @classmethod
@@ -60,12 +38,12 @@ class UltradeOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["E"]
+        ts = msg["timestamp"]
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
-            "trade_id": msg["t"],
+            "trade_type": float(TradeType.SELL.value) if msg["trade_type"] == "SELL" else float(TradeType.BUY.value),
+            "trade_id": msg["trade_id"],
             "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["q"]
+            "price": msg["price"],
+            "amount": msg["amount"]
         }, timestamp=ts * 1e-3)
