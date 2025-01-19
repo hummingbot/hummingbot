@@ -17,11 +17,6 @@ if TYPE_CHECKING:
 
 
 class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    HEARTBEAT_TIME_INTERVAL = 30.0
-    TRADE_STREAM_ID = 1
-    DIFF_STREAM_ID = 2
-    ONE_HOUR = 60 * 60
-
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
@@ -61,7 +56,6 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 ws: WSAssistant = await self._connected_websocket_assistant()
                 await self._subscribe_channels(ws)
-                await self._process_websocket_messages(websocket_assistant=ws)
             except asyncio.CancelledError:
                 raise
             except ConnectionError as connection_exception:
