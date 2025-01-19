@@ -435,29 +435,30 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
         elif CONSTANTS.WS_POSITIONS_CHANNEL in event_group and bool(event_data):
             for asset in event_data:
                 trading_pair = asset["symbol"]
-                try:
-                    hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
-                except KeyError:
-                    # Ignore results for which their symbols is not tracked by the connector
-                    continue
-                position_side = PositionSide["LONG" if asset['position_type'] == 1 else "SHORT"]
-                position = self._perpetual_trading.get_position(hb_trading_pair, position_side)
-                if position is not None:
-                    amount = Decimal(asset["hold_volume"])
-                    if amount == Decimal("0"):
-                        pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
-                        self._perpetual_trading.remove_position(pos_key)
+                if trading_pair in self.trading_pairs:
+                    try:
+                        hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                    except KeyError:
+                        # Ignore results for which their symbols is not tracked by the connector
+                        continue
+                    position_side = PositionSide["LONG" if asset['position_type'] == 1 else "SHORT"]
+                    position = self._perpetual_trading.get_position(hb_trading_pair, position_side)
+                    if position is not None:
+                        amount = Decimal(asset["hold_volume"])
+                        if amount == Decimal("0"):
+                            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+                            self._perpetual_trading.remove_position(pos_key)
+                        else:
+                            price = self.get_price_by_type(hb_trading_pair, PriceType.MidPrice)
+                            bep = Decimal(asset["hold_avg_price"])
+                            sign = 1 if position_side == PositionSide.LONG else -1
+                            unrealized_pnl = Decimal(str(sign)) * (price / bep - 1)
+                            position.update_position(position_side=position_side,
+                                                     unrealized_pnl=unrealized_pnl,
+                                                     entry_price=bep,
+                                                     amount=Decimal("-1") * amount if position_side == PositionSide.SHORT else amount)
                     else:
-                        price = self.get_price_by_type(hb_trading_pair, PriceType.MidPrice)
-                        bep = Decimal(asset["hold_avg_price"])
-                        sign = 1 if position_side == PositionSide.LONG else -1
-                        unrealized_pnl = Decimal(str(sign)) * (price / bep - 1)
-                        position.update_position(position_side=position_side,
-                                                 unrealized_pnl=unrealized_pnl,
-                                                 entry_price=bep,
-                                                 amount=Decimal("-1") * amount if position_side == PositionSide.SHORT else amount)
-                else:
-                    await self._update_positions()
+                        await self._update_positions()
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
