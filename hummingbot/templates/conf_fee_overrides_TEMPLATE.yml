@@ -2,7 +2,7 @@
 ###   Fee overrides configurations   ###
 ########################################
 
-# For more detailed information: https://docs.hummingbot.io
+# For more detailed information: https://hummingbot.org/docs/
 template_version: 14
 
 # Example of the fields that can be specified to override the `TradeFeeFactory` default settings.
