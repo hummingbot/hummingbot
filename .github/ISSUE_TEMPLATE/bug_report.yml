@@ -11,7 +11,7 @@ body:
        * Please edit the "Bug Report" to the title of the bug or issue
        * Please make sure to look on our GitHub issues to avoid duplicate tickets
        * You can add additional `Labels` to support this ticket (connectors, strategies, etc)
-       * If this is something to do with installation and how to's we would recommend to visit our [Discord server](https://discord.gg/hummingbot) and [Hummingbot docs](https://docs.hummingbot.org/)
+       * If this is something to do with installation and how to's we would recommend to visit our [Discord server](https://discord.gg/hummingbot) and [Hummingbot docs](https://hummingbot.org/docs/)
  - type: textarea
    id: what-happened
    attributes:
