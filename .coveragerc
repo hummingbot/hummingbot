@@ -14,7 +14,6 @@ omit =
         hummingbot/client/tab/*
         hummingbot/client/ui/parser.py
         hummingbot/connector/derivative/position.py
-        hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/foxbit*
         hummingbot/connector/derivative/dydx_v4_perpetual/*
         hummingbot/connector/derivative/dydx_v4_perpetual/data_sources/*
