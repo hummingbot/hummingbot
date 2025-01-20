@@ -286,11 +286,7 @@ class DeriveExchange(ExchangePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
-        if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 - slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+        price = self.quantize_order_price(trading_pair, price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -325,11 +321,7 @@ class DeriveExchange(ExchangePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
-        if order_type is OrderType.MARKET:
-            mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 - slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+        price = self.quantize_order_price(trading_pair, price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
@@ -357,28 +349,27 @@ class DeriveExchange(ExchangePyBase):
             if symbol == pair["instrument_name"]:
                 instrument.append(pair)
                 break
-        param_order_type = "Gtc"
+        param_order_type = "gtc"
         if order_type is OrderType.LIMIT_MAKER:
-            param_order_type = "fok"
+            param_order_type = "gtc"
         if order_type is OrderType.MARKET:
             param_order_type = "ioc"
-
         type_str = DeriveExchange.derive_order_type(order_type)
-        if type_str == "limit_maker":
-            type_str = "limit"
 
+        price_type = "limit" if type_str == "limit_maker" or type_str == "limit" else "market"
+        new_price = float(f"{price:.5g}")
         api_params = {
             "asset_address": instrument[0]["base_asset_address"],
             "sub_id": instrument[0]["base_asset_sub_id"],
-            "limit_price": str(price),
+            "limit_price": str(new_price),
             "type": "order",
-            "max_fee": str(1000),
+            "max_fee": str(100),
             "amount": str(amount),
             "instrument_name": symbol,
             "label": order_id,
             "is_bid": True if TradeType.BUY else False,
             "direction": "buy" if trade_type is TradeType.BUY else "sell",
-            "order_type": type_str,
+            "order_type": price_type,
             "mmp": False,
             "time_in_force": param_order_type,
             "recipient_id": self._sub_id,
