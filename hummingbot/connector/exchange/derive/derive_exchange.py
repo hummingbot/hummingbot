@@ -461,8 +461,8 @@ class DeriveExchange(ExchangePyBase):
         Traders, Orders, and Balance updates from the WS.
         """
         user_channels = [
-            CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-            CONSTANTS.USEREVENT_ENDPOINT_NAME,
+            f"{self._sub_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
+            f"{self._sub_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
         ]
         async for event_message in self._iter_user_event_queue():
             try:
@@ -477,10 +477,10 @@ class DeriveExchange(ExchangePyBase):
                     self.logger().error(
                         f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
-                if CONSTANTS.USER_ORDERS_ENDPOINT_NAME in channel:
+                if channel == user_channels[0]:
                     for order_msg in results:
                         self._process_order_message(order_msg)
-                elif CONSTANTS.USEREVENT_ENDPOINT_NAME in channel:
+                elif channel == user_channels[1]:
                     for trade_msg in results:
                         await self._process_trade_message(trade_msg)
             except asyncio.CancelledError:
