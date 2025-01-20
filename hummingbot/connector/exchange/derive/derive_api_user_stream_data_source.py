@@ -130,9 +130,9 @@ class DeriveAPIUserStreamDataSource(UserStreamTrackerDataSource):
             })
         elif event_message.get("params") is not None:
             if "channel" in event_message["params"]:
-                if CONSTANTS.USER_ORDERS_ENDPOINT_NAME in event_message["channel"] or \
-                        CONSTANTS.USEREVENT_ENDPOINT_NAME in event_message["channel"]:
-                    queue.put_nowait(event_message)
+                if CONSTANTS.USER_ORDERS_ENDPOINT_NAME in event_message["params"]["channel"] or \
+                        CONSTANTS.USEREVENT_ENDPOINT_NAME in event_message["params"]["channel"]:
+                    queue.put_nowait(event_message["params"])
 
     async def _ping_thread(self, websocket_assistant: WSAssistant,):
         try:
