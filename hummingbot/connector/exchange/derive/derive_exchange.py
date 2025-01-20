@@ -66,6 +66,10 @@ class DeriveExchange(ExchangePyBase):
         # Note: domain here refers to the entire exchange name. i.e. derive_ or derive_testnet
         return self._domain
 
+    @staticmethod
+    def derive_order_type(order_type: OrderType) -> str:
+        return order_type.name.lower()
+
     @property
     def authenticator(self) -> DeriveAuth:
         return DeriveAuth(self.derive_api_key, self.derive_secret_key, self._sub_id, self._trading_required)
@@ -359,6 +363,10 @@ class DeriveExchange(ExchangePyBase):
         if order_type is OrderType.MARKET:
             param_order_type = "ioc"
 
+        type_str = DeriveExchange.derive_order_type(order_type)
+        if type_str == "limit_maker":
+            type_str = "limit"
+
         api_params = {
             "asset_address": instrument[0]["base_asset_address"],
             "sub_id": instrument[0]["base_asset_sub_id"],
@@ -370,7 +378,7 @@ class DeriveExchange(ExchangePyBase):
             "label": order_id,
             "is_bid": True if TradeType.BUY else False,
             "direction": "buy" if trade_type is TradeType.BUY else "sell",
-            "order_type": order_type.name,
+            "order_type": type_str,
             "mmp": False,
             "time_in_force": param_order_type,
             "recipient_id": self._sub_id,
