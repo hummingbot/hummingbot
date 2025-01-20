@@ -154,6 +154,8 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
 
     def check_max_controller_drawdown(self):
         for controller_id, controller in self.controllers.items():
+            if controller.status != RunnableStatus.RUNNING:
+                continue
             controller_pnl = self.performance_reports[controller_id]["global_pnl_quote"]
             last_max_pnl = self.max_pnl_by_controller[controller_id]
             if controller_pnl > last_max_pnl:

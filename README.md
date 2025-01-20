@@ -6,7 +6,7 @@
 [![Youtube](https://img.shields.io/youtube/channel/subscribers/UCxzzdEnDRbylLMWmaMjywOA)](https://www.youtube.com/@hummingbot)
 [![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot)
 
-Hummingbot is an open source framework that helps you design and deploy automated trading strategies, or **bots**, that can run on many centralized or decentralized exchange. Over the past year, Hummingbot users have generated over $34 billion in trading volume across 140+ unique trading venues. 
+Hummingbot is an open source framework that helps you design and deploy automated trading strategies, or **bots**, that can run on many centralized or decentralized exchanges. Over the past year, Hummingbot users have generated over $34 billion in trading volume across 140+ unique trading venues. 
 
 The Hummingbot codebase is free and publicly available under the Apache 2.0 open source license. Our mission is to **democratize high-frequency trading** by creating a global community of algorithmic traders and developers that share knowledge and contribute to the codebase.
 
