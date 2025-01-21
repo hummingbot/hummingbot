@@ -35,6 +35,7 @@ class GridExecutorConfig(ExecutorConfigBase):
     level_id: Optional[str] = None
     deduct_base_fees: bool = False
     keep_position: bool = False
+    coerce_tp_to_step: bool = False
 
 
 class GridLevelStates(Enum):
