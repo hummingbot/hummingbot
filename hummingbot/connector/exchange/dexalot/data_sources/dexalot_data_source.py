@@ -24,7 +24,7 @@ class DexalotClient:
             self,
             dexalot_api_secret: str,
             connector,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self._private_key = dexalot_api_secret
         self._connector = connector
@@ -34,20 +34,25 @@ class DexalotClient:
         self.balance_evm_params = {}
 
         self.provider = CONSTANTS.DEXALOT_SUBNET_RPC_URL if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_SUBNET_RPC_URL
-        self.account: LocalAccount = Account.from_key(dexalot_api_secret)
-        self._w3 = Web3(Web3.HTTPProvider(self.provider))
-        self.async_w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(self.provider))
-        self.async_w3.middleware_onion.inject(async_geth_poa_middleware, layer=0)
-        self.async_w3.eth.default_account = self.account.address
-        self.async_w3.strict_bytes_type_checking = False
-        TRADEPAIRS_ADDRESS = CONSTANTS.DEXALOT_TRADEPAIRS_ADDRESS if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_TRADEPAIRS_ADDRESS
-        PORTFOLIOSUB_ADDRESS = CONSTANTS.DEXALOT_PORTFOLIOSUB_ADDRESS if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_PORTFOLIOSUB_ADDRESS
+        if self.trading_capability:
+            self.account: LocalAccount = Account.from_key(dexalot_api_secret)
+            self._w3 = Web3(Web3.HTTPProvider(self.provider))
+            self.async_w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(self.provider))
+            self.async_w3.middleware_onion.inject(async_geth_poa_middleware, layer=0)
+            self.async_w3.eth.default_account = self.account.address
+            self.async_w3.strict_bytes_type_checking = False
+            TRADEPAIRS_ADDRESS = CONSTANTS.DEXALOT_TRADEPAIRS_ADDRESS if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_TRADEPAIRS_ADDRESS
+            PORTFOLIOSUB_ADDRESS = CONSTANTS.DEXALOT_PORTFOLIOSUB_ADDRESS if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_PORTFOLIOSUB_ADDRESS
 
-        self.trade_pairs_manager = self.async_w3.eth.contract(address=TRADEPAIRS_ADDRESS,
-                                                              abi=DEXALOT_TRADEPAIRS_ABI)
+            self.trade_pairs_manager = self.async_w3.eth.contract(address=TRADEPAIRS_ADDRESS,
+                                                                  abi=DEXALOT_TRADEPAIRS_ABI)
 
-        self.portfolio_sub_manager = self.async_w3.eth.contract(address=PORTFOLIOSUB_ADDRESS,
-                                                                abi=DEXALOT_PORTFOLIOSUB_ABI)
+            self.portfolio_sub_manager = self.async_w3.eth.contract(address=PORTFOLIOSUB_ADDRESS,
+                                                                    abi=DEXALOT_PORTFOLIOSUB_ABI)
+
+    @property
+    def trading_capability(self) -> bool:
+        return self._private_key not in (None, "")
 
     async def _get_token_info(self):
         token_raw_info_list = await self._connector._api_get(
