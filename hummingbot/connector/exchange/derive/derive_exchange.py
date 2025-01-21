@@ -238,24 +238,21 @@ class DeriveExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
-            "type": "cancel",
-            "cancels": {
-                "instrument_name": symbol,
-                "subaccount_id": self._sub_id,
-                "order_id": order_id
-            },
+            "instrument_name": symbol,
+            "order_id": tracked_order.exchange_order_id,
+            "subaccount_id": self._sub_id
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_URL,
             data=api_params,
             is_auth_required=True)
 
-        if cancel_result.get("status") == "err" or "error" in cancel_result["response"]["data"]["statuses"][0]:
+        if "error" in cancel_result:
             self.logger().debug(f"The order {order_id} does not exist on Derive s. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["response"]["data"]["statuses"][0]["error"]}')
-        if "success" in cancel_result["response"]["data"]["statuses"][0]:
+            raise IOError(f'{cancel_result["error"]["messaage"]}')
+        if cancel_result["result"]["order_status"] == "cancelled":
             return True
         return False
 
@@ -367,7 +364,7 @@ class DeriveExchange(ExchangePyBase):
             "amount": str(amount),
             "instrument_name": symbol,
             "label": order_id,
-            "is_bid": True if TradeType.BUY else False,
+            "is_bid": True if trade_type is TradeType.BUY else False,
             "direction": "buy" if trade_type is TradeType.BUY else "sell",
             "order_type": price_type,
             "mmp": False,
@@ -377,8 +374,8 @@ class DeriveExchange(ExchangePyBase):
 
         order_result = await self._api_post(
             path_url = CONSTANTS.CREATE_ORDER_URL,
-            data = api_params,
-            is_auth_required = True)
+            data=api_params,
+            is_auth_required=True)
 
         o_order_result = order_result['result']
         if "error" in o_order_result:
@@ -545,7 +542,7 @@ class DeriveExchange(ExchangePyBase):
         current_state = order_msg["order_status"]
         order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_msg["timestamp"] * 1e-3,
+            update_timestamp=order_msg["last_update_timestamp"] * 1e-3,
             new_state=CONSTANTS.ORDER_STATE[current_state],
             client_order_id=order_msg["label"],
             exchange_order_id=str(order_msg["order_id"]),
@@ -626,8 +623,9 @@ class DeriveExchange(ExchangePyBase):
             path_url=CONSTANTS.ORDER_STATUS_PAATH_URL,
             data={
                 "subaccount_id": self._sub_id,
-                "order_id": int(oid) if oid else client_order_id
-            })
+                "order_id": oid
+            },
+            is_auth_required=True)
         current_state = order_update["result"]["order_status"]
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
