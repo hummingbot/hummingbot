@@ -944,15 +944,24 @@ class TestBybitExchange(unittest.TestCase):
         # self.assertEqual(Decimal("2000"), total_balances["USDT"])
 
     @aioresponses()
-    def test_update_trading_fees(self, mock_api):
+    def test_update_trading_fees_with_valid_and_invalid_pairs(self, mock_api):
+        """
+        Test that trading fees are updated correctly for valid pairs,
+        and invalid pairs are ignored in the trading pair map.
+        """
         self._simulate_trading_rules_initialized()
+        self._simulate_trading_fees_initialized()
+
         url = web_utils.rest_url(CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        self._simulate_trading_fees_initialized()
-        self.assertEqual(Decimal("0.0001"), Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
-        self.assertEqual(Decimal("0.0002"), Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
+        # Validate initial state
+        initial_maker_fee = Decimal("0.0001")
+        initial_taker_fee = Decimal("0.0002")
+        self.assertEqual(initial_maker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
+        self.assertEqual(initial_taker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
 
+        # Mock API response
         response = {
             "retCode": 0,
             "retMsg": "OK",
@@ -962,18 +971,28 @@ class TestBybitExchange(unittest.TestCase):
                         "symbol": self.ex_trading_pair,
                         "takerFeeRate": "0.0006",
                         "makerFeeRate": "0.0005"
+                    },
+                    {
+                        "symbol": "INVALIDPAIR",
+                        "takerFeeRate": "0.0008",
+                        "makerFeeRate": "0.0007"
                     }
                 ]
             },
             "retExtInfo": {},
             "time": 1676360412576
         }
-
         mock_api.get(regex_url, body=json.dumps(response))
+
+        # Execute method under test
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
-        self.assertEqual(Decimal("0.0005"), Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
-        self.assertEqual(Decimal("0.0006"), Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
+        # Validate updated state
+        updated_maker_fee = Decimal("0.0005")
+        updated_taker_fee = Decimal("0.0006")
+        self.assertEqual(updated_maker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
+        self.assertEqual(updated_taker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
+        self.assertNotIn("INVALIDPAIR", self.exchange._trading_pairs)
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
