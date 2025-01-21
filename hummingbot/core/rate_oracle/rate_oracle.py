@@ -19,6 +19,7 @@ from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSo
 from hummingbot.core.rate_oracle.sources.hyperliquid_rate_source import HyperliquidRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
+from hummingbot.core.rate_oracle.sources.tegro_rate_source import TegroRateSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -35,6 +36,7 @@ RATE_ORACLE_SOURCES = {
     "cube": CubeRateSource,
     "dexalot": DexalotRateSource,
     "hyperliquid": HyperliquidRateSource,
+    "tegro": TegroRateSource,
 }
 
 

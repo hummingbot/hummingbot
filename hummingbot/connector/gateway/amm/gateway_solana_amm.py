@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
@@ -57,6 +58,15 @@ class GatewaySolanaAMM(GatewayEVMAMM):
         if s_logger is None:
             s_logger = logging.getLogger(cls.__name__)
         return cast(HummingbotLogger, s_logger)
+
+    async def get_tokens_available(self) -> List[tuple[str, str]]:
+        try:
+            tokens = await GatewayHttpClient.get_instance().get_tokens(self._chain, self._network)
+            token_symbols = [(t["symbol"], t["address"]) for t in tokens["tokens"]]
+            return token_symbols
+        except Exception as e:
+            self.logger().error(f"Error fetching tokens available on Gateway: {str(e)}")
+            return []
 
     async def get_chain_info(self):
         """
