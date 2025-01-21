@@ -11,6 +11,7 @@ from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -40,6 +41,7 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._exchange_info_listener_task = safe_ensure_future(self.listen_for_exchange_info())
         self._trade_messages_queue_key = CONSTANTS.TRADE_STREAM_CHANNEL
         self._snapshot_messages_queue_key = CONSTANTS.ORDER_BOOK_CHANNEL + "_SNAPSHOT"
         self._diff_messages_queue_key = CONSTANTS.ORDER_BOOK_CHANNEL + "_DIFF"
@@ -199,7 +201,6 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             return
         self._last_next_funding_utc_timestamp = int(float(data["nextFundingTime"]) * 1e-3)
         self._next_funding_rate = Decimal(data["fundingRate"])
-        # TODO: Check if fair and last price replaces index and mark prices
         funding_info = FundingInfoUpdate(
             trading_pair=trading_pair,
             index_price=self._last_index_price,
@@ -209,14 +210,14 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         message_queue.put_nowait(funding_info)
 
-    async def listen_for_exchange_info(self, ev_loop: asyncio.AbstractEventLoop):
+    async def listen_for_exchange_info(self):
         """
         Reads the exchange info events queue. For each trading pair initialized stores in a local variable
         the index and last price
 
         :param ev_loop: the event loop the method will run in
         """
-        message_queue = self._message_queue[self._diff_messages_queue_key]
+        message_queue = self._message_queue[self._tickers_messages_queue_key]
         while True:
             try:
                 diff_event = await message_queue.get()
