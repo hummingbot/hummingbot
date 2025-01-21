@@ -23,8 +23,6 @@ class DeriveAuth(AuthBase):
         self._sub_id: int = sub_id
         self._trading_required: bool = trading_required
         self._w3 = Web3()
-        self.nonce = web_utils.get_action_nonce()
-        self._signature = []
         if trading_required:
             self.session_key_wallet = Web3().eth.account.from_key(self._api_secret)
 
