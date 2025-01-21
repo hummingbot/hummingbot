@@ -73,6 +73,7 @@ class QGAConfig(ControllerConfigBase):
         default=Decimal("0.0002"),  # Activation bounds for orders
         client_data=ClientFieldData(is_updatable=True)
     )
+    show_terminated_details: bool = False
 
     @property
     def quote_asset_allocation(self) -> Decimal:
@@ -173,60 +174,6 @@ class QuantumGridAllocator(ControllerBase):
                 active_grids[asset] = active_executors
         return active_grids
 
-    def update_unfavorable_positions(self):
-        """Update tracking of unfavorable positions that are being held"""
-        # Reset position tracking
-        for trading_pair in self.unfavorable_positions:
-            self.unfavorable_positions[trading_pair] = {
-                'long': {'size': Decimal('0'), 'value': Decimal('0'), 'weighted_price': Decimal('0')},
-                'short': {'size': Decimal('0'), 'value': Decimal('0'), 'weighted_price': Decimal('0')}
-            }
-
-        # Find executors that were unfavorable and now have held positions
-        held_executors = self.filter_executors(
-            executors=self.executors_info,
-            filter_func=lambda e: (
-                not e.is_active and
-                e.config.id in self.unfavorable_grid_ids and
-                e.close_type == CloseType.POSITION_HOLD
-            )
-        )
-
-        # Update position tracking for each held position
-        for executor in held_executors:
-            trading_pair = executor.config.trading_pair
-            position_info = executor.custom_info
-            position_value = Decimal(str(position_info.get('held_position_value', '0')))
-            if position_value == Decimal('0'):
-                continue
-
-            # Determine position side
-            is_buy = executor.config.side == TradeType.BUY
-            side = 'long' if is_buy else 'short'
-            # Get position details
-            break_even = position_info.get('break_even_price')
-            if break_even == 'N/A' or break_even is None:
-                continue
-            break_even = Decimal(str(break_even))
-            # Update position tracking
-            current_tracking = self.unfavorable_positions[trading_pair][side]
-            new_size = current_tracking['size'] + position_value
-            # Update weighted average price
-            if current_tracking['size'] == Decimal('0'):
-                new_weighted_price = break_even
-            else:
-                new_weighted_price = (
-                    (current_tracking['weighted_price'] * current_tracking['size'] +
-                     break_even * position_value) /
-                    new_size
-                )
-            # Store updated values
-            self.unfavorable_positions[trading_pair][side] = {
-                'size': new_size,
-                'value': position_value,
-                'weighted_price': new_weighted_price
-            }
-
     def to_format_status(self) -> List[str]:
         """Generate a detailed status report with portfolio, grid, and position information"""
         status_lines = []
@@ -303,104 +250,115 @@ class QuantumGridAllocator(ControllerBase):
                         f"${pnl:>+9.2f} ${realized_pnl_quote:>+9.2f} ${fees:>9.2f} | "
                         f"{config.start_price:<10.4f} {current_price:<10.4f} {config.end_price:<10.4f} {config.limit_price:<10.4f}"
                     )
+
         # Terminated Grids Summary
         terminated_executors = self.filter_executors(
             executors=self.executors_info,
-            filter_func=lambda e: not e.is_active
+            filter_func=lambda e: not e.is_active and e.close_type == CloseType.POSITION_HOLD
         )
         if terminated_executors:
-            status_lines.append("")
-            status_lines.append("Terminated Grids:")
-            status_lines.append("-" * 140)
-            status_lines.append(
-                f"{'Asset':<8} {'Side':<6} | "
-                f"{'Close Type':<12} | "
-                f"{'BEP':<10} | "
-                f"{'Net PnL':<12} | "
-                f"{'Held Size':<12} | "
-                f"{'Held PnL':<12} | "
-                f"{'Volume':<12} | "
-                f"{'Fees':<10}"
-            )
-            status_lines.append("-" * 140)
+            # Aggregate held positions by asset and side
+            held_positions = {}
             for executor in terminated_executors:
                 config = executor.config
                 custom_info = executor.custom_info
                 trading_pair = config.trading_pair
                 asset = trading_pair.split("-")[0]
-                # Get grid metrics
-                net_pnl = executor.net_pnl_quote
-                volume = executor.filled_amount_quote
-                fees = executor.cum_fees_quote
-                # Get breakeven price and position info
-                break_even = custom_info.get('break_even_price', 'N/A')
-                if break_even != 'N/A':
-                    break_even = f"{Decimal(str(break_even)):.4f}"
-                # Get held position info if applicable
-                held_size = Decimal('0')
-                held_pnl = Decimal('0')
-                if executor.close_type == CloseType.POSITION_HOLD:
-                    held_size = Decimal(str(custom_info.get('held_position_value', '0')))
-                    if held_size > 0:
-                        current_price = self.get_mid_price(trading_pair)
-                        bep = Decimal(str(break_even))
-                        price_diff_pct = (current_price - bep) / bep
-                        held_pnl = held_size * price_diff_pct * (1 if config.side == TradeType.BUY else -1)
-                status_lines.append(
-                    f"{asset:<8} {config.side.name:<6} | "
-                    f"{executor.close_type.name:<12} | "
-                    f"{break_even:>10} | "
-                    f"${net_pnl:>+11.2f} | "
-                    f"${held_size:>11.2f} | "
-                    f"${held_pnl:>+11.2f} | "
-                    f"${volume:>11.2f} | "
-                    f"${fees:>9.2f}"
-                )
-        # Update unfavorable positions tracking
-        self.update_unfavorable_positions()
-        # Unfavorable Positions Summary
-        has_unfavorable = False
-        for positions in self.unfavorable_positions.values():
-            for side in ['long', 'short']:
-                if positions[side]['size'] > Decimal('0'):
-                    has_unfavorable = True
-                    break
-            if has_unfavorable:
-                break
-        if has_unfavorable:
+                if asset not in held_positions:
+                    held_positions[asset] = {
+                        TradeType.BUY: {"total_value": Decimal("0"), "weighted_bep": Decimal("0")},
+                        TradeType.SELL: {"total_value": Decimal("0"), "weighted_bep": Decimal("0")}
+                    }
+                held_size = Decimal(str(custom_info.get('held_position_value', '0')))
+                if held_size > 0:
+                    break_even = Decimal(str(custom_info.get('break_even_price', '0')))
+                    if break_even > 0:
+                        side_data = held_positions[asset][config.side]
+                        side_data["total_value"] += held_size
+                        side_data["weighted_bep"] += held_size * break_even
+
+            # Display aggregated results
             status_lines.append("")
-            status_lines.append("Unfavorable Positions:")
-            status_lines.append("-" * 100)
+            status_lines.append("Held Positions Summary:")
+            status_lines.append("-" * 120)
             status_lines.append(
                 f"{'Asset':<8} {'Side':<6} | "
-                f"{'Size ($)':<12} | "
-                f"{'BEP':<10} | "
-                f"{'Current':<10} | "
-                f"{'UnrPnL ($)':<12} | "
-                f"{'PnL %':<8}"
+                f"{'Total Value':<12} | "
+                f"{'Avg BEP':<16} | "
+                f"{'Current':<16} | "
+                f"{'Float BEP%':<10} | "
+                f"{'Float PnL':<12}"
             )
-            status_lines.append("-" * 100)
-
-            for trading_pair, positions in self.unfavorable_positions.items():
-                asset = trading_pair.split("-")[0]
+            status_lines.append("-" * 120)
+            for asset, sides in held_positions.items():
+                trading_pair = f"{asset}-{self.config.quote_asset}"
                 current_price = self.get_mid_price(trading_pair)
-                for side in ['long', 'short']:
-                    position_info = positions[side]
-                    if position_info['size'] == Decimal('0'):
-                        continue
-                    size = position_info['size']
-                    bep = position_info['weighted_price']
-                    price_diff_pct = (current_price - bep) / bep
-                    unrealized_pnl = size * price_diff_pct * (1 if side == 'long' else -1)
-                    pnl_pct = price_diff_pct * (1 if side == 'long' else -1) * 100
+                for side, data in sides.items():
+                    if data["total_value"] > 0:
+                        avg_bep = data["weighted_bep"] / data["total_value"]
+                        price_diff_pct = (current_price - avg_bep) / avg_bep * 100
+                        if side == TradeType.SELL:
+                            price_diff_pct = -price_diff_pct
+                        float_pnl = data["total_value"] * price_diff_pct / 100
+                        status_lines.append(
+                            f"{asset:<8} {side.name:<6} | "
+                            f"${data['total_value']:>11.2f} | "
+                            f"{avg_bep:>16.8f} | "
+                            f"{current_price:>16.8f} | "
+                            f"{price_diff_pct:>+9.2f}% | "
+                            f"${float_pnl:>+11.2f}"
+                        )
+
+            # Show detailed terminated grids if requested
+            if self.config.show_terminated_details:
+                status_lines.append("")
+                status_lines.append("Terminated Grids Details:")
+                status_lines.append("-" * 140)
+                status_lines.append(
+                    f"{'Asset':<8} {'Side':<6} | "
+                    f"{'Close Type':<12} | "
+                    f"{'BEP':<10} | "
+                    f"{'Net PnL':<12} | "
+                    f"{'Held Size':<12} | "
+                    f"{'Held PnL':<12} | "
+                    f"{'Volume':<12} | "
+                    f"{'Fees':<10}"
+                )
+                status_lines.append("-" * 140)
+                for executor in terminated_executors:
+                    config = executor.config
+                    custom_info = executor.custom_info
+                    trading_pair = config.trading_pair
+                    asset = trading_pair.split("-")[0]
+                    # Get grid metrics
+                    net_pnl = executor.net_pnl_quote
+                    volume = executor.filled_amount_quote
+                    fees = executor.cum_fees_quote
+                    # Get breakeven price and position info
+                    break_even = custom_info.get('break_even_price', 'N/A')
+                    if break_even != 'N/A':
+                        break_even = f"{Decimal(str(break_even)):.4f}"
+                    # Get held position info if applicable
+                    held_size = Decimal('0')
+                    held_pnl = Decimal('0')
+                    if executor.close_type == CloseType.POSITION_HOLD:
+                        held_size = Decimal(str(custom_info.get('held_position_value', '0')))
+                        if held_size > 0:
+                            current_price = self.get_mid_price(trading_pair)
+                            bep = Decimal(str(break_even))
+                            price_diff_pct = (current_price - bep) / bep
+                            held_pnl = held_size * price_diff_pct * (1 if config.side == TradeType.BUY else -1)
                     status_lines.append(
-                        f"{asset:<8} {side.upper():<6} | "
-                        f"${size:>11.2f} | "
-                        f"{bep:>10.4f} | "
-                        f"{current_price:>10.4f} | "
-                        f"${unrealized_pnl:>+11.2f} | "
-                        f"{pnl_pct:>+7.2f}%"
+                        f"{asset:<8} {config.side.name:<6} | "
+                        f"{executor.close_type.name:<12} | "
+                        f"{break_even:>10} | "
+                        f"${net_pnl:>+11.2f} | "
+                        f"${held_size:>11.2f} | "
+                        f"${held_pnl:>+11.2f} | "
+                        f"${volume:>11.2f} | "
+                        f"${fees:>9.2f}"
                     )
+
         status_lines.append("-" * 100 + "\n")
         return status_lines
 
@@ -421,24 +379,9 @@ class QuantumGridAllocator(ControllerBase):
             deviation = difference / theoretical if theoretical != Decimal("0") else Decimal("0")
             mid_price = self.get_mid_price(trading_pair)
 
-            # Calculate current allocation percentage
-            actual = self.metrics["actual"][asset]
-            total_value = self.metrics["total_portfolio_value"]
-            current_allocation_pct = actual / total_value
-
             # Calculate dynamic grid value percentage based on deviation
             abs_deviation = abs(deviation)
-            if abs_deviation > self.config.max_deviation:
-                grid_value_pct = self.config.max_grid_value_pct
-            else:
-                # Scale grid value between base and max based on deviation
-                deviation_scale = abs_deviation / self.config.max_deviation
-                grid_value_pct = (
-                    self.config.base_grid_value_pct +
-                    (self.config.max_grid_value_pct - self.config.base_grid_value_pct) *
-                    deviation_scale * self.config.deviation_multiplier
-                )
-                grid_value_pct = min(grid_value_pct, self.config.max_grid_value_pct)
+            grid_value_pct = self.config.max_grid_value_pct if abs_deviation > self.config.max_deviation else self.config.base_grid_value_pct
 
             self.logger().info(
                 f"{trading_pair} Grid Sizing - "
@@ -471,82 +414,6 @@ class QuantumGridAllocator(ControllerBase):
                         current_price=mid_price,
                         grid_value=grid_value,
                         is_unfavorable=False
-                    )
-                    if grid_action is not None:
-                        actions.append(grid_action)
-            else:
-                # Mixed zone - create both buy and sell grids with hedging ratio
-                if abs(deviation) < self.config.max_deviation:
-                    # Calculate total grid allocation
-                    total_grid_value = theoretical * grid_value_pct
-                    # Calculate base values considering imbalance
-                    imbalance_ratio = difference / theoretical
-                    if difference < Decimal("0"):  # Need to buy more
-                        buy_ratio = Decimal("0.5") + abs(imbalance_ratio) / Decimal("2")
-                        sell_ratio = Decimal("1") - buy_ratio
-                    else:  # Need to sell more
-                        sell_ratio = Decimal("0.5") + abs(imbalance_ratio) / Decimal("2")
-                        buy_ratio = Decimal("1") - sell_ratio
-                    # Apply hedge ratio to adjust the ratios
-                    if difference < Decimal("0"):  # Favoring buys
-                        sell_ratio = sell_ratio / self.config.hedge_ratio
-                    else:  # Favoring sells
-                        buy_ratio = buy_ratio / self.config.hedge_ratio
-
-                    # Calculate grid values
-                    buy_grid_value = total_grid_value * buy_ratio
-                    sell_grid_value = total_grid_value * sell_ratio
-
-                    self.logger().info(
-                        f"{trading_pair} Grid Distribution - "
-                        f"Zone: Mixed | "
-                        f"Allocation: {current_allocation_pct:.1%} | "
-                        f"Imbalance: ${difference:,.2f} ({imbalance_ratio:+.1%}) | "
-                        f"Buy Grid: ${buy_grid_value:,.2f} ({buy_ratio:.1%}) | "
-                        f"Sell Grid: ${sell_grid_value:,.2f} ({sell_ratio:.1%})"
-                    )
-
-                    # Create buy grid
-                    if buy_grid_value > Decimal("0"):
-                        # Buy grid is unfavorable if we need to sell
-                        is_unfavorable = difference > Decimal("0")
-                        buy_grid = self.create_grid_executor(
-                            trading_pair=trading_pair,
-                            side=TradeType.BUY,
-                            current_price=mid_price,
-                            grid_value=buy_grid_value,
-                            range_adjustment=deviation,
-                            is_unfavorable=is_unfavorable
-                        )
-                        if buy_grid is not None:
-                            actions.append(buy_grid)
-
-                    # Create sell grid
-                    if sell_grid_value > Decimal("0"):
-                        # Sell grid is unfavorable if we need to buy
-                        is_unfavorable = difference < Decimal("0")
-                        sell_grid = self.create_grid_executor(
-                            trading_pair=trading_pair,
-                            side=TradeType.SELL,
-                            current_price=mid_price,
-                            grid_value=sell_grid_value,
-                            range_adjustment=deviation,
-                            is_unfavorable=is_unfavorable
-                        )
-                        if sell_grid is not None:
-                            actions.append(sell_grid)
-                else:
-                    # For larger deviations, create single grid with size based on imbalance
-                    grid_value = min(
-                        abs(difference),
-                        theoretical * grid_value_pct
-                    )
-                    grid_action = self.create_grid_executor(
-                        trading_pair=trading_pair,
-                        side=TradeType.BUY if deviation < 0 else TradeType.SELL,
-                        current_price=mid_price,
-                        grid_value=grid_value,
-                        is_unfavorable=False  # Single grids for large deviations are always favorable
                     )
                     if grid_action is not None:
                         actions.append(grid_action)
@@ -618,6 +485,7 @@ class QuantumGridAllocator(ControllerBase):
                 max_orders_per_batch=self.config.max_orders_per_batch,
                 activation_bounds=self.config.activation_bounds,
                 keep_position=True,  # Always keep position for potential reversal
+                coerce_tp_to_step=True,
                 triple_barrier_config=TripleBarrierConfig(
                     take_profit=self.config.grid_tp_multiplier,
                     open_order_type=OrderType.LIMIT_MAKER,
