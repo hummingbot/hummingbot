@@ -441,7 +441,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.data_source.listen_for_funding_info(msg_queue_funding)
         )
         self.listening_task_exchange_info = self.ev_loop.create_task(
-            self.data_source.listen_for_exchange_info(self.ev_loop)
+            self.data_source.listen_for_exchange_info()
         )
 
         result: OrderBookMessage = self.async_run_with_timeout(msg_queue_diffs.get())
