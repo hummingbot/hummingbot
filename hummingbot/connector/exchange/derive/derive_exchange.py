@@ -236,10 +236,11 @@ class DeriveExchange(ExchangePyBase):
         pass
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
+        oid = await tracked_order.get_exchange_order_id()
+        symbol = tracked_order.trading_pair
         api_params = {
             "instrument_name": symbol,
-            "order_id": tracked_order.exchange_order_id,
+            "order_id": oid,
             "subaccount_id": self._sub_id
         }
         cancel_result = await self._api_post(
@@ -251,9 +252,10 @@ class DeriveExchange(ExchangePyBase):
             self.logger().debug(f"The order {order_id} does not exist on Derive s. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["error"]["messaage"]}')
-        if cancel_result["result"]["order_status"] == "cancelled":
-            return True
+            raise IOError(f'{cancel_result["error"]["message"]}')
+        else:
+            if cancel_result["result"]["order_status"] == "cancelled":
+                return True
         return False
 
     # === Orders placing ===
@@ -360,7 +362,7 @@ class DeriveExchange(ExchangePyBase):
             "sub_id": instrument[0]["base_asset_sub_id"],
             "limit_price": str(new_price),
             "type": "order",
-            "max_fee": str(100),
+            "max_fee": str(1000),
             "amount": str(amount),
             "instrument_name": symbol,
             "label": order_id,
@@ -377,10 +379,10 @@ class DeriveExchange(ExchangePyBase):
             data=api_params,
             is_auth_required=True)
 
-        o_order_result = order_result['result']
-        if "error" in o_order_result:
-            raise IOError(f"Error submitting order {order_id}: {o_order_result['error']}")
+        if "error" in order_result:
+            raise IOError(f"Error submitting order {order_id}: {order_result['error']['message']}")
         else:
+            o_order_result = order_result['result']
             o_data = o_order_result.get("order")
             o_id = str(o_data["order_id"])
             timestamp = o_data["creation_timestamp"] * 1e-3
@@ -617,8 +619,8 @@ class DeriveExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        oid = await tracked_order.get_exchange_order_id()
         client_order_id = tracked_order.client_order_id
-        oid = tracked_order.exchange_order_id
         order_update = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PAATH_URL,
             data={
