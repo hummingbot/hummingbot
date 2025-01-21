@@ -35,12 +35,7 @@ class BitmartPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth = auth
         self._ws_assistants: List[WSAssistant] = []
         self._connector = connector
-        self._current_listen_key = None
         self._listen_for_user_stream_task = None
-        self._last_listen_key_ping_ts = None
-
-        self._manage_listen_key_task = None
-        self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
 
     @property
     def last_recv_time(self) -> float:
@@ -57,23 +52,8 @@ class BitmartPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
         :param output: the queue to use to store the received messages
         """
-        tasks_future = None
-        try:
-            tasks = []
-            tasks.append(
-                self._listen_for_user_stream_on_url(
-                    url=web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain), output=output
-                )
-            )
-            tasks_future = asyncio.gather(*tasks)
-            await tasks_future
-
-        except asyncio.CancelledError:
-            tasks_future and tasks_future.cancel()
-            raise
-
-    async def _listen_for_user_stream_on_url(self, url: str, output: asyncio.Queue):
         ws: Optional[WSAssistant] = None
+        url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain)
         while True:
             try:
                 ws = await self._get_connected_websocket_assistant(url)

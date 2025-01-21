@@ -35,7 +35,6 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.api_key = "TEST_API_KEY"
         cls.secret_key = "TEST_SECRET_KEY"
         cls.memo = "TEST_MEMO"
-        cls.listen_key = "TEST_LISTEN_KEY"
 
     def setUp(self) -> None:
         super().setUp()
@@ -174,6 +173,7 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         initial_last_recv_time = self.data_source.last_recv_time
+        url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)
 
         # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, self._authentication_response(True))
@@ -188,12 +188,13 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
             self._subscription_response(CONSTANTS.WS_ACCOUNT_CHANNEL))
 
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source._listen_for_user_stream_on_url("test_url", messages)
+            self.data_source.listen_for_user_stream(messages)
         )
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(
-            self._is_logged("INFO", "Subscribed to private account and orders channels test_url...")
+            self._is_logged("INFO",
+                            f"Subscribed to private account and orders channels {url}...")
         )
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
@@ -222,9 +223,9 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_user_stream_authentication_failure(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
+        url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source._listen_for_user_stream_on_url("test_url", messages))
+            self.data_source.listen_for_user_stream(messages))
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
             self._authentication_response(False))
@@ -235,7 +236,7 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "ERROR",
-                "Unexpected error while listening to user stream test_url. Retrying after 5 seconds..."
+                f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds..."
             )
         )
 
@@ -249,7 +250,7 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source._listen_for_user_stream_on_url("test_url", msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
@@ -260,17 +261,18 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_user_stream_connection_failed(self, mock_ws):
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR."))
-
+        url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self.domain)
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(
-            self.data_source._listen_for_user_stream_on_url("test_url", msg_queue)
+            self.data_source.listen_for_user_stream(msg_queue)
         )
 
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertTrue(
             self._is_logged(
-                "ERROR", "Unexpected error while listening to user stream test_url. Retrying after 5 seconds..."
+                "ERROR",
+                f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds..."
             )
         )
 
