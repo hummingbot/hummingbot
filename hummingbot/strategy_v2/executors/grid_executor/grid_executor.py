@@ -182,6 +182,7 @@ class GridExecutor(ExecutorBase):
             mid_price = (self.config.start_price + self.config.end_price) / 2
             prices = [float(mid_price)]
             self.step = grid_range
+        take_profit = max(self.step, self.config.triple_barrier_config.take_profit) if self.config.coerce_tp_to_step else self.config.triple_barrier_config.take_profit
         # Create grid levels
         for i, price in enumerate(prices):
             grid_levels.append(
@@ -189,7 +190,7 @@ class GridExecutor(ExecutorBase):
                     id=f"L{i}",
                     price=price,
                     amount_quote=quote_amount_per_level,
-                    take_profit=self.config.triple_barrier_config.take_profit,
+                    take_profit=take_profit,
                     side=self.config.side,
                     open_order_type=self.config.triple_barrier_config.open_order_type,
                     take_profit_order_type=self.config.triple_barrier_config.take_profit_order_type,
@@ -912,7 +913,7 @@ class GridExecutor(ExecutorBase):
 
         :return: The net pnl in quote asset.
         """
-        return self.position_pnl_quote + self.realized_pnl_quote
+        return self.position_pnl_quote + self.realized_pnl_quote if self.close_type != CloseType.POSITION_HOLD else self.realized_pnl_quote
 
     def get_cum_fees_quote(self) -> Decimal:
         """
@@ -920,7 +921,7 @@ class GridExecutor(ExecutorBase):
 
         :return: The cumulative fees in quote asset.
         """
-        return self.position_fees_quote + self.realized_fees_quote
+        return self.position_fees_quote + self.realized_fees_quote if self.close_type != CloseType.POSITION_HOLD else self.realized_fees_quote
 
     @property
     def filled_amount_quote(self) -> Decimal:
@@ -929,7 +930,8 @@ class GridExecutor(ExecutorBase):
 
         :return: The total amount in quote asset.
         """
-        return self.position_size_quote + self.realized_buy_size_quote + self.realized_sell_size_quote
+        matched_volume = self.realized_buy_size_quote + self.realized_sell_size_quote
+        return self.position_size_quote + matched_volume if self.close_type != CloseType.POSITION_HOLD else matched_volume
 
     def get_net_pnl_pct(self) -> Decimal:
         """
