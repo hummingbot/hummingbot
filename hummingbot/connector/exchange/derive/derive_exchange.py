@@ -130,15 +130,12 @@ class DeriveExchange(ExchangePyBase):
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         res = []
-        response = await self._api_post(
-            path_url=CONSTANTS.TICKER_BOOK_PATH_URL,
-            data={"instrument_name": "exchange_symbol"})
-        for token in response[1]:
-            result = {}
-            price = token['midPx']
-            result["symbol"] = token['coin']
-            result["price"] = price
-            res.append(result)
+        if len(self._instrument_ticker) < 0:
+            await self._initialize_trading_pair_symbol_map()
+        for token in self._instrument_ticker:
+            token["symbol"] = self._instrument_ticker["instrument_name"]
+            token["price"] = self._instrument_ticker["mark_price"]
+            res.append(token)
         return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -178,22 +175,6 @@ class DeriveExchange(ExchangePyBase):
         """
         d_price = Decimal(round(float(f"{price:.5g}"), 6))
         return d_price
-
-    async def _update_trading_rules(self):
-        exchange_info = await self._make_trading_rules_request()
-        trading_rules_list = await self._format_trading_rules(exchange_info)
-        self._trading_rules.clear()
-        for trading_rule in trading_rules_list:
-            self._trading_rules[trading_rule.trading_pair] = trading_rule
-        self._initialize_trading_pair_symbols_from_exchange_info(exchange_infos=exchange_info)
-
-    async def _initialize_trading_pair_symbol_map(self):
-        try:
-            exchange_info = await self._make_trading_pairs_request()
-            self._initialize_trading_pair_symbols_from_exchange_info(exchange_infos=exchange_info)
-
-        except Exception:
-            self.logger().exception("There was an error requesting exchange info.")
 
     def _get_fee(self,
                  base_currency: str,
@@ -249,9 +230,10 @@ class DeriveExchange(ExchangePyBase):
             is_auth_required=True)
 
         if "error" in cancel_result:
-            self.logger().debug(f"The order {order_id} does not exist on Derive s. "
-                                f"No cancelation needed.")
-            await self._order_tracker.process_order_not_found(order_id)
+            if 'Does not exist' in cancel_result['error']['message']:
+                self.logger().debug(f"The order {order_id} does not exist on Derive s. "
+                                    f"No cancelation needed.")
+                await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f'{cancel_result["error"]["message"]}')
         else:
             if cancel_result["result"]["order_status"] == "cancelled":
@@ -559,6 +541,48 @@ class DeriveExchange(ExchangePyBase):
         ----------
         exchange_info_dict:
             Trading rules dictionary response from the exchange
+
+        {
+            "result": {
+                "instruments": [
+                {
+                    "instrument_type": "erc20",
+                    "instrument_name": "ETH-USDC",
+                    "scheduled_activation": 1728508925,
+                    "scheduled_deactivation": 9223372036854776000,
+                    "is_active": true,
+                    "tick_size": "0.01",
+                    "minimum_amount": "0.1",
+                    "maximum_amount": "1000",
+                    "amount_step": "0.01",
+                    "mark_price_fee_rate_cap": "0",
+                    "maker_fee_rate": "0.0015",
+                    "taker_fee_rate": "0.0015",
+                    "base_fee": "0.1",
+                    "base_currency": "ETH",
+                    "quote_currency": "USDC",
+                    "option_details": null,
+                    "perp_details": null,
+                    "erc20_details": {
+                    "decimals": 18,
+                    "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",
+                    "borrow_index": "1",
+                    "supply_index": "1"
+                    },
+                    "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                    "base_asset_sub_id": "0",
+                    "pro_rata_fraction": "0",
+                    "fifo_min_allocation": "0",
+                    "pro_rata_amount_step": "1"
+                }
+                ],
+                "pagination": {
+                "num_pages": 1,
+                "count": 1
+                }
+            },
+            "id": "0f9131b4-2502-4f8e-afa4-adfce67a6509"
+        }
         """
 
         trading_pair_rules = exchange_info_dict
@@ -582,11 +606,11 @@ class DeriveExchange(ExchangePyBase):
                                     exc_info=True)
         return retval
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_infos: List):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List):
         mapping = bidict()
 
-        for exchange_info in filter(web_utils.is_exchange_information_valid, exchange_infos):
-            ex_name = exchange_info["instrument_name"]
+        for _info in filter(web_utils.is_exchange_information_valid, exchange_info):
+            ex_name = _info["instrument_name"]
 
             base, quote = ex_name.split("-")
             trading_pair = combine_to_hb_trading_pair(base, quote)
@@ -809,13 +833,19 @@ class DeriveExchange(ExchangePyBase):
 
             exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
             if "error" in exchange_info:
-                continue
+                if 'Instrument not found' in exchange_info['error']['message']:
+                    self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
+                    continue
+                self.logger().warning(f"Error: {currency['message']}")
+                raise
+            exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
             self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
+            self._instrument_ticker[0]["spot_price"] = currency["spot_price"]
+
             exchange_infos.append(exchange_info["result"]["instruments"][0])
         return exchange_infos
 
     async def _make_trading_pairs_request(self) -> Any:
-        self._instrument_ticker = []
         currencies = await self._api_post(path_url=self.trading_pairs_request_path, data={
             "instrument_type": "erc20",
         })
@@ -832,7 +862,10 @@ class DeriveExchange(ExchangePyBase):
 
             exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
             if "error" in exchange_info:
-                continue
-            self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
+                if 'Instrument not found' in exchange_info['error']['message']:
+                    self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
+                    continue
+                self.logger().error(f"Error: {currency['message']}")
+                raise
             exchange_infos.append(exchange_info["result"]["instruments"][0])
         return exchange_infos
