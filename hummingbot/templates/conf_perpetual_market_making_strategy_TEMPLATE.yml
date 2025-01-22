@@ -113,6 +113,3 @@ custom_api_update_interval: null
 #   order_3: [sell, 0.1, 500]
 # Please make sure there is a space between : and [
 order_override: null
-
-# For more detailed information, see:
-# https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
