@@ -230,8 +230,10 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_exchange_info_message(self, raw_message: Dict[str, Any]):
         data: Dict[str, Any] = raw_message["data"]
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data["symbol"])
-
+        try:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data["symbol"])
+        except KeyError:
+            return
         if trading_pair not in self._trading_pairs:
             return
 
