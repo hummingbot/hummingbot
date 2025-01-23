@@ -527,9 +527,10 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
         response = await self._api_get(path_url=CONSTANTS.EXCHANGE_INFO_URL)
+        symbol_map = await self.trading_pair_symbol_map()
         last_traded_prices = {
             await self.trading_pair_associated_to_exchange_symbol(ticker["symbol"]): float(ticker["last_price"])
-            for ticker in response["data"]["symbols"]
+            for ticker in response["data"]["symbols"] if ticker["symbol"] in symbol_map.keys()
         }
         return last_traded_prices
 
