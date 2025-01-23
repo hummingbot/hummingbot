@@ -380,6 +380,83 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         }
         return mocked_exchange_info
 
+    def _get_exchange_info_with_unknown_pair_mock_response(self,
+                                                           contract_size: int = 10,
+                                                           min_volume: int = 1,
+                                                           vol_precision: float = 0.1,
+                                                           price_precision: float = 0.01,
+                                                           last_price: float = 10.0) -> Dict[str, Any]:
+        mocked_exchange_info = {
+            "code": 1000,
+            "message": "Ok",
+            "trace": "9b92a999-9463-4c96-91a4-93ad1cad0d72",
+            "data": {
+                "symbols": [
+                    {
+                        "symbol": "UNKNOWN",
+                        "product_type": 1,
+                        "open_timestamp": 1594080000123,
+                        "expire_timestamp": 0,
+                        "settle_timestamp": 0,
+                        "base_currency": "UNKNOWN",
+                        "quote_currency": self.quote_asset,
+                        "last_price": str(last_price),
+                        "volume_24h": "18969368",
+                        "turnover_24h": "458933659.7858",
+                        "index_price": "23945.25191635",
+                        "index_name": "UNKNOWNUSDT",
+                        "contract_size": str(contract_size),
+                        "min_leverage": "1",
+                        "max_leverage": "100",
+                        "price_precision": str(price_precision),
+                        "vol_precision": str(vol_precision),
+                        "max_volume": "500000",
+                        "market_max_volume": "500000",
+                        "min_volume": str(min_volume),
+                        "funding_rate": "0.0001",
+                        "expected_funding_rate": "0.00011",
+                        "open_interest": "4134180870",
+                        "open_interest_value": "94100888927.0433258",
+                        "high_24h": "23900",
+                        "low_24h": "23100",
+                        "change_24h": "0.004",
+                        "funding_interval_hours": 8
+                    },
+                    {
+                        "symbol": self.symbol,
+                        "product_type": 1,
+                        "open_timestamp": 1594080000123,
+                        "expire_timestamp": 0,
+                        "settle_timestamp": 0,
+                        "base_currency": self.base_asset,
+                        "quote_currency": self.quote_asset,
+                        "last_price": str(last_price),
+                        "volume_24h": "18969368",
+                        "turnover_24h": "458933659.7858",
+                        "index_price": "23945.25191635",
+                        "index_name": "BTCUSDT",
+                        "contract_size": str(contract_size),
+                        "min_leverage": "1",
+                        "max_leverage": "100",
+                        "price_precision": str(price_precision),
+                        "vol_precision": str(vol_precision),
+                        "max_volume": "500000",
+                        "market_max_volume": "500000",
+                        "min_volume": str(min_volume),
+                        "funding_rate": "0.0001",
+                        "expected_funding_rate": "0.00011",
+                        "open_interest": "4134180870",
+                        "open_interest_value": "94100888927.0433258",
+                        "high_24h": "23900",
+                        "low_24h": "23100",
+                        "change_24h": "0.004",
+                        "funding_interval_hours": 8
+                    }
+                ]
+            }
+        }
+        return mocked_exchange_info
+
     def _get_exchange_info_error_mock_response(self,
                                                contract_size: int = 10,
                                                min_volume: int = 1,
@@ -1814,3 +1891,19 @@ class BitmartPerpetualDerivativeUnitTest(unittest.TestCase):
         }
         self.exchange._contract_sizes[self.trading_pair] = contract_size
         return self.exchange._trading_rules
+
+    @aioresponses()
+    def test_exchange_info_contains_trading_pair_not_initialized_and_ignores_it(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
+        mocked_response = self._get_exchange_info_mock_response()
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
+        mock_api.get(url, body=json.dumps(mocked_response))
+        last_traded_prices = self.async_run_with_timeout(self.exchange.get_last_traded_prices())
+        self.assertEqual(1, len(mocked_response["data"]["symbols"]))
+        self.assertEqual(1, len(last_traded_prices))
+
+        unknown_trading_pair_response = self._get_exchange_info_with_unknown_pair_mock_response()
+        mock_api.get(url, body=json.dumps(unknown_trading_pair_response))
+        last_traded_prices_with_unknown_pair = self.async_run_with_timeout(self.exchange.get_last_traded_prices())
+        self.assertEqual(2, len(unknown_trading_pair_response["data"]["symbols"]))
+        self.assertEqual(1, len(last_traded_prices_with_unknown_pair))
