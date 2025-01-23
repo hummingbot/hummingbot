@@ -176,6 +176,48 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         return resp
 
+    def _exchange_info_with_non_initialized_trading_pair_rest_data(self):
+        resp = {
+            "code": 1000,
+            "message": "Ok",
+            "trace": "9b92a999-9463-4c96-91a4-93ad1cad0d72",
+            "data": {
+                "symbols": [
+                    {
+                        "symbol": "NEWSYMBOLUSDT",
+                        "product_type": 1,
+                        "open_timestamp": 1594080000123,
+                        "expire_timestamp": 0,
+                        "settle_timestamp": 0,
+                        "base_currency": "NEWSYMBOL",
+                        "quote_currency": "USDT",
+                        "last_price": "23920",
+                        "volume_24h": "18969368",
+                        "turnover_24h": "458933659.7858",
+                        "index_price": "23945.25191635",
+                        "index_name": self.ex_trading_pair,
+                        "contract_size": "0.001",
+                        "min_leverage": "1",
+                        "max_leverage": "100",
+                        "price_precision": "0.1",
+                        "vol_precision": "1",
+                        "max_volume": "500000",
+                        "market_max_volume": "500000",
+                        "min_volume": "1",
+                        "funding_rate": "0.0001",
+                        "expected_funding_rate": "0.00011",
+                        "open_interest": "4134180870",
+                        "open_interest_value": "94100888927.0433258",
+                        "high_24h": "23900",
+                        "low_24h": "23100",
+                        "change_24h": "0.004",
+                        "funding_interval_hours": 8
+                    },
+                ]
+            }
+        }
+        return resp
+
     def _orderbook_update_event(self, update_type: str = "update"):
         resp = {
             "data": {
@@ -308,32 +350,6 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(Decimal(exchange_info_resp["data"]["symbols"][0]["last_price"]), funding_info.mark_price)
         self.assertEqual(int(float(funding_info_resp["data"]["funding_time"]) * 1e-3), funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(funding_info_resp["data"]["expected_rate"]), funding_info.rate)
-
-    # @aioresponses()
-    # def test_get_funding_info(self, mock_api):
-    #     url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #
-    #     mock_response = {
-    #         "symbol": self.ex_trading_pair,
-    #         "markPrice": "46382.32704603",
-    #         "indexPrice": "46385.80064948",
-    #         "estimatedSettlePrice": "46510.13598963",
-    #         "lastFundingRate": "0.00010000",
-    #         "interestRate": "0.00010000",
-    #         "nextFundingTime": 1641312000000,
-    #         "time": 1641288825000,
-    #     }
-    #     mock_api.get(regex_url, body=json.dumps(mock_response))
-    #
-    #     result = self.async_run_with_timeout(self.data_source.get_funding_info(trading_pair=self.trading_pair))
-    #
-    #     self.assertIsInstance(result, FundingInfo)
-    #     self.assertEqual(result.trading_pair, self.trading_pair)
-    #     self.assertEqual(result.index_price, Decimal(mock_response["indexPrice"]))
-    #     self.assertEqual(result.mark_price, Decimal(mock_response["markPrice"]))
-    #     self.assertEqual(result.next_funding_utc_timestamp, int(mock_response["nextFundingTime"] * 1e-3))
-    #     self.assertEqual(result.rate, Decimal(mock_response["lastFundingRate"]))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -471,49 +487,8 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-    # @aioresponses()
-    # def test_listen_for_order_book_snapshots_logs_exception_error_with_response(self, mock_api):
-    #     url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #
-    #     mock_api.get(regex_url, body=json.dumps(self._order_book_snapshot_rest_data()), callback=self.resume_test_callback)
-    #
-    #     msg_queue: asyncio.Queue = asyncio.Queue()
-    #
-    #     self.listening_task = self.ev_loop.create_task(
-    #         self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
-    #     )
-    #
-    #     self.async_run_with_timeout(self.resume_test_event.wait())
-    #
-    #     self.assertTrue(
-    #         self._is_logged("ERROR", "Unexpected error when processing public order book snapshots from exchange")
-    #     )
-
-    # @aioresponses()
-    # def test_listen_for_order_book_snapshots_successful(self, mock_api):
-    #     url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #
-    #     mock_api.get(regex_url, body=json.dumps(self._orderbook_update_event(update_type="snapshot")))
-    #
-    #     msg_queue: asyncio.Queue = asyncio.Queue()
-    #     self.listening_task = self.ev_loop.create_task(
-    #         self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
-    #     )
-    #
-    #     result = self.async_run_with_timeout(msg_queue.get())
-    #
-    #     self.assertIsInstance(result, OrderBookMessage)
-    #     self.assertEqual(OrderBookMessageType.SNAPSHOT, result.type)
-    #     self.assertTrue(result.has_update_id)
-    #     self.assertEqual(result.update_id, 980361)
-    #     self.assertEqual(self.trading_pair, result.content["trading_pair"])
-    #
-    # def test_listen_for_funding_info_cancelled_error_raised(self):
-    #     mock_queue = AsyncMock()
-    #     mock_queue.get.side_effect = asyncio.CancelledError
-    #     self.data_source._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID] = mock_queue
-    #
-    #     with self.assertRaises(asyncio.CancelledError):
-    #         self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue))
+    def test_parse_exchange_info_message_receives_not_initialized_trading_pair(self):
+        mock_msg = self._exchange_info_with_non_initialized_trading_pair_rest_data()
+        self.async_run_with_timeout(self.data_source._parse_exchange_info_message(mock_msg))
+        self.assertIsNone(self.data_source._last_mark_prices.get("NEWSYMBOL"))
+        self.assertIsNone(self.data_source._last_index_prices.get("NEWSYMBOL"))
