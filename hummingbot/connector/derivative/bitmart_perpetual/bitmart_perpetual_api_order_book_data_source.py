@@ -47,8 +47,8 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._diff_messages_queue_key = CONSTANTS.ORDER_BOOK_CHANNEL + "_DIFF"
         self._funding_info_messages_queue_key = CONSTANTS.FUNDING_INFO_CHANNEL
         self._tickers_messages_queue_key = CONSTANTS.TICKERS_CHANNEL
-        self._last_index_price = None
-        self._last_mark_price = None
+        self._last_index_prices: Dict[str, Decimal] = {}
+        self._last_mark_prices: Dict[str, Decimal] = {}
         self._last_next_funding_utc_timestamp = None
         self._last_rate = None
 
@@ -203,8 +203,8 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._next_funding_rate = Decimal(data["fundingRate"])
         funding_info = FundingInfoUpdate(
             trading_pair=trading_pair,
-            index_price=self._last_index_price,
-            mark_price=self._last_mark_price,
+            index_price=self._last_index_prices[trading_pair],
+            mark_price=self._last_mark_prices[trading_pair],
             next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
             rate=self._last_rate,
         )
@@ -237,8 +237,8 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if trading_pair not in self._trading_pairs:
             return
 
-        self._last_mark_price = data["last_price"]
-        self._last_index_price = data["fair_price"]
+        self._last_mark_prices[trading_pair] = data["last_price"]
+        self._last_index_prices[trading_pair] = data["fair_price"]
 
     async def _request_complete_funding_info(self, trading_pair: str):
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
