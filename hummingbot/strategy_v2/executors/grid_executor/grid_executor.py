@@ -359,7 +359,7 @@ class GridExecutor(ExecutorBase):
             else:
                 self._failed_orders.append(self._close_order.order_id)
                 self._close_order = None
-        elif not self.config.keep_position:
+        elif not self.config.keep_position or self.close_type == CloseType.TAKE_PROFIT:
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def adjust_and_place_open_order(self, level: GridLevel):
