@@ -1,4 +1,5 @@
 import logging
+import uuid
 from copy import deepcopy
 from decimal import Decimal
 from typing import Dict, List
@@ -8,6 +9,7 @@ from pydantic.main import BaseModel
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.position import Position
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
@@ -149,6 +151,38 @@ class ExecutorOrchestrator:
             for executor in executors_list:
                 if not executor.is_closed:
                     executor.early_stop()
+        # Store all positions
+        self.store_all_positions()
+
+    def store_all_positions(self):
+        """
+        Store all positions in the database.
+        """
+        for controller_id, positions_list in self.positions_held.items():
+            for position in positions_list:
+                mid_price = self.strategy.market_data_provider.get_price_by_type(
+                    position.connector_name, position.trading_pair, PriceType.MidPrice)
+                position_summary = position.get_position_summary(mid_price)
+
+                # Create a new Position record
+                position_record = Position(
+                    id=str(uuid.uuid4()),
+                    controller_id=controller_id,
+                    market=position_summary.connector_name,
+                    trading_pair=position_summary.trading_pair,
+                    timestamp=int(self.strategy.current_timestamp * 1e3),
+                    volume_traded_quote=position_summary.volume_traded_quote,
+                    amount=position_summary.amount,
+                    breakeven_price=position_summary.breakeven_price,
+                    unrealized_pnl_quote=position_summary.unrealized_pnl_quote,
+                    cum_fees_quote=position_summary.cum_fees_quote,
+                    filled_orders=position.filled_orders
+                )
+
+                # Store the position in the database
+                with MarketsRecorder.get_instance()._sql_manager.get_new_session() as session:
+                    session.add(position_record)
+                    session.commit()
 
     def store_all_executors(self):
         for controller_id, executors_list in self.active_executors.items():
