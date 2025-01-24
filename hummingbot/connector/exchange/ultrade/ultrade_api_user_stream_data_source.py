@@ -31,6 +31,8 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
 
         self.ultrade_client = self.create_ultrade_client()
+        self.ultrade_events_queue: asyncio.Queue = asyncio.Queue()
+        self.subscriptions_list: List[str] = []
 
     def create_ultrade_client(self) -> UltradeClient:
         client = UltradeClient(network=self._domain)
@@ -63,6 +65,7 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._message_queue = output
                 self._ws_assistant = await self._connected_websocket_assistant()
                 await self._subscribe_channels(websocket_assistant=self._ws_assistant)
+                await self._process_websocket_messages_ultrade()
             except asyncio.CancelledError:
                 raise
             except ConnectionError as connection_exception:
@@ -81,16 +84,16 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws: WSAssistant = await self._get_ws_assistant()
         return ws
 
-    def ultrade_market_streams_event_handler(self, event_name, event_data):
-        if event_name is not None and event_data is not None:
-            event_message = {
-                "event": event_name,
-                "data": event_data
-            }
-            if event_name in ["order", "userTrade", "codexBalances"]:
-                self._message_queue.put_nowait(event_message)
-            else:
-                pass    # Ignore all other channels
+    def ultrade_user_streams_event_handler(self, event_name, event_data):
+        try:
+            if event_name is not None and event_data is not None:
+                event_message = {
+                    "event": event_name,
+                    "data": event_data
+                }
+                self.ultrade_events_queue.put_nowait(event_message)
+        except Exception:
+            raise
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
@@ -113,7 +116,8 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                 }
 
-                await self._connector.ultrade_client.subscribe(request, self.ultrade_market_streams_event_handler)
+                connection_id: str = str(await self._connector.ultrade_client.subscribe(request, self.ultrade_user_streams_event_handler))
+                self.subscriptions_list.append(connection_id)
 
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
@@ -124,3 +128,27 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 exc_info=True
             )
             raise
+
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
+
+    async def _process_websocket_messages_ultrade(self):
+        async for event in self.ultrade_events_queue:
+            try:
+                event_name = event["event"]
+                if event_name in ["order", "userTrade", "codexBalances"]:
+                    self._message_queue.put_nowait(event)
+                else:
+                    pass    # Ignore all other channels
+            except Exception:
+                raise
+
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
+        for connection_id in self.subscriptions_list:
+            try:
+                await self.ultrade_client.unsubscribe(str(connection_id))
+            except Exception:
+                continue
+        self.subscriptions_list.clear()

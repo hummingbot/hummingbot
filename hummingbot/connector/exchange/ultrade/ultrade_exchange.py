@@ -38,7 +38,7 @@ class UltradeExchange(ExchangePyBase):
                  ultrade_trading_key: str,
                  ultrade_wallet_address: str,
                  ultrade_mnemonic_key: str,
-                 ultra_session_token: str,
+                 ultrade_session_token: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -46,7 +46,7 @@ class UltradeExchange(ExchangePyBase):
         self.ultrade_trading_key = ultrade_trading_key
         self.ultrade_wallet_address = ultrade_wallet_address
         self.ultrade_mnemonic_key = ultrade_mnemonic_key
-        self.ultrade_session_token = ultra_session_token
+        self.ultrade_session_token = ultrade_session_token
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -54,9 +54,9 @@ class UltradeExchange(ExchangePyBase):
 
         self.available_trading_pairs = None
         self.ultrade_client = self.create_ultrade_client()
-        self._ultrade_conversion_rules: Optional[Dict[str, int]] = None
+        self._ultrade_conversion_rules: Optional[Dict[str, int]] = {}
         self._ultrade_token_address_asset_map: Optional[Dict[str, str]] = {}
-        self._ultrade_token_id_asset_map: Optional[Dict[str, str]] = {}
+        self._ultrade_token_id_asset_map: Optional[Dict[int, str]] = {}
         super().__init__(client_config_map)
 
     def create_ultrade_client(self) -> UltradeClient:
@@ -82,6 +82,7 @@ class UltradeExchange(ExchangePyBase):
             trading_key=self.ultrade_trading_key,
             wallet_address=self.ultrade_wallet_address,
             mnemonic_key=self.ultrade_mnemonic_key,
+            session_token=self.ultrade_session_token,
             time_provider=self._time_synchronizer)
 
     @property
@@ -420,7 +421,7 @@ class UltradeExchange(ExchangePyBase):
 
                 elif event_type == CONSTANTS.CODEX_BALANCES_EVENT_TYPE:
                     balance_data = event_message.get("data")
-                    asset_name = self._ultrade_token_address_asset_map.get(balance_data.get("tokenAddress"))
+                    asset_name = self._ultrade_token_address_asset_map.get(balance_data.get("tokenAddress").upper())
                     free_balance = self.from_fixed_point(asset=asset_name, value=int(balance_data.get("amount")))
                     locked_balance = self.from_fixed_point(asset=asset_name, value=int(balance_data.get("lockedAmount")))
                     total_balance = free_balance + locked_balance
@@ -505,7 +506,7 @@ class UltradeExchange(ExchangePyBase):
         await self.trading_pair_symbol_map()
 
         for balance_entry in account_info:
-            asset_name = self._ultrade_token_address_asset_map.get(balance_entry["tokenAddress"])
+            asset_name = self._ultrade_token_address_asset_map.get(balance_entry["tokenAddress"].upper())
             free_balance = self.from_fixed_point(asset=asset_name, value=int(balance_entry["amount"]))
             locked_balance = self.from_fixed_point(asset=asset_name, value=int(balance_entry["lockedAmount"]))
             total_balance = free_balance + locked_balance
@@ -526,12 +527,12 @@ class UltradeExchange(ExchangePyBase):
         for symbol_data in filter(ultrade_utils.is_exchange_information_valid, exchange_info["symbols"]):
             trading_pair_mapping[symbol_data["pair_key"]] = combine_to_hb_trading_pair(base=symbol_data["base_currency"].upper(),
                                                                                        quote=symbol_data["price_currency"].upper())
-            token_address_asset_mapping[symbol_data["base_id"]] = symbol_data["base_currency"].upper()
-            token_address_asset_mapping[symbol_data["price_id"]] = symbol_data["price_currency"].upper()
-            token_id_asset_mapping[symbol_data["base_token_id"]] = symbol_data["base_currency"].upper()
-            token_id_asset_mapping[symbol_data["price_token_id"]] = symbol_data["price_currency"].upper()
-            conversion_rules[symbol_data["base_currency"].upper()] = int(symbol_data["base_decimal"])
-            conversion_rules[symbol_data["price_currency"].upper()] = int(symbol_data["price_decimal"])
+            token_address_asset_mapping[str(symbol_data["base_id"]).upper()] = symbol_data["base_currency"].upper()
+            token_address_asset_mapping[str(symbol_data["price_id"]).upper()] = symbol_data["price_currency"].upper()
+            token_id_asset_mapping[int(symbol_data["base_token_id"])] = symbol_data["base_currency"].upper()
+            token_id_asset_mapping[int(symbol_data["price_token_id"])] = symbol_data["price_currency"].upper()
+            conversion_rules[str(symbol_data["base_currency"]).upper()] = int(symbol_data["base_decimal"])
+            conversion_rules[str(symbol_data["price_currency"]).upper()] = int(symbol_data["price_decimal"])
         self._set_trading_pair_symbol_map(trading_pair_mapping)
         self._ultrade_token_address_asset_map.update(token_address_asset_mapping)
         self._ultrade_token_id_asset_map.update(token_id_asset_mapping)
@@ -547,14 +548,14 @@ class UltradeExchange(ExchangePyBase):
     def from_fixed_point(self, asset: str, value: int) -> Decimal:
         if asset is None:
             return Decimal(0)
-        value = Decimal(str(value)) / Decimal(str(10 ** self._conversion_rules_ultrade[asset]))
+        value = Decimal(str(value)) / Decimal(str(10 ** self._ultrade_conversion_rules[asset]))
 
         return value
 
     def to_fixed_point(self, asset: str, value: Decimal) -> int:
         if asset is None:
             return 0
-        value = int(Decimal(str(value)) * Decimal(str(10 ** self._conversion_rules_ultrade[asset])))
+        value = int(Decimal(str(value)) * Decimal(str(10 ** self._ultrade_conversion_rules[asset])))
 
         return value
 

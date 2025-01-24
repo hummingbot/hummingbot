@@ -4,10 +4,11 @@ from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WS
 
 
 class UltradeAuth(AuthBase):
-    def __init__(self, trading_key: str, wallet_address: str, mnemonic_key: str, time_provider: TimeSynchronizer):
+    def __init__(self, trading_key: str, wallet_address: str, mnemonic_key: str, session_token: str, time_provider: TimeSynchronizer):
         self.trading_key = trading_key
         self.wallet_address = wallet_address
         self.mnemonic_key = mnemonic_key
+        self.session_token = session_token
         self.time_provider = time_provider
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:

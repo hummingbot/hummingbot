@@ -26,11 +26,12 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
         self._connector = connector
-        self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._domain = domain
         self._api_factory = api_factory
+
         self.ultrade_client = self.create_ultrade_client()
+        self.ultrade_events_queue: asyncio.Queue = asyncio.Queue()
+        self.subscriptions_list: List[str] = []
 
     def create_ultrade_client(self) -> UltradeClient:
         client = UltradeClient(network=self._domain)
@@ -56,6 +57,7 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 ws: WSAssistant = await self._connected_websocket_assistant()
                 await self._subscribe_channels(ws)
+                await self._process_websocket_messages_ultrade()
             except asyncio.CancelledError:
                 raise
             except ConnectionError as connection_exception:
@@ -83,19 +85,15 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return order_book
 
     def ultrade_market_streams_event_handler(self, event_name, event_data):
-        if event_name is not None and event_data is not None:
-            event = {
-                "event": event_name,
-            }
-            data = {
-                "data": event_data
-            }
-            channel: str = self._channel_originating_message(event_message=event)
-            valid_channels = self._get_messages_queue_keys()
-            if channel in valid_channels:
-                self._message_queue[channel].put_nowait(data)
-            else:
-                pass    # Ignore all other channels
+        try:
+            if event_name is not None and event_data is not None:
+                event = {
+                    "event": event_name,
+                    "data": event_data
+                }
+                self.ultrade_events_queue.put_nowait(event)
+        except Exception:
+            raise
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -111,7 +109,8 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     'options': {}
                 }
 
-                await self._connector.ultrade_client.subscribe(request, self.ultrade_market_streams_event_handler)
+                connection_id: str = str(await self._connector.ultrade_client.subscribe(request, self.ultrade_market_streams_event_handler))
+                self.subscriptions_list.append(connection_id)
 
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
@@ -151,6 +150,18 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book, time.time(), {"trading_pair": trading_pair})
         message_queue.put_nowait(order_book_message)
 
+    async def _process_websocket_messages_ultrade(self):
+        async for event in self.ultrade_events_queue:
+            try:
+                channel: str = self._channel_originating_message(event_message=event)
+                valid_channels = self._get_messages_queue_keys()
+                if channel in valid_channels:
+                    self.ultrade_events_queue.put_nowait(event["data"])
+                else:
+                    pass    # Ignore all other channels
+            except Exception:
+                raise
+
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
         event_type = event_message.get("event")
@@ -174,3 +185,11 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }
 
         return trade
+
+    async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
+        for connection_id in self.subscriptions_list:
+            try:
+                await self.ultrade_client.unsubscribe(str(connection_id))
+            except Exception:
+                continue
+        self.subscriptions_list.clear()
