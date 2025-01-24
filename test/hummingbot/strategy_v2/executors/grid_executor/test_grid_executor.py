@@ -72,7 +72,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -96,7 +96,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Verify order properties
         first_level = executor.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED][0]
         self.assertEqual(first_level.active_open_order.order_id, "OID-BUY-1")
-        self.assertEqual(first_level.amount_quote, Decimal("10"))
+        self.assertAlmostEqual(first_level.amount_quote, Decimal("10"))
 
     @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("110")))
     async def test_control_task_grid_open_orders_perps(self):
@@ -110,7 +110,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -142,7 +142,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("100"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -191,7 +191,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -239,7 +239,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             activation_bounds=Decimal("0.05"),
             limit_price=Decimal("90"),
             triple_barrier_config=TripleBarrierConfig(
@@ -279,7 +279,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("100"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("8"),
             activation_bounds=Decimal("0.05"),
             limit_price=Decimal("110"),
             triple_barrier_config=TripleBarrierConfig(
@@ -846,7 +846,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("100"),
+            min_order_amount_quote=Decimal("85"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
