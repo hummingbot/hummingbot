@@ -61,7 +61,6 @@ class GridExecutor(ExecutorBase):
         self.levels_by_state = {state: [] for state in GridLevelStates}
         self._close_order: Optional[TrackedOrder] = None
         self._filled_orders = []
-        self._held_position_orders = []  # Keep track of orders that become held positions
         self._failed_orders = []
         self._canceled_orders = []
 
@@ -278,14 +277,9 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
-        if keep_position:
-            self.close_type = CloseType.POSITION_HOLD
-            self.cancel_open_orders()
-            self.stop()
-        else:
-            self._status = RunnableStatus.SHUTTING_DOWN
-            self.close_type = CloseType.EARLY_STOP
-            self.cancel_open_orders()
+        self.cancel_open_orders()
+        self._status = RunnableStatus.SHUTTING_DOWN
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
 
     def update_grid_levels(self):
         self.levels_by_state = {state: [] for state in GridLevelStates}
