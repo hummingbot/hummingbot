@@ -11,7 +11,6 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
-from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
@@ -249,114 +248,6 @@ class QuantumGridAllocator(ControllerBase):
                         f"${total_amount:<9.2f} ${position_size:<9.2f} ${volume:<9.2f} | "
                         f"${pnl:>+9.2f} ${realized_pnl_quote:>+9.2f} ${fees:>9.2f} | "
                         f"{config.start_price:<10.4f} {current_price:<10.4f} {config.end_price:<10.4f} {config.limit_price:<10.4f}"
-                    )
-
-        # Terminated Grids Summary
-        terminated_executors = self.filter_executors(
-            executors=self.executors_info,
-            filter_func=lambda e: not e.is_active and e.close_type == CloseType.POSITION_HOLD
-        )
-        if terminated_executors:
-            # Aggregate held positions by asset and side
-            held_positions = {}
-            for executor in terminated_executors:
-                config = executor.config
-                custom_info = executor.custom_info
-                trading_pair = config.trading_pair
-                asset = trading_pair.split("-")[0]
-                if asset not in held_positions:
-                    held_positions[asset] = {
-                        TradeType.BUY: {"total_value": Decimal("0"), "weighted_bep": Decimal("0")},
-                        TradeType.SELL: {"total_value": Decimal("0"), "weighted_bep": Decimal("0")}
-                    }
-                held_size = Decimal(str(custom_info.get('held_position_value', '0')))
-                if held_size > 0:
-                    break_even = Decimal(str(custom_info.get('break_even_price', '0')))
-                    if break_even > 0:
-                        side_data = held_positions[asset][config.side]
-                        side_data["total_value"] += held_size
-                        side_data["weighted_bep"] += held_size * break_even
-
-            # Display aggregated results
-            status_lines.append("")
-            status_lines.append("Held Positions Summary:")
-            status_lines.append("-" * 120)
-            status_lines.append(
-                f"{'Asset':<8} {'Side':<6} | "
-                f"{'Total Value':<12} | "
-                f"{'Avg BEP':<16} | "
-                f"{'Current':<16} | "
-                f"{'Float BEP%':<10} | "
-                f"{'Float PnL':<12}"
-            )
-            status_lines.append("-" * 120)
-            for asset, sides in held_positions.items():
-                trading_pair = f"{asset}-{self.config.quote_asset}"
-                current_price = self.get_mid_price(trading_pair)
-                for side, data in sides.items():
-                    if data["total_value"] > 0:
-                        avg_bep = data["weighted_bep"] / data["total_value"]
-                        price_diff_pct = (current_price - avg_bep) / avg_bep * 100
-                        if side == TradeType.SELL:
-                            price_diff_pct = -price_diff_pct
-                        float_pnl = data["total_value"] * price_diff_pct / 100
-                        status_lines.append(
-                            f"{asset:<8} {side.name:<6} | "
-                            f"${data['total_value']:>11.2f} | "
-                            f"{avg_bep:>16.8f} | "
-                            f"{current_price:>16.8f} | "
-                            f"{price_diff_pct:>+9.2f}% | "
-                            f"${float_pnl:>+11.2f}"
-                        )
-
-            # Show detailed terminated grids if requested
-            if self.config.show_terminated_details:
-                status_lines.append("")
-                status_lines.append("Terminated Grids Details:")
-                status_lines.append("-" * 140)
-                status_lines.append(
-                    f"{'Asset':<8} {'Side':<6} | "
-                    f"{'Close Type':<12} | "
-                    f"{'BEP':<10} | "
-                    f"{'Net PnL':<12} | "
-                    f"{'Held Size':<12} | "
-                    f"{'Held PnL':<12} | "
-                    f"{'Volume':<12} | "
-                    f"{'Fees':<10}"
-                )
-                status_lines.append("-" * 140)
-                for executor in terminated_executors:
-                    config = executor.config
-                    custom_info = executor.custom_info
-                    trading_pair = config.trading_pair
-                    asset = trading_pair.split("-")[0]
-                    # Get grid metrics
-                    net_pnl = executor.net_pnl_quote
-                    volume = executor.filled_amount_quote
-                    fees = executor.cum_fees_quote
-                    # Get breakeven price and position info
-                    break_even = custom_info.get('break_even_price', 'N/A')
-                    if break_even != 'N/A':
-                        break_even = f"{Decimal(str(break_even)):.4f}"
-                    # Get held position info if applicable
-                    held_size = Decimal('0')
-                    held_pnl = Decimal('0')
-                    if executor.close_type == CloseType.POSITION_HOLD:
-                        held_size = Decimal(str(custom_info.get('held_position_value', '0')))
-                        if held_size > 0:
-                            current_price = self.get_mid_price(trading_pair)
-                            bep = Decimal(str(break_even))
-                            price_diff_pct = (current_price - bep) / bep
-                            held_pnl = held_size * price_diff_pct * (1 if config.side == TradeType.BUY else -1)
-                    status_lines.append(
-                        f"{asset:<8} {config.side.name:<6} | "
-                        f"{executor.close_type.name:<12} | "
-                        f"{break_even:>10} | "
-                        f"${net_pnl:>+11.2f} | "
-                        f"${held_size:>11.2f} | "
-                        f"${held_pnl:>+11.2f} | "
-                        f"${volume:>11.2f} | "
-                        f"${fees:>9.2f}"
                     )
 
         status_lines.append("-" * 100 + "\n")
