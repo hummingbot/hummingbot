@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -75,4 +75,5 @@ class PerformanceReport(BaseModel):
     volume_traded: Decimal = Decimal("0")
     open_order_volume: Decimal = Decimal("0")
     inventory_imbalance: Decimal = Decimal("0")
+    positions_summary: List = []
     close_type_counts: Dict[CloseType, int] = {}
