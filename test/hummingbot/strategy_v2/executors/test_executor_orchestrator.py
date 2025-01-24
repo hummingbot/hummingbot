@@ -53,8 +53,11 @@ class TestExecutorOrchestrator(unittest.TestCase):
     @patch.object(DCAExecutor, "start")
     @patch.object(ArbitrageExecutor, "start")
     @patch.object(TWAPExecutor, "start")
-    def test_execute_actions_create_executor(self, arbitrage_start_mock: MagicMock, dca_start_mock: MagicMock,
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_execute_actions_create_executor(self, markets_recorder_mock, arbitrage_start_mock: MagicMock, dca_start_mock: MagicMock,
                                              position_start_mock: MagicMock, twap_start_mock: MagicMock):
+        markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.store_or_update_executor = MagicMock(return_value=None)
         position_executor_config = PositionExecutorConfig(
             timestamp=1234, connector_name="binance",
             trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
