@@ -44,6 +44,7 @@ class ExecutorBase(RunnableBase):
         self.close_type: Optional[CloseType] = None
         self.close_timestamp: Optional[float] = None
         self._strategy: ScriptStrategyBase = strategy
+        self._held_position_orders = []  # Keep track of orders that become held positions
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
 
