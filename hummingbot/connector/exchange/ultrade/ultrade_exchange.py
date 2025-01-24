@@ -56,6 +56,7 @@ class UltradeExchange(ExchangePyBase):
         self.ultrade_client = self.create_ultrade_client()
         self._ultrade_conversion_rules: Optional[Dict[str, int]] = None
         self._ultrade_token_address_asset_map: Optional[Dict[str, str]] = {}
+        self._ultrade_token_id_asset_map: Optional[Dict[str, str]] = {}
         super().__init__(client_config_map)
 
     def create_ultrade_client(self) -> UltradeClient:
@@ -314,9 +315,9 @@ class UltradeExchange(ExchangePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                event_type = event_message.get("e")
+                event_type = event_message.get("event")
                 # Refer to https://github.com/ultrade-org/ultrade-python-sdk/blob/master/ultrade/socket_client.py
-                if event_type == "executionReport":
+                if event_type == "order":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
                         client_order_id = event_message.get("c")
@@ -356,14 +357,75 @@ class UltradeExchange(ExchangePyBase):
                         )
                         self._order_tracker.process_order_update(order_update=order_update)
 
-                elif event_type == "outboundAccountPosition":
-                    balances = event_message["B"]
-                    for balance_entry in balances:
-                        asset_name = balance_entry["a"]
-                        free_balance = Decimal(balance_entry["f"])
-                        total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["l"])
-                        self._account_available_balances[asset_name] = free_balance
-                        self._account_balances[asset_name] = total_balance
+                if event_type == CONSTANTS.USER_ORDER_EVENT_TYPE:
+                    update_type, order_data = event_message.get("data")
+                    exchange_order_id = str(order_data[3])
+                    tracked_order = next((order for order in self._order_tracker.all_updatable_orders if order.exchange_order_id == exchange_order_id), None)
+
+                    if tracked_order is not None:
+                        if update_type == "add":
+                            new_state = OrderState.OPEN
+                        elif update_type == "update":
+                            status_code = int(order_data[4])
+                            if status_code == 1:
+                                new_state = OrderState.OPEN
+                            elif status_code == 2:
+                                new_state = OrderState.CANCELED
+                            elif status_code == 3 or status_code == 4:
+                                new_state = OrderState.FILLED
+                        elif update_type == "cancel":
+                            new_state = OrderState.CANCELED
+                        order_update = OrderUpdate(
+                            trading_pair=tracked_order.trading_pair,
+                            update_timestamp=self._time_synchronizer.time(),
+                            new_state=new_state,
+                            client_order_id=exchange_order_id,
+                            exchange_order_id=exchange_order_id,
+                        )
+                        self._order_tracker.process_order_update(order_update=order_update)
+
+                elif event_type == CONSTANTS.USER_TRADE_EVENT_TYPE:
+                    trade_data = event_message.get("data")
+
+                    if trade_data[11] == "Confirmed":
+                        exchange_order_id = str(trade_data[3])
+                        tracked_order = next((order for order in self._order_tracker.all_fillable_orders if order.exchange_order_id == exchange_order_id), None)
+
+                        if tracked_order is not None:
+                            fee_token = self._ultrade_token_id_asset_map.get(int(trade_data[13]))
+                            fee_amount = Decimal(str(int(trade_data[12]))) / Decimal(str(10 ** int(trade_data[14])))
+                            trade_type = TradeType.BUY if trade_data[4] else TradeType.SELL
+                            fee = TradeFeeBase.new_spot_fee(
+                                fee_schema=self.trade_fee_schema(),
+                                trade_type=trade_type,
+                                percent_token=fee_token,
+                                flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)]
+                            )
+                            base, quote = tracked_order.trading_pair.split("-")
+                            fill_price = self.from_fixed_point(quote, int(trade_data[7]))
+                            fill_base_amount = self.from_fixed_point(base, int(trade_data[8]))
+                            fill_quote_amount = fill_base_amount * fill_price
+                            trade_update = TradeUpdate(
+                                trade_id=str(trade_data[6]),
+                                client_order_id=tracked_order.client_order_id,
+                                exchange_order_id=exchange_order_id,
+                                trading_pair=tracked_order.trading_pair,
+                                fee=fee,
+                                fill_base_amount=fill_base_amount,
+                                fill_quote_amount=fill_quote_amount,
+                                fill_price=fill_price,
+                                fill_timestamp=self._time_synchronizer.time(),
+                            )
+                            self._order_tracker.process_trade_update(trade_update)
+
+                elif event_type == CONSTANTS.CODEX_BALANCES_EVENT_TYPE:
+                    balance_data = event_message.get("data")
+                    asset_name = self._ultrade_token_address_asset_map.get(balance_data.get("tokenAddress"))
+                    free_balance = self.from_fixed_point(asset=asset_name, value=int(balance_data.get("amount")))
+                    locked_balance = self.from_fixed_point(asset=asset_name, value=int(balance_data.get("lockedAmount")))
+                    total_balance = free_balance + locked_balance
+                    self._account_available_balances[asset_name] = free_balance
+                    self._account_balances[asset_name] = total_balance
 
             except asyncio.CancelledError:
                 raise
@@ -459,16 +521,20 @@ class UltradeExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         trading_pair_mapping = bidict()
         token_address_asset_mapping = {}
+        token_id_asset_mapping = {}
         conversion_rules = {}
         for symbol_data in filter(ultrade_utils.is_exchange_information_valid, exchange_info["symbols"]):
             trading_pair_mapping[symbol_data["pair_key"]] = combine_to_hb_trading_pair(base=symbol_data["base_currency"].upper(),
                                                                                        quote=symbol_data["price_currency"].upper())
             token_address_asset_mapping[symbol_data["base_id"]] = symbol_data["base_currency"].upper()
             token_address_asset_mapping[symbol_data["price_id"]] = symbol_data["price_currency"].upper()
+            token_id_asset_mapping[symbol_data["base_token_id"]] = symbol_data["base_currency"].upper()
+            token_id_asset_mapping[symbol_data["price_token_id"]] = symbol_data["price_currency"].upper()
             conversion_rules[symbol_data["base_currency"].upper()] = int(symbol_data["base_decimal"])
             conversion_rules[symbol_data["price_currency"].upper()] = int(symbol_data["price_decimal"])
         self._set_trading_pair_symbol_map(trading_pair_mapping)
         self._ultrade_token_address_asset_map.update(token_address_asset_mapping)
+        self._ultrade_token_id_asset_map.update(token_id_asset_mapping)
         self._ultrade_conversion_rules.update(conversion_rules)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
