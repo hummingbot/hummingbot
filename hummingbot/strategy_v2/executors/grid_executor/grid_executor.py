@@ -134,7 +134,7 @@ class GridExecutor(ExecutorBase):
         )
         min_base_increment = self.trading_rules.min_base_amount_increment
         # Add safety margin to minimum notional to account for price movements and quantization
-        min_notional_with_margin = min_notional * Decimal("1.2")  # 20% margin for safety
+        min_notional_with_margin = min_notional * Decimal("1.05")  # 20% margin for safety
         # Calculate minimum base amount that satisfies both min_notional and quantization
         min_base_amount = max(
             min_notional_with_margin / price,  # Minimum from notional requirement
@@ -169,7 +169,7 @@ class GridExecutor(ExecutorBase):
             )
             quote_amount_per_level = base_amount_per_level * price
             # Adjust number of levels if total amount would be exceeded
-            n_levels = min(n_levels, int(self.config.total_amount_quote / quote_amount_per_level))
+            n_levels = min(n_levels, int(float(self.config.total_amount_quote) / float(quote_amount_per_level)))
         # Ensure we have at least one level
         n_levels = max(1, n_levels)
         # Generate price levels with even distribution
@@ -179,7 +179,7 @@ class GridExecutor(ExecutorBase):
         else:
             # For single level, use mid-point of range
             mid_price = (self.config.start_price + self.config.end_price) / 2
-            prices = [float(mid_price)]
+            prices = [mid_price]
             self.step = grid_range
         take_profit = max(self.step, self.config.triple_barrier_config.take_profit) if self.config.coerce_tp_to_step else self.config.triple_barrier_config.take_profit
         # Create grid levels
@@ -359,7 +359,7 @@ class GridExecutor(ExecutorBase):
             else:
                 self._failed_orders.append(self._close_order.order_id)
                 self._close_order = None
-        elif self.config.keep_position:
+        elif not self.config.keep_position:
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def adjust_and_place_open_order(self, level: GridLevel):
