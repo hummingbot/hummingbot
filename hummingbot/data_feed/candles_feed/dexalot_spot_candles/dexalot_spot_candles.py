@@ -127,7 +127,6 @@ class DexalotSpotCandles(CandlesBase):
         candles_row_dict: Dict[str, Any] = {}
         if data is not None and data.get("type") == 'chartSnapShot':
             candle = data.get("data")[-1]
-            print(candle)
             timestamp = datetime.strptime(candle["date"], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(timestamp)
             candles_row_dict["open"] = candle["open"]
