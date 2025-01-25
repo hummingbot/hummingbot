@@ -38,17 +38,16 @@ s_decimal_0 = Decimal(0)
 
 
 class BybitPerpetualDerivative(PerpetualDerivativePyBase):
-
     web_utils = web_utils
 
     def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        bybit_perpetual_api_key: str = None,
-        bybit_perpetual_secret_key: str = None,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            self,
+            client_config_map: "ClientConfigAdapter",
+            bybit_perpetual_api_key: str = None,
+            bybit_perpetual_secret_key: str = None,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
 
         self.bybit_perpetual_api_key = bybit_perpetual_api_key
@@ -179,10 +178,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         param_error_target_str = (
             f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp"
         )
-        is_time_synchronizer_related = (
-            ts_error_target_str in error_description
-            or param_error_target_str in error_description
-        )
+        is_time_synchronizer_related = (ts_error_target_str in error_description or param_error_target_str in error_description)
+
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -225,15 +222,15 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return True
 
     async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        position_action: PositionAction = PositionAction.NIL,
-        **kwargs,
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
     ) -> Tuple[str, float]:
         position_idx = self._get_position_idx(trade_type, position_action)
         data = {
@@ -433,7 +430,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         for asset in unified_wallet_balance:
             self._account_balances[asset["coin"]] = Decimal(asset["equity"])
-            self._account_available_balances[asset["coin"]] = Decimal(asset["availableToWithdraw"])
+            self._account_available_balances[asset["coin"]] = Decimal(asset["equity"]) - Decimal(asset["locked"]) - Decimal(asset["totalOrderIM"]) - Decimal(
+                asset["totalPositionMM"]) - Decimal(asset["totalPositionIM"])
+
+        self._account_balances["USDT"] = Decimal(unified_wallet_response["result"]["list"][0]["totalMarginBalance"])
+        self._account_available_balances["USDT"] = Decimal(unified_wallet_response["result"]["list"][0]["totalAvailableBalance"])
 
     async def _update_positions(self):
         """
@@ -588,7 +589,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     for trade_msg in payload:
                         self._process_trade_event_message(trade_msg)
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
-                    for wallet_msg in payload[0]["coin"]:
+                    for wallet_msg in payload:
                         self._process_wallet_event_message(wallet_msg)
                 elif endpoint is None:
                     self.logger().error(f"Could not extract endpoint from {event_message}.")
@@ -704,12 +705,12 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         Updates account balances.
         :param wallet_msg: The account balance update message payload
         """
-        if "coin" in wallet_msg:  # non-linear
-            symbol = wallet_msg["coin"]
+        if "coin" in wallet_msg["coin"][0]:  # non-linear
+            symbol = wallet_msg["coin"][0]["coin"]
         else:  # linear
             symbol = "USDT"
-        self._account_balances[symbol] = Decimal(str(wallet_msg["equity"]))
-        self._account_available_balances[symbol] = Decimal(str(wallet_msg["availableToWithdraw"]))
+        self._account_balances[symbol] = Decimal(str(wallet_msg["coin"][0]["equity"]))
+        self._account_available_balances[symbol] = Decimal(str(wallet_msg["totalAvailableBalance"]))
 
     async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
