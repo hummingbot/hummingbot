@@ -98,10 +98,10 @@ class DexalotSpotCandles(CandlesBase):
         }
         if start_time is not None or end_time is not None:
             start_time = start_time if start_time is not None else end_time - limit * self.interval_in_seconds
-            start_isotime = f"{datetime.utcfromtimestamp(start_time).isoformat(timespec='milliseconds')}Z"
+            start_isotime = f"{datetime.fromtimestamp(start_time).isoformat(timespec='milliseconds')}Z"
             params["periodfrom"] = start_isotime
             end_time = end_time if end_time is not None else start_time + limit * self.interval_in_seconds
-            end_isotiome = f"{datetime.utcfromtimestamp(start_time).isoformat(timespec='milliseconds')}Z"
+            end_isotiome = f"{datetime.fromtimestamp(end_time).isoformat(timespec='milliseconds')}Z"
             params["periodto"] = end_isotiome
         return params
 
@@ -126,7 +126,8 @@ class DexalotSpotCandles(CandlesBase):
     def _parse_websocket_message(self, data):
         candles_row_dict: Dict[str, Any] = {}
         if data is not None and data.get("type") == 'chartSnapShot':
-            candle = data.get("data")[0]
+            candle = data.get("data")[-1]
+            print(candle)
             timestamp = datetime.strptime(candle["date"], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(timestamp)
             candles_row_dict["open"] = candle["open"]
