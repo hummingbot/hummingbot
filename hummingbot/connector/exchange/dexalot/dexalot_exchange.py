@@ -201,8 +201,9 @@ class DexalotExchange(ExchangePyBase):
             domain=self._domain,
             auth=self._auth)
 
-    def _create_tx_client(self) -> DexalotClient:
+    def _create_tx_client(self) -> Optional[DexalotClient]:
         return DexalotClient(
+            self.api_key,
             self.secret_key,
             connector=self,
             domain=self._domain
