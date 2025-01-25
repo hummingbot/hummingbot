@@ -4,7 +4,6 @@ from decimal import Decimal
 from typing import Dict, List
 
 from eth_account import Account
-from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import AsyncWeb3, Web3
 from web3.middleware import async_geth_poa_middleware
@@ -36,7 +35,6 @@ class DexalotClient:
         self.balance_evm_params = {}
 
         self.provider = CONSTANTS.DEXALOT_SUBNET_RPC_URL if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_SUBNET_RPC_URL
-        self.account: LocalAccount = Account.from_key(dexalot_api_secret)
         self._w3 = Web3(Web3.HTTPProvider(self.provider))
         self.async_w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(self.provider))
         self.async_w3.middleware_onion.inject(async_geth_poa_middleware, layer=0)
