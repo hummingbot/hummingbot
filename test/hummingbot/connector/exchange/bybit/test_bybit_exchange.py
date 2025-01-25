@@ -910,7 +910,7 @@ class TestBybitExchange(unittest.TestCase):
                                 "accruedInterest": "0",
                                 "availableToWithdraw": "10",
                                 "totalOrderIM": "0",
-                                "equity": "0",
+                                "equity": "15",
                                 "totalPositionMM": "0",
                                 "usdValue": "0",
                                 "spotHedgingQty": "0.01592413",
@@ -920,7 +920,7 @@ class TestBybitExchange(unittest.TestCase):
                                 "totalPositionIM": "0",
                                 "walletBalance": "15",
                                 "cumRealisedPnl": "0",
-                                "locked": "0",
+                                "locked": "5",
                                 "marginCollateral": True,
                                 "coin": self.base_asset
                             }

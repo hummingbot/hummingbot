@@ -433,9 +433,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             self._account_available_balances[asset["coin"]] = Decimal(asset["equity"]) - Decimal(asset["locked"]) - Decimal(asset["totalOrderIM"]) - Decimal(
                 asset["totalPositionMM"]) - Decimal(asset["totalPositionIM"])
 
-        self._account_balances["USDT"] = Decimal(unified_wallet_response["result"]["list"][0]["totalMarginBalance"])
-        self._account_available_balances["USDT"] = Decimal(unified_wallet_response["result"]["list"][0]["totalAvailableBalance"])
-
     async def _update_positions(self):
         """
         Retrieves all positions using the REST API.
@@ -707,10 +704,15 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         """
         if "coin" in wallet_msg["coin"][0]:  # non-linear
             symbol = wallet_msg["coin"][0]["coin"]
+
+            self._account_balances[symbol] = Decimal(str(wallet_msg["coin"][0]["equity"]))
+            self._account_available_balances[symbol] = Decimal(str(wallet_msg["coin"][0]["equity"])) - Decimal(wallet_msg["coin"][0]["locked"]) - Decimal(
+                wallet_msg["coin"][0]["totalOrderIM"]) - Decimal(
+                wallet_msg["coin"][0]["totalPositionMM"]) - Decimal(wallet_msg["coin"][0]["totalPositionIM"])
         else:  # linear
             symbol = "USDT"
-        self._account_balances[symbol] = Decimal(str(wallet_msg["coin"][0]["equity"]))
-        self._account_available_balances[symbol] = Decimal(str(wallet_msg["totalAvailableBalance"]))
+            self._account_balances[symbol] = Decimal(str(wallet_msg["totalWalletBalance"]))
+            self._account_available_balances[symbol] = Decimal(str(wallet_msg["totalAvailableBalance"]))
 
     async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """

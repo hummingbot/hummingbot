@@ -99,9 +99,9 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_all_symbols_response(
-        self,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
         linear_url = self.all_symbols_url
@@ -334,15 +334,15 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             "result": {
                 "list": [
                     {
-                        "totalEquity": "3.31216591",
+                        "totalEquity": "2000",
                         "accountIMRate": "0",
-                        "totalMarginBalance": "3.00326056",
+                        "totalMarginBalance": "2000",
                         "totalInitialMargin": "0",
                         "accountType": "UNIFIED",
-                        "totalAvailableBalance": "3.00326056",
+                        "totalAvailableBalance": "2000",
                         "accountMMRate": "0",
                         "totalPerpUPL": "0",
-                        "totalWalletBalance": "3.00326056",
+                        "totalWalletBalance": "2000",
                         "accountLTV": "0",
                         "totalMaintenanceMargin": "0",
                         "coin": [
@@ -360,9 +360,9 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                                 "collateralSwitch": True,
                                 "borrowAmount": "0.0",
                                 "totalPositionIM": "0",
-                                "walletBalance": "0",
+                                "walletBalance": "15",
                                 "cumRealisedPnl": "0",
-                                "locked": "0",
+                                "locked": "5",
                                 "marginCollateral": True,
                                 "coin": self.base_asset
                             },
@@ -380,7 +380,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                                 "collateralSwitch": True,
                                 "borrowAmount": "0.0",
                                 "totalPositionIM": "0",
-                                "walletBalance": "0",
+                                "walletBalance": "2000",
                                 "cumRealisedPnl": "0",
                                 "locked": "0",
                                 "marginCollateral": True,
@@ -409,9 +409,9 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return linear_url
 
     def configure_trade_fills_response(
-        self,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL, trading_pair=self.trading_pair
@@ -429,9 +429,9 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return [url]
 
     def configure_erroneous_trade_fills_response(
-        self,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL, trading_pair=self.trading_pair
@@ -509,20 +509,20 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                 {
                     "accountIMRate": "0",
                     "accountMMRate": "0",
-                    "totalEquity": "10262.91335023",
-                    "totalWalletBalance": "9684.46297164",
-                    "totalMarginBalance": "9684.46297164",
-                    "totalAvailableBalance": "9556.6056555",
+                    "totalEquity": "10",
+                    "totalWalletBalance": "10",
+                    "totalMarginBalance": "10",
+                    "totalAvailableBalance": "10",
                     "totalPerpUPL": "0",
                     "totalInitialMargin": "0",
                     "totalMaintenanceMargin": "0",
                     "coin": [
                         {
                             "coin": self.base_asset,
-                            "equity": "0.00102964",
+                            "equity": "15",
                             "usdValue": "36.70759517",
-                            "walletBalance": "0.00102964",
-                            "availableToWithdraw": "0.00102964",
+                            "walletBalance": "15",
+                            "availableToWithdraw": "10",
                             "availableToBorrow": "",
                             "borrowAmount": "0",
                             "accruedInterest": "0",
@@ -534,7 +534,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                             "bonus": "0",
                             "collateralSwitch": True,
                             "marginCollateral": True,
-                            "locked": "0",
+                            "locked": "5",
                             "spotHedgingQty": "0.01592413"
                         }
                     ],
@@ -567,7 +567,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                             "coin": self.base_asset,
                             "equity": "15",
                             "usdValue": "36.70759517",
-                            "walletBalance": "0.00102964",
+                            "walletBalance": "15",
                             "availableToWithdraw": "10",
                             "availableToBorrow": "",
                             "borrowAmount": "0",
@@ -580,7 +580,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                             "bonus": "0",
                             "collateralSwitch": True,
                             "marginCollateral": True,
-                            "locked": "0",
+                            "locked": "5",
                             "spotHedgingQty": "0.01592413"
                         }
                     ],
@@ -822,10 +822,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertEqual(self.latest_trade_hist_timestamp * 1e3, request_params["start_time"])
 
     def configure_successful_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         """
         :return: the URL configured for the cancelation
@@ -839,10 +839,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_erroneous_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -856,10 +856,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self,
-        successful_order: InFlightOrder,
-        erroneous_order: InFlightOrder,
-        mock_api: aioresponses,
+            self,
+            successful_order: InFlightOrder,
+            erroneous_order: InFlightOrder,
+            mock_api: aioresponses,
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -887,10 +887,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -901,10 +901,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_canceled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -915,10 +915,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_open_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -929,10 +929,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_http_error_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -942,10 +942,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_partially_filled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -956,10 +956,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_partial_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -970,10 +970,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_full_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL, trading_pair=order.trading_pair
@@ -984,10 +984,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_erroneous_http_fill_trade_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
@@ -997,10 +997,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_successful_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.SET_POSITION_MODE_URL, trading_pair=self.trading_pair
@@ -1017,10 +1017,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url
 
     def configure_failed_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.SET_POSITION_MODE_URL, trading_pair=self.trading_pair
@@ -1041,10 +1041,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url, f"ret_code <{error_code}> - {error_msg}"
 
     def configure_failed_set_leverage(
-        self,
-        leverage: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL, trading_pair=self.trading_pair
@@ -1065,10 +1065,10 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return url, f"ret_code <{err_code}> - {err_msg}"
 
     def configure_successful_set_leverage(
-        self,
-        leverage: int,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: int,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL, trading_pair=self.trading_pair
@@ -1407,7 +1407,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         perpetual_trading.set_position_mode(value=PositionMode.ONEWAY)
 
         for trade_type, position_action in product(
-            [TradeType.BUY, TradeType.SELL], [PositionAction.OPEN, PositionAction.CLOSE]
+                [TradeType.BUY, TradeType.SELL], [PositionAction.OPEN, PositionAction.CLOSE]
         ):
             position_idx = self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
             self.assertEqual(
@@ -1417,7 +1417,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         perpetual_trading.set_position_mode(value=PositionMode.HEDGE)
 
         for trade_type, position_action in zip(
-            [TradeType.BUY, TradeType.SELL], [PositionAction.OPEN, PositionAction.CLOSE]
+                [TradeType.BUY, TradeType.SELL], [PositionAction.OPEN, PositionAction.CLOSE]
         ):
             position_idx = self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
             self.assertEqual(
@@ -1425,7 +1425,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             )
 
         for trade_type, position_action in zip(
-            [TradeType.BUY, TradeType.SELL], [PositionAction.CLOSE, PositionAction.OPEN]
+                [TradeType.BUY, TradeType.SELL], [PositionAction.CLOSE, PositionAction.OPEN]
         ):
             position_idx = self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
             self.assertEqual(
@@ -1433,8 +1433,8 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             )
 
         for trade_type, position_action in chain(
-            product([TradeType.RANGE], [PositionAction.CLOSE, PositionAction.OPEN]),
-            product([TradeType.BUY, TradeType.SELL], [PositionAction.NIL]),
+                product([TradeType.RANGE], [PositionAction.CLOSE, PositionAction.OPEN]),
+                product([TradeType.BUY, TradeType.SELL], [PositionAction.NIL]),
         ):
             with self.assertRaises(NotImplementedError, msg=f"Failed on {trade_type} and {position_action}."):
                 self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
