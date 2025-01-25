@@ -22,6 +22,8 @@ class TestDexalotSpotCandles(AbstractTestCandlesBase.TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
+        self.start_time = 1734619800
+        self.end_time = 1734620700
         self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = DexalotSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
