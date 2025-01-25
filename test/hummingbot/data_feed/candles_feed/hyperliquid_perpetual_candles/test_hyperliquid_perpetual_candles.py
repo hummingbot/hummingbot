@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
+from test.hummingbot.data_feed.candles_feed.test_candles_base import AbstractTestCandlesBase
 
 from aioresponses import aioresponses
 
@@ -9,7 +9,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.data_feed.candles_feed.hyperliquid_perpetual_candles import HyperliquidPerpetualCandles
 
 
-class TestHyperliquidPerpetualCandles(TestCandlesBase):
+class TestHyperliquidPerpetualCandles(AbstractTestCandlesBase.TestCandlesBase):
     __test__ = True
     level = 0
 
