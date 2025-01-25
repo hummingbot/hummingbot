@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import time
-from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
+from test.hummingbot.data_feed.candles_feed.test_candles_base import AbstractTestCandlesBase
 
 from aioresponses import aioresponses
 
@@ -11,7 +11,7 @@ from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
 
 
-class TestGateioSpotCandles(TestCandlesBase):
+class TestGateioSpotCandles(AbstractTestCandlesBase.TestCandlesBase):
     __test__ = True
     level = 0
 

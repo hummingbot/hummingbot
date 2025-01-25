@@ -1,12 +1,12 @@
 import asyncio
-from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
+from test.hummingbot.data_feed.candles_feed.test_candles_base import AbstractTestCandlesBase
 
 import hummingbot.data_feed.candles_feed.okx_spot_candles.constants as CONSTANTS
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles import AscendExSpotCandles
 
 
-class TestOKXPerpetualCandles(TestCandlesBase):
+class TestAscendExCandles(AbstractTestCandlesBase.TestCandlesBase):
     __test__ = True
     level = 0
 
