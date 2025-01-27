@@ -195,15 +195,15 @@ class MarketsRecorder:
     def store_or_update_executor(self, executor):
         with self._sql_manager.get_new_session() as session:
             existing_executor = session.query(Executors).filter(Executors.id == executor.config.id).one_or_none()
-
+            serialized_config = executor.executor_info.json()
+            executor_dict = json.loads(serialized_config)
             if existing_executor:
                 # Update existing executor
-                for attr, value in vars(executor).items():
+                for attr, value in executor_dict.items():
                     setattr(existing_executor, attr, value)
             else:
                 # Insert new executor
-                serialized_config = executor.executor_info.json()
-                new_executor = Executors(**json.loads(serialized_config))
+                new_executor = Executors(**executor_dict)
                 session.add(new_executor)
             session.commit()
 
