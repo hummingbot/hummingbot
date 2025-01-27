@@ -3,13 +3,6 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 
-native_tokens = {
-    "ethereum": "ETH",
-    "solana": "SOL"
-}
-
-SUPPORTED_CHAINS = set(native_tokens.keys())
-
 
 def flatten(items):
     """
