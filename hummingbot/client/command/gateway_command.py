@@ -32,7 +32,6 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_list_display,
     build_wallet_display,
     flatten,
-    native_tokens,
     search_configs,
 )
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
@@ -326,7 +325,7 @@ class GatewayCommand(GatewayChainApiManager):
                     self.app.clear_input()
                     # they use an existing wallet
                     if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
-                        native_token: str = native_tokens[chain]
+                        native_token: str = await self._get_native_currency_symbol(chain, network)
                         wallet_table: List[Dict[str, Any]] = []
                         for w in wallets:
                             balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
@@ -369,7 +368,7 @@ class GatewayCommand(GatewayChainApiManager):
                                     "Error adding wallet. Check private key.\n")
 
                         # display wallet balance
-                        native_token: str = native_tokens[chain]
+                        native_token: str = await self._get_native_currency_symbol(chain, network)
                         balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                             chain, network, wallet_address, [
                                 native_token], connector
@@ -450,7 +449,7 @@ class GatewayCommand(GatewayChainApiManager):
                 conf["chain"], conf["network"], conf["wallet_address"]
             )
             # Add native token to the tokens list
-            native_token = native_tokens[chain]
+            native_token = await self._get_native_currency_symbol(chain, network)
             tokens_str = conf.get("tokens", "")
             tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
             if native_token not in tokens:
@@ -529,8 +528,12 @@ class GatewayCommand(GatewayChainApiManager):
                     conf["chain"], conf["network"], conf["wallet_address"]
                 )
 
+                # Add native token to the tokens list
+                native_token = await self._get_native_currency_symbol(chain, network)
                 tokens_str = conf.get("tokens", "")
                 tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+                if native_token not in tokens:
+                    tokens.append(native_token)
 
                 connector_chain_network = [
                     w for w in network_connections
