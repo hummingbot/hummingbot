@@ -45,5 +45,5 @@ USER_ORDER_EVENT_TYPE = "order"
 
 RATE_LIMITS = []
 
-ORDER_NOT_EXIST_MESSAGE = "Order not found"
-UNKNOWN_ORDER_MESSAGE = "Sorry this order id not found"
+ORDER_NOT_EXIST_MESSAGES = ["Order not found"]
+UNKNOWN_ORDER_MESSAGES = ["Sorry this order id not found", "Order has already been cancelled"]

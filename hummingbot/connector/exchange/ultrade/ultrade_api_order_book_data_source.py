@@ -64,7 +64,7 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
                 self.logger().exception(
-                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                    "Unexpected error occurred when listening to order book streams. Retrying in 1 second...",
                 )
                 await self._sleep(1.0)
             finally:
@@ -80,7 +80,7 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         data = await self._connector.ultrade_client.get_depth(symbol)
-        order_book = self._connector.process_ultrade_order_book(data)
+        order_book = await self._connector.process_ultrade_order_book(data)
 
         return order_book
 
@@ -145,14 +145,15 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["data"].get("pair"))
-        order_book = self._connector.process_ultrade_order_book(raw_message["data"])
+        order_book = await self._connector.process_ultrade_order_book(raw_message["data"])
         order_book_message: OrderBookMessage = UltradeOrderBook.snapshot_message_from_exchange(
             order_book, time.time(), {"trading_pair": trading_pair})
         message_queue.put_nowait(order_book_message)
 
     async def _process_websocket_messages_ultrade(self):
-        async for event in self.ultrade_events_queue:
+        while True:
             try:
+                event = await self.ultrade_events_queue.get()
                 channel: str = self._channel_originating_message(event_message=event)
                 valid_channels = self._get_messages_queue_keys()
                 if channel in valid_channels:

@@ -29,8 +29,6 @@ if TYPE_CHECKING:
 
 
 class UltradeExchange(ExchangePyBase):
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
-
     web_utils = web_utils
 
     def __init__(self,
@@ -57,6 +55,7 @@ class UltradeExchange(ExchangePyBase):
         self._ultrade_conversion_rules: Optional[Dict[str, int]] = {}
         self._ultrade_token_address_asset_map: Optional[Dict[str, str]] = {}
         self._ultrade_token_id_asset_map: Optional[Dict[int, str]] = {}
+        self._ultrade_pair_symbol_to_pair_id_map: Optional[Dict[str, int]] = {}
         super().__init__(client_config_map)
 
     def create_ultrade_client(self) -> UltradeClient:
@@ -146,10 +145,10 @@ class UltradeExchange(ExchangePyBase):
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
+        return any(msg in str(status_update_exception) for msg in CONSTANTS.ORDER_NOT_EXIST_MESSAGES)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+        return any(msg in str(cancelation_exception) for msg in CONSTANTS.UNKNOWN_ORDER_MESSAGES)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -212,7 +211,7 @@ class UltradeExchange(ExchangePyBase):
 
         side_str = "B" if trade_type is TradeType.BUY else "S"
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        pair_id = self._pair_symbol_to_pair_id_map[symbol]
+        pair_id = self._ultrade_pair_symbol_to_pair_id_map[symbol]
 
         try:
             order_result = await self.ultrade_client.create_order(
@@ -290,7 +289,8 @@ class UltradeExchange(ExchangePyBase):
                 base_decimal = int(rule.get("base_decimal"))
                 min_order_size = Decimal(rule.get("min_order_size")) / Decimal(10 ** base_decimal)
                 min_base_amount_increment = Decimal(rule.get("min_size_increment")) / Decimal(10 ** base_decimal)
-                min_price_increment = Decimal(rule.get("min_price_increment")) / Decimal(10 ** 18)  # 18 is the default
+                # TODO: get clarification on this. for now, 18 is the default
+                min_price_increment = Decimal(rule.get("min_price_increment")) / Decimal(10 ** 18)
 
                 retval.append(
                     TradingRule(trading_pair,
@@ -318,46 +318,6 @@ class UltradeExchange(ExchangePyBase):
             try:
                 event_type = event_message.get("event")
                 # Refer to https://github.com/ultrade-org/ultrade-python-sdk/blob/master/ultrade/socket_client.py
-                if event_type == "order":
-                    execution_type = event_message.get("x")
-                    if execution_type != "CANCELED":
-                        client_order_id = event_message.get("c")
-                    else:
-                        client_order_id = event_message.get("C")
-
-                    if execution_type == "TRADE":
-                        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
-                        if tracked_order is not None:
-                            fee = TradeFeeBase.new_spot_fee(
-                                fee_schema=self.trade_fee_schema(),
-                                trade_type=tracked_order.trade_type,
-                                percent_token=event_message["N"],
-                                flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])]
-                            )
-                            trade_update = TradeUpdate(
-                                trade_id=str(event_message["t"]),
-                                client_order_id=client_order_id,
-                                exchange_order_id=str(event_message["i"]),
-                                trading_pair=tracked_order.trading_pair,
-                                fee=fee,
-                                fill_base_amount=Decimal(event_message["l"]),
-                                fill_quote_amount=Decimal(event_message["l"]) * Decimal(event_message["L"]),
-                                fill_price=Decimal(event_message["L"]),
-                                fill_timestamp=event_message["T"] * 1e-3,
-                            )
-                            self._order_tracker.process_trade_update(trade_update)
-
-                    tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                    if tracked_order is not None:
-                        order_update = OrderUpdate(
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=event_message["E"] * 1e-3,
-                            new_state=CONSTANTS.ORDER_STATE[event_message["X"]],
-                            client_order_id=client_order_id,
-                            exchange_order_id=str(event_message["i"]),
-                        )
-                        self._order_tracker.process_order_update(order_update=order_update)
-
                 if event_type == CONSTANTS.USER_ORDER_EVENT_TYPE:
                     update_type, order_data = event_message.get("data")
                     exchange_order_id = str(order_data[3])
@@ -388,7 +348,7 @@ class UltradeExchange(ExchangePyBase):
                 elif event_type == CONSTANTS.USER_TRADE_EVENT_TYPE:
                     trade_data = event_message.get("data")
 
-                    if trade_data[11] == "Confirmed":
+                    if trade_data[11].upper() == "CONFIRMED":
                         exchange_order_id = str(trade_data[3])
                         tracked_order = next((order for order in self._order_tracker.all_fillable_orders if order.exchange_order_id == exchange_order_id), None)
 
@@ -444,21 +404,22 @@ class UltradeExchange(ExchangePyBase):
 
             base, quote = trading_pair.split("-")
 
-            # this is for ensuring we have conversion rules for the amount and price
-            await self.trading_pair_symbol_map()
-
             for trade in all_fills_response["trades"]:
+                if Decimal(trade.get("price", "0")) == 0 or trade.get("status", "").upper() != "CONFIRMED":
+                    continue    # Skip trades with zero price - they are canceled orders
+                fee_token = base if trade["isBuyer"] else quote
+                fee_amount = self.from_fixed_point(fee_token, int(trade["fee"]))
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    percent_token=quote,
-                    flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=quote)]
+                    percent_token=fee_token,
+                    flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)]
                 )
-                fill_base_amount = self.from_fixed_point(base, int(trade["trade_amount"]))
-                fill_price = self.from_fixed_point(quote, int(trade["trade_price"]))
+                fill_base_amount = self.from_fixed_point(base, int(trade["amount"]))
+                fill_price = self.from_fixed_point(quote, int(trade["price"]))
                 fill_quote_amount = fill_base_amount * fill_price
                 trade_update = TradeUpdate(
-                    trade_id=str(trade["trades_id"]),
+                    trade_id=str(trade["tradeId"]),
                     client_order_id=order.client_order_id,
                     exchange_order_id=exchange_order_id,
                     trading_pair=trading_pair,
@@ -476,10 +437,10 @@ class UltradeExchange(ExchangePyBase):
         exchange_order_id = await tracked_order.get_exchange_order_id()
         updated_order_data = await self.ultrade_client.get_order_by_id(int(exchange_order_id))
 
-        order_status = updated_order_data["order_status"]
-        new_state = tracked_order.order_state
+        new_state = tracked_order.current_state
+        order_status = updated_order_data["status"]
         if order_status == 1:
-            if Decimal(updated_order_data["order_filled_total"]) > 0:
+            if Decimal(updated_order_data.get("filledAmount", "0")) > 0:
                 new_state = OrderState.PARTIALLY_FILLED
             else:
                 new_state = OrderState.OPEN
@@ -524,6 +485,7 @@ class UltradeExchange(ExchangePyBase):
         token_address_asset_mapping = {}
         token_id_asset_mapping = {}
         conversion_rules = {}
+        pair_symbol_to_pair_id_map = {}
         for symbol_data in filter(ultrade_utils.is_exchange_information_valid, exchange_info["symbols"]):
             trading_pair_mapping[symbol_data["pair_key"]] = combine_to_hb_trading_pair(base=symbol_data["base_currency"].upper(),
                                                                                        quote=symbol_data["price_currency"].upper())
@@ -533,10 +495,12 @@ class UltradeExchange(ExchangePyBase):
             token_id_asset_mapping[int(symbol_data["price_token_id"])] = symbol_data["price_currency"].upper()
             conversion_rules[str(symbol_data["base_currency"]).upper()] = int(symbol_data["base_decimal"])
             conversion_rules[str(symbol_data["price_currency"]).upper()] = int(symbol_data["price_decimal"])
+            pair_symbol_to_pair_id_map[symbol_data["pair_key"]] = int(symbol_data["id"])
         self._set_trading_pair_symbol_map(trading_pair_mapping)
         self._ultrade_token_address_asset_map.update(token_address_asset_mapping)
         self._ultrade_token_id_asset_map.update(token_id_asset_mapping)
         self._ultrade_conversion_rules.update(conversion_rules)
+        self._ultrade_pair_symbol_to_pair_id_map.update(pair_symbol_to_pair_id_map)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -577,17 +541,24 @@ class UltradeExchange(ExchangePyBase):
         return exchange_info
 
     async def process_ultrade_order_book(self, order_book: Dict[str, Any]) -> Dict[str, Any]:
-        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order_book["pair"])
+        while True:
+            try:
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=order_book["pair"])
+                break
+            except Exception:
+                self.logger().error("Error reading trading pair from symbol. Retrying in 1 seconds...", exc_info=True)
+                await asyncio.sleep(1.0)
+
         base, quote = trading_pair.split("-")
 
-        bids = order_book.get("bids", [])
-        asks = order_book.get("asks", [])
+        bids = order_book.get("buy", [])
+        asks = order_book.get("sell", [])
         for bid in bids:
-            bid["price"] = float(self.from_fixed_point(quote, bid["price"]))
-            bid["amount"] = float(self.from_fixed_point(base, bid["amount"]))
+            bid[0] = float(self.from_fixed_point(quote, int(bid[0])))
+            bid[1] = float(self.from_fixed_point(base, int(bid[1])))
         for ask in asks:
-            ask["price"] = float(self.from_fixed_point(quote, ask["price"]))
-            ask["amount"] = float(self.from_fixed_point(base, ask["amount"]))
+            ask[0] = float(self.from_fixed_point(quote, int(ask[0])))
+            ask[1] = float(self.from_fixed_point(base, int(ask[1])))
 
         order_book["bids"] = bids
         order_book["asks"] = asks

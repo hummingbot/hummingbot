@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import TYPE_CHECKING, List, Optional
 
 from ultrade import Client as UltradeClient, socket_options
@@ -33,6 +34,7 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self.ultrade_client = self.create_ultrade_client()
         self.ultrade_events_queue: asyncio.Queue = asyncio.Queue()
         self.subscriptions_list: List[str] = []
+        self._last_recv_time = 1.0
 
     def create_ultrade_client(self) -> UltradeClient:
         client = UltradeClient(network=self._domain)
@@ -50,7 +52,7 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         :return: the timestamp of the last received message in seconds
         """
-        return 1.0
+        return self._last_recv_time
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """
@@ -71,7 +73,7 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except ConnectionError as connection_exception:
                 self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
-                self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                self.logger().exception("Unexpected error while listening to user stream. Retrying after 1 seconds...")
                 await self._sleep(1.0)
             finally:
                 await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
@@ -92,6 +94,7 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "data": event_data
                 }
                 self.ultrade_events_queue.put_nowait(event_message)
+                self._last_recv_time = int(time.time())
         except Exception:
             raise
 
@@ -108,23 +111,28 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 request = {
                     'symbol': symbol,
-                    'streams': [socket_options.ORDER, socket_options.TRADES, socket_options.CODEX_BALANCES],
+                    'streams': [
+                        socket_options.ORDERS,
+                        socket_options.TRADES,
+                        socket_options.CODEX_BALANCES
+                    ],
                     'options': {
                         'address': self._connector.ultrade_wallet_address,
                         'company_id': 1,
                         "token": self._connector.ultrade_session_token
                     }
                 }
+                self.logger().info(f"Subscribing to user streams for {trading_pair} with options: {request}")
 
                 connection_id: str = str(await self._connector.ultrade_client.subscribe(request, self.ultrade_user_streams_event_handler))
                 self.subscriptions_list.append(connection_id)
 
-            self.logger().info("Subscribed to public order book and trade channels...")
+            self.logger().info("Subscribed to private user streams...")
         except asyncio.CancelledError:
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                "Unexpected error occurred subscribing to user streams...",
                 exc_info=True
             )
             raise
@@ -135,8 +143,9 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return self._ws_assistant
 
     async def _process_websocket_messages_ultrade(self):
-        async for event in self.ultrade_events_queue:
+        while True:
             try:
+                event = await self.ultrade_events_queue.get()
                 event_name = event["event"]
                 if event_name in ["order", "userTrade", "codexBalances"]:
                     self._message_queue.put_nowait(event)
