@@ -6,13 +6,14 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import TradeType
+from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
-from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator
+from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator, PositionHeld
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
@@ -47,6 +48,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
         strategy.connectors = {
             "binance": connector,
         }
+        strategy.market_data_provider = MagicMock(spec=MarketDataProvider)
+        strategy.market_data_provider.get_price_by_type = MagicMock(return_value=Decimal(230))
         return strategy
 
     @patch.object(PositionExecutor, "start")
@@ -181,3 +184,52 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
         self.assertEqual(len(orchestrator.cached_performance), 1)
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_store_all_positions(self, markets_recorder_mock):
+        markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.store_position = MagicMock(return_value=None)
+        position_held = PositionHeld("binance", "SOL-USDT")
+        executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=PositionExecutorConfig(
+                timestamp=1234, trading_pair="SOL-USDT", connector_name="binance",
+                side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+            ), net_pnl_pct=Decimal(0), net_pnl_quote=Decimal(0), cum_fees_quote=Decimal(0),
+            filled_amount_quote=Decimal(100), is_active=False, is_trading=False,
+            custom_info={"held_position_orders": [
+                {"order_id": "123", "amount": Decimal(10), "trade_type": "BUY",
+                 "executed_amount_base": Decimal("10"), "executed_amount_quote": Decimal("2300"),
+                 "cumulative_fee_paid_quote": Decimal(0)}]},
+            controller_id="main"
+        )
+        position_held.add_orders_from_executor(executor_info)
+        self.orchestrator.positions_held = {
+            "main": [position_held]
+        }
+        self.orchestrator.store_all_positions()
+        self.assertEqual(len(self.orchestrator.positions_held["main"]), 0)
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_store_all_executors(self, markets_recorder_mock):
+        markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.store_or_update_executor = MagicMock(return_value=None)
+        position_executor = MagicMock(spec=PositionExecutor)
+        position_executor.is_active = False
+        config_mock = MagicMock(PositionExecutorConfig)
+        config_mock.id = "test"
+        config_mock.controller_id = "test"
+        position_executor.config = config_mock
+        self.orchestrator.active_executors["test"] = [position_executor]
+        self.orchestrator.store_all_executors()
+        self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    def test_stop(self, store_all_positions):
+        store_all_positions.return_value = None
+        position_executor = MagicMock(spec=PositionExecutor)
+        position_executor.is_closed = False
+        position_executor.early_stop = MagicMock(return_value=None)
+        self.orchestrator.active_executors["test"] = [position_executor]
+        self.orchestrator.stop()
+        position_executor.early_stop.assert_called_once()
