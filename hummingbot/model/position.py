@@ -11,13 +11,12 @@ class Position(HummingbotBase):
     __tablename__ = "Position"
     __table_args__ = (Index("p_controller_id_timestamp_index",
                             "controller_id", "timestamp"),
-                      Index("p_market_trading_pair_timestamp_index",
-                            "market", "trading_pair", "timestamp"))
+                      Index("p_connector_name_trading_pair_timestamp_index",
+                            "connector_name", "trading_pair", "timestamp"))
 
     id = Column(Text, primary_key=True, nullable=False)
     controller_id = Column(Text, nullable=False)
-    strategy = Column(Text, nullable=False)
-    market = Column(Text, nullable=False)
+    connector_name = Column(Text, nullable=False)
     trading_pair = Column(Text, nullable=False)
     timestamp = Column(BigInteger, nullable=False)
     volume_traded_quote = Column(SqliteDecimal(6), nullable=False)
