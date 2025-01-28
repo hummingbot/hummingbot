@@ -158,6 +158,7 @@ class ExecutorOrchestrator:
         """
         Store all positions in the database.
         """
+        markets_recorder = MarketsRecorder.get_instance()
         for controller_id, positions_list in self.positions_held.items():
             for position in positions_list:
                 mid_price = self.strategy.market_data_provider.get_price_by_type(
@@ -168,7 +169,7 @@ class ExecutorOrchestrator:
                 position_record = Position(
                     id=str(uuid.uuid4()),
                     controller_id=controller_id,
-                    market=position_summary.connector_name,
+                    connector_name=position_summary.connector_name,
                     trading_pair=position_summary.trading_pair,
                     timestamp=int(self.strategy.current_timestamp * 1e3),
                     volume_traded_quote=position_summary.volume_traded_quote,
@@ -178,16 +179,18 @@ class ExecutorOrchestrator:
                     cum_fees_quote=position_summary.cum_fees_quote,
                     filled_orders=position.filled_orders
                 )
-
                 # Store the position in the database
-                with MarketsRecorder.get_instance()._sql_manager.get_new_session() as session:
-                    session.add(position_record)
-                    session.commit()
+                markets_recorder.store_position(position_record)
+                # Remove the position from the list
+                self.positions_held[controller_id].remove(position)
 
     def store_all_executors(self):
         for controller_id, executors_list in self.active_executors.items():
             for executor in executors_list:
+                # Store the executor in the database
                 MarketsRecorder.get_instance().store_or_update_executor(executor)
+                # Remove the executor from the list
+                self.active_executors[controller_id].remove(executor)
 
     def execute_action(self, action: ExecutorAction):
         """
@@ -333,6 +336,10 @@ class ExecutorOrchestrator:
                                                  executor_info.config.entry_price) - executor_info.filled_amount_quote
             else:
                 report.realized_pnl_quote += executor_info.net_pnl_quote
+                if executor_info.close_type in report.close_type_counts:
+                    report.close_type_counts[executor_info.close_type] += 1
+                else:
+                    report.close_type_counts[executor_info.close_type] = 1
                 if executor_info.close_type == CloseType.POSITION_HOLD and executor_info.config.id not in self.executors_ids_position_held:
                     self.executors_ids_position_held.append(executor_info.config.id)
                     position = next((position for position in positions if
