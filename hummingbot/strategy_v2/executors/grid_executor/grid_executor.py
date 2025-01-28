@@ -892,15 +892,6 @@ class GridExecutor(ExecutorBase):
         self.realized_pnl_quote = Decimal("0")
         self.realized_pnl_pct = Decimal("0")
 
-    def mark_order_as_held(self, order_id: str):
-        """Mark an order as part of a held position"""
-        for order in self._filled_orders:
-            if order["client_order_id"] == order_id:
-                if order not in self._held_position_orders:
-                    self._held_position_orders.append(order)
-                break
-        self.update_realized_pnl_metrics()
-
     def get_net_pnl_quote(self) -> Decimal:
         """
         Calculate the net pnl in quote asset
