@@ -195,7 +195,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         timestamp = time.time()
         msg = {
             "symbol": symbol,
-            side_key: OrderBookRow(price, 0, timestamp),    # 0 amount will force the order to be deleted
+            side_key: OrderBookRow(price, 0, timestamp),  # 0 amount will force the order to be deleted
             "update_id": time.time()  # Assume every update is incremental
         }
         return BitfinexOrderBookMessage(
@@ -345,7 +345,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     self.logger().info(
                         f"Initialized order book for {trading_pair}. "
-                        f"{idx+1}/{number_of_pairs} completed."
+                        f"{idx + 1}/{number_of_pairs} completed."
                     )
                     await asyncio.sleep(self.STEP_TIME_SLEEP)
                 except IOError:
@@ -362,6 +362,9 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
 
         return result
+
+    async def listen_for_subscriptions(self):
+        pass
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -419,7 +422,8 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
                         await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # subscribe info
                         raw_snapshot = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
-                        snapshot = self._prepare_snapshot(trading_pair, [BookStructure(*i) for i in ujson.loads(raw_snapshot)[1]])
+                        snapshot = self._prepare_snapshot(trading_pair,
+                                                          [BookStructure(*i) for i in ujson.loads(raw_snapshot)[1]])
                         snapshot_timestamp: float = time.time()
                         snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                             snapshot,
