@@ -59,8 +59,10 @@ class TestExecutorOrchestrator(unittest.TestCase):
     @patch.object(ArbitrageExecutor, "start")
     @patch.object(TWAPExecutor, "start")
     @patch.object(GridExecutor, "start")
+    @patch.object(GridExecutor, "_generate_grid_levels")
     @patch.object(MarketsRecorder, "get_instance")
     def test_execute_actions_create_executor(self, markets_recorder_mock, grid_start_mock: MagicMock,
+                                             generate_grid_levels_mock: MagicMock,
                                              arbitrage_start_mock: MagicMock, dca_start_mock: MagicMock,
                                              position_start_mock: MagicMock, twap_start_mock: MagicMock):
         markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
@@ -94,7 +96,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             CreateExecutorAction(executor_config=grid_executor_config, controller_id="test"),
         ]
         self.orchestrator.execute_actions(actions)
-        self.assertEqual(len(self.orchestrator.active_executors["test"]), 4)
+        self.assertEqual(len(self.orchestrator.active_executors["test"]), 5)
 
     def test_execute_actions_store_executor_active(self):
         position_executor = MagicMock(spec=PositionExecutor)
