@@ -127,7 +127,6 @@ class TestTradingPairFetcher(unittest.TestCase):
 
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_perp_markets")
     @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
     def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
