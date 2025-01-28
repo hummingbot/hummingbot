@@ -22,11 +22,18 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.executors import Executors
 from hummingbot.model.market_data import MarketData
 from hummingbot.model.order import Order
+from hummingbot.model.position import Position
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
+from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class MarketsRecorderTests(TestCase):
@@ -434,3 +441,57 @@ class MarketsRecorderTests(TestCase):
         self.assertEqual(market_data[0].best_ask, Decimal("101"))
         self.assertEqual(market_data[0].best_bid, Decimal("99"))
         self.assertEqual(market_data[0].mid_price, Decimal("100"))
+
+    def test_store_position(self):
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        position = Position(id="123", timestamp=123, controller_id="test_controller", connector_name="binance",
+                            trading_pair="ETH-USDT", amount=Decimal("1"), breakeven_price=Decimal("1000"),
+                            unrealized_pnl_quote=Decimal("0"), cum_fees_quote=Decimal("0"),
+                            volume_traded_quote=Decimal("10"), filled_orders=[], )
+        recorder.store_position(position)
+        with self.manager.get_new_session() as session:
+            query = session.query(Position)
+            positions = query.all()
+        self.assertEqual(1, len(positions))
+
+    def test_store_or_update_executor(self):
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+        position_executor_mock = MagicMock(spec=PositionExecutor)
+        position_executor_config = PositionExecutorConfig(
+            id="123", timestamp=1234, trading_pair="ETH-USDT", connector_name="binance", side=TradeType.BUY,
+            entry_price=Decimal("1000"), amount=Decimal("1"), leverage=1,
+            triple_barrier_config=TripleBarrierConfig(take_profit=Decimal("0.1"), stop_loss=Decimal("0.2")),
+        )
+        position_executor_mock.config = position_executor_config
+        position_executor_mock.executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor", close_timestamp=1235, close_type=CloseType.TAKE_PROFIT,
+            status=RunnableStatus.TERMINATED, controller_id="test_controller", custom_info={},
+            config=position_executor_config, net_pnl_pct=Decimal("0.1"), net_pnl_quote=Decimal("10"),
+            cum_fees_quote=Decimal("0.1"), filled_amount_quote=Decimal("1"), is_active=False, is_trading=False)
+
+        recorder.store_or_update_executor(position_executor_mock)
+        with self.manager.get_new_session() as session:
+            query = session.query(Executors)
+            executors = query.all()
+        self.assertEqual(1, len(executors))
