@@ -45,7 +45,7 @@ class TripleBarrierConfig(BaseModel):
 
 
 class PositionExecutorConfig(ExecutorConfigBase):
-    type = "position_executor"
+    type: str = "position_executor"
     trading_pair: str
     connector_name: str
     side: TradeType
