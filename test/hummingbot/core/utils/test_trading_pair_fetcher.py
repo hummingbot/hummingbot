@@ -127,8 +127,7 @@ class TestTradingPairFetcher(unittest.TestCase):
 
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
-    @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
-    def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
+    def test_fetch_all(self, mock_api, all_connector_settings_mock):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         client_config_map.fetch_pairs_from_all_exchanges = True
         all_connector_settings_mock.return_value = {
@@ -252,7 +251,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(fetcher._fetch_task)
         trading_pairs = fetcher.trading_pairs
 
-        self.assertEqual(2, len(trading_pairs.keys()))
+        self.assertEqual(1, len(trading_pairs.keys()))
         self.assertIn("binance", trading_pairs)
         binance_pairs = trading_pairs["binance"]
         self.assertEqual(2, len(binance_pairs))
