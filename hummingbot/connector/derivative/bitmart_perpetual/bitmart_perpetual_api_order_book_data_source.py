@@ -49,8 +49,6 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._tickers_messages_queue_key = CONSTANTS.TICKERS_CHANNEL
         self._last_index_prices: Dict[str, Decimal] = {}
         self._last_mark_prices: Dict[str, Decimal] = {}
-        self._last_next_funding_utc_timestamp = None
-        self._last_rate = None
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -199,14 +197,16 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         if trading_pair not in self._trading_pairs:
             return
-        self._last_next_funding_utc_timestamp = int(float(data["nextFundingTime"]) * 1e-3)
-        self._next_funding_rate = Decimal(data["fundingRate"])
+        next_funding_utc_timestamp = data.get("nextFundingTime")
+        rate = data.get("fundingRate")
         funding_info = FundingInfoUpdate(
             trading_pair=trading_pair,
             index_price=self._last_index_prices.get(trading_pair),
             mark_price=self._last_mark_prices.get(trading_pair),
-            next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
-            rate=self._last_rate,
+            next_funding_utc_timestamp=(int(float(next_funding_utc_timestamp) * 1e-3)
+                                        if next_funding_utc_timestamp is not None
+                                        else None),
+            rate=Decimal(rate) if rate is not None else None,
         )
         message_queue.put_nowait(funding_info)
 
