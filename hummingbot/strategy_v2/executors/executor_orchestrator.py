@@ -245,7 +245,7 @@ class ExecutorOrchestrator:
 
         executor.start()
         self.active_executors[controller_id].append(executor)
-        MarketsRecorder.get_instance().store_or_update_executor(executor)
+        # MarketsRecorder.get_instance().store_or_update_executor(executor)
         self.logger().debug(f"Created {type(executor).__name__} for controller {controller_id}")
 
     def stop_executor(self, action: StopExecutorAction):
