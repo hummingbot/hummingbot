@@ -314,7 +314,6 @@ class UltradeExchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("event")
-                self.logger().info(f"EXCHANGE::Received event message: {event_message}")
                 # Refer to https://github.com/ultrade-org/ultrade-python-sdk/blob/master/ultrade/socket_client.py
                 if event_type == CONSTANTS.USER_ORDER_EVENT_TYPE:
                     update_type, order_data = event_message.get("data")
@@ -406,8 +405,6 @@ class UltradeExchange(ExchangePyBase):
             all_fills_response = await self.ultrade_client.get_order_by_id(exchange_order_id)
 
             base, quote = trading_pair.split("-")
-
-            self.logger().info(f"Order status update for {exchange_order_id} - {all_fills_response}")   # Debugging
 
             for trade in all_fills_response["trades"]:
                 if Decimal(trade.get("price", "0")) == 0 or trade.get("status", "").upper() != "CONFIRMED":
@@ -546,13 +543,7 @@ class UltradeExchange(ExchangePyBase):
         return exchange_info
 
     async def process_ultrade_order_book(self, order_book: Dict[str, Any]) -> Dict[str, Any]:
-        while True:
-            try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=order_book["pair"])
-                break
-            except Exception:
-                self.logger().error("Error reading trading pair from symbol. Retrying in 1 seconds...", exc_info=True)
-                await asyncio.sleep(1.0)
+        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=order_book["pair"])
 
         base, quote = trading_pair.split("-")
 

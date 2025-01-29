@@ -88,7 +88,6 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def ultrade_user_streams_event_handler(self, event_name, event_data):
         try:
-            self.logger().info(f"STREAM::Received message from Ultrade: {event_name} - {event_data}")
             if event_name is not None and event_data is not None:
                 event_message = {
                     "event": event_name,
@@ -122,11 +121,9 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         'company_id': 1,
                     }
                 }
-                self.logger().info(f"Subscribing to user streams for {trading_pair} with options: {request}")
 
                 connection_id: str = str(await self.ultrade_client.subscribe(request, self.ultrade_user_streams_event_handler))
                 self.subscriptions_list.append(connection_id)
-                self.logger().info(f"Subscribed to user streams for {trading_pair} with connection ID: {connection_id} with options: {request}")
 
             self.logger().info("Subscribed to private user streams...")
         except asyncio.CancelledError:
@@ -148,7 +145,6 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 event = await self.ultrade_events_queue.get()
                 event_name = event["event"]
-                self.logger().debug(f"STREAM::Processing message from Ultrade: {event}")
                 if event_name in [CONSTANTS.USER_ORDER_EVENT_TYPE, CONSTANTS.USER_TRADE_EVENT_TYPE, CONSTANTS.USER_BALANCE_EVENT_TYPE]:
                     self._message_queue.put_nowait(event)
                 else:

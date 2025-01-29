@@ -109,7 +109,7 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     'options': {}
                 }
 
-                connection_id: str = str(await self._connector.ultrade_client.subscribe(request, self.ultrade_market_streams_event_handler))
+                connection_id: str = str(await self.ultrade_client.subscribe(request, self.ultrade_market_streams_event_handler))
                 self.subscriptions_list.append(connection_id)
 
             self.logger().info("Subscribed to public order book and trade channels...")
@@ -157,7 +157,7 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 channel: str = self._channel_originating_message(event_message=event)
                 valid_channels = self._get_messages_queue_keys()
                 if channel in valid_channels:
-                    self.ultrade_events_queue.put_nowait(event["data"])
+                    self._message_queue[channel].put_nowait(event)
                 else:
                     pass    # Ignore all other channels
             except Exception:
