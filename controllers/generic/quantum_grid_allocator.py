@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Set, Union
 
 from pydantic import Field, validator
 
@@ -26,7 +26,6 @@ class QGAConfig(ControllerConfigBase):
     # Grid allocation multipliers
     base_grid_value_pct: Decimal = Field(default=Decimal("0.08"), client_data=ClientFieldData(is_updatable=True))
     max_grid_value_pct: Decimal = Field(default=Decimal("0.15"), client_data=ClientFieldData(is_updatable=True))
-    deviation_multiplier: Decimal = Field(default=Decimal("2"), client_data=ClientFieldData(is_updatable=True))
 
     # Order frequency settings
     safe_extra_spread: Decimal = Field(default=Decimal("0.0001"), client_data=ClientFieldData(is_updatable=True))
@@ -253,6 +252,12 @@ class QuantumGridAllocator(ControllerBase):
         status_lines.append("-" * 100 + "\n")
         return status_lines
 
+    def tp_multiplier(self):
+        return self.config.tp_sl_ratio
+
+    def sl_multiplier(self):
+        return 1 - self.config.tp_sl_ratio
+
     def determine_executor_actions(self) -> List[Union[CreateExecutorAction, StopExecutorAction]]:
         actions = []
         self.update_portfolio_metrics()
@@ -281,15 +286,17 @@ class QuantumGridAllocator(ControllerBase):
             )
 
             # Determine which zone we're in by normalizing the deviation over the theoretical allocation
-
             if deviation < -self.config.long_only_threshold:
                 # Long-only zone - only create buy grids
                 if difference < Decimal("0"):  # Only if we need to buy
                     grid_value = min(abs(difference), theoretical * grid_value_pct)
+                    start_price = mid_price * (1 - self.config.grid_range * self.sl_multiplier())
+                    end_price = mid_price * (1 + self.config.grid_range * self.tp_multiplier())
                     grid_action = self.create_grid_executor(
                         trading_pair=trading_pair,
                         side=TradeType.BUY,
-                        current_price=mid_price,
+                        start_price=start_price,
+                        end_price=end_price,
                         grid_value=grid_value,
                         is_unfavorable=False
                     )
@@ -299,10 +306,13 @@ class QuantumGridAllocator(ControllerBase):
                 # Short-only zone - only create sell grids
                 if difference > Decimal("0"):  # Only if we need to sell
                     grid_value = min(abs(difference), theoretical * grid_value_pct)
+                    start_price = mid_price * (1 - self.config.grid_range * self.tp_multiplier())
+                    end_price = mid_price * (1 + self.config.grid_range * self.sl_multiplier())
                     grid_action = self.create_grid_executor(
                         trading_pair=trading_pair,
                         side=TradeType.SELL,
-                        current_price=mid_price,
+                        start_price=start_price,
+                        end_price=end_price,
                         grid_value=grid_value,
                         is_unfavorable=False
                     )
@@ -315,17 +325,12 @@ class QuantumGridAllocator(ControllerBase):
         self,
         trading_pair: str,
         side: TradeType,
-        current_price: Decimal,
-        grid_value: Optional[Decimal] = None,
-        range_adjustment: Decimal = Decimal("0"),
+        start_price: Decimal,
+        end_price: Decimal,
+        grid_value: Decimal,
         is_unfavorable: bool = False
     ) -> CreateExecutorAction:
         """Creates a grid executor with dynamic sizing and range adjustments"""
-        asset = trading_pair.split("-")[0]
-        # Use provided grid_value or calculate default
-        if grid_value is None:
-            allocation = self.metrics["theoretical"][asset]
-            grid_value = allocation * self.config.base_grid_value_pct
         # Get trading rules and minimum notional
         trading_rules = self.market_data_provider.get_trading_rules(self.config.connector_name, trading_pair)
         min_notional = max(
@@ -333,7 +338,7 @@ class QuantumGridAllocator(ControllerBase):
             trading_rules.min_notional_size if trading_rules else Decimal("5.0")
         )
         # Add safety margin and check if grid value is sufficient
-        min_grid_value = min_notional * Decimal("3")  # Ensure room for at least 3 levels
+        min_grid_value = min_notional * Decimal("5")  # Ensure room for at least 5 levels
         if grid_value < min_grid_value:
             self.logger().info(
                 f"Grid value {grid_value} is too small for {trading_pair}. "
@@ -346,8 +351,6 @@ class QuantumGridAllocator(ControllerBase):
             self.config.unfavorable_order_frequency if is_unfavorable
             else self.config.favorable_order_frequency
         )
-        start_price = self._calculate_start_price(current_price, side, range_adjustment)
-        end_price = self._calculate_end_price(current_price, side, range_adjustment)
         # Calculate limit price to be more aggressive than grid boundaries
         if side == TradeType.BUY:
             # For buys, limit price should be lower than start price
@@ -401,27 +404,6 @@ class QuantumGridAllocator(ControllerBase):
             )
 
         return action
-
-    def _calculate_start_price(self, current_price: Decimal, side: TradeType, range_adjustment: Decimal) -> Decimal:
-        base_range = self.config.grid_range
-        if side == TradeType.BUY:
-            tp_multiplier = base_range * (self.config.tp_sl_ratio - abs(range_adjustment))
-            sl_multiplier = base_range * (1 - self.config.tp_sl_ratio + abs(range_adjustment))
-            return current_price * (1 - sl_multiplier)
-        else:
-            tp_multiplier = base_range * (self.config.tp_sl_ratio - abs(range_adjustment))
-            sl_multiplier = base_range * (1 - self.config.tp_sl_ratio + abs(range_adjustment))
-            return current_price * (1 - tp_multiplier)
-
-    def _calculate_end_price(self, current_price: Decimal, side: TradeType, range_adjustment: Decimal) -> Decimal:
-        base_range = self.config.grid_range
-        if side == TradeType.BUY:
-            tp_multiplier = base_range * (self.config.tp_sl_ratio - abs(range_adjustment))
-            return current_price * (1 + tp_multiplier)
-        else:
-            tp_multiplier = base_range * (self.config.tp_sl_ratio - abs(range_adjustment))
-            sl_multiplier = base_range * (1 - self.config.tp_sl_ratio + abs(range_adjustment))
-            return current_price * (1 + sl_multiplier)
 
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return self.market_data_provider.get_price_by_type(self.config.connector_name, trading_pair, PriceType.MidPrice)
