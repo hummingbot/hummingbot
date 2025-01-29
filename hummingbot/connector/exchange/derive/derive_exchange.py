@@ -56,6 +56,7 @@ class DeriveExchange(ExchangePyBase):
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
         super().__init__(client_config_map)
+        self.real_time_balance_update = False
 
     SHORT_POLL_INTERVAL = 5.0
 
@@ -100,7 +101,7 @@ class DeriveExchange(ExchangePyBase):
 
     @property
     def trading_currencies_request_path(self) -> str:
-        return CONSTANTS.EXCHHANGE_CURRENCIES_PATH_URL
+        return CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL
 
     @property
     def check_network_request_path(self) -> str:
@@ -128,15 +129,22 @@ class DeriveExchange(ExchangePyBase):
         """
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
-    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-        res = []
+    async def _get_all_pairs_prices(self) -> Dict[str, Any]:
+        results = {}
+        tasks = []
         if len(self._instrument_ticker) < 0:
             await self._initialize_trading_pair_symbol_map()
         for token in self._instrument_ticker:
-            token["symbol"] = self._instrument_ticker["instrument_name"]
-            token["price"] = self._instrument_ticker["mark_price"]
-            res.append(token)
-        return res
+            payload = {"instrument_name": token["instrument_name"]}
+            tasks.append(await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload))
+        results = await safe_gather(*tasks, return_exceptions=True)
+        for result in results:
+            pair_price_data = result["result"]
+            results[self._instrument_ticker["instrument_name"]] = {
+                "best_bid": pair_price_data["best_bid"],
+                "best_ask": pair_price_data["best_ask"],
+            }
+        return results
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         return False
@@ -144,6 +152,8 @@ class DeriveExchange(ExchangePyBase):
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
@@ -324,12 +334,12 @@ class DeriveExchange(ExchangePyBase):
             price: Decimal,
             **kwargs,
     ) -> Tuple[str, float]:
-        instrument = []
+        """
+        Creates an order on the exchange using the specified parameters.
+        """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        for pair in self._instrument_ticker:
-            if symbol == pair["instrument_name"]:
-                instrument.append(pair)
-                break
+        if len(self._instrument_ticker) > 0:
+            instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
         param_order_type = "gtc"
         if order_type is OrderType.LIMIT_MAKER:
             param_order_type = "gtc"
@@ -362,7 +372,10 @@ class DeriveExchange(ExchangePyBase):
             is_auth_required=True)
 
         if "error" in order_result:
-            raise IOError(f"Error submitting order {order_id}: {order_result['error']['message']}")
+            if "Self-crossing disallowed" in order_result["error"]["message"]:
+                self.logger().warning(f"Error submitting order: {order_result['error']['message']}")
+            else:
+                raise IOError(f"Error submitting order {order_id}: {order_result['error']['message']}")
         else:
             o_order_result = order_result['result']
             o_data = o_order_result.get("order")
@@ -457,10 +470,10 @@ class DeriveExchange(ExchangePyBase):
                     self.logger().error(
                         f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
-                if channel == user_channels[0]:
+                if channel == user_channels[0] and results is not None:
                     for order_msg in results:
                         self._process_order_message(order_msg)
-                elif channel == user_channels[1]:
+                elif channel == user_channels[1] and results is not None:
                     for trade_msg in results:
                         await self._process_trade_message(trade_msg)
             except asyncio.CancelledError:
@@ -626,7 +639,7 @@ class DeriveExchange(ExchangePyBase):
 
         account_info = await self._api_get(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            params={"wallet": f"{self.derive_api_key}"},
+            params={"wallet": self.derive_api_key},
             is_auth_required=True)
         balances = account_info["result"][0]["collaterals"]
         for balance_entry in balances:
@@ -652,15 +665,18 @@ class DeriveExchange(ExchangePyBase):
                 "order_id": oid
             },
             is_auth_required=True)
-        current_state = order_update["result"]["order_status"]
-        _order_update: OrderUpdate = OrderUpdate(
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update["result"]["last_update_timestamp"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[current_state],
-            client_order_id=order_update["result"]["label"] or client_order_id,
-            exchange_order_id=str(tracked_order.exchange_order_id),
-        )
-        return _order_update
+        if "error" in order_update:
+            self.logger().debug(f"Error fetching order status for {client_order_id}: {order_update['error']['message']}")
+        if "result" in order_update:
+            current_state = order_update["result"]["order_status"]
+            _order_update: OrderUpdate = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=order_update["result"]["last_update_timestamp"] * 1e-3,
+                new_state=CONSTANTS.ORDER_STATE[current_state],
+                client_order_id=order_update["result"]["label"] or client_order_id,
+                exchange_order_id=str(order_update["result"]["order_id"]),
+            )
+            return _order_update
 
     async def _update_order_fills_from_trades(self):
         """
@@ -701,68 +717,65 @@ class DeriveExchange(ExchangePyBase):
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
 
-            if results["result"]["trades"] > 0:
-                data = results["result"]["data"]
-                for trades, trading_pair in zip(data, trading_pairs):
-
-                    if isinstance(trades, Exception):
-                        self.logger().network(
-                            f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                            app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+            for trades, trading_pair in zip(results, trading_pairs):
+                if isinstance(trades, Exception):
+                    self.logger().network(
+                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                    )
+                    continue
+                for trade in trades["result"]["trades"]:
+                    exchange_order_id = str(trade["order_id"])
+                    if exchange_order_id in order_by_exchange_id_map:
+                        # This is a fill for a tracked order
+                        tracked_order = order_by_exchange_id_map[exchange_order_id]
+                        token = trade["instrument_name"].split("-")[1]
+                        fee = TradeFeeBase.new_spot_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            trade_type=tracked_order.trade_type,
+                            percent_token=token,
+                            flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=token)]
                         )
-                        continue
-                    for trade in trades:
-                        exchange_order_id = str(trade["order_id"])
-                        if exchange_order_id in order_by_exchange_id_map:
-                            # This is a fill for a tracked order
-                            tracked_order = order_by_exchange_id_map[exchange_order_id]
-                            token = trade["instrument_name"].split("-")[1]
-                            fee = TradeFeeBase.new_spot_fee(
-                                fee_schema=self.trade_fee_schema(),
-                                trade_type=tracked_order.trade_type,
-                                percent_token=token,
-                                flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=token)]
-                            )
-                            trade_update = TradeUpdate(
-                                trade_id=str(trade["trade_id"]),
-                                client_order_id=tracked_order.client_order_id,
-                                exchange_order_id=exchange_order_id,
+                        trade_update = TradeUpdate(
+                            trade_id=str(trade["trade_id"]),
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=exchange_order_id,
+                            trading_pair=trading_pair,
+                            fee=fee,
+                            fill_base_amount=Decimal(trade["trade_amount"]),
+                            fill_quote_amount=Decimal(trade["trade_amount"]) * Decimal(trade["trade_price"]),
+                            fill_price=Decimal(trade["trade_price"]),
+                            fill_timestamp=trade["timestamp"] * 1e-3,
+                        )
+                        self._order_tracker.process_trade_update(trade_update)
+                    elif self.is_confirmed_new_order_filled_event(str(trade["trade_id"]), exchange_order_id, trading_pair):
+                        token = trade["instrument_name"].split("-")[1]
+                        # This is a fill of an order registered in the DB but not tracked any more
+                        self._current_trade_fills.add(TradeFillOrderDetails(
+                            market=self.display_name,
+                            exchange_trade_id=str(trade["trade_id"]),
+                            symbol=trading_pair))
+                        self.trigger_event(
+                            MarketEvent.OrderFilled,
+                            OrderFilledEvent(
+                                timestamp=float(trade["timestamp"]) * 1e-3,
+                                order_id=self._exchange_order_ids.get(str(trade["order_id"]), None),
                                 trading_pair=trading_pair,
-                                fee=fee,
-                                fill_base_amount=Decimal(trade["trade_amount"]),
-                                fill_quote_amount=Decimal(trade["trade_amount"]) * Decimal(trade["trade_price"]),
-                                fill_price=Decimal(trade["trade_price"]),
-                                fill_timestamp=trade["timestamp"] * 1e-3,
-                            )
-                            self._order_tracker.process_trade_update(trade_update)
-                        elif self.is_confirmed_new_order_filled_event(str(trade["tid"]), exchange_order_id, trading_pair):
-                            token = trade["instrument_name"].split("-")[1]
-                            # This is a fill of an order registered in the DB but not tracked any more
-                            self._current_trade_fills.add(TradeFillOrderDetails(
-                                market=self.display_name,
-                                exchange_trade_id=str(trade["trade_id"]),
-                                symbol=trading_pair))
-                            self.trigger_event(
-                                MarketEvent.OrderFilled,
-                                OrderFilledEvent(
-                                    timestamp=float(trade["timestamp"]) * 1e-3,
-                                    order_id=self._exchange_order_ids.get(str(trade["order_id"]), None),
-                                    trading_pair=trading_pair,
-                                    trade_type=TradeType.BUY if trade["direction"] == 'buy' else TradeType.SELL,
-                                    order_type=OrderType.MARKET if trade["liquidity_role"] == 'taker' else OrderType.LIMIT,
-                                    price=Decimal(trade["trade_price"]),
-                                    amount=Decimal(trade["trade_amount"]),
-                                    trade_fee=DeductedFromReturnsTradeFee(
-                                        flat_fees=[
-                                            TokenAmount(
-                                                token,
-                                                Decimal(trade["trade_fee"])
-                                            )
-                                        ]
-                                    ),
-                                    exchange_trade_id=str(trade["tid"])
-                                ))
-                            self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
+                                trade_type=TradeType.BUY if trade["direction"] == 'buy' else TradeType.SELL,
+                                order_type=OrderType.MARKET if trade["liquidity_role"] == 'taker' else OrderType.LIMIT,
+                                price=Decimal(trade["trade_price"]),
+                                amount=Decimal(trade["trade_amount"]),
+                                trade_fee=DeductedFromReturnsTradeFee(
+                                    flat_fees=[
+                                        TokenAmount(
+                                            token,
+                                            Decimal(trade["trade_fee"])
+                                        )
+                                    ]
+                                ),
+                                exchange_trade_id=str(trade["trade_id"])
+                            ))
+                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
@@ -820,7 +833,7 @@ class DeriveExchange(ExchangePyBase):
         currencies = await self._api_post(path_url=self.trading_rules_request_path, data={
             "instrument_type": "erc20",
         })
-
+        # print(f"currencies___________make_trading_rules_request________________{currencies}")
         # Collect exchange info for all currencies
         exchange_infos = []
         for currency in currencies["result"]:
@@ -850,7 +863,6 @@ class DeriveExchange(ExchangePyBase):
             "instrument_type": "erc20",
         })
 
-        # Collect exchange info for all currencies
         exchange_infos = []
         for currency in currencies["result"]:
 

@@ -68,12 +68,10 @@ class DeriveAPIUserStreamDataSource(UserStreamTrackerDataSource):
         response: WSResponse = await ws.receive()
         message = response.data
 
-        while True:
-            if message["id"] == id:
-                if "result" not in message:
-                    self.logger().error("Error authenticating the private websocket connection")
-                    raise IOError("Private websocket connection authentication failed")
-                break
+        if message["id"] == id:
+            if "result" not in message:
+                self.logger().error("Error authenticating the private websocket connection")
+                raise IOError("Private websocket connection authentication failed")
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
