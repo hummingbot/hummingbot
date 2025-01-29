@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Optional
 
 from pydantic import Field, SecretStr
 
@@ -18,15 +17,6 @@ CENTRALIZED = False
 EXAMPLE_PAIR = "BTC-USD"
 
 BROKER_ID = "HBOT"
-
-
-def validate_bool(value: str) -> Optional[str]:
-    """
-    Permissively interpret a string as a boolean
-    """
-    valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
-    if value.lower() not in valid_values:
-        return f"Invalid value, please choose value from {valid_values}"
 
 
 class DeriveConfigMap(BaseConnectorConfigMap):

@@ -10,12 +10,12 @@ MAX_ORDER_ID_LEN = 32
 
 RPC_ENDPOINT = "https://rpc.lyra.finance"
 TRADE_MODULE_ADDRESS = "0xB8D20c2B7a1Ad2EE33Bc50eF10876eD3035b5e7b"
-DOMAIN_SEPARATOR = "0xd96e5f90797da7ec8dc4e276260c7f3f87fedf68775fbe1ef116e996fc60441b" # noqa: mock
-ACTION_TYPEHASH = "0x4d7a9f27c403ff9c0f19bce61d76d82f9aa29f8d6d4b0c5474607d9770d1af17" # noqa: mock
+DOMAIN_SEPARATOR = "0xd96e5f90797da7ec8dc4e276260c7f3f87fedf68775fbe1ef116e996fc60441b"  # noqa: mock
+ACTION_TYPEHASH = "0x4d7a9f27c403ff9c0f19bce61d76d82f9aa29f8d6d4b0c5474607d9770d1af17"  # noqa: mock
 CHAIN_ID = 957
 
 TESTNET_RPC_ENDPOINT = "https://rpc-prod-testnet-0eakp60405.t.conduit.xyz"
-TESTNET_DOMAIN_SEPARATOR = "0x9bcf4dc06df5d8bf23af818d5716491b995020f377d3b7b64c29ed14e3dd1105" # noqa: mock
+TESTNET_DOMAIN_SEPARATOR = "0x9bcf4dc06df5d8bf23af818d5716491b995020f377d3b7b64c29ed14e3dd1105"  # noqa: mock
 TESTNET_ACTION_TYPEHASH = "0x4d7a9f27c403ff9c0f19bce61d76d82f9aa29f8d6d4b0c5474607d9770d1af17"  # noqa: mock
 TESTNET_CHAIN_ID = 901
 
@@ -31,7 +31,7 @@ TICKER_PRICE_CHANGE_PATH_URL = "/public/get_ticker"
 TICKER_BOOK_PATH_URL = "/public/get_ticker"
 PRICES_PATH_URL = "/public/get_ticker"
 EXCHANGE_INFO_PATH_URL = "/public/get_all_currencies"
-EXCHHANGE_CURRENCIES_PATH_URL = "/public/get_all_instruments"
+EXCHANGE_CURRENCIES_PATH_URL = "/public/get_all_instruments"
 PING_PATH_URL = "/public/get_time"
 SNAPSHOT_PATH_URL = "/public/get_ticker"
 SERVER_TIME_PATH_URL = "/public/get_time"
@@ -70,7 +70,7 @@ ORDERS_IP = "orders_ip_seconds"
 # Rate Limit time intervals
 ONE_SECOND = 1
 
-TRADER_MATCHING = 1
+TRADER_MATCHING = 5
 TRADER_NON_MATCHING = 5
 
 MARKET_MAKER_MATCHING = 5
@@ -124,7 +124,7 @@ RATE_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(GENERAL)]
     ),
     RateLimit(
-        limit_id=EXCHHANGE_CURRENCIES_PATH_URL,
+        limit_id=EXCHANGE_CURRENCIES_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=SECOND,
         linked_limits=[LinkedLimitWeightPair(GENERAL)],

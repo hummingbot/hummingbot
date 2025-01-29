@@ -119,15 +119,15 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
         data = raw_message["params"]["data"]
         for trade_data in data:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                trade_data["timestamp"])
+                trade_data["instrument_name"])
             trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
                 "trading_pair": trading_pair,
-                "trade_type": float(TradeType.SELL.value) if data["direction"] == "sell" else float(
+                "trade_type": float(TradeType.SELL.value) if trade_data["direction"] == "sell" else float(
                     TradeType.BUY.value),
-                "trade_id": data["trade_id"],
-                "price": float(data["trade_price"]),
-                "amount": float(data["trade_amount"])
-            }, timestamp=data["timestamp"] * 1e-3)
+                "trade_id": trade_data["trade_id"],
+                "price": float(trade_data["trade_price"]),
+                "amount": float(trade_data["trade_amount"])
+            }, timestamp=trade_data["timestamp"] * 1e-3)
             message_queue.put_nowait(trade_message)
 
     async def listen_for_order_book_diffs(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
