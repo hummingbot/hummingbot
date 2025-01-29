@@ -88,15 +88,6 @@ class UltradeConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    ultrade_session_token: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Ultrade Session Token",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
 
     @validator("ultrade_trading_key")
     def check_trading_key(cls, v):
@@ -133,13 +124,6 @@ class UltradeConfigMap(BaseConnectorConfigMap):
             raise ValueError(
                 "Invalid Ultrade Algorand Mnemonic or EVM Private Key provided."
             )
-        return v
-
-    @validator("ultrade_session_token", always=True)
-    def check_session_token(cls, v, values):
-        token = v.get_secret_value().strip()
-        if not UUID_V4_REGEX.match(token):
-            raise ValueError("Invalid Ultrade Session Token. Must be a valid UUID.")
         return v
 
     class Config:
@@ -183,15 +167,6 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    ultrade_session_token: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Ultrade Testnet Session Token",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
-    )
 
     @validator("ultrade_trading_key")
     def check_trading_key(cls, v):
@@ -228,13 +203,6 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
             raise ValueError(
                 "Invalid Ultrade Testnet Algorand Mnemonic or EVM Private Key provided."
             )
-        return v
-
-    @validator("ultrade_session_token", always=True)
-    def check_session_token_testnet(cls, v, values):
-        token = v.get_secret_value().strip()
-        if not UUID_V4_REGEX.match(token):
-            raise ValueError("Invalid Ultrade Testnet Session Token. Must be a valid UUID.")
         return v
 
     class Config:

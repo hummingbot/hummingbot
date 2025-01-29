@@ -39,9 +39,9 @@ TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 # Websocket event types
 ORDERBOOK_SNAPSHOT_EVENT_TYPE = "depth"
 TRADE_EVENT_TYPE = "lastTrade"
+USER_ORDER_EVENT_TYPE = "order"
 USER_TRADE_EVENT_TYPE = "userTrade"
 USER_BALANCE_EVENT_TYPE = "codexBalances"
-USER_ORDER_EVENT_TYPE = "order"
 
 RATE_LIMITS = []
 

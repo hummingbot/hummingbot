@@ -36,7 +36,6 @@ class UltradeExchange(ExchangePyBase):
                  ultrade_trading_key: str,
                  ultrade_wallet_address: str,
                  ultrade_mnemonic_key: str,
-                 ultrade_session_token: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -44,7 +43,6 @@ class UltradeExchange(ExchangePyBase):
         self.ultrade_trading_key = ultrade_trading_key
         self.ultrade_wallet_address = ultrade_wallet_address
         self.ultrade_mnemonic_key = ultrade_mnemonic_key
-        self.ultrade_session_token = ultrade_session_token
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -81,7 +79,6 @@ class UltradeExchange(ExchangePyBase):
             trading_key=self.ultrade_trading_key,
             wallet_address=self.ultrade_wallet_address,
             mnemonic_key=self.ultrade_mnemonic_key,
-            session_token=self.ultrade_session_token,
             time_provider=self._time_synchronizer)
 
     @property
@@ -317,74 +314,80 @@ class UltradeExchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("event")
+                self.logger().info(f"EXCHANGE::Received event message: {event_message}")
                 # Refer to https://github.com/ultrade-org/ultrade-python-sdk/blob/master/ultrade/socket_client.py
                 if event_type == CONSTANTS.USER_ORDER_EVENT_TYPE:
                     update_type, order_data = event_message.get("data")
                     exchange_order_id = str(order_data[3])
-                    tracked_order = next((order for order in self._order_tracker.all_updatable_orders if order.exchange_order_id == exchange_order_id), None)
+                    tracked_order = next((order for order in self._order_tracker.all_updatable_orders.values() if order.exchange_order_id == exchange_order_id), None)
 
-                    if tracked_order is not None:
-                        if update_type == "add":
+                    if tracked_order is None:
+                        continue
+                    if update_type == "add":
+                        new_state = OrderState.OPEN
+                    elif update_type == "update":
+                        status_code = int(order_data[4])
+                        if status_code == 1:
                             new_state = OrderState.OPEN
-                        elif update_type == "update":
-                            status_code = int(order_data[4])
-                            if status_code == 1:
-                                new_state = OrderState.OPEN
-                            elif status_code == 2:
-                                new_state = OrderState.CANCELED
-                            elif status_code == 3 or status_code == 4:
-                                new_state = OrderState.FILLED
-                        elif update_type == "cancel":
+                        elif status_code == 2:
                             new_state = OrderState.CANCELED
-                        order_update = OrderUpdate(
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=self._time_synchronizer.time(),
-                            new_state=new_state,
-                            client_order_id=exchange_order_id,
-                            exchange_order_id=exchange_order_id,
-                        )
-                        self._order_tracker.process_order_update(order_update=order_update)
+                        elif status_code == 3 or status_code == 4:
+                            new_state = OrderState.FILLED
+                    elif update_type == "cancel":
+                        new_state = OrderState.CANCELED
+                    order_update = OrderUpdate(
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self._time_synchronizer.time(),
+                        new_state=new_state,
+                        client_order_id=exchange_order_id,
+                        exchange_order_id=exchange_order_id,
+                    )
+                    self._order_tracker.process_order_update(order_update=order_update)
 
                 elif event_type == CONSTANTS.USER_TRADE_EVENT_TYPE:
                     trade_data = event_message.get("data")
 
-                    if trade_data[11].upper() == "CONFIRMED":
-                        exchange_order_id = str(trade_data[3])
-                        tracked_order = next((order for order in self._order_tracker.all_fillable_orders if order.exchange_order_id == exchange_order_id), None)
+                    if trade_data[11].upper() != "CONFIRMED" or Decimal(trade_data[7]) == 0:
+                        continue
+                    exchange_order_id = str(trade_data[3])
+                    tracked_order = next((order for order in self._order_tracker.all_fillable_orders.values() if order.exchange_order_id == exchange_order_id), None)
 
-                        if tracked_order is not None:
-                            fee_token = self._ultrade_token_id_asset_map.get(int(trade_data[13]))
-                            fee_amount = Decimal(str(int(trade_data[12]))) / Decimal(str(10 ** int(trade_data[14])))
-                            trade_type = TradeType.BUY if trade_data[4] else TradeType.SELL
-                            fee = TradeFeeBase.new_spot_fee(
-                                fee_schema=self.trade_fee_schema(),
-                                trade_type=trade_type,
-                                percent_token=fee_token,
-                                flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)]
-                            )
-                            base, quote = tracked_order.trading_pair.split("-")
-                            fill_price = self.from_fixed_point(quote, int(trade_data[7]))
-                            fill_base_amount = self.from_fixed_point(base, int(trade_data[8]))
-                            fill_quote_amount = fill_base_amount * fill_price
-                            trade_update = TradeUpdate(
-                                trade_id=str(trade_data[6]),
-                                client_order_id=tracked_order.client_order_id,
-                                exchange_order_id=exchange_order_id,
-                                trading_pair=tracked_order.trading_pair,
-                                fee=fee,
-                                fill_base_amount=fill_base_amount,
-                                fill_quote_amount=fill_quote_amount,
-                                fill_price=fill_price,
-                                fill_timestamp=self._time_synchronizer.time(),
-                            )
-                            self._order_tracker.process_trade_update(trade_update)
+                    if tracked_order is None:
+                        continue
+                    fee_token = self._ultrade_token_id_asset_map.get(int(trade_data[13]))
+                    fee_amount = Decimal(str(int(trade_data[12]))) / Decimal(str(10 ** int(trade_data[14])))
+                    trade_type = TradeType.BUY if trade_data[4] else TradeType.SELL
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=trade_type,
+                        percent_token=fee_token,
+                        flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)]
+                    )
+                    base, quote = tracked_order.trading_pair.split("-")
+                    fill_price = self.from_fixed_point(quote, int(trade_data[7]))
+                    fill_base_amount = self.from_fixed_point(base, int(trade_data[8]))
+                    fill_quote_amount = fill_base_amount * fill_price
+                    trade_update = TradeUpdate(
+                        trade_id=str(trade_data[6]),
+                        client_order_id=tracked_order.client_order_id,
+                        exchange_order_id=exchange_order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        fee=fee,
+                        fill_base_amount=fill_base_amount,
+                        fill_quote_amount=fill_quote_amount,
+                        fill_price=fill_price,
+                        fill_timestamp=self._time_synchronizer.time(),
+                    )
+                    self._order_tracker.process_trade_update(trade_update)
 
-                elif event_type == CONSTANTS.CODEX_BALANCES_EVENT_TYPE:
-                    balance_data = event_message.get("data")
+                elif event_type == CONSTANTS.USER_BALANCE_EVENT_TYPE:
+                    balance_data = event_message.get("data", {}).get("data")
+                    if balance_data is None:
+                        continue
                     asset_name = self._ultrade_token_address_asset_map.get(balance_data.get("tokenAddress").upper())
-                    free_balance = self.from_fixed_point(asset=asset_name, value=int(balance_data.get("amount")))
+                    total_balance = self.from_fixed_point(asset=asset_name, value=int(balance_data.get("amount")))
                     locked_balance = self.from_fixed_point(asset=asset_name, value=int(balance_data.get("lockedAmount")))
-                    total_balance = free_balance + locked_balance
+                    free_balance = total_balance - locked_balance
                     self._account_available_balances[asset_name] = free_balance
                     self._account_balances[asset_name] = total_balance
 
@@ -403,6 +406,8 @@ class UltradeExchange(ExchangePyBase):
             all_fills_response = await self.ultrade_client.get_order_by_id(exchange_order_id)
 
             base, quote = trading_pair.split("-")
+
+            self.logger().info(f"Order status update for {exchange_order_id} - {all_fills_response}")   # Debugging
 
             for trade in all_fills_response["trades"]:
                 if Decimal(trade.get("price", "0")) == 0 or trade.get("status", "").upper() != "CONFIRMED":
@@ -468,9 +473,9 @@ class UltradeExchange(ExchangePyBase):
 
         for balance_entry in account_info:
             asset_name = self._ultrade_token_address_asset_map.get(balance_entry["tokenAddress"].upper())
-            free_balance = self.from_fixed_point(asset=asset_name, value=int(balance_entry["amount"]))
+            total_balance = self.from_fixed_point(asset=asset_name, value=int(balance_entry["amount"]))
             locked_balance = self.from_fixed_point(asset=asset_name, value=int(balance_entry["lockedAmount"]))
-            total_balance = free_balance + locked_balance
+            free_balance = total_balance - locked_balance
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
