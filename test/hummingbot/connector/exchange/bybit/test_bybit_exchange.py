@@ -910,7 +910,7 @@ class TestBybitExchange(unittest.TestCase):
                                 "accruedInterest": "0",
                                 "availableToWithdraw": "10",
                                 "totalOrderIM": "0",
-                                "equity": "0",
+                                "equity": "15",
                                 "totalPositionMM": "0",
                                 "usdValue": "0",
                                 "spotHedgingQty": "0.01592413",
@@ -920,7 +920,7 @@ class TestBybitExchange(unittest.TestCase):
                                 "totalPositionIM": "0",
                                 "walletBalance": "15",
                                 "cumRealisedPnl": "0",
-                                "locked": "0",
+                                "locked": "5",
                                 "marginCollateral": True,
                                 "coin": self.base_asset
                             }
@@ -944,15 +944,24 @@ class TestBybitExchange(unittest.TestCase):
         # self.assertEqual(Decimal("2000"), total_balances["USDT"])
 
     @aioresponses()
-    def test_update_trading_fees(self, mock_api):
+    def test_update_trading_fees_with_valid_and_invalid_pairs(self, mock_api):
+        """
+        Test that trading fees are updated correctly for valid pairs,
+        and invalid pairs are ignored in the trading pair map.
+        """
         self._simulate_trading_rules_initialized()
+        self._simulate_trading_fees_initialized()
+
         url = web_utils.rest_url(CONSTANTS.EXCHANGE_FEE_RATE_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        self._simulate_trading_fees_initialized()
-        self.assertEqual(Decimal("0.0001"), Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
-        self.assertEqual(Decimal("0.0002"), Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
+        # Validate initial state
+        initial_maker_fee = Decimal("0.0001")
+        initial_taker_fee = Decimal("0.0002")
+        self.assertEqual(initial_maker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
+        self.assertEqual(initial_taker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
 
+        # Mock API response
         response = {
             "retCode": 0,
             "retMsg": "OK",
@@ -962,18 +971,28 @@ class TestBybitExchange(unittest.TestCase):
                         "symbol": self.ex_trading_pair,
                         "takerFeeRate": "0.0006",
                         "makerFeeRate": "0.0005"
+                    },
+                    {
+                        "symbol": "INVALIDPAIR",
+                        "takerFeeRate": "0.0008",
+                        "makerFeeRate": "0.0007"
                     }
                 ]
             },
             "retExtInfo": {},
             "time": 1676360412576
         }
-
         mock_api.get(regex_url, body=json.dumps(response))
+
+        # Execute method under test
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
-        self.assertEqual(Decimal("0.0005"), Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
-        self.assertEqual(Decimal("0.0006"), Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
+        # Validate updated state
+        updated_maker_fee = Decimal("0.0005")
+        updated_taker_fee = Decimal("0.0006")
+        self.assertEqual(updated_maker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["makerFeeRate"]))
+        self.assertEqual(updated_taker_fee, Decimal(self.exchange._trading_fees[self.trading_pair]["takerFeeRate"]))
+        self.assertNotIn("INVALIDPAIR", self.exchange._trading_pairs)
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
@@ -1298,6 +1317,31 @@ class TestBybitExchange(unittest.TestCase):
         self.assertFalse(order.is_done)
 
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+    @aioresponses()
+    def test_update_account_type(self, mock_api):
+        url = web_utils.rest_url(CONSTANTS.ACCOUNT_INFO_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        response = {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "marginMode": "REGULAR_MARGIN",
+                "updatedTime": "1697078946000",
+                "unifiedMarginStatus": 2,
+                "dcpStatus": "OFF",
+                "timeWindow": 10,
+                "smpGroup": 0,
+                "isMasterTrader": False,
+                "spotHedgingStatus": "OFF"
+            }
+        }
+
+        mock_api.get(regex_url, body=json.dumps(response))
+        self.async_run_with_timeout(self.exchange._update_account_type())
+
+        self.assertEqual(self.exchange._account_type, "UNIFIED")
 
     def test_user_stream_update_for_new_order_does_not_update_status(self):
         self.exchange._set_current_timestamp(1640780000)
@@ -2016,6 +2060,64 @@ class TestBybitExchange(unittest.TestCase):
         mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
         self.exchange._user_stream_tracker._user_stream = mock_queue
         self.exchange._account_type = "SPOT"
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(Decimal("10000"), self.exchange.available_balances[self.base_asset])
+
+    def test_user_stream_balance_update_unified_account(self):
+        self.exchange._set_current_timestamp(1640780000)
+        event_message = {
+            "id": "592324d2bce751-ad38-48eb-8f42-4671d1fb4d4e",
+            "channel": CONSTANTS.PRIVATE_WALLET_CHANNEL,
+            "topic": "wallet",
+            "creationTime": 1700034722104,
+            "data": [
+                {
+                    "accountIMRate": "0",
+                    "accountMMRate": "0",
+                    "totalEquity": "10262.91335023",
+                    "totalWalletBalance": "9684.46297164",
+                    "totalMarginBalance": "9684.46297164",
+                    "totalAvailableBalance": "9556.6056555",
+                    "totalPerpUPL": "0",
+                    "totalInitialMargin": "0",
+                    "totalMaintenanceMargin": "0",
+                    "coin": [
+                        {
+                            "coin": self.base_asset,
+                            "equity": "10000",
+                            "usdValue": "10",
+                            "walletBalance": "10000",
+                            "availableToWithdraw": "10000",
+                            "availableToBorrow": "",
+                            "borrowAmount": "0",
+                            "accruedInterest": "0",
+                            "totalOrderIM": "0",
+                            "totalPositionIM": "0",
+                            "totalPositionMM": "0",
+                            "unrealisedPnl": "0",
+                            "cumRealisedPnl": "-0.00000973",
+                            "bonus": "0",
+                            "collateralSwitch": True,
+                            "marginCollateral": True,
+                            "locked": "0",
+                            "spotHedgingQty": "0.01592413"
+                        }
+                    ],
+                    "accountLTV": "0",
+                    "accountType": "UNIFIED"
+                }
+            ]
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+        self.exchange._account_type = "UNIFIED"
 
         try:
             self.async_run_with_timeout(self.exchange._user_stream_event_listener())

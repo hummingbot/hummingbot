@@ -313,7 +313,7 @@ class XEMMExecutor(ExecutorBase):
             "order_amount": self.config.order_amount,
         }
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         if self.maker_order and self.maker_order.order and self.maker_order.order.is_open:
             self.logger().info(f"Cancelling maker order {self.maker_order.order_id}.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
