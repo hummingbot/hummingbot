@@ -82,8 +82,6 @@ def main():
         "injective-py",
         "mypy-extensions",
         "msgpack",
-        "nose",
-        "nose-exclude",
         "numpy==1.26.4",
         "pandas",
         "pip",
