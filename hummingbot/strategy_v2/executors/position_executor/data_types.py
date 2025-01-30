@@ -17,8 +17,8 @@ class TrailingStop(BaseModel):
 class TripleBarrierConfig(BaseModel):
     stop_loss: Optional[Decimal]
     take_profit: Optional[Decimal]
-    time_limit: Optional[int]
-    trailing_stop: Optional[TrailingStop]
+    time_limit: Optional[int] = None
+    trailing_stop: Optional[TrailingStop] = None
     open_order_type: OrderType = OrderType.LIMIT
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
@@ -45,7 +45,7 @@ class TripleBarrierConfig(BaseModel):
 
 
 class PositionExecutorConfig(ExecutorConfigBase):
-    type = "position_executor"
+    type: str = "position_executor"
     trading_pair: str
     connector_name: str
     side: TradeType

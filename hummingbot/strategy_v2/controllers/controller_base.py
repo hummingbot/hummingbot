@@ -127,6 +127,7 @@ class ControllerBase(RunnableBase):
         super().__init__(update_interval=update_interval)
         self.config = config
         self.executors_info: List[ExecutorInfo] = []
+        self.positions_held: List[Dict] = []
         self.market_data_provider: MarketDataProvider = market_data_provider
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
