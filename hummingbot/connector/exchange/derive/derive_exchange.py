@@ -57,6 +57,7 @@ class DeriveExchange(ExchangePyBase):
         self._instrument_ticker = []
         super().__init__(client_config_map)
         self.real_time_balance_update = False
+        self.currencies = []
 
     SHORT_POLL_INTERVAL = 5.0
 
@@ -724,6 +725,8 @@ class DeriveExchange(ExchangePyBase):
                         app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
                     continue
+                if len(trades) == 0:
+                    continue
                 for trade in trades["result"]["trades"]:
                     exchange_order_id = str(trade["order_id"])
                     if exchange_order_id in order_by_exchange_id_map:
@@ -828,15 +831,18 @@ class DeriveExchange(ExchangePyBase):
     async def _make_network_check_request(self):
         await self._api_get(path_url=self.check_network_request_path)
 
-    async def _make_trading_rules_request(self) -> Any:
-        self._instrument_ticker = []
-        currencies = await self._api_post(path_url=self.trading_rules_request_path, data={
+    async def _make_currency_request(self) -> Any:
+        currencies = await self._api_post(path_url=self.trading_pairs_request_path, data={
             "instrument_type": "erc20",
         })
-        # print(f"currencies___________make_trading_rules_request________________{currencies}")
-        # Collect exchange info for all currencies
+        self.currencies.append(currencies)
+
+    async def _make_trading_rules_request(self) -> Any:
+        self._instrument_ticker = []
+        if len(self.currencies) == 0:
+            await self._make_currency_request()
         exchange_infos = []
-        for currency in currencies["result"]:
+        for currency in self.currencies[0]["result"]:
 
             payload = {
                 "expired": True,
@@ -849,7 +855,7 @@ class DeriveExchange(ExchangePyBase):
                 if 'Instrument not found' in exchange_info['error']['message']:
                     self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
                     continue
-                self.logger().warning(f"Error: {currency['message']}")
+                self.logger().warning(f"Error: {exchange_info['error']['message']}")
                 raise
             exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
             self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
@@ -859,12 +865,10 @@ class DeriveExchange(ExchangePyBase):
         return exchange_infos
 
     async def _make_trading_pairs_request(self) -> Any:
-        currencies = await self._api_post(path_url=self.trading_pairs_request_path, data={
-            "instrument_type": "erc20",
-        })
-
         exchange_infos = []
-        for currency in currencies["result"]:
+        if len(self.currencies) == 0:
+            await self._make_currency_request()
+        for currency in self.currencies[0]["result"]:
 
             payload = {
                 "expired": True,
