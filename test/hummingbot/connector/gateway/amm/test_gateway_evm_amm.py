@@ -15,7 +15,7 @@ from async_timeout import timeout
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
@@ -36,22 +36,22 @@ ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 s_decimal_0: Decimal = Decimal(0)
 
 
-class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
+class GatewayEthereumAMMConnectorUnitTest(unittest.TestCase):
     _db_path: str
     _http_player: HttpPlayer
     _patch_stack: ExitStack
     _clock: Clock
-    _connector: GatewayEVMAMM
+    _connector: GatewayEthereumAMM
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         GatewayHttpClient.__instance = None
-        cls._db_path = realpath(join(__file__, "../fixtures/gateway_evm_amm_fixture.db"))
+        cls._db_path = realpath(join(__file__, "../fixtures/gateway_ethereum_amm_fixture.db"))
         cls._http_player = HttpPlayer(cls._db_path)
         cls._clock: Clock = Clock(ClockMode.REALTIME)
         cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
-        cls._connector: GatewayEVMAMM = GatewayEVMAMM(
+        cls._connector: GatewayEthereumAMM = GatewayEthereumAMM(
             client_config_map=cls._client_config_map,
             connector_name="uniswap",
             chain="ethereum",
