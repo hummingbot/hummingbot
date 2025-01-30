@@ -18,17 +18,19 @@ class TegroOrderBook(OrderBook):
             cumulative_data = []
 
             # If reverse is True, process from the lowest price to the highest
-            entries = entries[::-1] if reverse else entries
+            if entries is not None:
+                entries = entries[::-1] if reverse else entries
 
-            for entry in entries:
-                price = float(entry['price'])  # Keep price unchanged
-                quantity = float(entry['quantity'])
-                cumulative_quantity += quantity  # Only accumulate the quantity
-                cumulative_data.append([price, cumulative_quantity])  # Price remains the same
+                for entry in entries:
+                    price = float(entry['price'])  # Keep price unchanged
+                    quantity = float(entry['quantity'])
+                    cumulative_quantity += quantity  # Only accumulate the quantity
+                    cumulative_data.append([price, cumulative_quantity])  # Price remains the same
 
-            # Reverse again if asks were reversed to maintain order in the result
-            return cumulative_data[::-1] if reverse else cumulative_data
-
+                # Reverse again if asks were reversed to maintain order in the result
+                return cumulative_data[::-1] if reverse else cumulative_data
+            else:
+                return cumulative_data
         # For asks, reverse the order of accumulation (because lower prices come first)
         asks = accumulate_quantities(msg.get('asks', []), reverse=True)
         # For bids, accumulate as usual
