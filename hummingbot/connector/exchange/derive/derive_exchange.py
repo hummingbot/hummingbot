@@ -642,19 +642,23 @@ class DeriveExchange(ExchangePyBase):
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             params={"wallet": self.derive_api_key},
             is_auth_required=True)
-        balances = account_info["result"][0]["collaterals"]
-        for balance_entry in balances:
-            asset_name = balance_entry["asset_name"]
-            free_balance = Decimal(balance_entry["amount"])
-            total_balance = Decimal(balance_entry["amount"])
-            self._account_available_balances[asset_name] = free_balance
-            self._account_balances[asset_name] = total_balance
-            remote_asset_names.add(asset_name)
+        if "error" in account_info:
+            self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
+            raise
+        else:
+            balances = account_info["result"][0]["collaterals"]
+            for balance_entry in balances:
+                asset_name = balance_entry["asset_name"]
+                free_balance = Decimal(balance_entry["amount"])
+                total_balance = Decimal(balance_entry["amount"])
+                self._account_available_balances[asset_name] = free_balance
+                self._account_balances[asset_name] = total_balance
+                remote_asset_names.add(asset_name)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         oid = await tracked_order.get_exchange_order_id()
