@@ -169,7 +169,7 @@ class ArbitrageExecutor(ExecutorBase):
             else:
                 self.check_order_status()
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         self.close_type = CloseType.EARLY_STOP
         self.stop()
 
@@ -318,12 +318,12 @@ class ArbitrageExecutor(ExecutorBase):
             "buy_price": self._last_buy_price,
             "sell_price": self._last_sell_price,
             "trade_pnl_pct": self._trade_pnl_pct,
-            "amm_gas_price": self.config.gas_conversion_price,
-            "amm_gas_amount": self._amm_gas_amount,
-            "amm_gas_cost": self._amm_gas_cost,
-            "buy_fee": self._last_buy_fee,
-            "sell_fee": self._last_sell_fee,
-            "total_fee": self._last_tx_cost,
+            # "amm_gas_price": self.config.gas_conversion_price,
+            # "amm_gas_amount": self._amm_gas_amount,
+            # "amm_gas_cost": self._amm_gas_cost,
+            # "buy_fee": self._last_buy_fee,
+            # "sell_fee": self._last_sell_fee,
+            # "total_fee": self._last_tx_cost,
             "tx_cost_pct": self._last_tx_cost / self.order_amount,
             "profit_pct": self._current_profitability,
             "failures": self._cumulative_failures,
