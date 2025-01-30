@@ -42,6 +42,7 @@ from hummingbot.model.market_data import MarketData
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
+from hummingbot.model.position import Position
 from hummingbot.model.range_position_collected_fees import RangePositionCollectedFees
 from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -195,16 +196,21 @@ class MarketsRecorder:
     def store_or_update_executor(self, executor):
         with self._sql_manager.get_new_session() as session:
             existing_executor = session.query(Executors).filter(Executors.id == executor.config.id).one_or_none()
-
+            serialized_config = executor.executor_info.json()
+            executor_dict = json.loads(serialized_config)
             if existing_executor:
                 # Update existing executor
-                for attr, value in vars(executor).items():
+                for attr, value in executor_dict.items():
                     setattr(existing_executor, attr, value)
             else:
                 # Insert new executor
-                serialized_config = executor.executor_info.json()
-                new_executor = Executors(**json.loads(serialized_config))
+                new_executor = Executors(**executor_dict)
                 session.add(new_executor)
+            session.commit()
+
+    def store_position(self, position: Position):
+        with self._sql_manager.get_new_session() as session:
+            session.add(position)
             session.commit()
 
     def store_controller_config(self, controller_config: ControllerConfigBase):
