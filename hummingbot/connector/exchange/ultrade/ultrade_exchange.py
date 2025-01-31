@@ -27,6 +27,8 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
+PRICE_TOKEN = "18DEC"   # this is the default token for price conversion rule
+
 
 class UltradeExchange(ExchangePyBase):
     web_utils = web_utils
@@ -50,7 +52,9 @@ class UltradeExchange(ExchangePyBase):
 
         self.available_trading_pairs = None
         self.ultrade_client = self.create_ultrade_client()
-        self._ultrade_conversion_rules: Optional[Dict[str, int]] = {}
+        self._ultrade_conversion_rules: Optional[Dict[str, int]] = {
+            "18DEC": 18,
+        }
         self._ultrade_token_address_asset_map: Optional[Dict[str, str]] = {}
         self._ultrade_token_id_asset_map: Optional[Dict[int, str]] = {}
         self._ultrade_pair_symbol_to_pair_id_map: Optional[Dict[str, int]] = {}
@@ -196,7 +200,7 @@ class UltradeExchange(ExchangePyBase):
         await self.trading_pair_symbol_map()
 
         amount_int = self.to_fixed_point(base, amount)
-        price_int = self.to_fixed_point(quote, price)
+        price_int = self.to_fixed_point(PRICE_TOKEN, price)
         if order_type == OrderType.LIMIT:
             type_str = "L"
         elif order_type == OrderType.LIMIT_MAKER:
@@ -363,7 +367,7 @@ class UltradeExchange(ExchangePyBase):
                         flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)]
                     )
                     base, quote = tracked_order.trading_pair.split("-")
-                    fill_price = self.from_fixed_point(quote, int(trade_data[7]))
+                    fill_price = self.from_fixed_point(PRICE_TOKEN, int(trade_data[7]))
                     fill_base_amount = self.from_fixed_point(base, int(trade_data[8]))
                     fill_quote_amount = fill_base_amount * fill_price
                     trade_update = TradeUpdate(
@@ -418,7 +422,7 @@ class UltradeExchange(ExchangePyBase):
                     flat_fees=[TokenAmount(amount=fee_amount, token=fee_token)]
                 )
                 fill_base_amount = self.from_fixed_point(base, int(trade["amount"]))
-                fill_price = self.from_fixed_point(quote, int(trade["price"]))
+                fill_price = self.from_fixed_point(PRICE_TOKEN, int(trade["price"]))
                 fill_quote_amount = fill_base_amount * fill_price
                 trade_update = TradeUpdate(
                     trade_id=str(trade["tradeId"]),
@@ -550,10 +554,10 @@ class UltradeExchange(ExchangePyBase):
         bids = order_book.get("buy", [])
         asks = order_book.get("sell", [])
         for bid in bids:
-            bid[0] = float(self.from_fixed_point(quote, int(bid[0])))
+            bid[0] = float(self.from_fixed_point(PRICE_TOKEN, int(bid[0])))
             bid[1] = float(self.from_fixed_point(base, int(bid[1])))
         for ask in asks:
-            ask[0] = float(self.from_fixed_point(quote, int(ask[0])))
+            ask[0] = float(self.from_fixed_point(PRICE_TOKEN, int(ask[0])))
             ask[1] = float(self.from_fixed_point(base, int(ask[1])))
 
         order_book["bids"] = bids

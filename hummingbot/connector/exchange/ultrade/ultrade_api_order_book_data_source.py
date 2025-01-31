@@ -179,7 +179,7 @@ class UltradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         base, quote = trading_pair.split("-")
         trade = {
             "trade_id": str(trade_data[2]),
-            "price": float(self._connector.from_fixed_point(quote, trade_data[3])),
+            "price": float(self._connector.from_fixed_point("18DEC", trade_data[3])),
             "amount": float(self._connector.from_fixed_point(base, trade_data[4])),
             "trade_type": "SELL" if trade_data[7] else "BUY",
             "timestamp": int(trade_data[6]),
