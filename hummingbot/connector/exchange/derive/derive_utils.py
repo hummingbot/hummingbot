@@ -21,6 +21,15 @@ BROKER_ID = "HBOT"
 
 class DeriveConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="derive", client_data=None)
+    derive_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter Your Derive Walllet address",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
     derive_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -39,15 +48,6 @@ class DeriveConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-    derive_api_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Walllet or Subaccount address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
-    )
 
 
 KEYS = DeriveConfigMap.construct()
@@ -60,6 +60,15 @@ OTHER_DOMAINS_DEFAULT_FEES = {"derive_testnet": [0, 0.025]}
 
 class DeriveTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="derive_testnet", client_data=None)
+    derive_testnet_api_key: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter Your Derive Walllet address",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
     derive_testnet_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -77,15 +86,6 @@ class DeriveTestnetConfigMap(BaseConnectorConfigMap):
             is_connect_key=True,
             prompt_on_new=True,
         ),
-    )
-    derive_testnet_api_key: SecretStr = Field(
-        default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Walllet or subaccount address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
     )
 
     class Config:
