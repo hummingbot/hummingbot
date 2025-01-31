@@ -76,10 +76,12 @@ class DexalotExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return DexalotAuth(
-            api_key=self.api_key,
-            secret_key=self.secret_key,
-            time_provider=self._time_synchronizer)
+        if self._trading_required:
+            return DexalotAuth(
+                api_key=self.api_key,
+                secret_key=self.secret_key,
+                time_provider=self._time_synchronizer)
+        return None
 
     @property
     def name(self) -> str:
@@ -476,7 +478,7 @@ class DexalotExchange(ExchangePyBase):
             async with self._throttler.execute_task(limit_id=CONSTANTS.UID_REQUEST_WEIGHT):
 
                 transaction_hash = await self._tx_client.cancel_and_add_order_list(
-                    orders_to_cancel = tracked_orders_to_cancel,
+                    orders_to_cancel=tracked_orders_to_cancel,
                     order_list=inflight_orders_to_create
                 )
                 for cancel_order_result in tracked_orders_to_cancel:
