@@ -15,6 +15,7 @@ dependencies:
   - prompt_toolkit=3.0.20
   - pydantic=1.10
   - pytest
+  - pytest-asyncio
   - python=3.10
   - rust
   - scipy=1.10.1
@@ -57,7 +58,6 @@ dependencies:
     - psutil==5.7.2
     - ptpython==3.0.20
     - pyperclip==1.7.0
-    - python-telegram-bot==12.8
     - requests==2.*
     - rsa==4.7
     - ruamel-yaml==0.16.10

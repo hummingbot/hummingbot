@@ -93,7 +93,6 @@ def main():
         "pyjwt",
         "pyperclip",
         "python-dateutil",
-        "python-telegram-bot==12.8",
         "pyOpenSSL",
         "requests",
         "rsa",
