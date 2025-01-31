@@ -7,6 +7,7 @@ from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
+from eth_account import Account
 from web3 import AsyncWeb3
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -23,7 +24,7 @@ class DexalotClientTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        self.api_key = "somekey"
+        self.api_key = Account.from_key(self.api_secret).address
         self.base_asset = "AVAX"
         self.quote_asset = "USDC"
         self.trading_pair = "AVAX-USDC"
@@ -42,6 +43,7 @@ class DexalotClientTests(TestCase):
             "quote_evmdecimals": Decimal(18),
         }
         self._tx_client = DexalotClient(
+            self.api_key,
             self.api_secret,
             self.exchange
         )
