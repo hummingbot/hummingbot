@@ -130,22 +130,27 @@ class DeriveExchange(ExchangePyBase):
         """
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
-    async def _get_all_pairs_prices(self) -> Dict[str, Any]:
-        results = {}
+    async def get_all_pairs_prices(self) -> Dict[str, Any]:
+        res = []
         tasks = []
-        if len(self._instrument_ticker) < 0:
-            await self._initialize_trading_pair_symbol_map()
+        if len(self._instrument_ticker) == 0:
+            await self._make_trading_rules_request()
         for token in self._instrument_ticker:
             payload = {"instrument_name": token["instrument_name"]}
-            tasks.append(await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload))
+            tasks.append(self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload))
         results = await safe_gather(*tasks, return_exceptions=True)
         for result in results:
             pair_price_data = result["result"]
-            results[self._instrument_ticker["instrument_name"]] = {
-                "best_bid": pair_price_data["best_bid"],
-                "best_ask": pair_price_data["best_ask"],
+
+            data = {
+                "symbol": {
+                    "instrument_name": pair_price_data["instrument_name"],
+                    "best_bid": pair_price_data["best_bid_price"],
+                    "best_ask": pair_price_data["best_ask_price"],
+                }
             }
-        return results
+            res.append(data)
+        return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         return False
