@@ -1,5 +1,6 @@
 import asyncio
 from decimal import Decimal
+from test.hummingbot.remote_iface.mock_mqtt_server import FakeMQTTBroker
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
@@ -14,7 +15,6 @@ from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExcha
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, OrderExpiredEvent, SellOrderCreatedEvent
-from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
 from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.remote_iface.mqtt import MQTTGateway, MQTTMarketEventForwarder
