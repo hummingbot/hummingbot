@@ -14,8 +14,6 @@ test:
  	--ignore="test/mock" \
  	--ignore="test/hummingbot/connector/gateway/amm" \
  	--ignore="test/hummingbot/connector/exchange/coinbase_advanced_trade" \
- 	--ignore="test/hummingbot/connector/exchange/ndax" \
- 	--ignore="test/hummingbot/connector/exchange/foxbit" \
  	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual" \
  	--ignore="test/hummingbot/core/gateway" \
 
