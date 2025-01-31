@@ -55,7 +55,6 @@ dependencies:
     - ptpython==3.0.20
     - pyjwt==2.8.0
     - pyperclip==1.7.0
-    - python-telegram-bot==12.8
     - requests==2.*
     - rsa==4.7
     - ruamel-yaml==0.16.10
