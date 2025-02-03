@@ -126,14 +126,7 @@ class KrakenExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [
-            OrderType.LIMIT,
-            OrderType.LIMIT_MAKER,
-            OrderType.MARKET,
-            OrderType.STOP_LOSS,
-            OrderType.TAKE_PROFIT,
-            OrderType.TRAILING_STOP,
-        ]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def _build_async_throttler(self, api_tier: KrakenAPITier) -> AsyncThrottler:
         limits_pct = self._client_config.rate_limits_share_pct
@@ -236,7 +229,7 @@ class KrakenExchange(ExchangePyBase):
 
         :param trading_pair: the token pair to operate with
         :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP)
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
 
         :return: the id assigned by the connector to the order (the client id)
@@ -245,17 +238,13 @@ class KrakenExchange(ExchangePyBase):
             nonce_creator=self._client_order_id_nonce_provider,
             max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
         ))
-        safe_ensure_future(
-            self._create_order(
-                trade_type=TradeType.BUY,
-                order_id=order_id,
-                trading_pair=trading_pair,
-                amount=amount,
-                order_type=order_type,
-                price=price,
-                **kwargs,
-            )
-        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price))
         return order_id
 
     def sell(self,
@@ -268,7 +257,7 @@ class KrakenExchange(ExchangePyBase):
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
         :param amount: the order amount
-        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER, STOP_LOSS, TAKE_PROFIT, TRAILING_STOP)
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         :return: the id assigned by the connector to the order (the client id)
         """
@@ -276,17 +265,13 @@ class KrakenExchange(ExchangePyBase):
             nonce_creator=self._client_order_id_nonce_provider,
             max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
         ))
-        safe_ensure_future(
-            self._create_order(
-                trade_type=TradeType.SELL,
-                order_id=order_id,
-                trading_pair=trading_pair,
-                amount=amount,
-                order_type=order_type,
-                price=price,
-                **kwargs,
-            )
-        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price))
         return order_id
 
     async def get_asset_pairs(self) -> Dict[str, Any]:
@@ -310,60 +295,23 @@ class KrakenExchange(ExchangePyBase):
         data = {
             "pair": trading_pair,
             "type": "buy" if trade_type is TradeType.BUY else "sell",
+            "ordertype": "market" if order_type is OrderType.MARKET else "limit",
             "volume": str(amount),
-            "userref": order_id,  # This is a non-unique field, useful to group batches of orders
-            # "cl_order_id": order_id, # Kraken supports unique client order id
+            "userref": order_id,
             "price": str(price)
         }
 
-        if kwargs.get("price_in_percent", False):
-            data["price"] = f"#{price}%"
-
         if order_type is OrderType.MARKET:
-            data["ordertype"] = "market"
             del data["price"]
-
-        elif order_type is OrderType.LIMIT:
-            data["ordertype"] = "limit"
-
-        elif order_type is OrderType.LIMIT_MAKER:
-            data["ordertype"] = "limit"
+        if order_type is OrderType.LIMIT_MAKER:
             data["oflags"] = "post"
-
-        elif order_type is OrderType.STOP_LOSS:
-            data["ordertype"] = "stop-loss"
-            if "price_in_percent" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Stop loss order requires to clarify if price is in percent: {'price_in_percent': True/False}")
-
-        elif order_type is OrderType.TAKE_PROFIT:
-            data["ordertype"] = "take-profit"
-            if "price_in_percent" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Take profit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
-
-        elif order_type is OrderType.TRAILING_STOP:
-            data["ordertype"] = "trailing-stop"
-            data["price"] = data["price"].replace("#", "+")
-            if "price_in_percent" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Trailing stop order requires to clarify if price is in percent: {'price_in_percent': True/False}")
-
-        elif hasattr(order_type, "name"):
-            raise ValueError(f"Order type {order_type.name} not supported")
-        else:
-            raise ValueError(f"Order type {order_type} is invalid")
-
-        self.logger().debug(f"  '-> Placing order {order_id} for {amount} {trading_pair} at {price} {trade_type.name} {order_type} with {kwargs}")
-        self.logger().debug(f"  '-> request data {data}")
         order_result = await self._api_request_with_retry(RESTMethod.POST,
                                                           CONSTANTS.ADD_ORDER_PATH_URL,
                                                           data=data,
                                                           is_auth_required=True)
 
         o_id = order_result["txid"][0]
-        self.logger().debug(f"  '-> Placed {order_type} {order_result} with id {o_id}")
-        return o_id, self.current_timestamp
+        return (o_id, self.current_timestamp)
 
     async def _api_request_with_retry(self,
                                       method: RESTMethod,
@@ -385,7 +333,6 @@ class KrakenExchange(ExchangePyBase):
                                         "and if needed reset your API key.")
                 result = response_json.get("result")
                 if not result or response_json.get("error"):
-                    self.logger().error(f"Error fetching data from {path_url}, msg is {response_json} for {data}")
                     raise IOError({"error": response_json})
                 break
             except IOError as e:
@@ -403,7 +350,6 @@ class KrakenExchange(ExchangePyBase):
                     await asyncio.sleep(retry_interval ** retry_attempt)
                     continue
                 else:
-                    self.logger().error(f"Error fetching data from {path_url}, msg is {response_json}")
                     raise e
         if not result:
             raise IOError(f"Error fetching data from {path_url}, msg is {response_json}.")
