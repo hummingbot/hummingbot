@@ -40,7 +40,7 @@ dependencies:
     - cryptography==3.4.7
     - diff-cover
     - docker==5.0.3
-    - eth_abi==4.0.0
+    - eth_abi>=4.0.0
     - eth-account==0.8.0
     - eth-utils==2.2.0
     - eip712-structs==1.1.0
@@ -73,3 +73,4 @@ dependencies:
     - git+https://github.com/CoinAlpha/python-signalr-client.git
     - git+https://github.com/konichuvak/dydx-v3-python.git@web3
     - xrpl-py==3.0.0
+    - lyra_v2_action_signing==0.0.3
