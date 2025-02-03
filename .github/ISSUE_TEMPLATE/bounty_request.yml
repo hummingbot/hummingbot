@@ -11,7 +11,7 @@ body:
        * Please edit the "Bounty request" to the title of the bug/issue
        * Please make sure to look on our GitHub issues to avoid duplicate tickets
        * You can add additional `Labels` to support this ticket (connectors, strategies, etc)
-       * See https://docs.hummingbot.org/governance/bounties/sponsors/ for more information on bounties
+       * See https://hummingbot.org/bounties/ for more information on bounties
  - type: textarea
    id: bounty-description
    attributes:
