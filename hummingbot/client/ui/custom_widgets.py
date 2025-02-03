@@ -228,7 +228,7 @@ class CustomTextArea:
         else:
             max_width = self.window.render_info.window_width - 2
 
-        # remove simple formatting tags used by telegram
+        # remove simple formatting tags
         repls = (('<b>', ''), ('</b>', ''), ('<pre>', ''), ('</pre>', ''))
         for r in repls:
             text = text.replace(*r)

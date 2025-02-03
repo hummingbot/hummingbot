@@ -14,6 +14,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source import DexalotClient
 from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
+from hummingbot.connector.exchange_base import bidict
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 
@@ -35,6 +36,7 @@ class DexalotClientTests(TestCase):
             dexalot_api_secret=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
+        self.exchange._set_trading_pair_symbol_map(bidict({"AVAX-USDC": "AVAX-USDC"}))
         self.exchange._evm_params[self.trading_pair] = {
             "base_coin": self.base_asset,
             "quote_coin": self.quote_asset,
@@ -45,6 +47,10 @@ class DexalotClientTests(TestCase):
             self.api_secret,
             self.exchange
         )
+        self._tx_client.balance_evm_params = {
+            "AVAX": {"token_evmdecimals": "18"},
+            "USDC": {"token_evmdecimals": "6"}
+        }
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -137,8 +143,7 @@ class DexalotClientTests(TestCase):
         result = self.async_run_with_timeout(self._tx_client.cancel_and_add_order_list([order], []))
         self.assertEqual("79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659", result)  # noqa: mock
 
-    @patch(
-        "hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
+    @patch("hummingbot.connector.exchange.dexalot.data_sources.dexalot_data_source.DexalotClient._build_and_send_tx")
     def test_place_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self.order_creation_request_successful_mock_response
         order = GatewayInFlightOrder(

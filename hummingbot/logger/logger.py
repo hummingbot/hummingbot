@@ -12,7 +12,7 @@ import pandas as pd
 
 from .application_warning import ApplicationWarning
 
-TESTING_TOOLS = ["nose", "unittest", "pytest"]
+TESTING_TOOLS = ["unittest", "pytest"]
 
 #  --- Copied from logging module ---
 if hasattr(sys, '_getframe'):

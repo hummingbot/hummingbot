@@ -90,7 +90,6 @@ class BuyDipExample(ScriptStrategyBase):
     def did_fill_order(self, event: OrderFilledEvent):
         """
         Listens to fill order event to log it and notify the hummingbot application.
-        If you set up Telegram bot, you will get notification there as well.
         """
         msg = (f"({event.trading_pair}) {event.trade_type.name} order (price: {event.price}) of {event.amount} "
                f"{split_hb_trading_pair(event.trading_pair)[0]} is filled.")

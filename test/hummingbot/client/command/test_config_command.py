@@ -67,7 +67,6 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | fetch_pairs_from_all_exchanges    | False                |\n"
                            "    | kill_switch_mode                  | kill_switch_disabled |\n"
                            "    | autofill_import                   | disabled             |\n"
-                           "    | telegram_mode                     | telegram_disabled    |\n"
                            "    | mqtt_bridge                       |                      |\n"
                            "    | ∟ mqtt_host                       | localhost            |\n"
                            "    | ∟ mqtt_port                       | 1883                 |\n"
