@@ -21,10 +21,14 @@ class KrakenAuth(AuthBase):
         self.time_provider = time_provider
 
     @classmethod
-    def get_tracking_nonce(self) -> str:
-        nonce = int(time.time())
-        self._last_tracking_nonce = nonce if nonce > self._last_tracking_nonce else self._last_tracking_nonce + 1
-        return str(self._last_tracking_nonce)
+    def get_tracking_nonce(cls) -> str:
+        nonce = int(time.time()*1000)
+        cls._last_tracking_nonce = (
+            nonce
+            if nonce > cls._last_tracking_nonce
+            else cls._last_tracking_nonce + 1
+        )
+        return str(cls._last_tracking_nonce)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
 

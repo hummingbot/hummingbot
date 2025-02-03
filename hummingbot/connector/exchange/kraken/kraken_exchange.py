@@ -386,6 +386,41 @@ class KrakenExchange(ExchangePyBase):
         if kwargs.get("price_in_percent", False):
             data["price"] = f"#{price}%"
 
+        if (
+            order_type
+            in {
+                OrderType.STOP_LOSS,
+                OrderType.STOP_LOSS_LIMIT,
+                OrderType.TAKE_PROFIT,
+                OrderType.TAKE_PROFIT_LIMIT,
+                OrderType.TRAILING_STOP,
+                OrderType.TRAILING_STOP_LIMIT,
+            }
+            and "price_in_percent" not in kwargs
+        ):
+            self.logger().debug(f"kwargs: {kwargs}")
+            raise ValueError(f"{order_type} order requires to clarify if price is in percent with 'price_in_percent=True/False'")
+
+        if (
+            order_type
+            in {
+                OrderType.STOP_LOSS_LIMIT,
+                OrderType.TAKE_PROFIT_LIMIT,
+                OrderType.TRAILING_STOP_LIMIT,
+            }
+        ):
+            if "price2" not in kwargs and "limit_price" not in kwargs:
+                self.logger().debug(f"kwargs: {kwargs}")
+                raise ValueError(f"{order_type} order requires a limit price: 'price2=str or limit_price=str'")
+            if "price2" in kwargs and "limit_price" in kwargs:
+                self.logger().debug(f"kwargs: {kwargs}")
+                raise ValueError(f"{order_type} order cannot specify both: 'price2=str and limit_price=str'")
+            price2: Decimal = kwargs.get("price2", kwargs.get("limit_price"))
+            if not isinstance(price2, Decimal):
+                self.logger().debug(f"kwargs: {kwargs}")
+                raise ValueError(f"{order_type} order limit price must be Decimal")
+            data["price2"] = f"{price2:+}%"
+
         if order_type is OrderType.MARKET:
             data["ordertype"] = "market"
             del data["price"]
@@ -399,40 +434,23 @@ class KrakenExchange(ExchangePyBase):
 
         elif order_type is OrderType.STOP_LOSS:
             data["ordertype"] = "stop-loss"
-            if "price_in_percent" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Stop loss order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+
+        elif order_type is OrderType.STOP_LOSS_LIMIT:
+            data["ordertype"] = "stop-loss-limit"
 
         elif order_type is OrderType.TAKE_PROFIT:
             data["ordertype"] = "take-profit"
-            if "price_in_percent" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Take profit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+
+        elif order_type is OrderType.TAKE_PROFIT_LIMIT:
+            data["ordertype"] = "take-profit-limit"
 
         elif order_type is OrderType.TRAILING_STOP:
             data["ordertype"] = "trailing-stop"
             data["price"] = data["price"].replace("#", "+")
-            if "price_in_percent" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Trailing stop order requires to clarify if price is in percent: {'price_in_percent': True/False}")
 
         elif order_type is OrderType.TRAILING_STOP_LIMIT:
             data["ordertype"] = "trailing-stop-limit"
             data["price"] = data["price"].replace("#", "+")
-            if "price_in_percent" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Trailing stop limit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
-            if "price2" not in kwargs and "limit_price" not in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Trailing stop limit order requires a limit price: {'price2': str} or {'limit_price': str}")
-            if "price2" in kwargs and "limit_price" in kwargs:
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Trailing stop limit order cannot specify both: {'price2': str} and {'limit_price': str}")
-            price2 = kwargs.get("price2", kwargs.get("limit_price"))
-            if not isinstance(price2, Decimal):
-                self.logger().debug(f"kwargs: {kwargs}")
-                raise ValueError("Trailing stop limit order linit price must be Decimal")
-            data["price2"] = f"{price2:+}%"
 
         elif hasattr(order_type, "name"):
             raise ValueError(f"Order type {order_type.name} not supported")
@@ -471,12 +489,6 @@ class KrakenExchange(ExchangePyBase):
                 result = response_json.get("result")
                 break
             except IOError as e:
-                if "EAPI:Invalid nonce" in e.get("error", ""):
-                    self.logger().error(f"Invalid nonce error from {path_url}. " +
-                                        "Please ensure your Kraken API key nonce window is at least 10, " +
-                                        "and if needed reset your API key.")
-                    raise ValueError("Invalid nonce error from Kraken API")
-
                 if self.is_cloudflare_exception(e):
                     if path_url == CONSTANTS.ADD_ORDER_PATH_URL:
                         self.logger().info(f"Retrying {path_url}")
@@ -496,6 +508,13 @@ class KrakenExchange(ExchangePyBase):
                     self.logger().error(f"Market in cancel-only mode error from {path_url}.")
                     await asyncio.sleep((10 * retry_interval) ** retry_attempt)
                     continue
+
+                elif isinstance(e, dict) and "EAPI:Invalid nonce" in e.get("error", ""):
+                    self.logger().error(f"Invalid nonce error from {path_url}. " +
+                                        "Please ensure your Kraken API key nonce window is at least 10, " +
+                                        "and if needed reset your API key.")
+                    raise ValueError("Invalid nonce error from Kraken API")
+
                 else:
                     self.logger().error(f"Error fetching data from {path_url}, msg is {response_json}")
                     raise e
