@@ -20,7 +20,7 @@ class DeriveRateSource(RateSourceBase):
 
     @async_ttl_cache(ttl=30, maxsize=1)
     async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
-        self._ensure_exchange()
+        await self._ensure_exchange()
         pairs_prices = await self._exchange.get_all_pairs_prices()
         results = {}
         for pair_price in pairs_prices:
@@ -39,9 +39,11 @@ class DeriveRateSource(RateSourceBase):
 
         return results
 
-    def _ensure_exchange(self):
+    async def _ensure_exchange(self):
         if self._exchange is None:
             self._exchange = self._build_derive_connector_without_private_keys()
+        if len(self._exchange._instrument_ticker) == 0:
+            await self._exchange._make_trading_rules_request()
 
     @staticmethod
     def _build_derive_connector_without_private_keys() -> 'DeriveExchange':
