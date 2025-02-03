@@ -1369,7 +1369,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(ValueError) as context:
             await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
-        self.assertEqual(str(context.exception), "Trailing stop order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+        self.assertEqual(str(context.exception), f"{order_type} order requires to clarify if price is in percent with 'price_in_percent=True/False'")
 
     async def test_place_order_edge_case_trailing_stop_limit(self):
         order_id = "order4"
@@ -1470,7 +1470,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(ValueError) as context:
             await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
-        self.assertEqual(str(context.exception), "Trailing stop limit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+        self.assertEqual(str(context.exception), f"{order_type} order requires to clarify if price is in percent with 'price_in_percent=True/False'")
 
     async def test_place_order_edge_case_stop_loss(self):
         order_id = "order4"
@@ -1506,7 +1506,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(ValueError) as context:
             await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
-        self.assertEqual(str(context.exception), "Stop loss order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+        self.assertEqual(str(context.exception), f"{order_type} order requires to clarify if price is in percent with 'price_in_percent=True/False'")
 
     async def test_place_order_edge_case_take_profit(self):
         order_id = "order4"
@@ -1542,7 +1542,7 @@ class TestKrakenExchange(IsolatedAsyncioWrapperTestCase):
 
         with self.assertRaises(ValueError) as context:
             await self.exchange._place_order(order_id, "BTC-USD", amount, trade_type, order_type, price, **kwargs)
-        self.assertEqual(str(context.exception), "Take profit order requires to clarify if price is in percent: {'price_in_percent': True/False}")
+        self.assertEqual(str(context.exception), f"{order_type} order requires to clarify if price is in percent with 'price_in_percent=True/False'")
 
     async def test_place_order_error_invalid_order_type(self):
         order_id = "order5"
