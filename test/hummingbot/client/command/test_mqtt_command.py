@@ -1,5 +1,5 @@
 import asyncio
-from test.hummingbot.remote_iface.mock_mqtt_server import FakeMQTTBroker
+from test.mock.mock_mqtt_server import FakeMQTTBroker
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock, PropertyMock, patch
