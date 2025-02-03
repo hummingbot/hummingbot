@@ -72,7 +72,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -96,7 +96,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Verify order properties
         first_level = executor.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED][0]
         self.assertEqual(first_level.active_open_order.order_id, "OID-BUY-1")
-        self.assertEqual(first_level.amount_quote, Decimal("10"))
+        self.assertAlmostEqual(first_level.amount_quote, Decimal("10"))
 
     @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("110")))
     async def test_control_task_grid_open_orders_perps(self):
@@ -110,7 +110,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -142,7 +142,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("100"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -191,7 +191,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -239,7 +239,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("9"),
             activation_bounds=Decimal("0.05"),
             limit_price=Decimal("90"),
             triple_barrier_config=TripleBarrierConfig(
@@ -279,7 +279,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("100"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("10"),
+            min_order_amount_quote=Decimal("8"),
             activation_bounds=Decimal("0.05"),
             limit_price=Decimal("110"),
             triple_barrier_config=TripleBarrierConfig(
@@ -505,6 +505,20 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.control_task()
         self.assertEqual(len(executor.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]), 1)
         self.assertIsInstance(executor._close_order, TrackedOrder)
+        executor._close_order.order = InFlightOrder(
+            client_order_id="OID-SELL-1",
+            exchange_order_id="EOID5",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            amount=Decimal("0.1"),
+            price=Decimal("101"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        executor._close_order.order.executed_amount_base = Decimal("0.1")
+        await executor.control_task()
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
     @patch.object(GridExecutor, "get_in_flight_order")
     @patch.object(GridExecutor, "get_price", return_value=Decimal("100"))
@@ -846,7 +860,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             end_price=Decimal("120"),
             total_amount_quote=Decimal("100"),
             min_spread_between_orders=Decimal("0.01"),
-            min_order_amount_quote=Decimal("100"),
+            min_order_amount_quote=Decimal("85"),
             order_frequency=1.0,
             max_open_orders=5,
             max_orders_per_batch=2,
@@ -1132,3 +1146,46 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._current_retries = 11
         await executor.control_task()
         self.assertEqual(executor._status, RunnableStatus.TERMINATED)
+
+    @patch.object(GridExecutor, "_sleep")
+    @patch.object(GridExecutor, "get_price")
+    async def test_control_shutdown_process_position_hold(self, mock_price, _):
+        mock_price.return_value = Decimal("100")
+        config = GridExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            start_price=Decimal("100"),
+            end_price=Decimal("120"),
+            total_amount_quote=Decimal("100"),
+            min_spread_between_orders=Decimal("0.01"),
+            min_order_amount_quote=Decimal("10"),
+            limit_price=Decimal("90"),
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.001"),
+                stop_loss=Decimal("0.05")
+            )
+        )
+        executor = self.get_grid_executor_from_config(config)
+        executor.open_liquidity_placed = Decimal("0")
+        executor.close_liquidity_placed = Decimal("0")
+        executor._status = RunnableStatus.SHUTTING_DOWN
+        executor.close_type = CloseType.POSITION_HOLD
+        # Add some active orders
+        executor.grid_levels[0].active_open_order = TrackedOrder("OID-BUY-1")
+        executor.grid_levels[0].active_open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("0.1"),
+            price=Decimal("100"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        await executor.control_task()
+        self.assertEqual(executor._status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)

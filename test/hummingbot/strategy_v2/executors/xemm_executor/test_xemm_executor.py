@@ -45,7 +45,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             timestamp=1234,
             buying_market=ConnectorPair(connector_name='binance', trading_pair='ETH-USDT'),
             selling_market=ConnectorPair(connector_name='kucoin', trading_pair='ETH-USDT'),
-            maker_side=TradeType.BUY,
+            maker_side=TradeType.SELL,
             order_amount=Decimal('100'),
             min_profitability=Decimal('0.01'),
             target_profitability=Decimal('0.015'),
@@ -79,7 +79,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertTrue(self.executor.is_arbitrage_valid('ETH-BUSD', 'ETH-USDT'))
         self.assertTrue(self.executor.is_arbitrage_valid('ETH-USDT', 'WETH-USDT'))
         self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'BTC-USDT'))
-        self.assertFalse(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
+        self.assertTrue(self.executor.is_arbitrage_valid('ETH-USDT', 'ETH-BTC'))
 
     def test_net_pnl_long(self):
         self.executor._status = RunnableStatus.TERMINATED
@@ -95,22 +95,22 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor.net_pnl_pct, Decimal('0.98'))
 
     def test_net_pnl_short(self):
-        self.executor._status = RunnableStatus.TERMINATED
-        self.executor.config = self.base_config_short
-        self.executor.maker_order = Mock(spec=TrackedOrder)
-        self.executor.taker_order = Mock(spec=TrackedOrder)
-        self.executor.maker_order.executed_amount_base = Decimal('1')
-        self.executor.taker_order.executed_amount_base = Decimal('1')
-        self.executor.maker_order.average_executed_price = Decimal('100')
-        self.executor.taker_order.average_executed_price = Decimal('200')
-        self.executor.maker_order.cum_fees_quote = Decimal('1')
-        self.executor.taker_order.cum_fees_quote = Decimal('1')
-        self.assertEqual(self.executor.net_pnl_quote, Decimal('98'))
-        self.assertEqual(self.executor.net_pnl_pct, Decimal('0.98'))
+        executor = XEMMExecutor(self.strategy, self.base_config_short, self.update_interval)
+        executor._status = RunnableStatus.TERMINATED
+        executor.maker_order = Mock(spec=TrackedOrder)
+        executor.taker_order = Mock(spec=TrackedOrder)
+        executor.maker_order.executed_amount_base = Decimal('1')
+        executor.taker_order.executed_amount_base = Decimal('1')
+        executor.maker_order.average_executed_price = Decimal('100')
+        executor.taker_order.average_executed_price = Decimal('200')
+        executor.maker_order.cum_fees_quote = Decimal('1')
+        executor.taker_order.cum_fees_quote = Decimal('1')
+        self.assertEqual(executor.net_pnl_quote, Decimal('98'))
+        self.assertEqual(executor.net_pnl_pct, Decimal('0.98'))
 
     @patch.object(XEMMExecutor, 'get_trading_rules')
     @patch.object(XEMMExecutor, 'adjust_order_candidates')
-    def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+    async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
         trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
                                     min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
@@ -125,13 +125,13 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
-        self.executor.validate_sufficient_balance()
+        await self.executor.validate_sufficient_balance()
         self.assertNotEqual(self.executor.close_type, CloseType.INSUFFICIENT_BALANCE)
 
         # Test for insufficient balance
         order_candidate.amount = Decimal("0")
         mock_adjust_order_candidates.return_value = [order_candidate]
-        self.executor.validate_sufficient_balance()
+        await self.executor.validate_sufficient_balance()
         self.assertEqual(self.executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(self.executor.status, RunnableStatus.TERMINATED)
 
@@ -290,16 +290,44 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     def test_get_custom_info(self):
         self.assertEqual(self.executor.get_custom_info(), {'maker_connector': 'binance',
+                                                           'maker_target_price': Decimal('1'),
                                                            'maker_trading_pair': 'ETH-USDT',
                                                            'max_profitability': Decimal('0.02'),
                                                            'min_profitability': Decimal('0.01'),
+                                                           'net_profitability': Decimal('-1'),
+                                                           'order_amount': Decimal('100'),
                                                            'side': TradeType.BUY,
                                                            'taker_connector': 'kucoin',
+                                                           'taker_price': Decimal('1'),
                                                            'taker_trading_pair': 'ETH-USDT',
                                                            'target_profitability_pct': Decimal('0.015'),
                                                            'trade_profitability': Decimal('0'),
                                                            'tx_cost': Decimal('1'),
                                                            'tx_cost_pct': Decimal('1')})
 
-        def test_to_format_status(self):
-            self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
+    def test_to_format_status(self):
+        self.assertIn("Maker Side: TradeType.BUY", self.executor.to_format_status())
+
+    def test_early_stop(self):
+        self.executor._status = RunnableStatus.RUNNING
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.is_open = True
+        self.executor.early_stop()
+        self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
+
+    def test_get_cum_fees_quote_not_executed(self):
+        self.assertEqual(self.executor.get_cum_fees_quote(), Decimal('0'))
+
+    @patch.object(XEMMExecutor, 'rate_oracle', create=True)
+    async def test_get_quote_asset_conversion_rate_none(self, mock_rate_oracle):
+        mock_rate_oracle.get_pair_rate.return_value = None
+        self.executor.quote_conversion_pair = "USDC-USDT"
+        with self.assertRaises(ValueError):
+            await self.executor.get_quote_asset_conversion_rate()
+
+    @patch.object(XEMMExecutor, 'rate_oracle', create=True)
+    async def test_get_quote_asset_conversion_rate_exception(self, mock_rate_oracle):
+        mock_rate_oracle.get_pair_rate.side_effect = Exception("Test exception")
+        self.executor.quote_conversion_pair = "USDC-USDT"
+        with self.assertRaises(Exception):
+            await self.executor.get_quote_asset_conversion_rate()

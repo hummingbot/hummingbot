@@ -13,7 +13,7 @@ class DCAMode(Enum):
 
 
 class DCAExecutorConfig(ExecutorConfigBase):
-    type = "dca_executor"
+    type: str = "dca_executor"
     connector_name: str
     trading_pair: str
     side: TradeType

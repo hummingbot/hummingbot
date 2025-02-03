@@ -2,7 +2,7 @@
 ###   Fee overrides configurations   ###
 ########################################
 
-# For more detailed information: https://docs.hummingbot.io
+# For more detailed information: https://hummingbot.org/docs/
 template_version: 14
 
 # Example of the fields that can be specified to override the `TradeFeeFactory` default settings.
@@ -50,12 +50,6 @@ binance_us_maker_percent_fee:
 binance_us_percent_fee_token:
 binance_us_taker_fixed_fees:
 binance_us_taker_percent_fee:
-bitfinex_buy_percent_fee_deducted_from_returns:
-bitfinex_maker_fixed_fees:
-bitfinex_maker_percent_fee:
-bitfinex_percent_fee_token:
-bitfinex_taker_fixed_fees:
-bitfinex_taker_percent_fee:
 bitmart_buy_percent_fee_deducted_from_returns:
 bitmart_maker_fixed_fees:
 bitmart_maker_percent_fee:

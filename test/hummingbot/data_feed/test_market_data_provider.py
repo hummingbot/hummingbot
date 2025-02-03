@@ -106,6 +106,11 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         result = self.provider.get_vwap_for_volume("mock_connector", "BTC-USDT", 1, True)
         self.assertIsInstance(result, OrderBookQueryResult)
 
+    def test_get_balance(self):
+        self.mock_connector.get_balance.return_value = 100
+        result = self.provider.get_balance("mock_connector", "BTC")
+        self.assertEqual(result, 100)
+
     def test_stop_candle_feed(self):
         # Mocking a candle feed
         mock_candles_feed = MagicMock()

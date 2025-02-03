@@ -11,7 +11,7 @@ class DexalotAuth(AuthBase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
-        self.wallet = Account.from_key(secret_key)
+        self.wallet = Account.from_key(secret_key) if secret_key else None
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """

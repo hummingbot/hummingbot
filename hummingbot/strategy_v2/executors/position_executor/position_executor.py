@@ -597,26 +597,20 @@ class PositionExecutor(ExecutorBase):
         )
         self.logger().debug("Removing open order")
 
-    def cancel_close_order(self):
-        """
-        This method is responsible for canceling the close order.
-
-        :return: None
-        """
-        self._strategy.cancel(
-            connector_name=self.config.connector_name,
-            trading_pair=self.config.trading_pair,
-            order_id=self._close_order.order_id
-        )
-        self.logger().debug("Removing close order")
-
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         """
         This method allows strategy to stop the executor early.
 
         :return: None
         """
-        self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
+        if keep_position:
+            self.close_type = CloseType.POSITION_HOLD
+            self.cancel_open_orders()
+            if self._open_order and self._open_order.is_filled:
+                self._held_position_orders.append(self._open_order.order.to_json())
+            self.stop()
+        else:
+            self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         """
@@ -705,6 +699,7 @@ class PositionExecutor(ExecutorBase):
             "max_retries": self._max_retries,
             "close_price": self.close_price,
             "order_ids": [order.order_id for order in [self._open_order, self._close_order, self._take_profit_limit_order] if order],
+            "held_position_orders": self._held_position_orders,
         }
 
     def to_format_status(self, scale=1.0):

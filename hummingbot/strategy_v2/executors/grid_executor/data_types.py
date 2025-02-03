@@ -11,7 +11,7 @@ from hummingbot.strategy_v2.models.executors import TrackedOrder
 
 
 class GridExecutorConfig(ExecutorConfigBase):
-    type = "grid_executor"
+    type: str = "grid_executor"
     # Boundaries
     connector_name: str
     trading_pair: str
@@ -28,12 +28,14 @@ class GridExecutorConfig(ExecutorConfigBase):
     max_orders_per_batch: Optional[int] = None
     order_frequency: int = 0
     activation_bounds: Optional[Decimal] = None
-    safe_extra_spread: Decimal = Decimal("0.0002")
+    safe_extra_spread: Decimal = Decimal("0.0001")
     # Risk Management
     triple_barrier_config: TripleBarrierConfig
     leverage: int = 20
     level_id: Optional[str] = None
     deduct_base_fees: bool = False
+    keep_position: bool = False
+    coerce_tp_to_step: bool = False
 
 
 class GridLevelStates(Enum):

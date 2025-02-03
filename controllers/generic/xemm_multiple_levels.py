@@ -19,25 +19,25 @@ class XEMMMultipleLevelsConfig(ControllerConfigBase):
     controller_name: str = "xemm_multiple_levels"
     candles_config: List[CandlesConfig] = []
     maker_connector: str = Field(
-        default="kucoin",
+        default="mexc",
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the maker connector: ",
             prompt_on_new=True
         ))
     maker_trading_pair: str = Field(
-        default="LBR-USDT",
+        default="PEPE-USDT",
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the maker trading pair: ",
             prompt_on_new=True
         ))
     taker_connector: str = Field(
-        default="okx",
+        default="binance",
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the taker connector: ",
             prompt_on_new=True
         ))
     taker_trading_pair: str = Field(
-        default="LBR-USDT",
+        default="PEPE-USDT",
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the taker trading pair: ",
             prompt_on_new=True
@@ -55,7 +55,7 @@ class XEMMMultipleLevelsConfig(ControllerConfigBase):
             prompt_on_new=True
         ))
     min_profitability: Decimal = Field(
-        default=0.002,
+        default=0.003,
         client_data=ClientFieldData(
             prompt=lambda e: "Enter the minimum profitability: ",
             prompt_on_new=True
@@ -124,6 +124,8 @@ class XEMMMultipleLevels(ControllerBase):
             active_buy_executors_target = [e.config.target_profitability == target_profitability for e in active_buy_executors]
 
             if len(active_buy_executors_target) == 0 and imbalance < self.config.max_executors_imbalance:
+                min_profitability = target_profitability - self.config.min_profitability
+                max_profitability = target_profitability + self.config.max_profitability
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
                     timestamp=self.market_data_provider.time(),
@@ -133,14 +135,16 @@ class XEMMMultipleLevels(ControllerBase):
                                                  trading_pair=self.config.taker_trading_pair),
                     maker_side=TradeType.BUY,
                     order_amount=amount / mid_price,
-                    min_profitability=self.config.min_profitability,
+                    min_profitability=min_profitability,
                     target_profitability=target_profitability,
-                    max_profitability=self.config.max_profitability
+                    max_profitability=max_profitability
                 )
                 executor_actions.append(CreateExecutorAction(executor_config=config, controller_id=self.config.id))
         for target_profitability, amount in self.sell_levels_targets_amount:
             active_sell_executors_target = [e.config.target_profitability == target_profitability for e in active_sell_executors]
             if len(active_sell_executors_target) == 0 and imbalance > -self.config.max_executors_imbalance:
+                min_profitability = target_profitability - self.config.min_profitability
+                max_profitability = target_profitability + self.config.max_profitability
                 config = XEMMExecutorConfig(
                     controller_id=self.config.id,
                     timestamp=time.time(),
@@ -150,9 +154,9 @@ class XEMMMultipleLevels(ControllerBase):
                                                  trading_pair=self.config.maker_trading_pair),
                     maker_side=TradeType.SELL,
                     order_amount=amount / mid_price,
-                    min_profitability=self.config.min_profitability,
+                    min_profitability=min_profitability,
                     target_profitability=target_profitability,
-                    max_profitability=self.config.max_profitability
+                    max_profitability=max_profitability
                 )
                 executor_actions.append(CreateExecutorAction(executor_config=config, controller_id=self.config.id))
         return executor_actions

@@ -608,7 +608,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_config = self.get_position_config_market_long()
         position_executor = self.get_position_executor_running_from_config(position_config)
         position_executor._close_order = TrackedOrder("OID-BUY-1")
-        position_executor.cancel_close_order()
+        position_executor.cancel_open_orders()
         event = OrderCancelledEvent(
             timestamp=1234567890,
             order_id="OID-BUY-1",
@@ -726,3 +726,21 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         executor_info = position_executor.executor_info
         self.assertEqual(executor_info.close_type, CloseType.FAILED)
         self.assertEqual(executor_info.net_pnl_pct, Decimal("0"))
+
+    @patch.object(PositionExecutor, "get_trading_rules")
+    @patch.object(PositionExecutor, "get_price")
+    def test_early_stop(self, mock_price, trading_rules_mock):
+        mock_price.return_value = Decimal("100")
+        trading_rules = MagicMock(spec=TradingRule)
+        trading_rules.min_order_size = Decimal("0.1")
+        trading_rules_mock.return_value = trading_rules
+        position_config = self.get_position_config_market_short()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor.early_stop()
+        self.assertEqual(position_executor.close_type, CloseType.EARLY_STOP)
+        self.assertEqual(position_executor.status, RunnableStatus.SHUTTING_DOWN)
+        position_config = self.get_position_config_market_short()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor.early_stop(keep_position=True)
+        self.assertEqual(position_executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(position_executor.status, RunnableStatus.TERMINATED)

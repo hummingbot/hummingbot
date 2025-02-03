@@ -205,7 +205,8 @@ class DexalotExchange(ExchangePyBase):
         return DexalotClient(
             self.secret_key,
             connector=self,
-            domain=self._domain
+            domain=self._domain,
+            trading_required=self.is_trading_required
         )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:

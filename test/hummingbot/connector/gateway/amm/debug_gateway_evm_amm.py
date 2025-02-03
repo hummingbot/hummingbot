@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Fixture data collection script for GatewayEVMAMM unit test cases.
+Fixture data collection script for GatewayEthereumAMM unit test cases.
 
 This is included for record only - if you need to run this to collect another batch of fixture data, you'll need to
 change the wallet address and transaction hashes.
@@ -17,7 +17,7 @@ from typing import Generator, List, Optional
 
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
@@ -36,12 +36,12 @@ s_decimal_0 = Decimal(0)
 gateway_http_client: GatewayHttpClient = GatewayHttpClient.get_instance()
 
 
-class GatewayEVMAMMDataCollector:
-    fixture_path: str = realpath(join(__file__, "../fixtures/gateway_evm_amm_fixture.db"))
+class GatewayEthereumAMMDataCollector:
+    fixture_path: str = realpath(join(__file__, "../fixtures/gateway_ethereum_amm_fixture.db"))
 
     def __init__(self):
         self._clock: Clock = Clock(ClockMode.REALTIME)
-        self._connector: GatewayEVMAMM = GatewayEVMAMM(
+        self._connector: GatewayEthereumAMM = GatewayEthereumAMM(
             "uniswap",
             "ethereum",
             "ropsten",
@@ -253,7 +253,7 @@ class GatewayEVMAMMDataCollector:
 
 
 if __name__ == "__main__":
-    data_collector: GatewayEVMAMMDataCollector = GatewayEVMAMMDataCollector()
+    data_collector: GatewayEthereumAMMDataCollector = GatewayEthereumAMMDataCollector()
     ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     try:
         ev_loop.run_until_complete(data_collector.main())

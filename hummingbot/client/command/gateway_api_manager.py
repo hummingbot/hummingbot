@@ -80,8 +80,7 @@ class GatewayChainApiManager:
         Check if gateway node URL for a chain and network works
         """
         # XXX: This should be removed once nodeAPIKey is deprecated from Gateway service
-        config_dict: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration()
-        chain_config: Optional[Dict[str, Any]] = config_dict.get(chain)
+        chain_config: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration(chain)
         if chain_config is not None:
             networks: Optional[Dict[str, Any]] = chain_config.get("networks")
             if networks is not None:
@@ -129,3 +128,16 @@ class GatewayChainApiManager:
         Update a chain and network's node URL in gateway
         """
         await GatewayHttpClient.get_instance().update_config(f"{chain}.networks.{network}.nodeURL", node_url)
+
+    async def _get_native_currency_symbol(self, chain: str, network: str) -> Optional[str]:
+        """
+        Get the native currency symbol for a chain and network from gateway config
+        """
+        chain_config: Dict[str, Any] = await GatewayHttpClient.get_instance().get_configuration(chain)
+        if chain_config is not None:
+            networks: Optional[Dict[str, Any]] = chain_config.get("networks")
+            if networks is not None:
+                network_config: Optional[Dict[str, Any]] = networks.get(network)
+                if network_config is not None:
+                    return network_config.get("nativeCurrencySymbol")
+        return None
