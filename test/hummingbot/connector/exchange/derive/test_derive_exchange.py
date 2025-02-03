@@ -68,13 +68,13 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def trading_rules_url(self):
-        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def trading_rules_currency_url(self):
-        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL)
+        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -228,14 +228,6 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return {
             'result': [
                 {'currency': 'COINALPHA', 'spot_price': '27.761323954505412608', 'spot_price_24h': '33.240154426604556288'},
-                {'currency': 'USDC', 'spot_price': '2.801204609714534912', 'spot_price_24h': '2.893703652751686144'},
-                {'currency': 'ENA', 'spot_price': '0.852447831259448832', 'spot_price_24h': '0.901449653941074176'},
-                {'currency': 'LINK', 'spot_price': '25.009377651919732736', 'spot_price_24h': '26.030533134593990656'},
-                {'currency': 'UNI', 'spot_price': '12.20089087895026688', 'spot_price_24h': '12.887841939305295872'},
-                {'currency': 'HBOT', 'spot_price': '1.000075706149999872', 'spot_price_24h': '0.999961334499999872'},
-                {'currency': 'USDT', 'spot_price': '0.999914844499999872', 'spot_price_24h': '1.000155987250000128'},
-                {'currency': 'ETH', 'spot_price': '3337.992172649999499264', 'spot_price_24h': '3394.883083800000069632'},
-                {'currency': 'BTC', 'spot_price': '104647.647744949990981632', 'spot_price_24h': '106104.188190400016547840'},
             ]
         }
 
@@ -360,16 +352,16 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_trading_rule(self):
-        rule = self.trading_rules_request_mock_response[""][0]['instrument'][0]
+        rule = self.trading_rules_request_mock_response["result"]['instruments'][0]
 
         step_size = Decimal(str(rule.get("amount_step")))
         price_size = Decimal(str(rule.get("tick_size")))
         min_amount = Decimal(str(rule.get("minimum_amount")))
 
         return TradingRule(self.trading_pair,
-                           min_base_amount_increment=step_size,
+                           min_order_size=min_amount,
                            min_price_increment=price_size,
-                           min_order=min_amount,
+                           min_base_amount_increment=step_size,
                            )
 
     @property
@@ -1365,14 +1357,13 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         self.assertEqual(0, len(result))
 
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request")
+    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
-    def test_all_trading_pairs(self, mock_message, mock_api):
-        res = self.currency_request_mock_response
-        self.configure_currency_trading_rules_response(
-            mock_api=mock_api)
-        mock_message.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [res]
+    def test_all_trading_pairs(self, mock_mess: AsyncMock, mock_api):
+        # Mock the currency request response
+        self.configure_currency_trading_rules_response(mock_api=mock_api)
+        mock_mess.return_value = self.currency_request_mock_response
+        self.exchange.currencies = [self.currency_request_mock_response]
 
         self.exchange._set_trading_pair_symbol_map(None)
 
@@ -1380,8 +1371,6 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.async_run_with_timeout(coroutine=self.exchange._initialize_trading_pair_symbol_map())
 
         all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
-
-        # expected_valid_trading_pairs = self._expected_valid_trading_pairs()
 
         self.assertEqual(1, len(all_trading_pairs))
         self.assertIn(self.trading_pair, all_trading_pairs)
@@ -1461,6 +1450,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         # Mock the currency request response
         mocked_response = self.get_trading_rule_rest_msg()
+        self.configure_currency_trading_rules_response(mock_api=mock_api)
         mock_request.return_value = self.currency_request_mock_response
         self.exchange.currencies = [self.currency_request_mock_response]
 
@@ -1739,6 +1729,50 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         #     "INFO",
         #     f"Recreating missing trade in TradeFill: {trade_fill}"
         # ))
+
+    @aioresponses()
+    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        mock_api.post(url,
+                      status=400,
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id_for_invalid_order = self.place_buy_order(
+            amount=Decimal("0.0001"), price=Decimal("0.1")
+        )
+        # The second order is used only to have the event triggered and avoid using timeouts for tests
+        order_id = self.place_buy_order()
+        self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
+
+        self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+
+        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "WARNING",
+                "Buy order amount 0.0001 is lower than the minimum order "
+                "size 0.1. The order will not be created, increase the "
+                "amount to be higher than the minimum order size."
+            )
+        )
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+            )
+        )
 
     @aioresponses()
     def test_update_order_fills_request_parameters(self, mock_api):

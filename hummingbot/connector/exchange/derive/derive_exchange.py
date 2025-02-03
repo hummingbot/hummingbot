@@ -868,7 +868,7 @@ class DeriveExchange(ExchangePyBase):
                 raise
             exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
             self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
-            self._instrument_ticker[0]["spot_price"] = currency["spot_price"]
+            # self._instrument_ticker[0]["spot_price"] = currency["spot_price"]
 
             exchange_infos.append(exchange_info["result"]["instruments"][0])
         return exchange_infos
