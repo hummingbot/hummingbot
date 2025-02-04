@@ -94,6 +94,7 @@ class PositionHeld:
             unrealized_pnl_quote=unrealized_pnl,
             cum_fees_quote=cum_fees_quote)
 
+
 EXECUTOR_MAPPING = {
     # Remember to add entries here for new executor/config combos
     PositionExecutorConfig: PositionExecutor,
@@ -103,6 +104,7 @@ EXECUTOR_MAPPING = {
     TWAPExecutorConfig: TWAPExecutor,
     XEMMExecutorConfig: XEMMExecutor,
 }
+
 
 class ExecutorOrchestrator:
     """
@@ -370,10 +372,16 @@ class ExecutorOrchestrator:
 
         # Calculate global PNL values
         report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote
-        report.global_pnl_pct = (report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        report.global_pnl_pct = (
+                                            report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(
+            0)
 
         # Calculate individual PNL percentages
-        report.unrealized_pnl_pct = (report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
-        report.realized_pnl_pct = (report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(0)
+        report.unrealized_pnl_pct = (
+                                                report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(
+            0)
+        report.realized_pnl_pct = (
+                                              report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(
+            0)
 
         return report
