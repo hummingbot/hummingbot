@@ -67,11 +67,7 @@ class UserBalances:
     def is_gateway_market(exchange_name: str) -> bool:
         return (
             exchange_name in sorted(
-                AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
-                ).union(
-                    AllConnectorSettings.get_gateway_clob_connector_names()
-                )
+                AllConnectorSettings.get_gateway_amm_connector_names()
             )
         )
 
