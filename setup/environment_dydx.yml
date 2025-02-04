@@ -25,7 +25,6 @@ dependencies:
     - aiohttp==3.*
     - aioprocessing==2.0
     - aioresponses
-    - aiounittest
     - appdirs==1.4.3
     - async-timeout
     - asyncssh==2.13.1
