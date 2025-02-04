@@ -228,21 +228,20 @@ class ExecutorOrchestrator:
         # compa
         executor_config.controller_id = controller_id
 
-        if isinstance(executor_config, PositionExecutorConfig):
-            executor = PositionExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, GridExecutorConfig):
-            executor = GridExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, DCAExecutorConfig):
-            executor = DCAExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, ArbitrageExecutorConfig):
-            executor = ArbitrageExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, TWAPExecutorConfig):
-            executor = TWAPExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, XEMMExecutorConfig):
-            executor = XEMMExecutor(self.strategy, executor_config, self.executors_update_interval)
-        else:
-            raise ValueError("Unsupported executor config type")
+        executor_mapping = {
+            PositionExecutorConfig: PositionExecutor,
+            GridExecutorConfig: GridExecutor,
+            DCAExecutorConfig: DCAExecutor,
+            ArbitrageExecutorConfig: ArbitrageExecutor,
+            TWAPExecutorConfig: TWAPExecutor,
+            XEMMExecutorConfig: XEMMExecutor,
+        }
 
+        executor_class = executor_mapping.get(type(executor_config))
+        if executor_class is None:
+            raise ValueError(f"Unsupported executor config type: {type(executor_config).__name__}")
+
+        executor = executor_class(self.strategy, executor_config, self.executors_update_interval)
         executor.start()
         self.active_executors[controller_id].append(executor)
         # MarketsRecorder.get_instance().store_or_update_executor(executor)
