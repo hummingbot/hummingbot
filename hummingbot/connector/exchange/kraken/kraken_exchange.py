@@ -57,7 +57,7 @@ class KrakenExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
+        self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper() if kraken_api_tier else "STARTER")
         self._asset_pairs = {}
         self._client_config = client_config_map
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
