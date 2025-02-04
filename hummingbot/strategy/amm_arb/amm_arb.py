@@ -9,7 +9,7 @@ import pandas as pd
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -172,7 +172,7 @@ class AmmArbStrategy(StrategyPyBase):
     @lru_cache(maxsize=10)
     def is_gateway_market_evm_compatible(market_info: MarketTradingPairTuple) -> bool:
         connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(market_info.market.name)
-        return connector_spec["chain_type"] == "EVM"
+        return connector_spec["chain"] == "ethereum"
 
     def tick(self, timestamp: float):
         """
@@ -240,9 +240,9 @@ class AmmArbStrategy(StrategyPyBase):
         # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
         gateway_connectors = []
         if self.is_gateway_market(self._market_info_1) and self.is_gateway_market_evm_compatible(self._market_info_1):
-            gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_1.market))
+            gateway_connectors.append(cast(GatewayEthereumAMM, self._market_info_1.market))
         if self.is_gateway_market(self._market_info_2) and self.is_gateway_market_evm_compatible(self._market_info_2):
-            gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_2.market))
+            gateway_connectors.append(cast(GatewayEthereumAMM, self._market_info_2.market))
 
         for gateway in gateway_connectors:
             await gateway.cancel_outdated_orders(self._gateway_transaction_cancel_interval)
@@ -365,7 +365,7 @@ class AmmArbStrategy(StrategyPyBase):
             slippage_buffer_factor: Decimal = Decimal(1) + slippage_buffer
             if not is_buy:
                 slippage_buffer_factor = Decimal(1) - slippage_buffer
-            market: GatewayEVMAMM = cast(GatewayEVMAMM, market_info.market)
+            market: GatewayEthereumAMM = cast(GatewayEthereumAMM, market_info.market)
             if GatewayPriceShim.get_instance().has_price_shim(
                     market.connector_name, market.chain, market.network, market_info.trading_pair):
                 order_price = await market.get_order_price(market_info.trading_pair, is_buy, amount, ignore_shim=True)
