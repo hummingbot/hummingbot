@@ -12,6 +12,8 @@ from typing import (
 import pandas as pd
 
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.delayed_market_order import DelayedMarketOrder
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
@@ -30,8 +32,10 @@ cdef class OrderTracker(TimeIterator):
         super().__init__()
         self._tracked_limit_orders = {}
         self._tracked_market_orders = {}
+        self._tracked_delayed_market_orders = {}
         self._order_id_to_market_pair = {}
         self._shadow_tracked_limit_orders = {}
+        self._shadow_tracked_delayed_market_orders = {}
         self._shadow_order_id_to_market_pair = {}
         self._shadow_gc_requests = deque()
         self._in_flight_pending_created = set()
@@ -58,17 +62,50 @@ cdef class OrderTracker(TimeIterator):
         return limit_orders
 
     @property
-    def market_pair_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
-        market_pair_to_orders = {}
-        market_pairs = self._tracked_limit_orders.keys()
-        for market_pair in market_pairs:
-            limit_orders = []
-            for limit_order in self._tracked_limit_orders[market_pair].values():
-                if self.c_has_in_flight_cancel(limit_order.client_order_id):
+    def active_delayed_market_orders(self) -> List[Tuple[ConnectorBase, DelayedMarketOrder]]:
+        delayed_market_orders = []
+        for market_pair, orders_map in self._tracked_delayed_market_orders.items():
+            for delayed_market_order in orders_map.values():
+                if self.c_has_in_flight_cancel(delayed_market_order.order_id):
                     continue
-                limit_orders.append(limit_order)
-            market_pair_to_orders[market_pair] = limit_orders
-        return market_pair_to_orders
+                delayed_market_orders.append((market_pair.market, delayed_market_order))
+        return delayed_market_orders
+
+    @property
+    def shadow_delayed_market_orders(self) -> List[Tuple[ConnectorBase, DelayedMarketOrder]]:
+        delayed_market_orders = []
+        for market_pair, orders_map in self._shadow_tracked_delayed_market_orders.items():
+            for delayed_market_order in orders_map.values():
+                if self.c_has_in_flight_cancel(delayed_market_order.order_id):
+                    continue
+                delayed_market_orders.append((market_pair.market, delayed_market_order))
+        return delayed_market_orders
+
+    @property
+    def market_pair_to_active_orders(self) -> tuple[
+        dict[MarketTradingPairTuple, list[LimitOrder | LimitOrder]], dict[MarketTradingPairTuple, list[DelayedMarketOrder]]]:
+        market_pair_to_limit_orders: Dict[MarketTradingPairTuple, List[LimitOrder]] = {}
+        market_pair_to_delayed_market_orders: Dict[MarketTradingPairTuple, List[DelayedMarketOrder]] = {}
+        market_pairs: List[MarketTradingPairTuple] = list(self._tracked_limit_orders.keys())
+        for market_pair in market_pairs:
+            limit_orders: List[LimitOrder] = [
+                limit_order
+                for limit_order in self._tracked_limit_orders[market_pair].values()
+                if not self.c_has_in_flight_cancel(limit_order.client_order_id)
+            ]
+            market_pair_to_limit_orders: Dict[MarketTradingPairTuple, List[LimitOrder]] = {market_pair: limit_orders}
+
+        market_pairs: List[MarketTradingPairTuple] = list(self._tracked_delayed_market_orders.keys())
+        for market_pair in market_pairs:
+            delayed_market_orders: List[DelayedMarketOrder] = [
+                delayed_market_order
+                for delayed_market_order in self._tracked_delayed_market_orders[
+                    market_pair
+                ].values()
+                if not self.c_has_in_flight_cancel(delayed_market_order.order_id)
+            ]
+            market_pair_to_delayed_market_orders: Dict[MarketTradingPairTuple, List[DelayedMarketOrder]] = {market_pair: delayed_market_orders}
+        return market_pair_to_limit_orders, market_pair_to_delayed_market_orders
 
     @property
     def active_bids(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
@@ -116,6 +153,25 @@ cdef class OrderTracker(TimeIterator):
         return pd.DataFrame(data=market_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
 
     @property
+    def tracked_delayed_market_orders(self) -> List[Tuple[ConnectorBase, DelayedMarketOrder]]:
+        return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map
+                in self._tracked_delayed_market_orders.items() for order in order_map.values()]
+
+    @property
+    def tracked_delayed_market_orders_map(self) -> Dict[ConnectorBase, Dict[str, DelayedMarketOrder]]:
+        return self._tracked_delayed_market_orders
+
+    @property
+    def tracked_delayed_market_orders_data_frame(self) -> pd.DataFrame:
+        delayed_market_orders = [[market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair,
+                          order_id, order.amount,
+                          pd.Timestamp(order.timestamp, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')]
+                         for market_trading_pair_tuple, order_map in self._tracked_delayed_market_orders.items()
+                         for order_id, order in order_map.items()]
+
+        return pd.DataFrame(data=delayed_market_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
+
+    @property
     def in_flight_cancels(self) -> Dict[str, float]:
         return self._in_flight_cancels
 
@@ -139,11 +195,23 @@ cdef class OrderTracker(TimeIterator):
     def get_market_orders(self):
         return self.c_get_market_orders()
 
+    cdef dict c_get_delayed_market_orders(self):
+        return self._tracked_delayed_market_orders
+
+    def get_delayed_market_orders(self):
+        return self.c_get_delayed_market_orders()
+
     cdef dict c_get_shadow_limit_orders(self):
         return self._shadow_tracked_limit_orders
 
     def get_shadow_limit_orders(self) -> Dict[MarketTradingPairTuple, Dict[str, LimitOrder]]:
         return self.c_get_shadow_limit_orders()
+
+    cdef dict c_get_shadow_delayed_market_orders(self):
+        return self._shadow_tracked_delayed_market_orders
+
+    def get_shadow_delayed_market_orders(self) -> Dict[MarketTradingPairTuple, Dict[str, DelayedMarketOrder]]:
+        return self.c_get_shadow_delayed_market_orders()
 
     cdef bint c_has_in_flight_cancel(self, str order_id):
         return self._in_flight_cancels.get(order_id, NaN) + self.CANCEL_EXPIRY_DURATION > self._current_timestamp
@@ -203,6 +271,12 @@ cdef class OrderTracker(TimeIterator):
     def get_market_order(self, market_pair, order_id: str) -> MarketOrder:
         return self.c_get_market_order(market_pair, order_id)
 
+    cdef object c_get_delayed_market_order(self, object market_pair, str order_id):
+        return self._tracked_delayed_market_orders.get(market_pair, {}).get(order_id)
+
+    def get_delayed_market_order(self, market_pair, order_id: str) -> DelayedMarketOrder:
+        return self.c_get_delayed_market_order(market_pair, order_id)
+
     cdef LimitOrder c_get_shadow_limit_order(self, str order_id):
         cdef:
             object market_pair = self._shadow_order_id_to_market_pair.get(order_id)
@@ -211,6 +285,15 @@ cdef class OrderTracker(TimeIterator):
 
     def get_shadow_limit_order(self, order_id: str) -> LimitOrder:
         return self.c_get_shadow_limit_order(order_id)
+
+    cdef object c_get_shadow_delayed_market_order(self, str order_id):
+        cdef:
+            object market_pair = self._shadow_order_id_to_market_pair.get(order_id)
+
+        return self._shadow_tracked_delayed_market_orders.get(market_pair, {}).get(order_id)
+
+    def get_shadow_delayed_market_order(self, order_id: str) -> DelayedMarketOrder:
+        return self.c_get_shadow_delayed_market_order(order_id)
 
     cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
                                       object quantity):
@@ -284,6 +367,52 @@ cdef class OrderTracker(TimeIterator):
     def stop_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
         return self.c_stop_tracking_market_order(market_pair, order_id)
 
+    cdef c_start_tracking_delayed_market_order(self, object market_pair, str order_id, object order_type, bint is_buy, object reference_price, object trigger_price, object quantity):
+        if market_pair not in self._tracked_delayed_market_orders:
+            self._tracked_delayed_market_orders[market_pair] = {}
+        if market_pair not in self._shadow_tracked_delayed_market_orders:
+            self._shadow_tracked_delayed_market_orders[market_pair] = {}
+        delayed_market_order = DelayedMarketOrder(
+            str(order_id),
+            order_type,
+            market_pair.trading_pair,
+            bool(is_buy),
+            market_pair.base_asset,
+            market_pair.quote_asset,
+            reference_price,
+            trigger_price,
+            float(quantity),
+            self._current_timestamp
+        )
+
+        self._tracked_delayed_market_orders[market_pair][order_id] = delayed_market_order
+        self._shadow_tracked_delayed_market_orders[market_pair][order_id] = delayed_market_order
+        self._order_id_to_market_pair[order_id] = market_pair
+        self._shadow_order_id_to_market_pair[order_id] = market_pair
+
+    def start_tracking_delayed_market_order(self, market_pair: MarketTradingPairTuple, order_id: str, order_type: OrderType, is_buy: bool, reference_price: Decimal, trigger_price: Decimal, quantity: Decimal):
+        return self.c_start_tracking_delayed_market_order(market_pair, order_id, order_type, is_buy, reference_price, trigger_price, quantity)
+
+    cdef c_stop_tracking_delayed_market_order(self, object market_pair, str order_id):
+        if market_pair in self._tracked_delayed_market_orders and order_id in self._tracked_delayed_market_orders[market_pair]:
+            del self._tracked_delayed_market_orders[market_pair][order_id]
+            if len(self._tracked_delayed_market_orders[market_pair]) < 1:
+                del self._tracked_delayed_market_orders[market_pair]
+            self._shadow_gc_requests.append((
+                self._current_timestamp + self.SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION,
+                market_pair,
+                order_id
+            ))
+
+        if order_id in self._order_id_to_market_pair:
+            del self._order_id_to_market_pair[order_id]
+        if order_id in self._in_flight_cancels:
+            del self._in_flight_cancels[order_id]
+
+    def stop_tracking_delayed_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        t = self.c_stop_tracking_delayed_market_order(market_pair, order_id)
+        return t
+
     cdef c_check_and_cleanup_shadow_records(self):
         cdef:
             double current_timestamp = self._current_timestamp
@@ -295,6 +424,13 @@ cdef class OrderTracker(TimeIterator):
                 del self._shadow_tracked_limit_orders[market_pair][order_id]
                 if len(self._shadow_tracked_limit_orders[market_pair]) < 1:
                     del self._shadow_tracked_limit_orders[market_pair]
+
+            if (market_pair in self._shadow_tracked_delayed_market_orders and
+                    order_id in self._shadow_tracked_delayed_market_orders[market_pair]):
+                del self._shadow_tracked_delayed_market_orders[market_pair][order_id]
+                if len(self._shadow_tracked_delayed_market_orders[market_pair]) < 1:
+                    del self._shadow_tracked_delayed_market_orders[market_pair]
+
             if order_id in self._shadow_order_id_to_market_pair:
                 del self._shadow_order_id_to_market_pair[order_id]
 

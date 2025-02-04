@@ -55,9 +55,9 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount, object order_type = *,
-                                        object price = *, double expiration_seconds = *, position_action = *)
+                                        object price = *, double expiration_seconds = *, position_action = *, dict kwargs = *,)
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount, object order_type = *,
-                                         object price = *, double expiration_seconds = *, position_action = *, )
+                                         object price = *, double expiration_seconds = *, position_action = *, dict kwargs = *, )
     cdef c_cancel_order(self, object market_pair, str order_id)
 
     cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
@@ -65,6 +65,8 @@ cdef class StrategyBase(TimeIterator):
     cdef c_stop_tracking_limit_order(self, object market_pair, str order_id)
     cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity)
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id)
+    cdef c_start_tracking_delayed_market_order(self, object market_pair, str order_id, object order_type, bint is_buy, object reference_price, object trigger_price, object quantity)
+    cdef c_stop_tracking_delayed_market_order(self, object market_pair, str order_id)
     cdef c_track_restored_orders(self, object market_pair)
     cdef object c_sum_flat_fees(self,
                                 str quote_currency,

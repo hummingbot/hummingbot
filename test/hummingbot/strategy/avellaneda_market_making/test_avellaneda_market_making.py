@@ -528,7 +528,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     def test_market_info_to_active_orders(self):
         order_tracker = self.strategy.order_tracker
 
-        self.assertEqual(order_tracker.market_pair_to_active_orders, self.strategy.market_info_to_active_orders)
+        self.assertEqual(order_tracker.market_pair_to_active_orders[0], self.strategy.market_info_to_active_orders)
 
         # Simulate order being placed
         limit_order: LimitOrder = LimitOrder(client_order_id="test",
@@ -542,7 +542,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
         self.assertEqual(1, len(self.strategy.market_info_to_active_orders))
-        self.assertEqual(order_tracker.market_pair_to_active_orders, self.strategy.market_info_to_active_orders)
+        self.assertEqual(order_tracker.market_pair_to_active_orders[0], self.strategy.market_info_to_active_orders)
 
     def test_active_orders(self):
         self.assertEqual(0, len(self.strategy.active_orders))

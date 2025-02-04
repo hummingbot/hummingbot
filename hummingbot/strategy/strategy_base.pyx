@@ -465,13 +465,19 @@ cdef class StrategyBase(TimeIterator):
             self.c_stop_tracking_limit_order(market_pair, order_id)
         elif order_type == OrderType.MARKET:
             self.c_stop_tracking_market_order(market_pair, order_id)
+        elif order_type.is_delayed_market_type():
+            self.c_stop_tracking_delayed_market_order(market_pair, order_id)
 
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event):
         cdef:
             str order_id = order_cancelled_event.order_id
+            object order_type = order_cancelled_event.order_type
             object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
 
-        self.c_stop_tracking_limit_order(market_pair, order_id)
+        if order_type is None or order_type.is_limit_type():
+            self.c_stop_tracking_limit_order(market_pair, order_id)
+        elif order_type.is_delayed_market_type():
+            self.c_stop_tracking_delayed_market_order(market_pair, order_id)
 
     cdef c_did_expire_order_tracker(self, object order_expired_event):
         self.c_did_cancel_order_tracker(order_expired_event)
@@ -487,6 +493,8 @@ cdef class StrategyBase(TimeIterator):
                 self.c_stop_tracking_limit_order(market_pair, order_id)
             elif order_type == OrderType.MARKET:
                 self.c_stop_tracking_market_order(market_pair, order_id)
+            elif order_type.is_delayed_market_type():
+                self.c_stop_tracking_delayed_market_order(market_pair, order_id)
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
         self.c_did_complete_buy_order_tracker(order_completed_event)
@@ -501,18 +509,24 @@ cdef class StrategyBase(TimeIterator):
                                  order_type=OrderType.MARKET,
                                  price=s_decimal_nan,
                                  expiration_seconds=NaN,
-                                 position_action=PositionAction.OPEN):
+                                 position_action=PositionAction.OPEN,
+                                 **kwargs):
+        if kwargs is None:
+            kwargs = {}
+
         return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
                                                order_type,
                                                price,
                                                expiration_seconds,
-                                               position_action)
+                                               position_action,
+                                               kwargs)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
                                         object price=s_decimal_nan,
                                         double expiration_seconds=NaN,
-                                        position_action=PositionAction.OPEN):
+                                        position_action=PositionAction.OPEN,
+                                        dict kwargs={}):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -520,10 +534,10 @@ cdef class StrategyBase(TimeIterator):
             raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
-            kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
-                      "position_action": position_action}
             ConnectorBase market = market_trading_pair_tuple.market
 
+        kwargs |= {"expiration_ts": self._current_timestamp + expiration_seconds,
+                  "position_action": position_action}
         if market not in self._sb_markets:
             raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
 
@@ -539,6 +553,10 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
+        elif order_type.is_delayed_market_type():
+            reference_price = Decimal(kwargs.get("reference_price", s_decimal_nan))
+            trigger_price = Decimal(kwargs.get("trigger_price", s_decimal_nan))
+            self.c_start_tracking_delayed_market_order(market_trading_pair_tuple, order_id, order_type, True, reference_price, trigger_price, amount)
 
         return order_id
 
@@ -546,18 +564,24 @@ cdef class StrategyBase(TimeIterator):
                                   order_type=OrderType.MARKET,
                                   price=s_decimal_nan,
                                   expiration_seconds=NaN,
-                                  position_action=PositionAction.OPEN):
+                                  position_action=PositionAction.OPEN,
+                                  **kwargs):
+        if kwargs is None:
+            kwargs = {}
+
         return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
                                                 order_type,
                                                 price,
                                                 expiration_seconds,
-                                                position_action)
+                                                position_action,
+                                                kwargs)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,
                                          object price=s_decimal_nan,
                                          double expiration_seconds=NaN,
-                                         position_action=PositionAction.OPEN):
+                                         position_action=PositionAction.OPEN,
+                                         dict kwargs={}):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -565,9 +589,10 @@ cdef class StrategyBase(TimeIterator):
             raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
-            kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
-                      "position_action": position_action}
             ConnectorBase market = market_trading_pair_tuple.market
+
+        kwargs |= {"expiration_ts": self._current_timestamp + expiration_seconds,
+                  "position_action": position_action}
 
         if market not in self._sb_markets:
             raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
@@ -576,11 +601,18 @@ cdef class StrategyBase(TimeIterator):
             str order_id = market.c_sell(market_trading_pair_tuple.trading_pair, amount,
                                          order_type=order_type, price=price, kwargs=kwargs)
 
+        reference_price = Decimal(kwargs.get("reference_price", s_decimal_nan))
+        trigger_price = Decimal(kwargs.get("trigger_price", s_decimal_nan))
         # Start order tracking
         if order_type.is_limit_type():
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)
+        elif order_type.is_delayed_market_type():
+            reference_price = Decimal(kwargs.get("reference_price", s_decimal_nan))
+            trigger_price = Decimal(kwargs.get("trigger_price", s_decimal_nan))
+            self.c_start_tracking_delayed_market_order(market_trading_pair_tuple, order_id, order_type, False, reference_price,
+                                                      trigger_price, amount)
 
         return order_id
 
@@ -631,6 +663,18 @@ cdef class StrategyBase(TimeIterator):
     def stop_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
         self.c_stop_tracking_market_order(market_pair, order_id)
 
+    cdef c_start_tracking_delayed_market_order(self, object market_pair, str order_id, object order_type, bint is_buy, object reference_price, object trigger_price, object quantity):
+        self._sb_order_tracker.c_start_tracking_delayed_market_order(market_pair, order_id, order_type, is_buy, reference_price, trigger_price, quantity)
+
+    def start_tracking_delayed_market_order(self, market_pair: MarketTradingPairTuple, order_id: str, order_type: OrderType, is_buy: bool, reference_price: Decimal, trigger_price: Decimal, quantity: Decimal):
+        self.c_start_tracking_delayed_market_order(market_pair, order_id, order_type, is_buy, reference_price, trigger_price, quantity)
+
+    cdef c_stop_tracking_delayed_market_order(self, object market_pair, str order_id):
+        self._sb_order_tracker.c_stop_tracking_delayed_market_order(market_pair, order_id)
+
+    def stop_tracking_delayed_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        self.c_stop_tracking_delayed_market_order(market_pair, order_id)
+
     cdef c_track_restored_orders(self, object market_pair):
         cdef:
             list limit_orders = market_pair.market.limit_orders
@@ -643,6 +687,17 @@ cdef class StrategyBase(TimeIterator):
                                               order.is_buy,
                                               order.price,
                                               order.quantity)
+        if hasattr(market_pair.market, "delayed_market_orders"):
+            for order in market_pair.market.delayed_market_orders:
+                restored_order_ids.append(order.order_id)
+                self.c_start_tracking_delayed_market_order(
+                    market_pair,
+                    order.order_id,
+                    order.order_type,
+                    order.is_buy,
+                    order.reference_price,
+                    order.trigger_price,
+                    order.quantity)
         return restored_order_ids
 
     def track_restored_orders(self, market_pair: MarketTradingPairTuple):

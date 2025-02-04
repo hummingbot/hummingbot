@@ -159,7 +159,8 @@ class AmmArbStrategy(StrategyPyBase):
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
-        return self._sb_order_tracker.market_pair_to_active_orders
+        # Assuming this strategy only use LimitOrder
+        return self._sb_order_tracker.market_pair_to_active_orders[0]
 
     @staticmethod
     @lru_cache(maxsize=10)
