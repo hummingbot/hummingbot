@@ -433,4 +433,4 @@ class BitmartExchange(ExchangePyBase):
             params=params
         )
 
-        return float(resp_json["data"]["tickers"][0]["last_price"])
+        return float(resp_json["data"]["last"])
