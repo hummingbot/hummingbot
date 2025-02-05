@@ -186,6 +186,9 @@ class BitmartExchange(ExchangePyBase):
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
 
+        if order_type is OrderType.MARKET:
+            last_price = self._get_last_traded_price(trading_pair)
+            price = self.quantize_order_price(trading_pair, last_price)
         notionalValue: Decimal = self.quantize_order_amount(trading_pair, amount) * self.quantize_order_price(trading_pair, price)
         api_params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
                       "side": trade_type.name.lower(),
