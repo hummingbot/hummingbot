@@ -122,24 +122,18 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "code": 1000,
             "trace": "6e42c7c9-fdc5-461b-8fd1-b4e2e1b9ed57",
             "data": {
-                "tickers": [
-                    {
-                        "symbol": "COINALPHA_HBOT",
-                        "last_price": "1.00",
-                        "quote_volume_24h": "201477650.88000",
-                        "base_volume_24h": "25186.48000",
-                        "high_24h": "8800.00",
-                        "low_24h": "1.00",
-                        "open_24h": "8800.00",
-                        "close_24h": "1.00",
-                        "best_ask": "0.00",
-                        "best_ask_size": "0.00000",
-                        "best_bid": "0.00",
-                        "best_bid_size": "0.00000",
-                        "fluctuation": "-0.9999",
-                        "url": "https://www.bitmart.com/trade?symbol=COINALPHA_HBOT"
-                    }
-                ]
+                "symbol": "COINALPHA_HBOT",
+                "last": "1.00",
+                "qv_24h": "201477650.88000",
+                "v_24h": "25186.48000",
+                "high_24h": "8800.00",
+                "low_24h": "1.00",
+                "open_24h": "8800.00",
+                "ask_px": "0.00",
+                "ask_sz": "0.00000",
+                "bid_px": "0.00",
+                "bid_sz": "0.00000",
+                "fluctuation": "-0.9999"
             }
         }
         regex_url = re.compile(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}")
