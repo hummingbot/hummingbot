@@ -79,34 +79,27 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def _order_book_snapshot_example(self):
         return {
             "data": {
-                "timestamp": 1527777538000,
-                "buys": [
-                    {
-                        "amount": "4800.00",
-                        "total": "4800.00",
-                        "price": "0.000767",
-                        "count": "1"
-                    },
-                    {
-                        "amount": "99996475.79",
-                        "total": "100001275.79",
-                        "price": "0.000201",
-                        "count": "1"
-                    },
+                "ts": 1527777538000,
+                "symbol": "COINALPHA_HBOT",
+                "asks": [
+                    [
+                        "100.00",
+                        "0.007000"
+                    ],
+                    [
+                        "1.00000",
+                        "6997.00"
+                    ]
                 ],
-                "sells": [
-                    {
-                        "amount": "100.00",
-                        "total": "100.00",
-                        "price": "0.007000",
-                        "count": "1"
-                    },
-                    {
-                        "amount": "6997.00",
-                        "total": "7097.00",
-                        "price": "1.000000",
-                        "count": "1"
-                    },
+                "bids": [
+                    [
+                        "0.000767",
+                        "4800.0"
+                    ],
+                    [
+                        "0.000201",
+                        "99996475.79"
+                    ]
                 ]
             }
         }
@@ -156,19 +149,19 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         order_book: OrderBook = results[0]
 
         self.assertTrue(type(order_book) == OrderBook)
-        self.assertEqual(order_book.snapshot_uid, mock_response["data"]["timestamp"])
+        self.assertEqual(order_book.snapshot_uid, mock_response["data"]["ts"])
 
-        self.assertEqual(mock_response["data"]["timestamp"], order_book.snapshot_uid)
+        self.assertEqual(mock_response["data"]["ts"], order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
         self.assertEqual(2, len(bids))
-        self.assertEqual(float(mock_response["data"]["buys"][0]["price"]), bids[0].price)
-        self.assertEqual(float(mock_response["data"]["buys"][0]["amount"]), bids[0].amount)
-        self.assertEqual(mock_response["data"]["timestamp"], bids[0].update_id)
+        self.assertEqual(float(mock_response["data"]["bids"][0][0]), bids[0].price)
+        self.assertEqual(float(mock_response["data"]["bids"][0][1]), bids[0].amount)
+        self.assertEqual(mock_response["data"]["ts"], bids[0].update_id)
         self.assertEqual(2, len(asks))
-        self.assertEqual(float(mock_response["data"]["sells"][0]["price"]), asks[0].price)
-        self.assertEqual(float(mock_response["data"]["sells"][0]["amount"]), asks[0].amount)
-        self.assertEqual(mock_response["data"]["timestamp"], asks[0].update_id)
+        self.assertEqual(float(mock_response["data"]["asks"][0][0]), asks[0].price)
+        self.assertEqual(float(mock_response["data"]["asks"][0][1]), asks[0].amount)
+        self.assertEqual(mock_response["data"]["ts"], asks[0].update_id)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
