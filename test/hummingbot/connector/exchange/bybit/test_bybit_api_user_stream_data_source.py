@@ -94,6 +94,8 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
         output_queue = asyncio.Queue()
         try:
+            self.data_source._sleep = AsyncMock()
+            self.data_source._sleep.side_effect = asyncio.CancelledError()
             self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
             await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
         except asyncio.CancelledError:
@@ -133,9 +135,9 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.data_source._sleep = AsyncMock()
+        self.data_source._sleep.side_effect = asyncio.CancelledError()
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -247,7 +249,8 @@ class TestBybitAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             message=json.dumps(result_auth))
 
         output_queue = asyncio.Queue()
-
+        self.data_source._sleep = AsyncMock()
+        self.data_source._sleep.side_effect = asyncio.CancelledError()
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
