@@ -656,7 +656,7 @@ class KrakenExchange(ExchangePyBase):
             # Kraken responds 'Invalid Order ID: XXX-XXX' for STOP_LOSS/TAKE_PROFIT/TRAILING_STOP orders
             # which we identify in Hummingbot as 'DelayedOrder' delayed market orders.
             # Here we simply do not inquiry for trade updates for these orders.
-            if order.is_delayed:
+            if order.order_type.is_delayed_market_type():
                 return trade_updates
 
             exchange_order_id = await order.get_exchange_order_id()
