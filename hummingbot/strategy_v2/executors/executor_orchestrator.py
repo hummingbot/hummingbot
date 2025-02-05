@@ -350,8 +350,8 @@ class ExecutorOrchestrator:
                 else:
                     report.close_type_counts[executor_info.close_type] = 1
                 if (
-                    executor_info.close_type == CloseType.POSITION_HOLD
-                    and executor_info.config.id not in self.executors_ids_position_held
+                        executor_info.close_type == CloseType.POSITION_HOLD
+                        and executor_info.config.id not in self.executors_ids_position_held
                 ):
                     self.executors_ids_position_held.append(executor_info.config.id)
                     position = next(
