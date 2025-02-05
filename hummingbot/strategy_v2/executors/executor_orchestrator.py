@@ -382,3 +382,4 @@ class ExecutorOrchestrator:
             if report.volume_traded != 0 else Decimal(0)
 
         return report
+
