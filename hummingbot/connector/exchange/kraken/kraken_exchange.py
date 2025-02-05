@@ -653,6 +653,12 @@ class KrakenExchange(ExchangePyBase):
         trade_updates = []
 
         try:
+            # Kraken responds 'Invalid Order ID: XXX-XXX' for STOP_LOSS/TAKE_PROFIT/TRAILING_STOP orders
+            # which we identify in Hummingbot as 'DelayedOrder' delayed market orders.
+            # Here we simply do not inquiry for trade updates for these orders.
+            if order.is_delayed:
+                return trade_updates
+
             exchange_order_id = await order.get_exchange_order_id()
             all_fills_response = await self._api_request_with_retry(
                 method=RESTMethod.POST,
@@ -668,9 +674,11 @@ class KrakenExchange(ExchangePyBase):
                     order=order)
                 trade_updates.append(trade_update)
 
-        except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
-                          "- waiting for exchange order id.")
+        except asyncio.TimeoutError as e:
+            raise IOError(
+                f"Skipped order update with order fills for {order.client_order_id} "
+                "- waiting for exchange order id."
+            ) from e
         except Exception as e:
             if "EOrder:Unknown order" in str(e) or "EOrder:Invalid order" in str(e):
                 return trade_updates
