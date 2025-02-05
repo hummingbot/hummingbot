@@ -83,24 +83,18 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "code": 1000,
             "trace": "6e42c7c9-fdc5-461b-8fd1-b4e2e1b9ed57",
             "data": {
-                "tickers": [
-                    {
-                        "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                        "last_price": str(self.expected_latest_price),
-                        "quote_volume_24h": "201477650.88000",
-                        "base_volume_24h": "25186.48000",
-                        "high_24h": "8800.00",
-                        "low_24h": "1.00",
-                        "open_24h": "8800.00",
-                        "close_24h": "1.00",
-                        "best_ask": "0.00",
-                        "best_ask_size": "0.00000",
-                        "best_bid": "0.00",
-                        "best_bid_size": "0.00000",
-                        "fluctuation": "-0.9999",
-                        "url": "https://www.bitmart.com/trade?symbol=BTC_USDT"
-                    }
-                ]
+                "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "last": str(self.expected_latest_price),
+                "qv_24h": "201477650.88000",
+                "v_24h": "25186.48000",
+                "high_24h": "8800.00",
+                "low_24h": "1.00",
+                "open_24h": "8800.00",
+                "ask_px": "0.00",
+                "ask_sz": "0.00000",
+                "bid_px": "0.00",
+                "bid_sz": "0.00000",
+                "fluctuation": "-0.9999"
             }
         }
 
