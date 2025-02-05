@@ -372,16 +372,13 @@ class ExecutorOrchestrator:
 
         # Calculate global PNL values
         report.global_pnl_quote = report.unrealized_pnl_quote + report.realized_pnl_quote
-        report.global_pnl_pct = (
-                                            report.global_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(
-            0)
+        report.global_pnl_pct = (report.global_pnl_quote / report.volume_traded) * 100\
+            if report.volume_traded != 0 else Decimal(0)
 
         # Calculate individual PNL percentages
-        report.unrealized_pnl_pct = (
-                                                report.unrealized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(
-            0)
-        report.realized_pnl_pct = (
-                                              report.realized_pnl_quote / report.volume_traded) * 100 if report.volume_traded != 0 else Decimal(
-            0)
+        report.unrealized_pnl_pct = (report.unrealized_pnl_quote / report.volume_traded) * 100\
+            if report.volume_traded != 0 else Decimal(0)
+        report.realized_pnl_pct = (report.realized_pnl_quote / report.volume_traded) * 100\
+            if report.volume_traded != 0 else Decimal(0)
 
         return report
