@@ -522,3 +522,26 @@ class GatewayHttpClient:
             "network": network,
             "connector": connector,
         })
+
+    async def execute_arbitrage(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        wallet_address: str,
+        indexAddress: str,
+        amount: int,
+        indexLower: bool,
+        gasLimit: int = 100000
+    ):
+        request_payload = {
+            "indexAddress": indexAddress,
+            "walletAddress": wallet_address,
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "amount": amount,
+            "indexLower": indexLower,
+            "gasLimit": gasLimit
+        }
+        return await self.api_request("post", "amm/liquidity/arbitrage", request_payload, use_body=True)
