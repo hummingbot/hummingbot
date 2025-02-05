@@ -13,7 +13,7 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import Arbit
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
-from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator, PositionHeld
+from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator, PositionHeld, EXECUTOR_MAPPING
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
@@ -67,36 +67,38 @@ class TestExecutorOrchestrator(unittest.TestCase):
                                              position_start_mock: MagicMock, twap_start_mock: MagicMock):
         markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
         markets_recorder_mock.store_or_update_executor = MagicMock(return_value=None)
-        position_executor_config = PositionExecutorConfig(
-            timestamp=1234, connector_name="binance",
-            trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
-        arbitrage_executor_config = ArbitrageExecutorConfig(
-            timestamp=1234, order_amount=Decimal(10), min_profitability=Decimal(0.01),
-            buying_market=ConnectorPair(connector_name="binance", trading_pair="ETH-USDT"),
-            selling_market=ConnectorPair(connector_name="coinbase", trading_pair="ETH-USDT"),
-        )
-        dca_executor_config = DCAExecutorConfig(
-            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
-            side=TradeType.BUY, amounts_quote=[Decimal(10)], prices=[Decimal(100)],)
-        twap_executor_config = TWAPExecutorConfig(
-            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
-            side=TradeType.BUY, total_amount_quote=Decimal(100), total_duration=10, order_interval=5,
-        )
-        grid_executor_config = GridExecutorConfig(
-            timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
-            side=TradeType.BUY, total_amount_quote=Decimal(100), start_price=Decimal(100),
-            end_price=Decimal(200), limit_price=Decimal(90),
-            triple_barrier_config=TripleBarrierConfig(take_profit=Decimal(0.01), stop_loss=Decimal(0.2))
-        )
-        actions = [
-            CreateExecutorAction(executor_config=position_executor_config, controller_id="test"),
-            CreateExecutorAction(executor_config=arbitrage_executor_config, controller_id="test"),
-            CreateExecutorAction(executor_config=dca_executor_config, controller_id="test"),
-            CreateExecutorAction(executor_config=twap_executor_config, controller_id="test"),
-            CreateExecutorAction(executor_config=grid_executor_config, controller_id="test"),
+        configs = [
+            PositionExecutorConfig(
+                timestamp=1234, connector_name="binance",
+                trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10)),
+            ArbitrageExecutorConfig(
+                timestamp=1234, order_amount=Decimal(10), min_profitability=Decimal(0.01),
+                buying_market=ConnectorPair(connector_name="binance", trading_pair="ETH-USDT"),
+                selling_market=ConnectorPair(connector_name="coinbase", trading_pair="ETH-USDT"),
+            ),
+            DCAExecutorConfig(
+                timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
+                side=TradeType.BUY, amounts_quote=[Decimal(10)], prices=[Decimal(100)],),
+            TWAPExecutorConfig(
+                timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
+                side=TradeType.BUY, total_amount_quote=Decimal(100), total_duration=10, order_interval=5,
+            ),
+            GridExecutorConfig(
+                timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
+                side=TradeType.BUY, total_amount_quote=Decimal(100), start_price=Decimal(100),
+                end_price=Decimal(200), limit_price=Decimal(90),
+                triple_barrier_config=TripleBarrierConfig(take_profit=Decimal(0.01), stop_loss=Decimal(0.2))
+            ),
         ]
+        actions = [CreateExecutorAction(executor_config=config, controller_id="test") for config in configs]
         self.orchestrator.execute_actions(actions)
-        self.assertEqual(len(self.orchestrator.active_executors["test"]), 5)
+        self.assertEqual(len(configs), len(self.orchestrator.active_executors["test"]))
+        self.assertEqual(len(EXECUTOR_MAPPING) - 1, len(self.orchestrator.active_executors["test"]), "Not all config/executors are tested")
+        position_start_mock.assert_called_once()
+        arbitrage_start_mock.assert_called_once()
+        dca_start_mock.assert_called_once()
+        twap_start_mock.assert_called_once()
+        grid_start_mock.assert_called_once()
 
     def test_execute_actions_store_executor_active(self):
         position_executor = MagicMock(spec=PositionExecutor)
@@ -197,6 +199,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         orchestrator = ExecutorOrchestrator(strategy=self.mock_strategy)
         self.assertEqual(len(orchestrator.cached_performance), 1)
+        self.assertEqual(orchestrator.cached_performance["test"].realized_pnl_quote, Decimal(10))
+        self.assertEqual(orchestrator.cached_performance["test"].volume_traded, Decimal(100))
 
     @patch.object(MarketsRecorder, "get_instance")
     def test_store_all_positions(self, markets_recorder_mock):
@@ -259,6 +263,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.orchestrator.active_executors["test"] = [position_executor]
         self.orchestrator.store_all_executors()
         self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
+        markets_recorder_mock.return_value.store_or_update_executor.assert_called_once()
 
     @patch.object(ExecutorOrchestrator, "store_all_positions")
     def test_stop(self, store_all_positions):
@@ -277,4 +282,6 @@ class TestExecutorOrchestrator(unittest.TestCase):
         position_executor.config = MagicMock(PositionExecutorConfig)
         position_executor.config.id = "123"
         self.orchestrator.active_executors["test"] = [position_executor]
-        self.orchestrator.stop_executor(StopExecutorAction(executor_id="123", controller_id="test"))
+        action = StopExecutorAction(executor_id="123", controller_id="test", keep_position=True)
+        self.orchestrator.stop_executor(action)
+        position_executor.early_stop.assert_called_once_with(True)
