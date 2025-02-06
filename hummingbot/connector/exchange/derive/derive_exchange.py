@@ -845,11 +845,12 @@ class DeriveExchange(ExchangePyBase):
             "instrument_type": "erc20",
         })
         self.currencies.append(currencies)
+        return currencies
 
     async def _make_trading_rules_request(self) -> Any:
         self._instrument_ticker = []
         if len(self.currencies) == 0:
-            await self._make_currency_request()
+            self.currencies.append(await self._make_currency_request())
         exchange_infos = []
         for currency in self.currencies[0]["result"]:
 
@@ -876,7 +877,7 @@ class DeriveExchange(ExchangePyBase):
     async def _make_trading_pairs_request(self) -> Any:
         exchange_infos = []
         if len(self.currencies) == 0:
-            await self._make_currency_request()
+            self.currencies.append(await self._make_currency_request())
         for currency in self.currencies[0]["result"]:
 
             payload = {

@@ -223,28 +223,28 @@ class DeriveRateSourceTest(unittest.TestCase):
         mock_api.post(derive_prices_global_url, body=json.dumps(derive_prices_global_response))
 
     @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_trading_rules_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange.get_all_pairs_prices", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange.get_all_pairs_prices", new_callable=AsyncMock)
     @aioresponses()
     def test_get_prices(self, mock_prices: AsyncMock, mock_request: AsyncMock, mock_rules, mock_api):
 
         res = [{"symbol": {"instrument_name": "COINALPHA-USDC", "best_bid": "3143.16", "best_ask": "3149.46"}}]
 
-        expected_rate = Decimal("10")
+        expected_rate = Decimal("3146.31")
         self.setup_derive_responses(mock_api=mock_api, mock_request=mock_request, mock_prices=mock_prices, expected_rate=expected_rate)
 
         rate_source = DeriveRateSource()
         self.configure_currency_trading_rules_response(mock_api=mock_api)
         mock_request.return_value = self.currency_request_mock_response
-        self.exchange.currencies = [self.currency_request_mock_response]
 
         mocked_response = self.trading_rules_request_mock_response
         self.configure_trading_rules_response(mock_api=mock_api)
         mock_rules.side_effect = self.trading_rules_request_mock_response
         self.exchange._instrument_ticker = mocked_response["result"]["instruments"]
         mock_prices.side_effect = [res]
-        prices = self.async_run_with_timeout(rate_source.get_prices())
 
+        mock_request.side_effect = [self.currency_request_mock_response]
+        prices = self.async_run_with_timeout(rate_source.get_prices(quote_token="USDC"))
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
         # self.assertIn(self.us_trading_pair, prices)
