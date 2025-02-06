@@ -92,7 +92,19 @@ class PositionHeld:
             amount=net_amount,
             breakeven_price=breakeven_price,
             unrealized_pnl_quote=unrealized_pnl,
-            cum_fees_quote=cum_fees_quote)
+            cum_fees_quote=cum_fees_quote,
+        )
+
+
+EXECUTOR_MAPPING = {
+    # Remember to add entries here for new executor/config combos
+    PositionExecutorConfig: PositionExecutor,
+    GridExecutorConfig: GridExecutor,
+    DCAExecutorConfig: DCAExecutor,
+    ArbitrageExecutorConfig: ArbitrageExecutor,
+    TWAPExecutorConfig: TWAPExecutor,
+    XEMMExecutorConfig: XEMMExecutor,
+}
 
 
 class ExecutorOrchestrator:
@@ -224,25 +236,13 @@ class ExecutorOrchestrator:
         controller_id = action.controller_id
         executor_config = action.executor_config
 
-        # For now, we replace the controller ID in the executor config with the actual controller object to mantain
-        # compa
+        # For now, we replace the controller ID in the executor config with the actual controller object
         executor_config.controller_id = controller_id
+        executor_class = EXECUTOR_MAPPING.get(type(executor_config))
+        if executor_class is None:
+            raise ValueError(f"Unsupported executor config type: {type(executor_config).__name__}")
 
-        if isinstance(executor_config, PositionExecutorConfig):
-            executor = PositionExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, GridExecutorConfig):
-            executor = GridExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, DCAExecutorConfig):
-            executor = DCAExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, ArbitrageExecutorConfig):
-            executor = ArbitrageExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, TWAPExecutorConfig):
-            executor = TWAPExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, XEMMExecutorConfig):
-            executor = XEMMExecutor(self.strategy, executor_config, self.executors_update_interval)
-        else:
-            raise ValueError("Unsupported executor config type")
-
+        executor = executor_class(self.strategy, executor_config, self.executors_update_interval)
         executor.start()
         self.active_executors[controller_id].append(executor)
         # MarketsRecorder.get_instance().store_or_update_executor(executor)
