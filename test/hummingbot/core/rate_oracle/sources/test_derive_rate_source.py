@@ -223,8 +223,8 @@ class DeriveRateSourceTest(unittest.TestCase):
         mock_api.post(derive_prices_global_url, body=json.dumps(derive_prices_global_response))
 
     @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_trading_rules_request", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange.get_all_pairs_prices", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.derive.derive_exchange.DeriveExchange._make_currency_request", new_callable=AsyncMock)
     @aioresponses()
     def test_get_prices(self, mock_prices: AsyncMock, mock_request: AsyncMock, mock_rules, mock_api):
 

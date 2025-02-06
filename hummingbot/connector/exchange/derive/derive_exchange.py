@@ -643,15 +643,15 @@ class DeriveExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_get(
+        account_info = await self._api_post(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            params={"wallet": self.derive_api_key},
+            data={"subaccount_id": self._sub_id},
             is_auth_required=True)
         if "error" in account_info:
             self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
             raise
         else:
-            balances = account_info["result"][0]["collaterals"]
+            balances = account_info["result"]["collaterals"]
             for balance_entry in balances:
                 asset_name = balance_entry["asset_name"]
                 free_balance = Decimal(balance_entry["amount"])

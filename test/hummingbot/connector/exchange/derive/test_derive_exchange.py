@@ -292,34 +292,34 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
-        mock_response = {"result": [
-            {
-                'subaccount_id': 37799,
-                'collaterals': [
-                    {
-                        'asset_type': 'erc20', 'asset_name': self.base_asset, 'currency': self.base_asset, 'amount': '15',
-                        'mark_price': '1.676380380787058688', 'mark_value': '33.52',
-                        'cumulative_interest': '0', 'pending_interest': '0', 'initial_margin': '17.0990798',
-                        'maintenance_margin': '20.1165645',
-                        'realized_pnl': '0', 'average_price': '1.68212', 'unrealized_pnl': '-0.114786',
-                        'total_fees': '0.050394', 'average_price_excl_fees': '1.6796', 'realized_pnl_excl_fees': '0',
-                        'unrealized_pnl_excl_fees': '-0.064392', 'open_orders_margin': '-87.884668', 'creation_timestamp': 1737811465712
-                    },
-                    {
-                        'asset_type': 'erc20', 'asset_name': self.quote_asset, 'currency': self.quote_asset, 'amount': '2000',
-                        'mark_price': '1', 'mark_value': '75.3929188',
-                        'cumulative_interest': '0.046965277',
-                        'pending_interest': '0.001969',
-                        'initial_margin': '75.3929188',
-                        'maintenance_margin': '75.3929188',
-                        'realized_pnl': '0', 'average_price': '1', 'unrealized_pnl': '0', 'total_fees': '0',
-                        'average_price_excl_fees': '1', 'realized_pnl_excl_fees': '0', 'unrealized_pnl_excl_fees': '0',
-                        'open_orders_margin': '0', 'creation_timestamp': 1737578243424
+        mock_response = {"result":
+                         {
+                             'subaccount_id': 37799,
+                             'collaterals': [
+                                 {
+                                     'asset_type': 'erc20', 'asset_name': self.base_asset, 'currency': self.base_asset, 'amount': '15',
+                                     'mark_price': '1.676380380787058688', 'mark_value': '33.52',
+                                     'cumulative_interest': '0', 'pending_interest': '0', 'initial_margin': '17.0990798',
+                                     'maintenance_margin': '20.1165645',
+                                     'realized_pnl': '0', 'average_price': '1.68212', 'unrealized_pnl': '-0.114786',
+                                     'total_fees': '0.050394', 'average_price_excl_fees': '1.6796', 'realized_pnl_excl_fees': '0',
+                                     'unrealized_pnl_excl_fees': '-0.064392', 'open_orders_margin': '-87.884668', 'creation_timestamp': 1737811465712
+                                 },
+                                 {
+                                     'asset_type': 'erc20', 'asset_name': self.quote_asset, 'currency': self.quote_asset, 'amount': '2000',
+                                     'mark_price': '1', 'mark_value': '75.3929188',
+                                     'cumulative_interest': '0.046965277',
+                                     'pending_interest': '0.001969',
+                                     'initial_margin': '75.3929188',
+                                     'maintenance_margin': '75.3929188',
+                                     'realized_pnl': '0', 'average_price': '1', 'unrealized_pnl': '0', 'total_fees': '0',
+                                     'average_price_excl_fees': '1', 'realized_pnl_excl_fees': '0', 'unrealized_pnl_excl_fees': '0',
+                                     'open_orders_margin': '0', 'creation_timestamp': 1737578243424
 
-                    }
-                ]
-            }]
-        }
+                                 }
+                             ]
+                         }
+                         }
 
         return mock_response
 

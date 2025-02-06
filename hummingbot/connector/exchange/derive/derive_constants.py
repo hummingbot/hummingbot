@@ -37,7 +37,7 @@ SNAPSHOT_PATH_URL = "/public/get_ticker"
 SERVER_TIME_PATH_URL = "/public/get_time"
 
 # Private API endpoints or DeriveClient function
-ACCOUNTS_PATH_URL = "/private/get_all_portfolios"
+ACCOUNTS_PATH_URL = "/private/get_subaccount"
 MY_TRADES_PATH_URL = "/private/get_trade_history"
 CREATE_ORDER_URL = "/private/order"
 CANCEL_ORDER_URL = "/private/cancel"
