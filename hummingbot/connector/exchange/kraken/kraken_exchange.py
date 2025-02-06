@@ -61,7 +61,24 @@ class KrakenExchange(ExchangePyBase):
         self._rate_limits_share_pct = rate_limits_share_pct
         self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
 
+        self.check_network_timeout = 10.0
+
         super().__init__(balance_asset_limit, rate_limits_share_pct)
+
+    def __repr__(self) -> str:
+        rep: str = (
+            f"KrakenExchange({self._domain})\n"
+            f"  - trading_pairs: {self._trading_pairs}\n"
+            f"  - trading_required: {self._trading_required}\n"
+            f"  - asset_uuid_map: {self._asset_uuid_map}\n"
+            f"  - market_assets_initialized: {self._market_assets_initialized}\n"
+            f"  - pair_symbol_map_initialized: {self._market_assets}\n"
+            f"  - time_synchronizer: {self._time_synchronizer}\n"
+            f"  - last_poll_timestamp: {self._last_poll_timestamp}\n"
+            f"  - in_flight_orders: {self._order_tracker.active_orders}\n"
+            f"  - status_dict: {self.status_dict}\n"
+        )
+        return rep
 
     @staticmethod
     def kraken_order_type(order_type: OrderType) -> str:
@@ -81,6 +98,25 @@ class KrakenExchange(ExchangePyBase):
     @property
     def name(self) -> str:
         return "kraken"
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        # self.logger().debug(
+        #     f"\n   symbols_mapping_initialized: {self.trading_pair_symbol_map_ready()}\n"
+        #     f"   order_books_initialized: {self.order_book_tracker.ready}\n"
+        #     f"   account_balance: {len(self._account_balances) > 0}\n"
+        #     f"   account_balance: {len(self._account_available_balances) > 0}\n"
+        #     f"   trading_required: {self.is_trading_required}\n"
+        #     f"   trading_rule_initialized: {len(self._trading_rules) > 0 if self.is_trading_required else True}\n"
+        #     f"   user_stream_initialized: {self._is_user_stream_initialized()}\n"
+        # )
+        return {
+            "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
+            "order_books_initialized": self.order_book_tracker.ready,
+            "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
+            "user_stream_initialized": self._is_user_stream_initialized(),
+        }
 
     # not used
     @property
@@ -135,6 +171,22 @@ class KrakenExchange(ExchangePyBase):
             )
         throttler = AsyncThrottler(build_rate_limits_by_tier(api_tier))
         return throttler
+
+    async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
+        # Overriding ExchangePyBase: Synchronizer expects time in ms
+        try:
+            await self._time_synchronizer.update_server_time_offset_with_time_provider(
+                time_provider=self.web_utils.get_current_server_time_ms(
+                    throttler=self._throttler,
+                    domain=self.domain,
+                )
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if not pass_on_non_cancelled_error:
+                self.logger().exception(f"Error requesting time from {self.name_cap} server")
+                raise
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         return False
@@ -352,6 +404,15 @@ class KrakenExchange(ExchangePyBase):
         if not result:
             raise IOError(f"Error fetching data from {path_url}, msg is {response_json}.")
         return result
+
+    async def _get_exchange_order_id(self, tracked_order: InFlightOrder) -> str:
+        if (exchange_order_id := tracked_order.exchange_order_id) is None:
+            response = await self.get_open_orders_with_userref(int(tracked_order.client_order_id))
+            if any(response.get("open").values()):
+                exchange_order_id = list(response.get("open").keys())[0]
+            else:
+                exchange_order_id = None
+        return exchange_order_id
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         exchange_order_id = await tracked_order.get_exchange_order_id()
