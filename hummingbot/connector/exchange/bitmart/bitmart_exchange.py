@@ -344,7 +344,7 @@ class BitmartExchange(ExchangePyBase):
                 trading_pair=order.trading_pair,
                 fee=fee,
                 fill_base_amount=Decimal(fill_data["size"]),
-                fill_quote_amount=Decimal(fill_data["size"]) * Decimal(fill_data["price"]),
+                fill_quote_amount=Decimal(fill_data["notional"]),
                 fill_price=Decimal(fill_data["price"]),
                 fill_timestamp=int(fill_data["createTime"]) * 1e-3,
             )
