@@ -51,7 +51,6 @@ class CandlesFactory:
         "okx_perpetual": OKXPerpetualCandles,
         "okx": OKXSpotCandles,
         "kraken": KrakenSpotCandles,
-        "coinbase_advanced_trade": CoinbaseAdvancedTradeSpotCandles,
         "mexc": MexcSpotCandles,
         "mexc_perpetual": MexcPerpetualCandles,
         "bybit": BybitSpotCandles,

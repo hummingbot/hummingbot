@@ -163,7 +163,7 @@ SIGNIN_RATE_LIMITS = [
     RateLimit(limit_id=endpoint,
               limit=_key["limit"],
               weight=DEFAULT_WEIGHT,
-              time_interval=ONE_SECOND,
+              time_interval=ONE_HOUR,
               linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)]) for endpoint in _key["list"]]
 
 RATE_LIMITS = [
