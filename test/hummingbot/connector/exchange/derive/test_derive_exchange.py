@@ -5,7 +5,7 @@ import re
 
 # from copy import deepcopy
 from decimal import Decimal
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -445,6 +445,17 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         request_params = request_call.kwargs["data"]
         data = json.loads(request_params)
         self.assertEqual(self.sub_id, data["subaccount_id"])
+
+    def _configure_balance_response(
+            self,
+            response: Dict[str, Any],
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+
+        url = self.balance_url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        return url
 
     def configure_successful_cancelation_response(
             self,
