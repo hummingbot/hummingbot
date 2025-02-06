@@ -891,7 +891,7 @@ class DexalotExchange(ExchangePyBase):
             if data is not None and data["type"] == "marketSnapShot":
                 price_list = data["data"]
 
-                last_traded_price = [i["close"] for i in price_list if i["pair"] == ex_symbol][0]
+                last_traded_price = float([i["close"] for i in price_list if i["pair"] == ex_symbol][0])
                 payload = {
                     "type": "marketsnapshotunsubscribe",
                 }
