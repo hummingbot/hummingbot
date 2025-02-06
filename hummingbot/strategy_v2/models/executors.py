@@ -1,7 +1,6 @@
+from decimal import Decimal
 from enum import Enum
 from typing import Optional
-
-from _decimal import Decimal
 
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 
@@ -16,6 +15,7 @@ class CloseType(Enum):
     INSUFFICIENT_BALANCE = 7
     FAILED = 8
     COMPLETED = 9
+    POSITION_HOLD = 10
 
 
 class TrackedOrder:
@@ -40,6 +40,27 @@ class TrackedOrder:
         self._order = order
 
     @property
+    def creation_timestamp(self):
+        if self.order:
+            return self.order.creation_timestamp
+        else:
+            return None
+
+    @property
+    def price(self):
+        if self.order:
+            return self.order.price
+        else:
+            return None
+
+    @property
+    def last_update_time(self):
+        if self.order:
+            return self.order.last_update_time
+        else:
+            return None
+
+    @property
     def average_executed_price(self):
         if self.order:
             return self.order.average_executed_price or self.order.price
@@ -50,6 +71,13 @@ class TrackedOrder:
     def executed_amount_base(self):
         if self.order:
             return self.order.executed_amount_base
+        else:
+            return Decimal("0")
+
+    @property
+    def executed_amount_quote(self):
+        if self.order:
+            return self.order.executed_amount_quote
         else:
             return Decimal("0")
 

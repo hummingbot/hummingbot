@@ -219,8 +219,8 @@ class DCAExecutor(ExecutorBase):
         all_orders = self._open_orders + self._close_orders
         return sum([order.cum_fees_quote for order in all_orders])
 
-    def on_start(self):
-        super().on_start()
+    async def on_start(self):
+        await super().on_start()
         if self.is_expired:
             self.close_execution_by(CloseType.EXPIRED)
 
@@ -362,12 +362,17 @@ class DCAExecutor(ExecutorBase):
                 self.close_type = CloseType.TAKE_PROFIT
                 self.place_close_order_and_cancel_open_orders()
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         """
         This method allows strategy to stop the executor early.
         """
-        self.close_type = CloseType.EARLY_STOP
-        self.place_close_order_and_cancel_open_orders()
+        if keep_position:
+            self.close_type = CloseType.POSITION_HOLD
+            self.cancel_open_orders()
+            self.stop()
+        else:
+            self.close_type = CloseType.EARLY_STOP
+            self.place_close_order_and_cancel_open_orders()
 
     def place_close_order_and_cancel_open_orders(self, price: Decimal = Decimal("NaN")):
         """

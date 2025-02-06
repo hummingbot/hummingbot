@@ -44,6 +44,7 @@ class ExecutorBase(RunnableBase):
         self.close_type: Optional[CloseType] = None
         self.close_timestamp: Optional[float] = None
         self._strategy: ScriptStrategyBase = strategy
+        self._held_position_orders = []  # Keep track of orders that become held positions
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
 
@@ -169,11 +170,11 @@ class ExecutorBase(RunnableBase):
         super().stop()
         self.unregister_events()
 
-    def on_start(self):
+    async def on_start(self):
         """
         Called when the executor is started.
         """
-        self.validate_sufficient_balance()
+        await self.validate_sufficient_balance()
 
     def on_stop(self):
         """
@@ -181,13 +182,13 @@ class ExecutorBase(RunnableBase):
         """
         pass
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         """
         This method allows strategy to stop the executor early.
         """
         raise NotImplementedError
 
-    def validate_sufficient_balance(self):
+    async def validate_sufficient_balance(self):
         """
         Validates that the executor has sufficient balance to place orders.
         """

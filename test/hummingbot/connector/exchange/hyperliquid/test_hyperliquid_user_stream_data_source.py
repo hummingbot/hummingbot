@@ -48,8 +48,7 @@ class TestHyperliquidAPIUserStreamDataSource(unittest.TestCase):
         self.auth = HyperliquidAuth(
             api_key=self.api_key,
             api_secret=self.api_secret_key,
-            use_vault=self.use_vault,
-            trading_required=self.trading_required)
+            use_vault=self.use_vault)
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 

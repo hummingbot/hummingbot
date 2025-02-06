@@ -65,7 +65,7 @@ class RateOracleTest(unittest.TestCase):
 
         self.async_run_with_timeout(rate_oracle.stop_network())
 
-        self.assertEqual(0, len(rate_oracle.prices))
+        self.assertIsNone(rate_oracle._fetch_price_task)
 
     def test_find_rate(self):
         prices = {"HBOT-USDT": Decimal("100"), "AAVE-USDT": Decimal("50"), "USDT-GBP": Decimal("0.75")}

@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Dict, List
 
 from eth_account import Account
+from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import AsyncWeb3, Web3
 from web3.middleware import async_geth_poa_middleware
@@ -23,18 +24,25 @@ class DexalotClient:
             self,
             dexalot_api_secret: str,
             connector,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            trading_required: bool = True,
     ):
         self._private_key = dexalot_api_secret
         self._connector = connector
         self._domain = domain
+        self._trading_required = trading_required
         self.last_nonce = 0
         self.transaction_lock = Lock()
         self.balance_evm_params = {}
 
         self.provider = CONSTANTS.DEXALOT_SUBNET_RPC_URL if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_SUBNET_RPC_URL
-        self._w3 = Web3(Web3.HTTPProvider(self.provider))
+        # Note: The or trading_capability here is required because an instance is created by calling
+        # "connect" command which does not require trading (trading_capability=False)
+        self.account: LocalAccount = Account.from_key(dexalot_api_secret) if self.trading_required \
+            or self.trading_capability else None  # See the above comment for details
         self.async_w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(self.provider))
+        self.async_w3.eth.default_account = self.account.address if self.account else None
+        self._w3 = Web3(Web3.HTTPProvider(self.provider))
         self.async_w3.middleware_onion.inject(async_geth_poa_middleware, layer=0)
         self.async_w3.strict_bytes_type_checking = False
         TRADEPAIRS_ADDRESS = CONSTANTS.DEXALOT_TRADEPAIRS_ADDRESS if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_TRADEPAIRS_ADDRESS
@@ -45,6 +53,14 @@ class DexalotClient:
 
         self.portfolio_sub_manager = self.async_w3.eth.contract(address=PORTFOLIOSUB_ADDRESS,
                                                                 abi=DEXALOT_PORTFOLIOSUB_ABI)
+
+    @property
+    def trading_required(self):
+        return self._trading_required
+
+    @property
+    def trading_capability(self) -> bool:
+        return self._private_key not in (None, "")
 
     async def _get_token_info(self):
         token_raw_info_list = await self._connector._api_get(
@@ -60,7 +76,7 @@ class DexalotClient:
     async def get_balances(self, account_balances: Dict, account_available_balances: Dict):
         if not self.balance_evm_params:
             await self._get_token_info()
-        balances = await self.portfolio_sub_manager.functions.getBalances(Account.from_key(self._private_key).address, 50).call()
+        balances = await self.portfolio_sub_manager.functions.getBalances(self.account.address, 50).call()
         coin_list = balances[0]
         total_list = balances[1]
         for index, evm_total_balance in enumerate(total_list):
@@ -121,7 +137,7 @@ class DexalotClient:
         async with self.transaction_lock:
             result = None
             for retry_attempt in range(CONSTANTS.TRANSACTION_REQUEST_ATTEMPTS):
-                current_nonce = await self.async_w3.eth.get_transaction_count(Account.from_key(self._private_key).address)
+                current_nonce = await self.async_w3.eth.get_transaction_count(self.account.address)
                 try:
                     tx_params = {
                         'nonce': current_nonce if current_nonce > self.last_nonce else self.last_nonce,
