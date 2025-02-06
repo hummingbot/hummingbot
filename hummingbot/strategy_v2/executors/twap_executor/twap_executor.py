@@ -213,7 +213,7 @@ class TWAPExecutor(ExecutorBase):
             if order and order.order and order.order.is_open:
                 self._strategy.cancel(self.config.connector_name, self.config.trading_pair, order.order_id)
 
-    def early_stop(self):
+    def early_stop(self, keep_position: bool = False):
         self.close_execution_by(CloseType.EARLY_STOP)
         self.cancel_open_orders()
         self._status = RunnableStatus.SHUTTING_DOWN
