@@ -186,7 +186,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data: Dict[str, Any] = ws_response.data
             decompressed_data = utils.decompress_ws_message(data)
             try:
-                if type(decompressed_data) == str:
+                if isinstance(decompressed_data, str):
                     json_data = json.loads(decompressed_data)
                 else:
                     json_data = decompressed_data

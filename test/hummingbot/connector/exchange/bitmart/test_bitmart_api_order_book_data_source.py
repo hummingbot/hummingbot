@@ -148,7 +148,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             asyncio.gather(self.data_source.get_new_order_book(self.trading_pair)))
         order_book: OrderBook = results[0]
 
-        self.assertTrue(type(order_book) == OrderBook)
+        self.assertTrue(isinstance(order_book, OrderBook))
         self.assertEqual(order_book.snapshot_uid, mock_response["data"]["ts"])
 
         self.assertEqual(mock_response["data"]["ts"], order_book.snapshot_uid)
