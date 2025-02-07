@@ -1,0 +1,11 @@
+certificatePath: /home/gateway/certs/
+logPath: ./logs
+port: 15888
+ipWhitelist: []
+GMTOffset: 800
+logToStdOut: true
+unsafeDevModeWithHTTP: false
+telemetry_enabled: false
+nonceDbPath: nonce.level
+transactionDbPath: transaction.level
+id: 4b6a93eb64267

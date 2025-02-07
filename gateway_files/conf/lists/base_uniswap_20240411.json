@@ -1,0 +1,248 @@
+{
+    "name": "Uniswap Labs Default",
+    "timestamp": "2024-04-08T14:06:46.865Z",
+    "version": {
+        "major": 11,
+        "minor": 17,
+        "patch": 0
+    },
+    "tags": {},
+    "logoURI": "ipfs://QmNa8mQkrNKp1WEEeGjFezDmDeodkWRevGFN8JCV7b4Xir",
+    "keywords": [
+        "uniswap",
+        "default"
+    ],
+    "tokens": [
+        {
+            "chainId": 8453,
+            "address": "0xc5fecC3a29Fb57B5024eEc8a2239d4621e111CBE",
+            "name": "1inch",
+            "symbol": "1INCH",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/13469/thumb/1inch-token.png?1608803028"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
+            "name": "Aerodrome Finance",
+            "symbol": "AERO",
+            "decimals": 18,
+            "logoURI": "https://basescan.org/token/images/aerodrome_32.png"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x97c806e7665d3AFd84A8Fe1837921403D59F3Dcc",
+            "name": "Alethea Artificial Liquid Intelligence",
+            "symbol": "ALI",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/22062/thumb/alethea-logo-transparent-colored.png?1642748848"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x1C9Fa01e87487712706Fb469a13bEb234262C867",
+            "name": "ARPA Chain",
+            "symbol": "ARPA",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/8506/thumb/9u0a23XY_400x400.jpg?1559027357"
+        },
+        {
+            "name": "Balancer",
+            "address": "0x4158734D47Fc9692176B5085E0F52ee0Da5d47F1",
+            "symbol": "BAL",
+            "decimals": 18,
+            "chainId": 8453,
+            "logoURI": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xba100000625a3754423978a60c9317c58a424e3D/logo.png"
+        },
+        {
+            "chainId": 8453,
+            "address": "0xA7d68d155d17cB30e311367c2Ef1E82aB6022b67",
+            "name": "Braintrust",
+            "symbol": "BTRST",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/18100/thumb/braintrust.PNG?1630475394"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22",
+            "name": "Coinbase Wrapped Staked ETH",
+            "symbol": "cbETH",
+            "decimals": 18,
+            "logoURI": "https://ethereum-optimism.github.io/data/cbETH/logo.svg"
+        },
+        {
+            "name": "Compound",
+            "address": "0x9e1028F5F1D5eDE59748FFceE5532509976840E0",
+            "symbol": "COMP",
+            "decimals": 18,
+            "chainId": 8453,
+            "logoURI": "https://ethereum-optimism.github.io/data/COMP/logo.svg"
+        },
+        {
+            "name": "Curve DAO Token",
+            "address": "0x8Ee73c484A26e0A5df2Ee2a4960B789967dd0415",
+            "symbol": "CRV",
+            "decimals": 18,
+            "chainId": 8453,
+            "logoURI": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xD533a949740bb3306d119CC777fa900bA034cd52/logo.png"
+        },
+        {
+            "name": "Dai Stablecoin",
+            "address": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
+            "symbol": "DAI",
+            "decimals": 18,
+            "chainId": 8453,
+            "logoURI": "https://ethereum-optimism.github.io/data/DAI/logo.svg"
+        },
+        {
+            "chainId": 8453,
+            "address": "0xD08a2917653d4E460893203471f0000826fb4034",
+            "name": "Harvest Finance",
+            "symbol": "FARM",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/12304/thumb/Harvest.png?1613016180"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x968B2323d4b005C7D39c67D31774FE83c9943A60",
+            "name": "Ampleforth Governance Token",
+            "symbol": "FORTH",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/14917/thumb/photo_2021-04-22_00.00.03.jpeg?1619020835"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x2dbe0d779c7A04F7a5de83326973effE23356930",
+            "name": "ShapeShift FOX Token",
+            "symbol": "FOX",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/9988/thumb/FOX.png?1574330622"
+        },
+        {
+            "chainId": 8453,
+            "name": "Liquity USD",
+            "symbol": "LUSD",
+            "logoURI": "https://assets.coingecko.com/coins/images/14666/thumb/Group_3.png?1617631327",
+            "address": "0x368181499736d0c0CC614DBB145E2EC1AC86b8c6",
+            "decimals": 18
+        },
+        {
+            "chainId": 8453,
+            "address": "0xB4fDe59a779991bfB6a52253B51947828b982be3",
+            "name": "Pepe",
+            "symbol": "PEPE",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/29850/large/pepe-token.jpeg?1682922725"
+        },
+        {
+            "chainId": 8453,
+            "address": "0xfA980cEd6895AC314E7dE34Ef1bFAE90a5AdD21b",
+            "name": "Prime",
+            "symbol": "PRIME",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/29053/large/PRIMELOGOOO.png?1676976222"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x18dD5B087bCA9920562aFf7A0199b96B9230438b",
+            "name": "Propy",
+            "symbol": "PRO",
+            "decimals": 8,
+            "logoURI": "https://assets.coingecko.com/coins/images/869/thumb/propy.png?1548332100"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x1C7a460413dD4e964f96D8dFC56E7223cE88CD85",
+            "name": "Seamlesss",
+            "symbol": "SEAM",
+            "decimals": 18,
+            "logoURI": "https://basescan.org/token/images/seamless_32.png"
+        },
+        {
+            "name": "Synthetix Network Token",
+            "address": "0x22e6966B799c4D5B13BE962E1D117b56327FDa66",
+            "symbol": "SNX",
+            "decimals": 18,
+            "chainId": 8453,
+            "logoURI": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F/logo.png"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x7D49a065D17d6d4a55dc13649901fdBB98B2AFBA",
+            "name": "Sushi",
+            "symbol": "SUSHI",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/12271/thumb/512x512_Logo_no_chop.png?1606986688"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b",
+            "name": "tBTC",
+            "symbol": "tBTC",
+            "decimals": 18,
+            "logoURI": "https://raw.githubusercontent.com/uniswap/assets/master/blockchains/ethereum/assets/0x18084fbA666a33d37592fA2633fD49a74DD93a88/logo.png"
+        },
+        {
+            "chainId": 8453,
+            "address": "0xA81a52B4dda010896cDd386C7fBdc5CDc835ba23",
+            "name": "OriginTrail",
+            "symbol": "TRAC",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/1877/thumb/TRAC.jpg?1635134367"
+        },
+        {
+            "chainId": 8453,
+            "address": "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA",
+            "name": "USD Base Coin",
+            "symbol": "USDbC",
+            "decimals": 6,
+            "logoURI": "https://ethereum-optimism.github.io/data/USDC/logo.png"
+        },
+        {
+            "name": "USD Coin",
+            "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "symbol": "USDC",
+            "decimals": 6,
+            "chainId": 8453,
+            "logoURI": "https://ethereum-optimism.github.io/data/USDC/logo.png"
+        },
+        {
+            "chainId": 8453,
+            "name": "Wrapped Ampleforth",
+            "symbol": "WAMPL",
+            "logoURI": "https://assets.coingecko.com/coins/images/20825/thumb/photo_2021-11-25_02-05-11.jpg?1637811951",
+            "address": "0x489fe42C267fe0366B16b0c39e7AEEf977E841eF",
+            "decimals": 18
+        },
+        {
+            "name": "Wrapped liquid staked Ether 2.0",
+            "address": "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452",
+            "symbol": "WSTETH",
+            "decimals": 18,
+            "chainId": 8453
+        },
+        {
+            "name": "Wrapped Ether",
+            "address": "0x4200000000000000000000000000000000000006",
+            "symbol": "WETH",
+            "decimals": 18,
+            "chainId": 8453,
+            "logoURI": "https://ethereum-optimism.github.io/data/WETH/logo.png"
+        },
+        {
+            "chainId": 8453,
+            "address": "0x9EaF8C1E34F05a589EDa6BAfdF391Cf6Ad3CB239",
+            "name": "yearn finance",
+            "symbol": "YFI",
+            "decimals": 18,
+            "logoURI": "https://assets.coingecko.com/coins/images/11849/thumb/yfi-192x192.png?1598325330"
+        },
+        {
+            "name": "0x Protocol Token",
+            "address": "0x3bB4445D30AC020a84c1b5A8A2C6248ebC9779D0",
+            "symbol": "ZRX",
+            "decimals": 18,
+            "chainId": 8453,
+            "logoURI": "https://ethereum-optimism.github.io/data/ZRX/logo.png"
+        }
+    ]
+}

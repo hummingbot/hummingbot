@@ -1,0 +1,156 @@
+{
+  "tokens": [
+    {
+      "name": "Kolibri USD",
+      "symbol": "KUSD",
+      "address": "KT1K9gCRgaLRFKTErYt1wVxA3Frb9FjasjTV",
+      "decimals": 18,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "USDtez",
+      "symbol": "USDTZ",
+      "address": "KT1LN4LPSqTMS7Sd2CJw4bbDGRkMv2t68Fy9",
+      "decimals": 6,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "Ctez",
+      "symbol": "CTEZ",
+      "address": "KT1Ht47XHCYHFYmSpTrHPbQxQaEe3SBYgHaD",
+      "decimals": 6,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "Plenty PLY",
+      "symbol": "PLY",
+      "address": "KT1BxKvsSCKTJ9XrmkjQRDQfh5mZBb14ue8D",
+      "decimals": 18,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "Ethereum MATIC",
+      "symbol": "MATIC.e",
+      "address": "KT1Uw1oio434UoWFuZTNKFgt5wTM9tfuf7m7",
+      "decimals": 18,
+      "standard": "FA2",
+      "tokenId": 4
+    },
+    {
+      "name": "Ethereum DAI",
+      "symbol": "DAI.e",
+      "address": "KT1Uw1oio434UoWFuZTNKFgt5wTM9tfuf7m7",
+      "decimals": 18,
+      "standard": "FA2",
+      "tokenId": 5
+    },
+    {
+      "name": "Ethereum USDT",
+      "symbol": "USDT.e",
+      "address": "KT1Uw1oio434UoWFuZTNKFgt5wTM9tfuf7m7",
+      "decimals": 6,
+      "standard": "FA2",
+      "tokenId": 3
+    },
+    {
+      "name": "Ethereum USDC",
+      "symbol": "USDC.e",
+      "address": "KT1Uw1oio434UoWFuZTNKFgt5wTM9tfuf7m7",
+      "decimals": 6,
+      "standard": "FA2",
+      "tokenId": 2
+    },
+    {
+      "name": "Tezos",
+      "symbol": "XTZ",
+      "address": null,
+      "decimals": 6,
+      "standard": "TEZ",
+      "tokenId": null
+    },
+    {
+      "name": "Apple Token",
+      "symbol": "Apple",
+      "address": "KT1BRxbKjhRabGSB6saqK6QrBenaSvFJSgHu",
+      "decimals": 10,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "GOLD Token",
+      "symbol": "GOLD",
+      "address": "KT1PzyU2nXYW8RkoFqmqWPFCA7bgC7yGNRoC",
+      "decimals": 12,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "Test youves BTC",
+      "symbol": "uBTC",
+      "address": "KT1N4NfnYmJucXYkuPdvJG4Jxbz3TetCTqJc",
+      "decimals": 12,
+      "standard": "FA2",
+      "tokenId": 2
+    },
+    {
+      "name": "Test tzBTC",
+      "symbol": "tzBTC",
+      "address": "KT1Wdq6sj3ZkNqQ7CeE6kTNbJXfobMX7Eqpz",
+      "decimals": 8,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "Test youves USD",
+      "symbol": "uUSD",
+      "address": "KT1N4NfnYmJucXYkuPdvJG4Jxbz3TetCTqJc",
+      "decimals": 12,
+      "standard": "FA2",
+      "tokenId": 0
+    },
+    {
+      "name": "Test Kolibri USD",
+      "symbol": "kUSD",
+      "address": "KT1GG8Zd5rUp1XV8nMPRBY2tSyVn6NR5F4Q1",
+      "decimals": 18,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "Test USDtez",
+      "symbol": "USDtz",
+      "address": "KT1QzmrMs1xUXZJ8TPAoDEFaKC6w56RfdLWo",
+      "decimals": 6,
+      "standard": "FA1.2",
+      "tokenId": 0
+    },
+    {
+      "name": "Ethereum USDC",
+      "symbol": "USDC.e",
+      "address": "KT1A4W7CfD5sKkWXJke392jVmxSA6vaHrdWk",
+      "decimals": 6,
+      "standard": "FA2",
+      "tokenId": 2
+    },
+    {
+      "name": "Quipuswap Governance Token",
+      "symbol": "QUIPU",
+      "address": "KT19363aZDTjeRyoDkSLZhCk62pS4xfvxo6c",
+      "decimals": 6,
+      "standard": "FA2",
+      "tokenId": 0
+    },
+    {
+      "name": "Wrapped Tezos FA2 token",
+      "symbol": "wTEZ",
+      "address": "KT1L8ujeb25JWKa4yPB61ub4QG2NbaKfdJDK",
+      "decimals": 6,
+      "standard": "FA2",
+      "tokenId": 0
+    }
+  ]
+}

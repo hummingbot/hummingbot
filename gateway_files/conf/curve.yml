@@ -1,0 +1,19 @@
+# allowedSlippage: how much the execution price is allowed to move unfavorably
+# from the trade execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas used to estimate cost of a xsswap trade.
+gasLimitEstimate: 300000
+
+# ttl: how long a trade is valid in seconds. After this time passes
+# xsswap will not perform the trade, but the gas will still be sent.
+ttl: 600
+
+contractAddresses:
+  mainnet:
+    routerAddress: '0x0000000022D53366457F9d5E68Ec105046FC4383'
+  arbitrum:
+    routerAddress: '0x0000000022D53366457F9d5E68Ec105046FC4383'
+  optimism:
+    routerAddress: '0x0000000022D53366457F9d5E68Ec105046FC4383'
+

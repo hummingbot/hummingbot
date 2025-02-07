@@ -1,0 +1,16 @@
+networks:
+  mainnet-beta:
+    nodeURLs: 'https://api.mainnet-beta.solana.com,'
+    tokenListType: 'FILE'
+    tokenListSource: '/home/gateway/conf/lists/solflare-tokenlist.json'
+    nativeCurrencySymbol: SOL
+  devnet:
+    nodeURLs: 'https://api.devnet.solana.com,'
+    tokenListType: 'FILE'
+    tokenListSource: '/home/gateway/conf/lists/solflare-tokenlist.json'
+    nativeCurrencySymbol: SOL
+
+tokenProgram: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+transactionLamports: 5000
+lamportsToSol: 0.000000001
+timeToLive: 75

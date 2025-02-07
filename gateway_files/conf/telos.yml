@@ -1,0 +1,10 @@
+networks:
+  evm:
+    chainID: 40
+    nodeURL: https://mainnet.telos.net/evm
+    tokenListType: FILE
+    tokenListSource: conf/lists/telos_evm_tokens.json
+    nativeCurrencySymbol: TLOS
+  
+manualGasPrice: 600
+gasLimitTransaction: 1000000

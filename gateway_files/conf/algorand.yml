@@ -1,0 +1,16 @@
+networks:
+  mainnet:
+    chainId: mainnet
+    nodeURL: https://xna-mainnet-api.algonode.cloud
+    indexerURL: https://mainnet-idx.algonode.cloud
+    assetListType: URL
+    assetListSource: 'https://mainnet.analytics.tinyman.org/api/v1/assets/?limit=1000&is_pool_member=true&with_statistics=false&verified_only=true'
+  testnet:
+    chainId: testnet
+    nodeURL: https://testnet-api.algonode.network
+    indexerURL: https://testnet-idx.algonode.cloud
+    assetListType: URL
+    assetListSource: 'https://testnet.analytics.tinyman.org/api/v1/assets/?limit=1000&is_pool_member=true&with_statistics=false&verified_only=true'
+
+nativeCurrencySymbol: ALGO
+gasLimitEstimate: 500000

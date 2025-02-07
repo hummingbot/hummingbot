@@ -1,0 +1,86 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+
+# the maximum gas used to estimate gasCost for a uniswap trade.
+gasLimitEstimate: 150688
+
+# how long a trade is valid in seconds. After time passes uniswap will not
+# perform the trade, but the gas will still be sent.
+ttl: 600
+
+# For each swap, the maximum number of hops to consider.
+# Note: More hops will increase latency of the algorithm.
+maximumHops: 4
+
+# Use Uniswap Router or Quoter to quote prices.
+# true - use Smart Order Router
+# false - use QuoterV2 Contract
+useRouter: false
+
+# Fee tier to use for the Uniswap Quoter.
+# Required if `useRouter` is false.
+# Available options: 'LOWEST', 'LOW', 'MEDIUM', 'HIGH'.
+feeTier: 'MEDIUM'
+
+contractAddresses:
+  ethereum:
+    mainnet:
+      uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+      uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+      uniswapV3FactoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+    goerli:
+      uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+      uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+      uniswapV3FactoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+    arbitrum:
+      uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+      uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+      uniswapV3FactoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+    optimism:
+      uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+      uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+      uniswapV3FactoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+    base:
+      uniswapV3SmartOrderRouterAddress: '0x2626664c2603336E57B271c5C0b26F421741e481'
+      uniswapV3NftManagerAddress: '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1'
+      uniswapV3QuoterV2ContractAddress: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a'
+      uniswapV3FactoryAddress: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD'
+    sepolia:
+      uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+      uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+      uniswapV3FactoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+  polygon:
+    mainnet:
+      uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+      uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+      uniswapV3FactoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+    mumbai:
+      uniswapV3SmartOrderRouterAddress: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+      uniswapV3NftManagerAddress: '0xC36442b4a4522E871399CD717aBDD847Ab11FE88'
+      uniswapV3QuoterV2ContractAddress: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+      uniswapV3FactoryAddress: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+  binance-smart-chain:
+    mainnet:
+      uniswapV3SmartOrderRouterAddress: '0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2'
+      uniswapV3NftManagerAddress: '0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613'
+      uniswapV3QuoterV2ContractAddress: '0x78D78E420Da98ad378D7799bE8f4AF69033EB077'
+      uniswapV3FactoryAddress: '0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7'
+  avalanche:
+    avalanche:
+      uniswapV3FactoryAddress: '0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD'
+      uniswapV3SmartOrderRouterAddress: '0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE'
+      uniswapV3NftManagerAddress: '0x655C406EBFa14EE2006250925e54ec43AD184f8B'
+      uniswapV3QuoterV2ContractAddress: '0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F'
+  celo:
+    celo:
+      uniswapV3FactoryAddress: '0xAfE208a311B21f13EF87E33A90049fC17A7acDEc'
+      uniswapV3SmartOrderRouterAddress: '0x5615CDAb10dc425a742d643d949a7F474C01abc4'
+      uniswapV3NftManagerAddress: '0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A'
+      uniswapV3QuoterV2ContractAddress: '0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8'

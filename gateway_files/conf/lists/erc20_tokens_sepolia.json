@@ -1,0 +1,40 @@
+{
+  "name": "sepolia",
+  "tokens": [
+    {
+      "chainId": 11155111,
+      "name": "Wrapped Ether",
+      "address": "0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
+      "symbol": "WETH",
+      "decimals": 18
+    },
+    {
+      "chainId": 11155111,
+      "address": "0xff34b3d4aee8ddcd6f9afffb6fe49bd371b8a357",
+      "name": "Dai Stablecoin",
+      "symbol": "DAI",
+      "decimals": 18
+    },
+    {
+      "chainId": 11155111,
+      "address": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+      "name": "Uniswap",
+      "symbol": "UNI",
+      "decimals": 18
+    },
+    {
+      "chainId": 11155111,
+      "address": "0x4f7a67464b5976d7547c860109e4432d50afb38e",
+      "name": "METH",
+      "symbol": "METH",
+      "decimals": 18
+    },
+    {
+      "chainId": 11155111,
+      "address": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+      "name": "USDC (test)",
+      "symbol": "USDC",
+      "decimals": 18
+    }
+  ]
+}

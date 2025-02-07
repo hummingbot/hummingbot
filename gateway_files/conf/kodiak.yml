@@ -1,0 +1,17 @@
+# allowedSlippage: how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '2/100'
+# ttl: how long a trade is valid in seconds. After this time passes kodiak will not
+# perform the trade, but the gas will still be sent.
+ttl: 300
+contractAddresses:
+  berachain:
+    testnet:
+      chainID: 80094
+      kodiakV3RouterAddress: '0x66e8f0cf851ce9be42a2f133a8851bc6b70b9ebd'
+      kodiakV3FactoryAddress: '0x217Cd80795EfCa5025d47023da5c03a24fA95356'
+      arbitrageAddress: '0x6F8e3dA7eBDf39FEd2f70d5b427CD39F6df1F1be'
+      rpcUrl: 'https://rpc.berachain.net'
+
+#should rpcUrl be nodeURL?
+#should we be stating chainID?

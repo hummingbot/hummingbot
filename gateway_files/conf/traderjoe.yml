@@ -1,0 +1,16 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '1/100'
+
+# the maximum gas allowed for a traderjoe trade.
+gasLimitEstimate: 300000
+
+# how long a trade is valid in seconds. After time passes traderjoe will not
+# perform the trade, but the gas will still be spent.
+ttl: 300
+
+contractAddresses:
+  fuji:
+      routerAddress: '0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30'
+  avalanche:
+      routerAddress: '0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30'

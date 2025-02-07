@@ -1,0 +1,32 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '1/100'
+
+# the maximum gas used to estimate gasCost for a etcswap trade.
+gasLimitEstimate: 150688
+
+# how long a trade is valid in seconds. After time passes etcswap will not
+# perform the trade, but the gas will still be spent.
+ttl: 86400
+
+# For each swap, the maximum number of hops to consider. 
+# Note: More hops will increase latency of the algorithm.
+maximumHops: 4
+
+# Use etcswap Router or Quoter to quote prices.
+# true - use Smart Order Router
+# false - use QuoterV2 Contract
+useRouter: true
+
+# Fee tier to use for the etcswap Quoter.
+# Required if `useRouter` is false.
+# Available options: 'LOWEST', 'LOW', 'MEDIUM', 'HIGH'.
+feeTier: 'MEDIUM'
+
+contractAddresses:
+  mainnet:
+    routerAddress: '0xEd88EDD995b00956097bF90d39C9341BBde324d1'
+    etcswapV3SmartOrderRouterAddress: '0xEd88EDD995b00956097bF90d39C9341BBde324d1'
+    etcswapV3NftManagerAddress: '0x3CEDe6562D6626A04d7502CC35720901999AB699'
+    etcswapV3QuoterV2ContractAddress: '0x4d8c163400CB87Cbe1bae76dBf36A09FED85d39B'
+    etcswapV3FactoryAddress: '0x2624E907BcC04f93C8f29d7C7149a8700Ceb8cDC'

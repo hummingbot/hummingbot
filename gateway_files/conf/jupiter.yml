@@ -1,0 +1,6 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '5/100'
+
+# the default transaction gasCost in SOL for a jupiter trade.
+gasCost: 0.0005

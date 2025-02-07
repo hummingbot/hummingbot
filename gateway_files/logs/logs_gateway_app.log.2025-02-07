@@ -1,0 +1,4 @@
+2025-02-08 10:27:13 | info | 	Gateway Version: 2.2.0 | undefined
+2025-02-08 10:27:13 | info | 	⚡️ Starting Gateway API on port 15888... | undefined
+2025-02-08 10:27:13 | info | 	The gateway server is secured behind HTTPS. | undefined
+2025-02-08 10:27:13 | info | 	⚡️ Swagger listening on port 8080. Read the Gateway API documentation at 127.0.0.1:8080 | undefined

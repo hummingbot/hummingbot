@@ -1,0 +1,202 @@
+{
+  "name": "Telos Evm",
+  "tokens": [
+    {
+      "address": "0x26Ed0F16e777C94A6FE798F9E20298034930Bae8",
+      "chainId": 40,
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0x26Ed0F16e777C94A6FE798F9E20298034930Bae8.jpg",
+      "name": "Binance Coin",
+      "symbol": "BNB"
+    },
+
+    {
+      "address": "0x7627b27594bc71e6Ab0fCE755aE8931EB1E12DAC",
+      "chainId": 40,
+      "decimals": 8,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0x7627b27594bc71e6Ab0fCE755aE8931EB1E12DAC.jpg",
+      "name": "Bitcoin",
+      "symbol": "BTC.b"
+    },
+
+    {
+      "address": "0xA0fB8cd450c8Fd3a11901876cD5f17eB47C6bc50",
+      "chainId": 40,
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0xA0fB8cd450c8Fd3a11901876cD5f17eB47C6bc50.jpg",
+      "name": "Ethereum",
+      "symbol": "ETH"
+    },
+
+    {
+      "address": "0x76aE0b4C828DdCa1841a4FE394Af5D8679Baf118",
+      "chainId": 40,
+      "decimals": 9,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0x76aE0b4C828DdCa1841a4FE394Af5D8679Baf118.jpg",
+      "name": "ShibaTelos Coin",
+      "symbol": "SC"
+    },
+    {
+      "address": "0xB4B01216a5Bc8F1C8A33CD990A1239030E60C905",
+      "chainId": 40,
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0xB4B01216a5Bc8F1C8A33CD990A1239030E60C905.jpg",
+      "name": "Staked TLOS",
+      "symbol": "STLOS"
+    },
+
+    {
+      "address": "0x8D97Cea50351Fb4329d591682b148D43a0C3611b",
+      "chainId": 40,
+      "decimals": 6,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0x8D97Cea50351Fb4329d591682b148D43a0C3611b.jpg",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+
+    {
+      "address": "0x975Ed13fa16857E83e7C493C7741D556eaaD4A3f",
+      "chainId": 40,
+      "decimals": 6,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0x975Ed13fa16857E83e7C493C7741D556eaaD4A3f.jpg",
+      "name": "Tether Stable Coin",
+      "symbol": "USDT"
+    },
+    {
+      "address": "0xD102cE6A4dB07D247fcc28F366A623Df0938CA9E",
+      "chainId": 40,
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/sushiswap/list/master/logos/token-logos/network/telos/0xD102cE6A4dB07D247fcc28F366A623Df0938CA9E.jpg",
+      "name": "Wrapped Telos",
+      "symbol": "WTLOS"
+    },
+    {
+      "chainId": 40,
+      "address": "0x11fbfdf906d32753fa2a083dbd4fb25c1094c6c4",
+      "symbol": "APISH",
+      "logoURI": "https://raw.githubusercontent.com/telosnetwork/token-list/main/logos/0x11fbfdf906d32753fa2a083dbd4fb25c1094c6c4.png",
+      "name": "APISH ME",
+      "decimals": 9
+    },
+    {
+      "chainId": 40,
+      "address": "0xE1C110E1B1b4A1deD0cAf3E42BfBdbB7b5d7cE1C",
+      "symbol": "ELK",
+      "logoURI": "https://raw.githubusercontent.com/elkfinance/tokens/main/logos/telos/0xeEeEEb57642040bE42185f49C52F7E9B38f8eeeE/logo.png",
+      "name": "ELK",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xeEeEEb57642040bE42185f49C52F7E9B38f8eeeE",
+      "symbol": "ELK",
+      "logoURI": "https://raw.githubusercontent.com/elkfinance/tokens/main/logos/telos/0xeEeEEb57642040bE42185f49C52F7E9B38f8eeeE/logo.png",
+      "name": "ELK",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xCC47EB13916a76e262b0EE48A71e3c7953091e7a",
+      "symbol": "SWAP",
+      "logoURI": "https://raw.githubusercontent.com/evm20/tokens/main/swaptoken.svg",
+      "name": "SWAP",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xa84df7aFbcbCC1106834a5feD9453bd1219B1fb5",
+      "symbol": "Arc",
+      "name": "Archly Arc v1",
+      "logoURI": "https://raw.githubusercontent.com/ArchlyFi/token-list/main/logos/arc-logo.png",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xE56c325a68b489812081E8A7b60b4017fd2AD280",
+      "symbol": "PE",
+      "name": "Positron",
+      "logoURI": "https://raw.githubusercontent.com/OmniDexFinance/tokenLogo/master/0xE56c325a68b489812081E8A7b60b4017fd2AD280.png",
+      "decimals": 4
+    },
+    {
+      "chainId": 40,
+      "address": "0x7e1cfe10949A6086A28C38aA4A43fDeAB34f198A",
+      "symbol": "DECO",
+      "name": "Destiny Coin",
+      "logoURI": "https://api.dstor.cloud/ipfs/QmVx1uSPTW7UQWGbz3ba5Nf7DPVyieEdRnQGHogo7t9Pw6",
+      "decimals": 4
+    },
+    {
+      "chainId": 40,
+      "address": "0xE35b6D08050fef8E2bA2b1ED9C8f966a2346A500",
+      "symbol": "WAG",
+      "name": "WagyuSwap Token",
+      "logoURI": "https://raw.githubusercontent.com/wagyuswapapp/assets/master/blockchains/telos/assets/0xe35b6d08050fef8e2ba2b1ed9c8f966a2346a500/logo.png",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xac45ede2098bc989dfe0798b4630872006e24c3f",
+      "symbol": "SLUSH",
+      "name": "Swapsicle SLUSH",
+      "logoURI": "https://raw.githubusercontent.com/swapsicledex/swapsicle-token-list/master/logos/telos/0xaC45EDe2098bc989Dfe0798B4630872006e24c3f/logo.png",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xaae65b3b41f7c372c729b59b08ca93d53e9b79b3",
+      "symbol": "ICE",
+      "name": "Swapsicle ICE",
+      "logoURI": "https://raw.githubusercontent.com/swapsicledex/swapsicle-token-list/master/logos/telos/0xaae65b3b41f7c372c729b59b08ca93d53e9b79b3/logo.svg",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xfB319EA5DDEd8cFe8Bcf9c720ed380b98874Bf63",
+      "symbol": "RBN",
+      "name": "Robinos",
+      "logoURI": "https://raw.githubusercontent.com/telosnetwork/token-list/main/logos/0xfB319EA5DDEd8cFe8Bcf9c720ed380b98874Bf63.png",
+      "decimals": 6
+    },
+    {
+      "chainId": 40,
+      "address": "0x2f15F85a6c346C0a2514Af70075259e503E7137B",
+      "symbol": "DMMY",
+      "logoURI": "https://raw.githubusercontent.com/telosnetwork/token-list/master/logos/dmmy.svg",
+      "name": "dummy☻DAO",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0xd0208c3BE89002f62e42141d4542b15F45FB48aB",
+      "symbol": "FORT",
+      "name": "Fortis Coin",
+      "logoURI": "https://fortisnetwork.io/logos/White.svg",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "address": "0x7097Ee02465FB494841740B1a2b63c21Eed655E7",
+      "symbol": "BANANA",
+      "name": "Banana",
+      "logoURI": "https://raw.githubusercontent.com/telosnetwork/token-list/master/logos/banana.png",
+      "decimals": 4
+    },
+    {
+      "chainId": 40,
+      "address": "0xe8876189A80B2079D8C0a7867e46c50361D972c1",
+      "symbol": "Arc",
+      "name": "Archly Arc v2",
+      "logoURI": "https://raw.githubusercontent.com/ArchlyFi/token-list/main/logos/arc-logo.png",
+      "decimals": 18
+    },
+    {
+      "chainId": 40,
+      "name": "RF",
+      "symbol": "RF",
+      "address": "0xb99C43d3bce4c8Ad9B95a4A178B04a7391b2a6EB",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/telosnetwork/token-list/master/logos/RF.webp"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+
+# list the Tezos networks available to gateway
+networks:
+
+  mainnet: 
+    chainID: 'mainnet'
+    nativeCurrencySymbol: 'XTZ'    
+    nodeURL: 'https://mainnet.tezos.marigold.dev'
+    tokenListType: 'FILE'
+    tokenListSource: 'conf/lists/tezos.mainnet.tokens.json'
+    tzktURL: 'https://api.tzkt.io'
+    ctezAdmin: 'KT1GWnsoFZVHGh7roXEER3qeCcgJgrXT3de2'
+
+  ghostnet:
+    chainID: 'ghostnet'
+    nativeCurrencySymbol: 'XTZ'    
+    nodeURL: 'https://ghostnet.smartpy.io'
+    tokenListType: 'FILE'
+    tokenListSource: 'conf/lists/tezos.ghostnet.tokens.json'
+    tzktURL: 'https://api.ghostnet.tzkt.io'
+    ctezAdmin: 'KT1CYRQciQpUnyPPEXBR6f65tnyidao76kdn'
+
+manualGasPrice: 123456 # Refer https://tezos.stackexchange.com/questions/2176/how-to-calculate-price-of-gas/2177#2177
+gasLimitTransaction: 100000

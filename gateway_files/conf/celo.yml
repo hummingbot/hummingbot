@@ -1,0 +1,20 @@
+# list the Celo networks available to gateway
+networks:
+  celo:
+    chainID: 42220
+    nodeURL: https://rpc.ankr.com/celo
+    tokenListType: 'FILE'
+    tokenListSource: '/home/gateway/conf/lists/celo_token.json'
+    nativeCurrencySymbol: 'CELO'
+    gasPriceRefreshInterval: 60
+  celo_alfajores:
+    chainID: 44787
+    nodeURL: https://celo-alfajores.infura.io/v3
+    tokenListType: 'FILE'
+    tokenListSource: '/home/gateway/conf/lists/celo_token.json'
+    nativeCurrencySymbol: 'CELO'
+    gasPriceRefreshInterval: 60
+
+# if you use the gas assumptions below, your wallet needs >0.01 AVAX balance for gas
+gasLimitTransaction: 3000000
+manualGasPrice: 33

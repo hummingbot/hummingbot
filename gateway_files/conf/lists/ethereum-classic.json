@@ -1,0 +1,18 @@
+{
+    "tokens": [
+        {
+            "address": "0x1953cab0e5bfa6d4a9bad6e05fd46c1cc6527a5a",
+            "symbol": "WETC",
+            "name": "Wrapped Ether",
+            "chainId": 61,
+            "decimals": 18
+        },
+        {
+            "address": "0xde093684c796204224bc081f937aa059d903c52a",
+            "symbol": "USC",
+            "name": "Classic USD",
+            "chainId": 61,
+            "decimals": 6
+        }
+    ]
+}

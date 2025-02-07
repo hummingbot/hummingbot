@@ -1,0 +1,11 @@
+networks:
+  mainnet: 
+    chainID: 61
+    nodeURL: 'https://etc.rivet.link'
+    tokenListType: URL
+    tokenListSource: https://raw.githubusercontent.com/etcswap/tokens/refs/heads/main/ethereum-classic/all.json
+    nativeCurrencySymbol: 'ETC'
+    gasPriceRefreshInterval: 60
+
+manualGasPrice: 100
+gasLimitTransaction: 3000000
