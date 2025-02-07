@@ -486,7 +486,7 @@ class TestPositionOnExchangeExecutor(IsolatedAsyncioWrapperTestCase):
         )
         self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
         await position_on_exchange_executor.control_task()
-        self.assertEqual(position_on_exchange_executor._close_order.order_id, "OID-SELL-1")
+        self.assertEqual(position_on_exchange_executor._stop_loss_order.order_id, "OID-SELL-1")
         self.assertEqual(position_on_exchange_executor.close_type, CloseType.STOP_LOSS)
 
     @patch.object(PositionOnExchangeExecutor, "get_in_flight_order")

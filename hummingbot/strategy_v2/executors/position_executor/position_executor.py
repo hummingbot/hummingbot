@@ -498,6 +498,7 @@ class PositionExecutor(ExecutorBase):
         if self._take_profit_limit_order and self._take_profit_limit_order.order and self._take_profit_limit_order.order.is_open:
             self.cancel_take_profit()
 
+    def control_stop_loss(self):
         """
         This method is responsible for controlling the stop loss. If the net pnl percentage is less than the stop loss
         percentage, it places the close order and cancels the open orders.

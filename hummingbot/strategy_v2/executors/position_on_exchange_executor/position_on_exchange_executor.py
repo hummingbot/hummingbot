@@ -54,8 +54,7 @@ class PositionOnExchangeExecutor(PositionExecutor):
         position_config = config
         position_config.triple_barrier_config.stop_loss_order_type = OrderType.MARKET
         super().__init__(strategy=strategy, config=position_config, update_interval=update_interval)
-
-        self.config: PositionOnExchangeExecutorConfig = config
+        self.config.triple_barrier_config.stop_loss_order_type = OrderType.STOP_LOSS
 
         self._stop_loss_order: TrackedOrder | None = None
         self._take_profit_order: TrackedOrder | None = None
