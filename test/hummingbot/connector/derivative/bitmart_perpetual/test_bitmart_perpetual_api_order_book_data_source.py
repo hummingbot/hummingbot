@@ -419,7 +419,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(self.data_source._trade_messages_queue_key, event_message)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_successful(self, mock_ws):
+    async def test_listen_for_subscriptions_successful(self, mock_ws):
         msg_queue_diffs: asyncio.Queue = asyncio.Queue()
         msg_queue_snapshots: asyncio.Queue = asyncio.Queue()
         msg_queue_trades: asyncio.Queue = asyncio.Queue()
@@ -485,7 +485,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result.trade_id, 1409495322)
         self.assertEqual(self.trading_pair, result.content["trading_pair"])
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
     def test_parse_exchange_info_message_receives_not_initialized_trading_pair(self):
         mock_msg = self._exchange_info_with_non_initialized_trading_pair_rest_data()
