@@ -92,3 +92,8 @@ coverage.xml
 # External SDK files
 /**/.chain_cookie
 /**/.injective_cookie
+
+
+# Ignore docker-compose.yml changes, depends on directory structure
+
+docker-compose.yml 
