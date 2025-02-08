@@ -1,42 +1,50 @@
-from typing import Any, Type
+from typing import Any, Callable, Type, TypeVar
 
-from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
-from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.protocols import ExecutorBaseFactoryProtocol, ExecutorConfigFactoryProtocol
+
+# Type variables bound to the protocols
+ConfigT = TypeVar("ConfigT", bound=ExecutorConfigFactoryProtocol)
+ExecutorT = TypeVar("ExecutorT", bound=ExecutorBaseFactoryProtocol)
 
 
 class ExecutorFactory:
     """
     Factory class for creating executor instances from configuration objects.
 
-    This factory uses a registration mechanism to map ExecutorConfigBase types
-    to concrete ExecutorBase classes.
+    This factory uses a registration mechanism to map ExecutorConfigFactoryProtocol types
+    to concrete ExecutorBaseFactoryProtocol classes.
     """
-    _registry: dict[Type[ExecutorConfigBase], Type[ExecutorBase]] = {}
+    _registry: dict[Type[ExecutorConfigFactoryProtocol], Type[ExecutorBaseFactoryProtocol]] = {}
 
     @classmethod
-    def register_executor(cls, config_type: Type[ExecutorConfigBase]) -> Any:
+    def register_executor(
+            cls,
+            config_type: Type[ExecutorConfigFactoryProtocol]
+    ) -> Callable[[Type[ExecutorBaseFactoryProtocol]], Type[ExecutorBaseFactoryProtocol]]:
         """
         Decorator to register an executor class for a given executor configuration type.
 
-        :param config_type: The type of ExecutorConfigBase.
+        :param config_type: The type of ExecutorConfigFactoryProtocol.
         :return: A decorator that registers the executor class.
         """
-        def decorator(executor_cls: Type[ExecutorBase]) -> Type[ExecutorBase]:
+
+        def decorator(executor_cls: Type[ExecutorBaseFactoryProtocol]) -> Type[ExecutorBaseFactoryProtocol]:
             cls._registry[config_type] = executor_cls
             return executor_cls
+
         return decorator
 
     @classmethod
     def create_executor(
-        cls, strategy: Any, config: ExecutorConfigBase, update_interval: float
-    ) -> ExecutorBase:
+            cls, strategy: Any, config: ExecutorConfigFactoryProtocol, update_interval: float
+    ) -> ExecutorBaseFactoryProtocol:
         """
         Create an executor instance based on the provided configuration.
 
         :param strategy: The strategy instance.
         :param config: The executor configuration.
         :param update_interval: The update interval for the executor.
-        :return: An instance of ExecutorBase.
+        :return: An instance of ExecutorBaseFactoryProtocol.
         :raises ValueError: If the configuration type is not registered.
         """
         executor_cls = cls._registry.get(type(config))
