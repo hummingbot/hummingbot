@@ -11,18 +11,8 @@ from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position import Position
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
-from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
-from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
-from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
-from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
-from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
-from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
-from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
-from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
-from hummingbot.strategy_v2.executors.xemm_executor.xemm_executor import XEMMExecutor
+from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.executor_factory import ExecutorFactory
 from hummingbot.strategy_v2.models.executor_actions import (
     CreateExecutorAction,
     ExecutorAction,
@@ -228,21 +218,9 @@ class ExecutorOrchestrator:
         # compa
         executor_config.controller_id = controller_id
 
-        if isinstance(executor_config, PositionExecutorConfig):
-            executor = PositionExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, GridExecutorConfig):
-            executor = GridExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, DCAExecutorConfig):
-            executor = DCAExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, ArbitrageExecutorConfig):
-            executor = ArbitrageExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, TWAPExecutorConfig):
-            executor = TWAPExecutor(self.strategy, executor_config, self.executors_update_interval)
-        elif isinstance(executor_config, XEMMExecutorConfig):
-            executor = XEMMExecutor(self.strategy, executor_config, self.executors_update_interval)
-        else:
-            raise ValueError("Unsupported executor config type")
-
+        executor: ExecutorBase = ExecutorFactory.create_executor(
+            self.strategy, executor_config, self.executors_update_interval
+        )
         executor.start()
         self.active_executors[controller_id].append(executor)
         # MarketsRecorder.get_instance().store_or_update_executor(executor)

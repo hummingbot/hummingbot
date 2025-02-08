@@ -31,7 +31,13 @@ class ExecutorBase(RunnableBase):
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
     """
 
-    def __init__(self, strategy: ScriptStrategyBase, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
+    def __init__(
+            self,
+            strategy: ScriptStrategyBase,
+            config: ExecutorConfigBase,
+            update_interval: float = 0.5,
+            connectors: List[str] | None = None,
+    ):
         """
         Initializes the executor with the given strategy, connectors and update interval.
 
