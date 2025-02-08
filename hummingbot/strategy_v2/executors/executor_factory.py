@@ -26,9 +26,13 @@ class ExecutorFactory:
 
         :param config_type: The type of ExecutorConfigFactoryProtocol.
         :return: A decorator that registers the executor class.
+        :raises ValueError: If the executor class is already registered for the configuration type.
+        :raises ValueError: If the executor class does not inherit from ExecutorBaseFactoryProtocol.
         """
 
         def decorator(executor_cls: Type[ExecutorBaseFactoryProtocol]) -> Type[ExecutorBaseFactoryProtocol]:
+            if config_type in cls._registry:
+                raise ValueError(f"Executor class already registered for config type: {config_type}")
             cls._registry[config_type] = executor_cls
             return executor_cls
 
