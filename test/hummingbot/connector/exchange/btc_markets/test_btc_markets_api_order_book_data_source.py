@@ -445,14 +445,13 @@ class BtcMarketsAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
 
     @aioresponses()
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    async def test_listen_for_order_book_snapshots_successful_rest(self, mock_api, _):
+    async def test_listen_for_order_book_snapshots_successful_rest(self, mock_api):
         self._setup_time_mock(mock_api)
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.TimeoutError
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
-
+        self.data_source._sleep = AsyncMock()
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.public_rest_url(f"{CONSTANTS.MARKETS_URL}/{self.ex_trading_pair}/orderbook")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
