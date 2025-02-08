@@ -52,11 +52,16 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             trading_pairs=[self.trading_pair, self.trading_pair_usd],
             trading_required=False,
         )
+
+        self.connector._sleep = AsyncMock()
+
         self.data_source = XRPLAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair, self.trading_pair_usd],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
         )
+
+        self.data_source._sleep = MagicMock()
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
         self.data_source._request_order_book_snapshot = AsyncMock()
@@ -1443,7 +1448,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             price=Decimal("1"),
             creation_timestamp=1,
         )
-        self.connector._sleep = AsyncMock()
         result = await self.connector._execute_order_cancel_and_process_update(order=in_flight_order)
         self.assertTrue(process_order_update_mock.called)
         self.assertTrue(result)
@@ -1689,8 +1693,6 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
 
         self.connector.wait_for_final_transaction_outcome = AsyncMock()
         self.connector.wait_for_final_transaction_outcome.side_effect = TimeoutError
-        self.connector._sleep = AsyncMock()
-
         with self.assertLogs(level="ERROR") as log:
             await self.connector._verify_transaction_result(
                 {

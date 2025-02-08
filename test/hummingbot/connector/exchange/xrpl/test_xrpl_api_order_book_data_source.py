@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -44,6 +44,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
         )
+
+        self.data_source._sleep = MagicMock()
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
