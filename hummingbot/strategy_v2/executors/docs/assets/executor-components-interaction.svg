@@ -1,0 +1,42 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fafafa', 'secondaryColor': '#e6e6e6'}}}%%
+sequenceDiagram
+    autonumber
+    participant Strategy
+    participant Orchestrator
+    participant Factory
+    participant Executor
+    participant Config
+
+    Strategy->>Orchestrator: execute_action(CreateAction)
+    activate Orchestrator
+    Note over Orchestrator: Validates action
+    Orchestrator->>Factory: create_executor(config)
+    activate Factory
+    Factory->>Config: validate()
+    Config-->>Factory: valid
+    Factory->>Executor: new(config)
+    Executor-->>Factory: instance
+    Factory-->>Orchestrator: executor
+    deactivate Factory
+
+    Orchestrator->>Executor: start()
+    activate Executor
+    Note over Executor: Validates balance
+    Note over Executor: Starts control loop
+    Executor-->>Orchestrator: running
+    deactivate Executor
+
+    Orchestrator->>Orchestrator: track_executor()
+    deactivate Orchestrator
+
+    loop Control Loop
+        Executor->>Orchestrator: status_update
+        Orchestrator->>Orchestrator: update_performance()
+    end
+
+    Strategy->>Orchestrator: execute_action(StopAction)
+    activate Orchestrator
+    Orchestrator->>Executor: stop()
+    Executor-->>Orchestrator: stopped
+    Orchestrator->>Orchestrator: archive_executor()
+    deactivate Orchestrator

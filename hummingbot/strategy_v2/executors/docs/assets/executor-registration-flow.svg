@@ -1,0 +1,33 @@
+classDiagram
+    class ExecutorFactory {
+        -registry: Dict[Type[Config], Type[Executor]]
+        -update_types: Dict[Type[Config], Type[Update]]
+        +register_executor(config_type)
+        +create_executor(strategy, config)
+        +get_update_type(config_type)
+    }
+
+    class ExecutorConfigBase {
+        +id: str
+        +timestamp: int
+        +connector_name: str
+        +trading_pair: str
+        +validate()
+    }
+
+    class ExecutorBase {
+        +config: ExecutorConfigBase
+        +status: RunnableStatus
+        +start()
+        +stop()
+        +control_task()
+    }
+
+    class ExecutorUpdateBase {
+        +validate()
+    }
+
+    ExecutorFactory --> ExecutorConfigBase : validates
+    ExecutorFactory --> ExecutorBase : creates
+    ExecutorBase --> ExecutorConfigBase : uses
+    ExecutorFactory --> ExecutorUpdateBase : manages
