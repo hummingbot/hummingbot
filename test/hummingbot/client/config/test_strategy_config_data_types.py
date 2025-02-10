@@ -86,7 +86,7 @@ class BaseTradingStrategyConfigMapTest(TestCase):
 
         self.assertTrue(str(e.exception).startswith(error_msg))
 
-    def test_jason_schema_includes_all_connectors_for_exchange_field(self):
+    def test_json_schema_includes_all_connectors_for_exchange_field(self):
         schema = BaseTradingStrategyConfigMap.schema_json()
         schema_dict = json.loads(schema)
 

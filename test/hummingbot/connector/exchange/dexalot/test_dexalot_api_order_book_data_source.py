@@ -272,3 +272,16 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                 min_base_amount_increment=min_order_size
             )
         }
+        self.connector._evm_params = {
+            'AVAX-USDC': {'base_coin': 'AVAX', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'AVAX-USDT': {'base_coin': 'AVAX', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDT', 'quote_evmdecimals': Decimal('18')},
+            'BTC-USDC': {'base_coin': 'BTC', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('8')},
+            'COQ-AVAX': {'base_coin': 'COQ', 'base_evmdecimals': Decimal('18'), 'quote_coin': 'AVAX', 'quote_evmdecimals': Decimal('18')},
+            'ETH-USDC': {'base_coin': 'ETH', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'ETH-USDT': {'base_coin': 'ETH', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDT', 'quote_evmdecimals': Decimal('18')},
+            'EURC-USDC': {'base_coin': 'EURC', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('6')},
+            'GMX-USDC': {'base_coin': 'GMX', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'GUN-USDC': {'base_coin': 'GUN', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('18')},
+            'USDT-USDC': {'base_coin': 'USDT', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('6')},
+            'WBTC-ETH': {'base_coin': 'WBTC', 'base_evmdecimals': Decimal('18'), 'quote_coin': 'ETH', 'quote_evmdecimals': Decimal('8')},
+            'WBTC-USDC': {'base_coin': 'WBTC', 'base_evmdecimals': Decimal('6'), 'quote_coin': 'USDC', 'quote_evmdecimals': Decimal('8')}}
