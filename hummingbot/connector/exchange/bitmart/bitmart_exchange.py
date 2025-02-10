@@ -355,6 +355,10 @@ class BitmartExchange(ExchangePyBase):
     def _create_order_update(self, order: InFlightOrder, order_update: Dict[str, Any]) -> OrderUpdate:
         order_data = order_update["data"]
         new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
+        # This is a workaround to account for a MARKET BUY order reporting the state as "partially cancelled"
+        # Bitmart reports this state for a successfully filled MARKET BUY order which is confusing.
+        if new_state == OrderState.PARTIALLY_CANCELLED and order_data["type"] == "market" and order_data["side"] == "buy":
+            new_state = OrderState.FILLED
         update = OrderUpdate(
             client_order_id=order.client_order_id,
             exchange_order_id=str(order_data["orderId"]),
@@ -379,6 +383,10 @@ class BitmartExchange(ExchangePyBase):
                             updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
                             new_state = CONSTANTS.ORDER_STATE[each_event["order_state"]]
+                            # This is a workaround to account for a MARKET BUY order reporting the state as "partially cancelled"
+                            # Bitmart reports this state for a successfully filled MARKET BUY order which is confusing.
+                            if each_event["order_state"] == "partially_canceled" and each_event["type"] == "market" and each_event["side"] == "buy":
+                                new_state = CONSTANTS.ORDER_STATE["filled"]
                             event_timestamp = int(each_event["ms_t"]) * 1e-3
 
                             if fillable_order is not None:
