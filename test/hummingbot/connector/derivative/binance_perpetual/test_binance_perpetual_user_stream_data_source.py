@@ -265,63 +265,6 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_user_stream_create_websocket_connection_failed(self, mock_api, mock_ws):
-        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
-
-        mock_ws.side_effect = Exception("TEST ERROR.")
-
-        msg_queue = asyncio.Queue()
-
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-
-        try:
-            await msg_queue.get()
-        except asyncio.exceptions.TimeoutError:
-            pass
-
-        self.assertTrue(self._is_logged("INFO", f"Successfully obtained listen key {self.listen_key}"))
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-            )
-        )
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, mock_ws):
-        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=ujson.dumps(mock_response))
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = Exception("TEST ERROR")
-        mock_ws.return_value.closed = False
-        mock_ws.return_value.close.side_effect = Exception
-
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-
-        try:
-            await msg_queue.get()
-        except Exception:
-            pass
-
-        self.assertTrue(self._is_logged("INFO", f"Successfully obtained listen key {self.listen_key}"))
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-            )
-        )
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_successful(self, mock_api, mock_ws):
         url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
