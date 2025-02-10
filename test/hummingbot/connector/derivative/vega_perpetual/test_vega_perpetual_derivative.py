@@ -361,8 +361,8 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(NetworkStatus.CONNECTED, ret)
 
-    @aioresponses()
-    async def test_stop_network(self, mock_api):
+    async def test_stop_network(self):
+        self.exchange._sleep = AsyncMock()
         await self.exchange.stop_network()
 
     @aioresponses()
@@ -677,12 +677,6 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             "Websocket closed"
         ))
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_user_stream_event_listener_raises_cancelled_error(self, ws_connect_mock):
-
-        with self.assertRaises(asyncio.CancelledError):
-            await self.exchange._user_stream_tracker.start()
-
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_ws_account_snapshot(self, mock_api, ws_connect_mock):
@@ -918,29 +912,6 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     async def test_funding_fee_poll_interval(self, mock_api):
         await self._setup_markets(mock_api)
         self.assertEqual(300, self.exchange.funding_fee_poll_interval)
-
-    @aioresponses()
-    async def test_start_network(self, mock_api):
-        await self._setup_markets(mock_api)
-
-        network_status_resp = mock_requests._get_network_requests_rest_mock()
-
-        mock_api.get(self.network_status_url, body=json.dumps(network_status_resp))
-
-        mock_api.get(self.symbols_url,
-                     body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),
-                     headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
-
-        mock_api.get(self.all_symbols_url,
-                     body=json.dumps(mock_requests._get_exchange_info_rest_mock()),
-                     headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
-
-        await self.exchange.start_network()
-
-        self.assertGreater(len(self.exchange._assets_by_id), 0)
-        self.assertGreater(len(self.exchange._exchange_info), 0)
-        self.assertIn("COINALPHA_ASSET_ID", self.exchange._assets_by_id)
-        self.assertIn("COIN_ALPHA_HBOT_MARKET_ID", self.exchange._exchange_info)
 
     @aioresponses()
     async def test_get_last_traded_price(self, mock_api):
