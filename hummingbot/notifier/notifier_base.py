@@ -40,7 +40,12 @@ class NotifierBase:
                     await self._send_message(new_msg)
             except Exception as e:
                 self.logger().error(str(e))
-            await asyncio.sleep(1.0)
+            except asyncio.CancelledError:
+                raise
+            await self._sleep(1.0)
+
+    async def _sleep(self, seconds: float):
+        await asyncio.sleep(seconds)
 
     async def _send_message(self, message: str):
         """
