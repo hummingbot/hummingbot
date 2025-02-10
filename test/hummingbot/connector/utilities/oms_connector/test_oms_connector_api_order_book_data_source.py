@@ -234,7 +234,6 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.local_event_loop.create_task()
             await self.data_source.listen_for_subscriptions()
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -259,7 +258,6 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.local_event_loop.create_task()
             await self.data_source._subscribe_channels(mock_ws)
 
     async def test_subscribe_channels_raises_exception_and_logs_error(self):
