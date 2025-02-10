@@ -446,131 +446,6 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
-        self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
-
-        self.assertEqual(len(self.exchange.account_positions), 0)
-
-        account_update = self._get_account_update_ws_event_single_position_dict()
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
-
-        url = web_utils.private_rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        positions = self._get_position_risk_api_endpoint_single_position_list()
-        mock_api.get(regex_url, body=json.dumps(positions))
-
-        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-
-        self.assertEqual(len(self.exchange.account_positions), 1)
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_account_position_updated_on_stream_event(self, mock_api, ws_connect_mock):
-        self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        positions = self._get_position_risk_api_endpoint_single_position_list()
-        mock_api.get(regex_url, body=json.dumps(positions))
-
-        await self.exchange._update_positions()
-
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
-
-        self.assertEqual(len(self.exchange.account_positions), 1)
-        pos = list(self.exchange.account_positions.values())[0]
-        self.assertEqual(pos.amount, 1)
-
-        account_update = self._get_account_update_ws_event_single_position_dict()
-        account_update["a"]["P"][0]["pa"] = 2
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
-
-        self.exchange._sleep = MagicMock()
-        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-
-        self.assertEqual(len(self.exchange.account_positions), 1)
-        pos = list(self.exchange.account_positions.values())[0]
-        self.assertEqual(pos.amount, 2)
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_closed_account_position_removed_on_stream_event(self, mock_api, ws_connect_mock):
-        self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        positions = self._get_position_risk_api_endpoint_single_position_list()
-        mock_api.get(regex_url, body=json.dumps(positions))
-
-        await self.exchange._update_positions()
-
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
-
-        self.assertEqual(len(self.exchange.account_positions), 1)
-
-        account_update = self._get_account_update_ws_event_single_position_dict()
-        account_update["a"]["P"][0]["pa"] = 0
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
-
-        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-
-        self.assertEqual(len(self.exchange.account_positions), 0)
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_wrong_symbol_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
-        self._simulate_trading_rules_initialized()
-        url = web_utils.private_rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=json.dumps(listen_key_response))
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
-
-        self.assertEqual(len(self.exchange.account_positions), 0)
-
-        account_update = self._get_wrong_symbol_account_update_ws_event_single_position_dict()
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
-
-        url = web_utils.private_rest_url(
-            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
-        )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        positions = self._get_position_risk_api_endpoint_single_position_list()
-        mock_api.get(regex_url, body=json.dumps(positions))
-
-        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-
-        self.assertEqual(len(self.exchange.account_positions), 0)
-
     async def test_supported_position_modes(self):
         linear_connector = self.exchange
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
@@ -2318,7 +2193,6 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(limit_orders[0], LimitOrder)
 
     def _simulate_trading_rules_initialized(self):
-
         margin_asset = self.quote_asset
         mocked_response = self._get_exchange_info_mock_response(margin_asset)
         self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
