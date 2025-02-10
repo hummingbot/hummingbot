@@ -1,4 +1,24 @@
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
+
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy_v2.executors.executor_base import ExecutorUpdateBase
+
+ConfigT = TypeVar("ConfigT", bound="ExecutorConfigFactoryProtocol")
+ExecutorT = TypeVar("ExecutorT", bound="ExecutorBaseFactoryProtocol")
+StrategyT = TypeVar("StrategyT", bound=ScriptStrategyBase)
+UpdateT = TypeVar("UpdateT", bound=ExecutorUpdateBase)
+
+
+@runtime_checkable
+class ExecutorConstructor(Protocol[StrategyT, ConfigT, ExecutorT]):
+    """
+    Protocol for an executor class constructor.
+
+    It defines the __call__ signature that a class must support when used as a constructor.
+    """
+
+    def __call__(self, strategy: StrategyT, config: ConfigT, update_interval: float) -> ExecutorT:
+        ...
 
 
 @runtime_checkable
@@ -13,21 +33,6 @@ class ExecutorConfigFactoryProtocol(Protocol):
     controller_id: str | None
 
 
-T = TypeVar("T", bound="ExecutorBaseFactoryProtocol")
-
-
-@runtime_checkable
-class ExecutorConstructor(Protocol[T]):
-    """
-    Protocol for an executor class constructor.
-
-    It defines the __call__ signature that a class must support when used as a constructor.
-    """
-
-    def __call__(self, strategy: Any, config: ExecutorConfigFactoryProtocol, update_interval: float) -> T:
-        ...
-
-
 @runtime_checkable
 class ExecutorBaseFactoryProtocol(Protocol):
     """
@@ -37,11 +42,15 @@ class ExecutorBaseFactoryProtocol(Protocol):
     """
     config: ExecutorConfigFactoryProtocol
 
-    def __init__(self, strategy: Any, config: ExecutorConfigFactoryProtocol, update_interval: float) -> None:
+    def __init__(self, strategy: StrategyT, config: ConfigT, update_interval: float) -> None:
         ...
 
     def start(self) -> None:
         """
         Start the executor.
         """
+        ...
+
+    def update_live(self, update_data: UpdateT) -> None:
+        """Update executor with live data."""
         ...

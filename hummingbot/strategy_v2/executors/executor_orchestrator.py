@@ -11,13 +11,14 @@ from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position import Position
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.executors.executor_factory import ExecutorFactory
+from hummingbot.strategy_v2.executors.protocols import ExecutorBaseFactoryProtocol
 from hummingbot.strategy_v2.models.executor_actions import (
     CreateExecutorAction,
     ExecutorAction,
     StopExecutorAction,
     StoreExecutorAction,
+    UpdateExecutorAction,
 )
 from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
@@ -185,6 +186,8 @@ class ExecutorOrchestrator:
     def execute_action(self, action: ExecutorAction):
         """
         Execute the action and handle executors based on action type.
+
+        :param action: The action to execute.
         """
         controller_id = action.controller_id
         if controller_id not in self.cached_performance:
@@ -193,16 +196,16 @@ class ExecutorOrchestrator:
             self.positions_held[controller_id] = []
             self.cached_performance[controller_id] = PerformanceReport()
 
-        if isinstance(action, CreateExecutorAction):
-            self.create_executor(action)
-        elif isinstance(action, StopExecutorAction):
-            self.stop_executor(action)
-        elif isinstance(action, StoreExecutorAction):
-            self.store_executor(action)
+        handler = getattr(self, f"{action.action_type}_executor", None)
+        if handler is None:
+            raise ValueError(f"Unsupported action type: {action.action_type}")
+        handler(action)
 
     def execute_actions(self, actions: List[ExecutorAction]):
         """
         Execute a list of actions.
+
+        :param actions: The list of actions to execute.
         """
         for action in actions:
             self.execute_action(action)
@@ -210,15 +213,16 @@ class ExecutorOrchestrator:
     def create_executor(self, action: CreateExecutorAction):
         """
         Create an executor based on the configuration in the action.
+
+        :param action: The action containing the executor configuration.
         """
         controller_id = action.controller_id
         executor_config = action.executor_config
 
-        # For now, we replace the controller ID in the executor config with the actual controller object to mantain
-        # compa
+        # For now, we replace the controller ID in the executor config with the actual controller object
         executor_config.controller_id = controller_id
 
-        executor: ExecutorBase = ExecutorFactory.create_executor(
+        executor: ExecutorBaseFactoryProtocol = ExecutorFactory.create_executor(
             self.strategy, executor_config, self.executors_update_interval
         )
         executor.start()
@@ -267,6 +271,20 @@ class ExecutorOrchestrator:
         self.active_executors[controller_id].remove(executor)
         self.archived_executors[controller_id].append(executor.executor_info)
         del executor
+
+    def update_executor(self, action: UpdateExecutorAction):
+        """
+        Stop an executor based on the action details.
+        """
+        controller_id = action.controller_id
+        executor_id = action.executor_id
+
+        executor = next((executor for executor in self.active_executors[controller_id] if executor.config.id == executor_id),
+                        None)
+        if not executor:
+            self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
+            return
+        executor.update_live(action.update_data)
 
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
         """

@@ -2,6 +2,8 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, Union
 
+from pydantic import BaseModel
+
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -24,6 +26,11 @@ from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 from hummingbot.strategy_v2.runnable_base import RunnableBase
+
+
+class ExecutorUpdateBase(BaseModel):
+    """Base class for executor updates."""
+    pass
 
 
 class ExecutorBase(RunnableBase):
