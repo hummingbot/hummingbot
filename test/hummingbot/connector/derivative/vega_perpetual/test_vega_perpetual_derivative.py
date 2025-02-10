@@ -503,7 +503,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_update_balances(self, mock_api):
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
 
         position_url = f"{self.positions_url}?filter.marketIds=COIN_ALPHA_HBOT_MARKET_ID&filter.partyIds=f882e93e63ea662b9ddee6b61de17345d441ade06475788561e6d470bebc9ece"  # noqa: mock
         mock_api.get(position_url,
@@ -944,7 +944,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertFalse(self.exchange._is_order_not_found_during_status_update_error(None))
         self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(None))
         self.assertFalse(self.exchange.is_cancel_request_in_exchange_synchronous)
-        self.exchange._update_trading_fees()
+        await self.exchange._update_trading_fees()
 
     @aioresponses()
     async def test_collateral_tokens(self, mock_api):

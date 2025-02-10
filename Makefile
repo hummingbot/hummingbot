@@ -12,7 +12,7 @@
 test:
 	coverage run -m pytest \
  	--ignore="test/mock" \
- 	--ignore="test/connector/utilities" \
+ 	--ignore="test/connector/utilities/*" \
  	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual" \
  	--ignore="test/hummingbot/strategy/amm_arb/"
 

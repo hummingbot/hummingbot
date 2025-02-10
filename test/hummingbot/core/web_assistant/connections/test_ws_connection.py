@@ -26,9 +26,9 @@ class WSConnectionTest(IsolatedAsyncioWrapperTestCase):
         self.ws_connection = WSConnection(self.client_session)
         self.async_tasks: List[asyncio.Task] = []
 
-    async def tearDown(self) -> None:
-        await self.ws_connection.disconnect()
-        await self.client_session.close()
+    def tearDown(self) -> None:
+        self.local_event_loop.run_until_complete(self.ws_connection.disconnect())
+        self.local_event_loop.run_until_complete(self.client_session.close())
         for task in self.async_tasks:
             task.cancel()
         super().tearDown()
