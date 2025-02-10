@@ -560,7 +560,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_request_order_status_with_code(self, mock_api):
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id="FAKE_CLIENT_ID",
                           trading_pair=self.trading_pair,
                           order_type= OrderType.LIMIT,
@@ -588,7 +588,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_request_order_status(self, mock_api):
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id="FAKE_CLIENT_ID",
                           trading_pair=self.ex_trading_pair,
                           order_type= OrderType.LIMIT,
@@ -738,8 +738,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_ws_trade_seller(self, mock_api):
-
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
         client_order_id = "REFERENCE_ID"
         self.exchange.start_tracking_order(
             order_id=client_order_id,
@@ -777,7 +776,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     @aioresponses()
     async def test_ws_position(self, mock_api):
 
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
 
         mock_data = mock_ws.position_update_status()
         mock_data["channel_id"] = "positions"
@@ -834,8 +833,8 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_update_order(self, mock_api, ws_connect_mock):
-        self._setup_symbols(mock_api)
-        self._setup_markets(mock_api)
+        await self._setup_symbols(mock_api)
+        await self._setup_markets(mock_api)
 
         self.exchange.start_tracking_order(
             order_id="REFERENCE_ID",
