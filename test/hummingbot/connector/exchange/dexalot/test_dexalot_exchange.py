@@ -15,6 +15,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -22,7 +23,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import OrderBookTradeEvent
 
 
 class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -36,10 +36,10 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         cls.quote_asset = "USDC"  # linear
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
+        cls.mocking_assistant = NetworkMockingAssistant()
 
     def setUp(self) -> None:
         super().setUp()
-
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.async_loop)
@@ -1020,18 +1020,29 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     def latest_prices_url(self):
         pass
 
-    @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
-        order_book = OrderBook()
-        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
-        order_book.apply_trade(
-            OrderBookTradeEvent(self.trading_pair, 1499865549, TradeType.BUY, Decimal(5.1), Decimal(10), '123')
-        )
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_get_last_trade_prices(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        result_subscribe = {'data': [
+            {'pair': 'EURC/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '1.0973', 'high': '1.1042',
+             'open': '1.104082', 'close': '1.0985', 'volume': '202943.428252', 'quote_volume': '223745.305841618516',
+             'change': '-0.0051'},
+            {'pair': 'AVAX/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '9', 'high': '11',
+             'open': '0.56628', 'close': '5.1', 'volume': '124062.5422952677657237',
+             'quote_volume': '70336.660027130678322247184899', 'change': '-0.0007'},
+            {'pair': 'WBTC/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '60736.084907', 'high': '62315',
+             'open': '61466.985162', 'close': '61985.1', 'volume': '28.4564045',
+             'quote_volume': '1753078.71879646658951', 'change': '0.0084'}], 'type': 'marketSnapShot'}
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe))
 
         latest_prices: Dict[str, float] = self.async_run_with_timeout(
             self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
         )
-
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
         self.assertEqual(1, len(latest_prices))
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 
