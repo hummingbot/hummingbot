@@ -357,7 +357,7 @@ class BitmartExchange(ExchangePyBase):
         new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
         # This is a workaround to account for a MARKET BUY order reporting the state as "partially cancelled"
         # Bitmart reports this state for a successfully filled MARKET BUY order which is confusing.
-        if new_state == OrderState.PARTIALLY_CANCELLED and order_data["type"] == "market" and order_data["side"] == "buy":
+        if order_data["state"] == "partially_canceled" and order_data["type"] == "market" and order_data["side"] == "buy":
             new_state = OrderState.FILLED
         update = OrderUpdate(
             client_order_id=order.client_order_id,
