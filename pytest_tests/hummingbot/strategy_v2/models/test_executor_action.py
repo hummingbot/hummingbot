@@ -1,7 +1,7 @@
-import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock
 
+import pytest
 from pydantic import ValidationError
 
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -23,45 +23,56 @@ class MockExecutorConfig(ExecutorConfigBase):
     amount: Decimal
 
 
-class TestExecutorActions(unittest.TestCase):
+@pytest.fixture
+def mock_config():
+    """Provide a valid executor config."""
+    return MockExecutorConfig(
+        trading_pair="BTC-USDT",
+        amount=Decimal("1.0"),
+        timestamp=1234567890,
+    )
+
+
+@pytest.fixture(autouse=True)
+def register_mock_config():
+    """Register mock config with factory before each test."""
+    ExecutorFactory._registry[MockExecutorConfig] = "mock_executor"
+    yield
+    ExecutorFactory._registry.pop(MockExecutorConfig, None)
+
+
+class TestExecutorActions:
     """Test suite for executor actions."""
 
-    def setUp(self):
-        """Register mock config with factory before each test."""
-        self.mock_config = MockExecutorConfig(
-            trading_pair="BTC-USDT",
-            amount=Decimal("1.0"),
-            timestamp=1234567890,
-        )
+    def test_create_action_from_base(self, mock_config):
+        """Test creating action using base class factory method."""
+        # Register config with factory
         ExecutorFactory._registry[MockExecutorConfig] = "mock_executor"
 
-    def tearDown(self):
-        """Unregister mock config with factory after each test."""
-        ExecutorFactory._registry.pop(MockExecutorConfig, None)
-
-    def test_create_action_from_base(self):
-        """Test creating action using base class factory method."""
         action = ExecutorAction.create(
             controller_id="test",
-            executor_config=self.mock_config,
+            executor_config=mock_config,
         )
 
-        self.assertEqual(action.action_type, "create")
-        self.assertEqual(action.controller_id, "test")
-        self.assertEqual(action.executor_config, self.mock_config)
-        self.assertIsNone(action.executor_id)
-        self.assertFalse(action.keep_position)
+        assert action.action_type == "create"
+        assert action.controller_id == "test"
+        assert action.executor_config == mock_config
+        assert action.executor_id is None
+        assert action.keep_position is False
 
-    def test_create_action_specialized(self):
+    def test_create_action_specialized(self, mock_config):
         """Test creating action using specialized class."""
+        # Register config with factory
+        ExecutorFactory._registry[MockExecutorConfig] = "mock_executor"
+
         action = CreateExecutorAction(
             controller_id="test",
-            executor_config=self.mock_config,
+            executor_config=mock_config,
         )
 
-        self.assertEqual(action.action_type, "create")
-        self.assertIsInstance(action, CreateExecutorAction)
-        self.assertEqual(action.executor_config, self.mock_config)
+        assert action.action_type == "create"
+        assert isinstance(action, CreateExecutorAction)
+        assert action.executor_config == mock_config
 
     def test_stop_action_from_base(self):
         """Test creating stop action using base class factory method."""
@@ -70,10 +81,10 @@ class TestExecutorActions(unittest.TestCase):
             executor_id="exec_1",
         )
 
-        self.assertEqual(action.action_type, "stop")
-        self.assertEqual(action.controller_id, "test")
-        self.assertEqual(action.executor_id, "exec_1")
-        self.assertIsNone(action.executor_config)
+        assert action.action_type == "stop"
+        assert action.controller_id == "test"
+        assert action.executor_id == "exec_1"
+        assert action.executor_config is None
 
     def test_stop_action_specialized(self):
         """Test creating stop action using specialized class."""
@@ -82,9 +93,9 @@ class TestExecutorActions(unittest.TestCase):
             executor_id="exec_1",
         )
 
-        self.assertEqual(action.action_type, "stop")
-        self.assertIsInstance(action, StopExecutorAction)
-        self.assertEqual(action.executor_id, "exec_1")
+        assert action.action_type == "stop"
+        assert isinstance(action, StopExecutorAction)
+        assert action.executor_id == "exec_1"
 
     def test_store_action_from_base(self):
         """Test creating store action using base class factory method."""
@@ -93,9 +104,9 @@ class TestExecutorActions(unittest.TestCase):
             executor_id="exec_1",
         )
 
-        self.assertEqual(action.action_type, "store")
-        self.assertEqual(action.controller_id, "test")
-        self.assertEqual(action.executor_id, "exec_1")
+        assert action.action_type == "store"
+        assert action.controller_id == "test"
+        assert action.executor_id == "exec_1"
 
     def test_store_action_specialized(self):
         """Test creating store action using specialized class."""
@@ -104,18 +115,19 @@ class TestExecutorActions(unittest.TestCase):
             executor_id="exec_1",
         )
 
-        self.assertEqual(action.action_type, "store")
-        self.assertIsInstance(action, StoreExecutorAction)
-        self.assertEqual(action.executor_id, "exec_1")
+        assert action.action_type == "store"
+        assert isinstance(action, StoreExecutorAction)
+        assert action.executor_id == "exec_1"
 
     def test_invalid_executor_config(self):
-        with self.assertRaises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             CreateExecutorAction(
                 controller_id="test",
                 executor_config={"invalid": "config"},  # Dict instead of object
             )
-        errors = exc_info.exception.errors()
-        self.assertEqual(errors, [
+        errors = exc_info.value.errors()
+        # Fails validation of ExecutorConfigBase
+        assert errors == [
             {'loc': ('executor_config', 'type'),
              'msg': 'field required',
              'type': 'value_error.missing'
@@ -128,7 +140,7 @@ class TestExecutorActions(unittest.TestCase):
              'msg': 'executor_config is required for create action',
              'type': 'value_error'
              }
-        ])
+        ]
 
     def test_unregistered_executor_config(self):
         """Test validation of unregistered executor config."""
@@ -139,7 +151,7 @@ class TestExecutorActions(unittest.TestCase):
             trading_pair: str
             amount: Decimal
 
-        with self.assertRaises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             CreateExecutorAction(
                 controller_id="test",
                 executor_config=MockUnregisteredExecutorConfig(
@@ -148,52 +160,57 @@ class TestExecutorActions(unittest.TestCase):
                     timestamp=1234567890,
                 ),
             )
-        self.assertIn("Executor config not registered with ExecutorFactory", str(exc_info.exception))
+        assert "Executor config not registered with ExecutorFactory" in str(exc_info.value)
 
     def test_missing_required_fields(self):
         """Test validation of missing required fields."""
-        with self.assertRaises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             CreateExecutorAction()
 
-        error_dict = exc_info.exception.errors()
-        self.assertTrue(any("controller_id" in e["loc"] for e in error_dict))
+        error_dict = exc_info.value.errors()
+        assert any("controller_id" in e["loc"] for e in error_dict)
 
     def test_stop_action_missing_executor_id(self):
         """Test stop action without executor_id."""
-        with self.assertRaises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             StopExecutorAction(
                 controller_id="test",
                 executor_id=None,
             )
 
-        error_dict = exc_info.exception.errors()
-        self.assertTrue(any("executor_id" in e["loc"] for e in error_dict))
+        error_dict = exc_info.value.errors()
+        assert any("executor_id" in e["loc"] for e in error_dict)
 
-    def test_action_immutability(self):
+    def test_action_immutability(self, mock_config):
         """Test that actions are immutable once created."""
+        ExecutorFactory._registry[MockExecutorConfig] = "mock_executor"
+
         action = CreateExecutorAction(
             controller_id="test",
-            executor_config=self.mock_config,
+            executor_config=mock_config,
         )
 
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             action.action_type = "stop"
 
-    def test_action_type_validation(self):
+    @pytest.mark.parametrize("action_type", [
+        "create",
+        "stop",
+        "store",
+    ])
+    def test_action_type_validation(self, action_type, mock_config):
         """Test validation of action types."""
-        for action_type in ["create", "stop", "store"]:
-            with self.subTest(action_type=action_type):
-                action = ExecutorAction(
-                    action_type=action_type,
-                    controller_id="test",
-                    executor_id="exec_1",
-                    executor_config=self.mock_config,
-                )
-                self.assertEqual(action.action_type, action_type)
+        action = ExecutorAction(
+            action_type=action_type,
+            controller_id="test",
+            executor_id="exec_1",
+            executor_config=mock_config,
+        )
+        assert action.action_type == action_type
 
     def test_invalid_action_type(self):
         """Test validation of invalid action type."""
-        with self.assertRaises(ValidationError):
+        with pytest.raises(ValidationError):
             ExecutorAction(
                 action_type="invalid",
                 controller_id="test",
@@ -231,28 +248,24 @@ class TestExecutorActions(unittest.TestCase):
             executor_id="exec_1",
             update_data=MockUpdate(value=42),
         )
-        self.assertIsInstance(action.update_data, MockUpdate)
+        assert isinstance(action.update_data, MockUpdate)
 
         # Test wrong update type
         class WrongUpdate(ExecutorUpdateBase):
             other_value: str
 
-        with self.assertRaises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             UpdateExecutorAction(
                 controller_id="test",
                 executor_id="exec_1",
                 update_data=WrongUpdate(other_value="wrong"),
             )
-        self.assertIn("Invalid update type", str(exc_info.exception))
+        assert "Invalid update type" in str(exc_info.value)
 
         # Test missing update data
-        with self.assertRaises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             UpdateExecutorAction(
                 controller_id="test",
                 executor_id="exec_1",
             )
-        self.assertIn("update_data is required", str(exc_info.exception))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert "update_data is required" in str(exc_info.value)

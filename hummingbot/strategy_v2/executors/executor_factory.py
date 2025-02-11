@@ -1,9 +1,14 @@
-import inspect
+import logging
 from typing import Callable, Type
 
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.strategy_v2.executors.executor_base import ExecutorUpdateBase
-from hummingbot.strategy_v2.executors.protocols import ExecutorBaseFactoryProtocol, ExecutorConfigFactoryProtocol
+from hummingbot.strategy_v2.executors.protocols import (
+    ExecutorBaseFactoryProtocol,
+    ExecutorBaseInfoProtocol,
+    ExecutorConfigFactoryProtocol,
+    ExecutorCustomInfoFactoryProtocol,
+    ExecutorUpdateFactoryProtocol,
+)
 
 
 class ExecutorFactory:
@@ -14,35 +19,45 @@ class ExecutorFactory:
     to concrete ExecutorBaseFactoryProtocol classes.
     """
     _registry: dict[Type[ExecutorConfigFactoryProtocol], Type[ExecutorBaseFactoryProtocol]] = {}
-    _update_types: dict[Type[ExecutorConfigFactoryProtocol], Type[ExecutorUpdateBase]] = {}
+    _update_types: dict[Type[ExecutorConfigFactoryProtocol], Type[ExecutorUpdateFactoryProtocol]] = {}
+    _custom_info_types: dict[Type[ExecutorConfigFactoryProtocol], Type[ExecutorCustomInfoFactoryProtocol]] = {}
     _executor_ids: dict[Type[ExecutorConfigFactoryProtocol], set[str]] = {}
+
+    _logger = None
+
+    @classmethod
+    def logger(cls):
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     @classmethod
     def register_executor(
             cls,
             config_type: Type[ExecutorConfigFactoryProtocol],
-            update_type: Type[ExecutorUpdateBase] | None = None,
+            *,
+            update_type: Type[ExecutorUpdateFactoryProtocol] | None = None,
+            custom_info_type: Type[ExecutorCustomInfoFactoryProtocol] | None = None,
     ) -> Callable[[Type[ExecutorBaseFactoryProtocol]], Type[ExecutorBaseFactoryProtocol]]:
         """
         Decorator to register an executor class for a given executor configuration type.
 
         :param config_type: The type of ExecutorConfigFactoryProtocol.
         :param update_type: The type of ExecutorUpdateFactoryProtocol.
+        :param custom_info_type: The type of ExecutorCustomInfoFactoryProtocol.
         :return: A decorator that registers the executor class.
         :raises ValueError: If the executor class is already registered for the configuration type.
         :raises ValueError: If the executor class does not inherit from ExecutorBaseFactoryProtocol.
         """
+        if config_type in cls._registry:
+            raise ValueError(f"Executor class already registered for config type: {config_type}")
 
         def decorator(executor_cls: Type[ExecutorBaseFactoryProtocol]) -> Type[ExecutorBaseFactoryProtocol]:
-            # Check that config_type is not an abstract or protocol-only type.
-            if inspect.isabstract(config_type) or inspect.isclass(config_type) and getattr(config_type, "__is_protocol__", False):
-                raise ValueError("config_type must be a concrete class, not just a protocol")
-            if config_type in cls._registry:
-                raise ValueError(f"Executor class already registered for config type: {config_type}")
             cls._registry[config_type] = executor_cls
-            if update_type is not None:
-                cls._update_types[config_type] = update_type
+            cls._update_types[config_type] = update_type
+            cls._custom_info_types[config_type] = custom_info_type
             return executor_cls
+
         return decorator
 
     @classmethod
@@ -61,15 +76,61 @@ class ExecutorFactory:
         :return: An instance of ExecutorBaseFactoryProtocol.
         :raises ValueError: If the configuration type is not registered.
         """
+        if not isinstance(config, ExecutorConfigFactoryProtocol):
+            raise ValueError(f"Config must implement ExecutorConfigFactoryProtocol, got {type(config)}")
+
+        if not isinstance(strategy, ScriptStrategyBase):
+            raise ValueError(f"Strategy must be instance of ScriptStrategyBase, got {type(strategy)}")
+
+        if not isinstance(update_interval, (int, float)) or update_interval <= 0:
+            raise ValueError(f"Update interval must be a positive number, got {update_interval}")
+
         executor_cls = cls._registry.get(type(config))
         if executor_cls is None:
-            raise ValueError(f"Unsupported executor config type: {type(config)}")
-        # Register the config id (Other actions will reference this id)
-        cls._executor_ids[type(config)] = cls._executor_ids.get(type(config), set()).union({config.id})
-        return executor_cls(strategy, config, update_interval)
+            raise ValueError(f"No executor registered for config type: {type(config)}")
+
+        try:
+            executor = executor_cls(strategy, config, update_interval)
+            cls._executor_ids.setdefault(type(config), set()).add(config.id)
+            return executor
+        except Exception as e:
+            raise ValueError(f"Error creating executor: {str(e)}") from e
 
     @classmethod
-    def get_update_type(cls, config_type: Type[ExecutorConfigFactoryProtocol]) -> Type[ExecutorUpdateBase] | None:
+    def get_custom_info(
+            cls,
+            executor: ExecutorBaseInfoProtocol,
+    ) -> ExecutorCustomInfoFactoryProtocol:
+        """
+        Create executor info instance.
+
+        :param executor: The executor.
+        :return: An instance of ExecutorInfo.
+        :raises ValueError: If the executor type is not registered.
+        """
+        from hummingbot.strategy_v2.models.executors_info import ExecutorCustomInfoBase
+
+        if not hasattr(executor, 'config'):
+            raise ValueError(f"Executor must have a config attribute, got {executor}")
+
+        # Return base custom info if config type not registered
+        if type(executor.config) not in cls._registry:
+            cls.logger().debug(f"Using default custom info for unregistered config type: {type(executor.config)}")
+            return ExecutorCustomInfoBase(executor)
+
+        # Return registered custom info type if available, otherwise default
+        info_cls = cls._custom_info_types.get(type(executor.config), ExecutorCustomInfoBase)
+        try:
+            return info_cls(executor)
+        except Exception as e:
+            cls.logger().error(f"Error creating custom info for {type(executor.config)}: {str(e)}")
+            return ExecutorCustomInfoBase(executor)
+
+    @classmethod
+    def get_update_type(
+            cls,
+            config_type: Type[ExecutorConfigFactoryProtocol]
+    ) -> Type[ExecutorUpdateFactoryProtocol] | None:
         """
         Get the update type associated with a given executor configuration type.
 
