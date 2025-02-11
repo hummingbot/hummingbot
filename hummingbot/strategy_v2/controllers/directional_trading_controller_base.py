@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
 import pandas as pd
-from pydantic import Field, validator
+from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout

@@ -25,7 +25,7 @@ dependencies:
   - aioprocessing>=2.0.1
   - aioresponses>=0.7.4
   - aiounittest>=1.4.2
-  - async-timeout>=4.0.2
+  - async-timeout>=4.0.2,<5
   - bidict>=0.22.1
   - cachetools>=5.3.1
   # - coinbase-advanced-py

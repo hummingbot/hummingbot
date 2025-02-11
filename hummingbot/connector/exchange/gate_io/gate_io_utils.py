@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from pydantic import Field, SecretStr
+from pydantic.v1 import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS

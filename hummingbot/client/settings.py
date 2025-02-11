@@ -7,7 +7,7 @@ from os.path import exists, join, realpath
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema

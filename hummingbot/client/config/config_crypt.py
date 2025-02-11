@@ -17,7 +17,7 @@ from eth_keyfile.keyfile import (
     int_to_big_endian,
     keccak,
 )
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot.client.settings import CONF_DIR_PATH
 
