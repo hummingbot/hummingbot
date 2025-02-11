@@ -8,7 +8,7 @@ from os.path import exists, join
 from typing import cast
 from unittest.mock import patch
 
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot import root_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap

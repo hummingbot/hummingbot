@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Literal, Union
 
-from pydantic import Field, validator
+from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_validators import validate_bool, validate_decimal, validate_market_trading_pair
