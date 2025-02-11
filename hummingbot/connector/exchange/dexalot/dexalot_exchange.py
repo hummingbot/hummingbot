@@ -876,9 +876,29 @@ class DexalotExchange(ExchangePyBase):
             )
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        last_price = self.order_books.get(trading_pair).last_trade_price
+        ex_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        api_factory = self._web_assistants_factory
+        ws = await api_factory.get_ws_assistant()
+        async with api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_URL):
+            await ws.connect(ws_url=web_utils.wss_url(self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+            payload = {
+                "type": "marketsnapshotsubscribe",
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+            await ws.send(subscribe_orderbook_request)
+        async for msg in ws.iter_messages():
+            data = msg.data
+            if data is not None and data["type"] == "marketSnapShot":
+                price_list = data["data"]
 
-        return last_price
+                last_traded_price = float([i["close"] for i in price_list if i["pair"] == ex_symbol][0])
+                payload = {
+                    "type": "marketsnapshotunsubscribe",
+                }
+                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+                await ws.send(subscribe_orderbook_request)
+                await ws.disconnect()
+                return last_traded_price
 
     async def _make_network_check_request(self):
         await self._api_get(path_url=self.check_network_request_path,
