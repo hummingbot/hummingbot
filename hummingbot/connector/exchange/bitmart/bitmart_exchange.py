@@ -261,6 +261,9 @@ class BitmartExchange(ExchangePyBase):
                                               min_order_value=Decimal(str(rule["min_buy_amount"])),
                                               min_base_amount_increment=Decimal(str(rule["base_min_size"])),
                                               min_price_increment=price_step))
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
                 except Exception:
                     self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return result
