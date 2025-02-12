@@ -13,7 +13,7 @@ dependencies:
   - pandas=1.5.3
   - pip
   - prompt_toolkit=3.0.20
-  - pydantic=1.10
+  - pydantic>=1.10.17,<2
   - pytest
   - pytest-asyncio
   - python=3.10
