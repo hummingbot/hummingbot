@@ -245,7 +245,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             ex_name = _info["instrument_name"]
 
             base, _quote = ex_name.split("-")
-            # _quote = "USDC"
+            _quote = "USDC"
             trading_pair = combine_to_hb_trading_pair(base, _quote)
             mapping[ex_name] = trading_pair
         self._set_trading_pair_symbol_map(mapping)
@@ -338,7 +338,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         oid = await tracked_order.get_exchange_order_id()
-        symbol = tracked_order.trading_pair
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
             "instrument_name": symbol,
             "order_id": oid,
@@ -840,8 +840,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                                          limit_id=CONSTANTS.POSITION_INFORMATION_URL)
         if "error" in positions:
             self.logger().error(f"Error fetching positions: {positions['error']['message']}")
-        data = positions["result"]
-        for position in data["positions"]:
+        data: List[dict] = positions["result"]["positions"]
+        for position in data:
             ex_trading_pair = position.get("instrument_name")
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
 
@@ -849,7 +849,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             unrealized_pnl = Decimal(position.get("unrealized_pnl"))
             entry_price = Decimal(position.get("index_price"))
             amount = Decimal(position.get("amount", 0))
-            leverage = Decimal(position.get("leverage"))
+            leverage = position.get("leverage", 0)
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != 0:
                 _position = Position(
@@ -858,7 +858,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
                     amount=amount,
-                    leverage=leverage
+                    leverage=Decimal(leverage)
                 )
                 self._perpetual_trading.set_leverage(ex_trading_pair, leverage)
                 self._perpetual_trading.set_position(pos_key, _position)
@@ -882,13 +882,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         funding_info_response = await self._api_post(path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
                                                      data={
                                                          "period": 3600,
                                                          "page": 1,
                                                          "page_size": 100,
                                                          "start_timestamp": self._last_funding_time(),
-                                                         "instrument_name": trading_pair,
+                                                         "instrument_name": symbol,
                                                          "subaccount_id": self._sub_id
                                                      },
                                                      is_auth_required=True,

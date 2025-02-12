@@ -9,6 +9,7 @@ from hummingbot.connector.derivative.derive_perpetual import (
     derive_perpetual_constants as CONSTANTS,
     derive_perpetual_web_utils as web_utils,
 )
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -103,8 +104,12 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             order_book_params = []
 
             for trading_pair in self._trading_pairs:
-                trade_params.append(f"trades.{trading_pair.upper()}")
-                order_book_params.append(f"orderbook.{trading_pair.upper()}.1.100")
+                # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
+                base, _quote = trading_pair.split("-")
+                _quote = "PERP"
+                symbol = combine_to_hb_trading_pair(base, _quote)
+                trade_params.append(f"trades.{symbol.upper()}")
+                order_book_params.append(f"orderbook.{symbol.upper()}.1.100")
 
             trades_payload = {
                 "method": "subscribe",
@@ -200,8 +205,9 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _request_complete_funding_info(self, trading_pair: str):
         self._instrument_ticker = []
         data = []
+        pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {
-            "instrument_name": trading_pair,
+            "instrument_name": pair,
         }
         exchange_info = await self._connector._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
                                                         data=payload)
