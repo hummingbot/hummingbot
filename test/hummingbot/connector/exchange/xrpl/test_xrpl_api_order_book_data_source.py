@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -232,7 +232,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_book_offers.return_value.status = "success"
         mock_book_offers.return_value.result = {"offers": []}
 
-        self.data_source._xrpl_client.is_open.return_value = False
+        self.data_source._xrpl_client.is_open = Mock(return_value=True)
         self.data_source._xrpl_client.request.return_value = mock_book_offers.return_value
 
         await self.data_source._request_order_book_snapshot("SOLO-XRP")
@@ -251,7 +251,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_book_offers.return_value.status = "error"
         mock_book_offers.return_value.result = {"offers": []}
 
-        self.data_source._xrpl_client.is_open.return_value = False
+        self.data_source._xrpl_client.is_open = Mock(return_value=True)
         self.data_source._xrpl_client.request.return_value = mock_book_offers.return_value
 
         with self.assertRaises(Exception) as context:
