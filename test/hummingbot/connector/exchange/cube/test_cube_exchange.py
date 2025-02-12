@@ -912,90 +912,10 @@ class CubeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
         pass
-        # self._simulate_trading_rules_initialized()
-        # request_sent_event = asyncio.Event()
-        # self.exchange._set_current_timestamp(1640780000)
-        #
-        # url = self.order_creation_url
-        #
-        # creation_response = self.order_creation_request_successful_mock_response
-        #
-        # mock_api.post(url,
-        #               body=json.dumps(creation_response),
-        #               callback=lambda *args, **kwargs: request_sent_event.set())
-        #
-        # order_id = self.place_buy_order()
-        # self.async_run_with_timeout(request_sent_event.wait())
-        #
-        # order_request = self._all_executed_requests(mock_api, url)[0]
-        # self.validate_auth_credentials_present(order_request)
-        #
-        # self.assertIn(order_id, self.exchange.in_flight_orders)
-        # self.validate_order_creation_request(
-        #     order=self.exchange.in_flight_orders[order_id],
-        #     request_call=order_request)
-        #
-        # create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        # self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
-        # self.assertEqual(self.trading_pair, create_event.trading_pair)
-        # self.assertEqual(OrderType.LIMIT, create_event.type)
-        # self.assertEqual(Decimal("100"), create_event.amount)
-        # self.assertEqual(Decimal("10000"), create_event.price)
-        # self.assertEqual(order_id, create_event.order_id)
-        # self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
-        #
-        # self.assertTrue(
-        #     self.is_logged(
-        #         "INFO",
-        #         f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-        #         f"{Decimal('100.000000')} {self.trading_pair}."
-        #     )
-        # )
 
     @aioresponses()
     def test_create_order_fails_and_raises_failure_event(self, mock_api):
         pass
-        # self._simulate_trading_rules_initialized()
-        # request_sent_event = asyncio.Event()
-        # self.exchange._set_current_timestamp(1640780000)
-        # url = self.order_creation_url
-        # mock_api.post(url,
-        #               status=400,
-        #               callback=lambda *args, **kwargs: request_sent_event.set())
-        #
-        # order_id = self.place_buy_order()
-        # self.async_run_with_timeout(request_sent_event.wait())
-        #
-        # order_request = self._all_executed_requests(mock_api, url)[0]
-        # self.validate_auth_credentials_present(order_request)
-        # self.assertNotIn(order_id, self.exchange.in_flight_orders)
-        # order_to_validate_request = InFlightOrder(
-        #     client_order_id=order_id,
-        #     trading_pair=self.trading_pair,
-        #     order_type=OrderType.LIMIT,
-        #     trade_type=TradeType.BUY,
-        #     amount=Decimal("100"),
-        #     creation_timestamp=self.exchange.current_timestamp,
-        #     price=Decimal("10000")
-        # )
-        # self.validate_order_creation_request(
-        #     order=order_to_validate_request,
-        #     request_call=order_request)
-        #
-        # self.assertEquals(0, len(self.buy_order_created_logger.event_log))
-        # failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        # self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
-        # self.assertEqual(OrderType.LIMIT, failure_event.order_type)
-        # self.assertEqual(order_id, failure_event.order_id)
-        #
-        # self.assertTrue(
-        #     self.is_logged(
-        #         "INFO",
-        #         f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-        #         f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-        #         f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
-        #     )
-        # )
 
     def test_initial_status_dict(self):
         self.exchange._set_trading_pair_symbol_map(None)

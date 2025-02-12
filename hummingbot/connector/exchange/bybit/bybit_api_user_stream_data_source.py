@@ -64,7 +64,6 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         output queue
         :param output: the queue to use to store the received messages
         """
-        ws = None
         while True:
             try:
                 ws: WSAssistant = await self._connected_websocket_assistant(self._domain)
