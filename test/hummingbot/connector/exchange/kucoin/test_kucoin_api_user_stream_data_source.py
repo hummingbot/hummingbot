@@ -1,8 +1,8 @@
 import asyncio
 import json
 import re
-import unittest
-from typing import Awaitable, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -17,14 +17,13 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
+class TestKucoinAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -32,11 +31,11 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         cls.api_passphrase = "somePassPhrase"
         cls.api_secret_key = "someSecretKey"
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
-        self.mocking_assistant = NetworkMockingAssistant()
+        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
@@ -76,10 +75,6 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     @staticmethod
     def get_listen_key_mock():
         listen_key = {
@@ -102,7 +97,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.kucoin.kucoin_web_utils.next_message_id")
-    def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, mock_api, id_mock, ws_connect_mock):
+    async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, mock_api, id_mock, ws_connect_mock):
         id_mock.side_effect = [1, 2]
         url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
 
@@ -143,9 +138,9 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
@@ -175,7 +170,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_get_listen_key_successful_with_user_update_event(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_get_listen_key_successful_with_user_update_event(self, mock_api, mock_ws):
         url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -208,17 +203,17 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(order_event))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_user_stream(msg_queue)
         )
 
-        msg = self.async_run_with_timeout(msg_queue.get())
+        msg = await msg_queue.get()
         self.assertEqual(order_event, msg)
         mock_ws.return_value.ping.assert_called()
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_api, mock_ws):
         url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -234,18 +229,18 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_user_stream(msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    def test_listen_for_user_stream_connection_failed(self, mock_api, sleep_mock, mock_ws):
+    async def test_listen_for_user_stream_connection_failed(self, mock_api, sleep_mock, mock_ws):
         url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -257,7 +252,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         msg_queue = asyncio.Queue()
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+            await self.data_source.listen_for_user_stream(msg_queue)
         except asyncio.CancelledError:
             pass
 
@@ -268,7 +263,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, sleep_mock, mock_ws):
+    async def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, sleep_mock, mock_ws):
         url = web_utils.private_rest_url(path_url=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -281,7 +276,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         sleep_mock.side_effect = asyncio.CancelledError  # to finish the task execution
 
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+            await self.data_source.listen_for_user_stream(msg_queue)
         except asyncio.CancelledError:
             pass
 
@@ -295,7 +290,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
     @patch("hummingbot.connector.exchange.kucoin.kucoin_web_utils.next_message_id")
     @patch("hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source.KucoinAPIUserStreamDataSource"
            "._time")
-    def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(
+    async def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(
             self,
             mock_api,
             time_mock,
@@ -343,9 +338,9 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)

@@ -178,7 +178,7 @@ class HummingbotApplication(*commands):
     def notify(self, msg: str):
         self.app.log(msg)
         for notifier in self.notifiers:
-            notifier.add_msg_to_queue(msg)
+            notifier.add_message_to_queue(msg)
 
     def _handle_shortcut(self, command_split):
         shortcuts = self.client_config_map.command_shortcuts
@@ -332,12 +332,6 @@ class HummingbotApplication(*commands):
             self._mqtt.start_market_events_fw()
 
     def _initialize_notifiers(self):
-        self.notifiers.extend(
-            [
-                notifier for notifier in self.client_config_map.telegram_mode.get_notifiers(self)
-                if notifier not in self.notifiers
-            ]
-        )
         for notifier in self.notifiers:
             notifier.start()
 

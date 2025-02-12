@@ -41,8 +41,8 @@ class BaseTradingStrategyConfigMapTest(TestCase):
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
         cls.exchange = "binance"
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
+        cls.base_asset = "BTC"
+        cls.quote_asset = "USDT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         # Reset the list of connectors (there could be changes introduced by other tests when running the suite
         AllConnectorSettings.create_connector_settings()
@@ -86,7 +86,7 @@ class BaseTradingStrategyConfigMapTest(TestCase):
 
         self.assertTrue(str(e.exception).startswith(error_msg))
 
-    def test_jason_schema_includes_all_connectors_for_exchange_field(self):
+    def test_json_schema_includes_all_connectors_for_exchange_field(self):
         schema = BaseTradingStrategyConfigMap.schema_json()
         schema_dict = json.loads(schema)
 
