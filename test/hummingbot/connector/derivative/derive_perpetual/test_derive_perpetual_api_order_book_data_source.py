@@ -198,7 +198,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         )
 
     async def test_subscribe_to_channels_raises_cancel_exception(self):
-        self._simulate_trading_rules_initialized()
+        await self._simulate_trading_rules_initialized()
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
