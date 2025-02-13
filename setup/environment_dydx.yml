@@ -8,8 +8,6 @@ dependencies:
   - coverage
   - cython=3.0
   - nomkl
-  - nose=1.3.7
-  - nose-exclude
   - numpy=1.23.5
   - numpy-base=1.23.5
   - pandas=1.5.3
@@ -27,7 +25,6 @@ dependencies:
     - aiohttp==3.*
     - aioprocessing==2.0
     - aioresponses
-    - aiounittest
     - appdirs==1.4.3
     - async-timeout
     - asyncssh==2.13.1
@@ -57,7 +54,6 @@ dependencies:
     - ptpython==3.0.20
     - pyjwt==2.8.0
     - pyperclip==1.7.0
-    - python-telegram-bot==12.8
     - requests==2.*
     - rsa==4.7
     - ruamel-yaml==0.16.10

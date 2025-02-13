@@ -726,7 +726,7 @@ class TestGateIoExchange(unittest.TestCase):
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @aioresponses()
-    def test_create_order_fails(self, _, mock_api):
+    def test_create_order_fails(self, mock_api, _):
         self._simulate_trading_rules_initialized()
         self.exchange._set_current_timestamp(1640780000)
 

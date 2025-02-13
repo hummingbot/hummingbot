@@ -352,7 +352,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             Exception,
             asyncio.CancelledError,
         ])
-        self.strategy.executor_orchestrator.execute_actions = AsyncMock()
+        self.strategy.executor_orchestrator.execute_actions = MagicMock()
         controller_mock = MagicMock()
         self.strategy.controllers = {"controller_1": controller_mock}
 
