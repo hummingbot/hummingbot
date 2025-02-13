@@ -35,8 +35,9 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         self.assertTrue(self.is_logged(log_level=LogLevel.WARNING,
                                        message="Gateway is not online. Please check your gateway connection.", ))
 
+    @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed._async_sleep", new_callable=AsyncMock)
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed._fetch_data", new_callable=AsyncMock)
-    async def test_fetch_data_loop_exception(self, fetch_data_mock: AsyncMock):
+    async def test_fetch_data_loop_exception(self, fetch_data_mock: AsyncMock, _):
         fetch_data_mock.side_effect = [Exception("test exception"), asyncio.CancelledError()]
         try:
             await self.data_feed._fetch_data_loop()

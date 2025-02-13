@@ -116,7 +116,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=CONSTANTS.ONE_SECOND)
+                await asyncio.wait_for(self._process_ob_snapshot(snapshot_queue=output), timeout=CONSTANTS.ONE_HOUR)
             except asyncio.TimeoutError:
                 await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
             except asyncio.CancelledError:
@@ -222,7 +222,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self._message_queue[channel].put_nowait(data)
 
     async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
-        message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]
+        message_queue = self._message_queue[self._snapshot_messages_queue_key]
         while True:
             try:
                 json_msg = await message_queue.get()

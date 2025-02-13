@@ -1,6 +1,6 @@
 import asyncio
-import unittest
-from typing import Any, Awaitable, Dict, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
 import ujson
@@ -13,14 +13,13 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class TegroUserStreamDataSourceUnitTests(unittest.TestCase):
+class TegroUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "KRYPTONITE"
         cls.quote_asset = "USDT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -30,11 +29,11 @@ class TegroUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.api_key = "TEST_API_KEY"  # noqa: mock
         cls.secret_key = "TEST_SECRET_KEY"  # noqa: mock
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
-        self.mocking_assistant = NetworkMockingAssistant()
+        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
         self.emulated_time = 1640001112.223
         self.auth = TegroAuth(
@@ -57,10 +56,6 @@ class TegroUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def handle(self, record):
         self.log_records.append(record)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
@@ -110,13 +105,15 @@ class TegroUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(0, self.data_source.last_recv_time)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_log_exception(self, mock_ws):
+    async def test_create_websocket_connection_log_exception(self, mock_ws):
         mock_ws.side_effect = Exception("TEST ERROR.")
 
         msg_queue = asyncio.Queue()
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
-        except asyncio.exceptions.TimeoutError:
+            self.data_source._sleep = AsyncMock()
+            self.data_source._sleep.side_effect = asyncio.CancelledError()
+            await self.data_source.listen_for_user_stream(msg_queue)
+        except asyncio.CancelledError:
             pass
 
         self.assertTrue(
@@ -128,16 +125,16 @@ class TegroUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_create_websocket_connection_failed(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_create_websocket_connection_failed(self, mock_api, mock_ws):
         mock_ws.side_effect = Exception("TEST ERROR.")
 
         msg_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-
         try:
-            self.async_run_with_timeout(msg_queue.get())
-        except asyncio.exceptions.TimeoutError:
+            self.data_source._sleep = AsyncMock()
+            self.data_source._sleep.side_effect = asyncio.CancelledError()
+            await self.data_source.listen_for_user_stream(msg_queue)
+        except asyncio.CancelledError:
             pass
 
         self.assertTrue(
@@ -149,17 +146,17 @@ class TegroUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    def test_listen_for_user_stream_iter_message_throws_exception(self, _, mock_ws):
+    async def test_listen_for_user_stream_iter_message_throws_exception(self, _, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.receive.side_effect = Exception("TEST ERROR")
         mock_ws.return_value.closed = False
         mock_ws.return_value.close.side_effect = Exception
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-
         try:
-            self.async_run_with_timeout(msg_queue.get())
+            self.data_source._sleep = AsyncMock()
+            self.data_source._sleep.side_effect = asyncio.CancelledError()
+            await self.data_source.listen_for_user_stream(msg_queue)
         except Exception:
             pass
 
@@ -171,27 +168,27 @@ class TegroUserStreamDataSourceUnitTests(unittest.TestCase):
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_successful(self, mock_ws):
+    async def test_listen_for_user_stream_successful(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._simulate_user_update_event())
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        msg = self.async_run_with_timeout(msg_queue.get())
+        msg = await msg_queue.get()
         self.assertTrue(msg, self._simulate_user_update_event)
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_api, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
