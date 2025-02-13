@@ -509,7 +509,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     exc_info = request_error,
                 )
             for trade_fill in all_fills_response["result"]["trades"]:
-                self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
+                await self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
 
     async def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
         exchange_order_id = str(order_fill.get("order_id"))
