@@ -609,7 +609,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         trading_pair = tracked_order.trading_pair
         symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=trade["instrument_name"])
         if symbol == trading_pair:
-            fee_asset = trading_pair.split("-")[1]
+            fee_asset = tracked_order.quote_asset
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=tracked_order.trade_type,
@@ -822,12 +822,34 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return trade_updates
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
+        await self.trading_pair_symbol_map()
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {"instrument_name": exchange_symbol}
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
                                         data=payload)
 
         return response["result"]["mark_price"]
+
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
+        if trading_pairs is None:
+            trading_pairs = []
+
+        symbol_map = await self.trading_pair_symbol_map()
+        exchange_symbols = await asyncio.gather(*[
+            self.exchange_symbol_associated_to_pair(trading_pair=pair) for pair in trading_pairs
+        ])
+        payloads = [{"instrument_name": symbol} for symbol in exchange_symbols]
+        responses = await asyncio.gather(*[
+            self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload)
+            for payload in payloads
+        ])
+        last_traded_prices = {}
+        for ticker in responses:
+            instrument_name = ticker["result"]["instrument_name"]
+            if instrument_name in symbol_map.keys():
+                mapped_name = await self.trading_pair_associated_to_exchange_symbol(instrument_name)
+                last_traded_prices[mapped_name] = float(ticker["result"]["mark_price"])
+        return last_traded_prices
 
     async def _update_positions(self):
         positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
