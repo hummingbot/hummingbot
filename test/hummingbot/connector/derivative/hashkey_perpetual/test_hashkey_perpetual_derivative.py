@@ -1467,6 +1467,7 @@ class HashkeyPerpetualDerivativeTests(
         mock_api.get(url, body=json.dumps(response))
 
         await self.exchange.start_network()
+        await asyncio.sleep(0.1)
 
         self.assertEqual(1, len(self.exchange.trading_rules))
         self.assertIn(self.trading_pair, self.exchange.trading_rules)
