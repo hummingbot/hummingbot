@@ -37,8 +37,6 @@ if TYPE_CHECKING:
 
 
 class DerivePerpetualDerivative(PerpetualDerivativePyBase):
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
-
     web_utils = web_utils
 
     SHORT_POLL_INTERVAL = 5.0
@@ -60,18 +58,13 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
+        self._position_mode = None
         self._last_trade_history_timestamp = None
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
-        self._position_mode = None
-
-        super().__init__(client_config_map)
         self.real_time_balance_update = False
         self.currencies = []
-
-    SHORT_POLL_INTERVAL = 5.0
-
-    LONG_POLL_INTERVAL = 12.0
+        super().__init__(client_config_map)
 
     @property
     def name(self) -> str:
