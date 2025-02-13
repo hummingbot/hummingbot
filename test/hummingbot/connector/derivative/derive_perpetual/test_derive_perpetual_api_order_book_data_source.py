@@ -160,8 +160,15 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 'base_currency': self.base_asset,
                 'quote_currency': self.quote_asset,
                 'option_details': None,
-                'perp_details': None, 'erc20_details':
-                {'decimals': 18, 'underlying_erc20_address': '0x15CEcd5190A43C7798dD2058308781D0662e678E', 'borrow_index': '1', 'supply_index': '1'},
+                "perp_details": {
+                    "index": "BTC-USD",
+                    "max_rate_per_hour": "0.004",
+                    "min_rate_per_hour": "-0.004",
+                    "static_interest_rate": "0.0000125",
+                    "aggregate_funding": "738.587599416709606114",
+                    "funding_rate": "-0.000033660522457857"
+                },
+                'erc20_details': None,
                 'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
         ]
 
