@@ -134,6 +134,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
     def funding_fee_poll_interval(self) -> int:
         return 120
 
+    async def _make_network_check_request(self):
+        await self._api_get(path_url=self.check_network_request_path)
+
     def supported_order_types(self) -> List[OrderType]:
         """
         :return a list of OrderType supported by this connector
@@ -153,9 +156,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
     def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
-
-    async def _make_network_check_request(self):
-        await self._api_get(path_url=self.check_network_request_path)
 
     async def _make_trading_pairs_request(self) -> Any:
         exchange_infos = []
