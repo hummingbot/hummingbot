@@ -1929,7 +1929,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     #                 {
     #                     'subaccount_id': 37799,
     #                     'order_id': order.exchange_order_id,
-    #                     'instrument_name': f"{self.base_asset}-USDC",
+    #                     'instrument_name': f"{self.base_asset}-PERP",
     #                     'direction': 'buy', 'label': order.client_order_id,
     #                     'quote_id': None,
     #                     'trade_id': 30000,
@@ -1948,7 +1948,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     #                 {
     #                     'subaccount_id': 37799,
     #                     'order_id': 99999,
-    #                     'instrument_name': f"{self.base_asset}-USDC",
+    #                     'instrument_name': f"{self.base_asset}-PERP",
     #                     'direction': 'buy', 'label': order.client_order_id,
     #                     'quote_id': None,
     #                     'trade_id': 30000,
@@ -1990,7 +1990,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     #     self.assertEqual(Decimal(trade_fill["result"]["trades"][0]["trade_price"]), fill_event.price)
     #     self.assertEqual(Decimal(trade_fill["result"]["trades"][0]["trade_amount"]), fill_event.amount)
     #     self.assertEqual(0.0, fill_event.trade_fee.percent)
-    #     self.assertEqual([TokenAmount(str(trade_fill["result"]["trades"][0]["instrument_name"]).split("-")[0], Decimal(trade_fill["result"]["trades"][0]["trade_fee"]))],
+    #     self.assertEqual([TokenAmount(str(trade_fill["result"]["trades"][0]["instrument_name"]).split("-")[1], Decimal(trade_fill["result"]["trades"][0]["trade_fee"]))],
     #                      fill_event.trade_fee.flat_fees)
 
     #     fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]

@@ -509,15 +509,15 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     exc_info = request_error,
                 )
             for trade_fill in all_fills_response["result"]["trades"]:
-                print(trade_fill)
                 self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
 
-    def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
+    async def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
         exchange_order_id = str(order_fill.get("order_id"))
         fillable_order = all_fillable_order.get(exchange_order_id)
+        print(exchange_order_id)
         if fillable_order is not None:
-            token = order_fill["instrument_name"].split("-")[0]
-            fee_asset = token
+            _token = await self.trading_pair_associated_to_exchange_symbol(symbol=order_fill["instrument_name"])
+            fee_asset = _token.split("-")[1]
 
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
@@ -607,7 +607,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
                 return
             tracked_order = _cli_tracked_orders[0]
-        trading_pair = tracked_order.trading_pair
+        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=tracked_order.trading_pair)
         if trade["instrument_name"] == trading_pair:
             fee_asset = trading_pair.split("-")[1]
             fee = TradeFeeBase.new_spot_fee(
@@ -797,7 +797,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)
 
             for trade in all_fills_response["result"]["trades"]:
-                token = trade["instrument_name"].split("-")[1]
+                _token = await self.trading_pair_associated_to_exchange_symbol(trade["instrument_name"])
+                token = _token.split("-")[1]
                 exchange_order_id = str(trade["order_id"])
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
