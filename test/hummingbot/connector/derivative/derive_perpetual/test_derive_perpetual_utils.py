@@ -1,5 +1,5 @@
 from unittest import TestCase
 
 
-class DeriveUtilsTests(TestCase):
+class DerivePerpetualUtilsTests(TestCase):
     pass
