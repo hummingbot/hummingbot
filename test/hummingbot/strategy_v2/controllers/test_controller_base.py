@@ -64,6 +64,8 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
     async def test_control_task_market_data_provider_not_ready(self):
         type(self.controller.market_data_provider).ready = PropertyMock(return_value=False)
         self.controller.executors_update_event.set()
+        self.controller.update_processed_data = AsyncMock()
+        self.controller.determine_executor_actions = MagicMock(return_value=[])
         await self.controller.control_task()
         # Check that no action is put in the queue
         self.mock_actions_queue.put.assert_not_called()
