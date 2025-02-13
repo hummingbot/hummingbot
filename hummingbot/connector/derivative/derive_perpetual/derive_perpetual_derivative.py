@@ -606,8 +606,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
                 return
             tracked_order = _cli_tracked_orders[0]
-        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=tracked_order.trading_pair)
-        if trade["instrument_name"] == trading_pair:
+        trading_pair = tracked_order.trading_pair
+        symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=trade["instrument_name"])
+        if symbol == trading_pair:
             fee_asset = trading_pair.split("-")[1]
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
