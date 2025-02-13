@@ -14,7 +14,7 @@ from hummingbot.connector.exchange.bitmart.bitmart_exchange import BitmartExchan
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
@@ -813,3 +813,41 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertFalse(order.is_done)
 
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+    def test_create_market_buy_order_update(self):
+        inflight_order = InFlightOrder(
+            client_order_id = 123,
+            trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            trade_type = TradeType.BUY,
+            order_type = OrderType.MARKET,
+            creation_timestamp = 123456789,
+            price = str(9999),
+            amount = str(10),
+            initial_state = OrderState.OPEN
+        )
+
+        order_update = {
+            "message": "OK",
+            "code": 1000,
+            "trace": "a27c2cb5-ead4-471d-8455-1cfeda054ea6",
+            "data": {
+                "orderId": "1234",
+                "symbol": "HBOT-USDT",
+                "create_time": 1591096004000,
+                "side": "buy",
+                "type": "market",
+                "price": "1.00",
+                "price_avg": "0.00",
+                "size": "1",
+                "notional": "1",
+                "filled_notional": "0.5",
+                "filled_size": "0.5",
+                "unfilled_volume": "0",
+                "state": "partially_canceled",
+                "clientOrderId": "1234"
+            }
+        }
+
+        order = self.exchange._create_order_update(inflight_order, order_update)
+        # Ensure that the partially_canceled buy order is marked as filled
+        self.assertEqual(order.new_state, OrderState.FILLED)
