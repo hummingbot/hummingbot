@@ -105,7 +105,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {"result": {
             "instruments": [
                 {
-                    'instrument_type': 'erc20',  # noqa: mock
+                    'instrument_type': 'perp',  # noqa: mock
                     'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
@@ -121,12 +121,15 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     'base_currency': 'BTC',
                     'quote_currency': 'USDC',
                     'option_details': None,
-                    "erc20_details": {
-                        "decimals": 18,
-                        "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",  # noqa: mock
-                        "borrow_index": "1",
-                        "supply_index": "1"
+                    "perp_details": {
+                        "index": "BTC-USD",
+                        "max_rate_per_hour": "0.004",
+                        "min_rate_per_hour": "-0.004",
+                        "static_interest_rate": "0.0000125",
+                        "aggregate_funding": "738.587599416709606114",
+                        "funding_rate": "-0.000033660522457857"
                     },
+                    'erc20_details': None,
                     "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",  # noqa: mock
                     "base_asset_sub_id": "0",
                     "pro_rata_fraction": "0",
@@ -147,7 +150,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def latest_prices_request_mock_response(self):
         mock_response = {
             "result": {
-                'instrument_type': 'erc20',  # noqa: mock
+                'instrument_type': 'perp',  # noqa: mock
                 'instrument_name': 'BTC-PERP',
                 'scheduled_activation': 1734464971,
                 'scheduled_deactivation': 9223372036854775807,
@@ -163,23 +166,29 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 'base_currency': 'BTC',
                 'quote_currency': 'USDC',
                 'option_details': None,
-                'perp_details': None,
-                'erc20_details':
-                    {
-                        'decimals': 18,
-                        'underlying_erc20_address': '0x30f85847F9F17f219A9a21B93396a3B2eAEa500F',  # noqa: mock
-                        'borrow_index': '1', 'supply_index': '1'
-                    },
-                    'base_asset_address': '0xDaffF9B244327d09dde1dDFcf9981ef0Df2D1568',  # noqa: mock
-                    'base_asset_sub_id': '0', 'pro_rata_fraction': '0',
-                    'fifo_min_allocation': '0', 'pro_rata_amount_step': '1', 'best_ask_amount': '2155.24', 'best_ask_price': '1.6712',
-                    'best_bid_amount': '2155.43', 'best_bid_price': '1.6692', 'five_percent_bid_depth': '5036.42',
-                    'five_percent_ask_depth': '5029.23', 'option_pricing': None,
-                    'index_price': '1.6698', 'mark_price': self.expected_latest_price,
-                    'stats': {'contract_volume': '308.41',
-                              'num_trades': '7', 'open_interest': '323332.12302071627866623',
-                              'high': '1.6796', 'low': '1.6605', 'percent_change': '-0.071477', 'usd_change': '-0.1285'},
-                    'timestamp': 1737827796000, 'min_price': '1.6213', 'max_price': '1.7199'}
+                "perp_details": {
+                    "index": "BTC-USD",
+                    "max_rate_per_hour": "0.004",
+                    "min_rate_per_hour": "-0.004",
+                    "static_interest_rate": "0.0000125",
+                    "aggregate_funding": "738.587599416709606114",
+                    "funding_rate": "-0.000033660522457857"
+                },
+                'erc20_details': None,
+                'base_asset_address': '0xDaffF9B244327d09dde1dDFcf9981ef0Df2D1568',  # noqa: mock
+                'base_asset_sub_id': '0', 'pro_rata_fraction': '0',
+                'fifo_min_allocation': '0', 'pro_rata_amount_step': '1', 'best_ask_amount': '2155.24', 'best_ask_price': '1.6712',
+                'best_bid_amount': '2155.43', 'best_bid_price': '1.6692', 'five_percent_bid_depth': '5036.42',
+                'five_percent_ask_depth': '5029.23', 'option_pricing': None,
+                'index_price': '1.6698', 'mark_price': self.expected_latest_price,
+                'stats': {
+                    'contract_volume': '308.41',
+                    'num_trades': '7',
+                    'open_interest': '323332.12302071627866623',
+                    'high': '1.6796', 'low': '1.6605',
+                    'percent_change': '-0.071477',
+                    'usd_change': '-0.1285'},
+                'timestamp': 1737827796000, 'min_price': '1.6213', 'max_price': '1.7199'}
         }
 
         return mock_response
@@ -196,7 +205,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {"result": {
             "instruments": [
                 {
-                    'instrument_type': 'erc20',  # noqa: mock
+                    'instrument_type': 'perp',  # noqa: mock
                     'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
@@ -212,12 +221,15 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     'base_currency': 'BTC',
                     'quote_currency': 'USDC',
                     'option_details': None,
-                    "erc20_details": {
-                        "decimals": 18,
-                        "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",  # noqa: mock
-                        "borrow_index": "1",
-                        "supply_index": "1"
+                    "perp_details": {
+                        "index": "BTC-USD",
+                        "max_rate_per_hour": "0.004",
+                        "min_rate_per_hour": "-0.004",
+                        "static_interest_rate": "0.0000125",
+                        "aggregate_funding": "738.587599416709606114",
+                        "funding_rate": "-0.000033660522457857"
                     },
+                    'erc20_details': None,
                     "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",  # noqa: mock
                     "base_asset_sub_id": "0",
                     "pro_rata_fraction": "0",
@@ -256,7 +268,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {"result": {
             "instruments": [
                 {
-                    'instrument_type': 'erc20',  # noqa: mock
+                    'instrument_type': 'perp',  # noqa: mock
                     'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
@@ -270,9 +282,9 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     'base_currency': 'BTC',
                     'quote_currency': 'USDC',
                     'option_details': None,
-                    "erc20_details": {
+                    "perp_details": {
                         "decimals": 18,
-                        "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",  # noqa: mock
+                        "underlying_perp_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",  # noqa: mock
                         "borrow_index": "1",
                         "supply_index": "1"
                     },
@@ -313,7 +325,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                              'subaccount_id': 37799,
                              'collaterals': [
                                  {
-                                     'asset_type': 'erc20', 'asset_name': self.base_asset, 'currency': self.base_asset, 'amount': '15',
+                                     'asset_type': 'perp', 'asset_name': self.base_asset, 'currency': self.base_asset, 'amount': '15',
                                      'mark_price': '1.676380380787058688', 'mark_value': '33.52',
                                      'cumulative_interest': '0', 'pending_interest': '0', 'initial_margin': '17.0990798',
                                      'maintenance_margin': '20.1165645',
@@ -322,7 +334,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                                      'unrealized_pnl_excl_fees': '-0.064392', 'open_orders_margin': '-87.884668', 'creation_timestamp': 1737811465712
                                  },
                                  {
-                                     'asset_type': 'erc20', 'asset_name': self.quote_asset, 'currency': self.quote_asset, 'amount': '2000',
+                                     'asset_type': 'perp', 'asset_name': self.quote_asset, 'currency': self.quote_asset, 'amount': '2000',
                                      'mark_price': '1', 'mark_value': '75.3929188',
                                      'cumulative_interest': '0.046965277',
                                      'pending_interest': '0.001969',
@@ -346,7 +358,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 'subaccount_id': 37799,
                 'collaterals': [
                     {
-                        'asset_type': 'erc20', 'asset_name': self.base_asset, 'currency': self.base_asset, 'amount': '15',
+                        'asset_type': 'perp', 'asset_name': self.base_asset, 'currency': self.base_asset, 'amount': '15',
                         'mark_price': '1.676380380787058688', 'mark_value': '33.5276076175',
                         'cumulative_interest': '0', 'pending_interest': '0', 'initial_margin': '17.09905',
                         'maintenance_margin': '20.11656',
@@ -437,10 +449,10 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @property
     def funding_info_mock_response(self):
         mock_response = self.latest_prices_request_mock_response
-        funding_info = mock_response[1][0]
-        funding_info["markPx"] = self.target_funding_info_mark_price
+        funding_info = mock_response["result"]
+        funding_info["mark_price"] = self.target_funding_info_mark_price
         # funding_info["index_price"] = self.target_funding_info_index_price
-        funding_info["funding"] = self.target_funding_info_rate
+        funding_info["perpetual"]["funding_rate"] = self.target_funding_info_rate
         return mock_response
 
     @property
@@ -810,7 +822,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def get_trading_rule_rest_msg(self):
         return [
             {
-                'instrument_type': 'erc20',
+                'instrument_type': 'perp',
                 'instrument_name': f'{self.base_asset}-{self.quote_asset}',
                 'scheduled_activation': 1728508925,
                 'scheduled_deactivation': 9223372036854775807,
@@ -826,10 +838,9 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 'base_currency': 'BTC',
                 'quote_currency': 'USDC',
                 'option_details': None,
-                'perp_details': None,
-                'erc20_details': {
+                'perp_details': {
                     'decimals': 18,
-                    'underlying_erc20_address': '0x15CEcd5190A43C7798dD2058308781D0662e678E',  # noqa: mock
+                    'underlying_perp_address': '0x15CEcd5190A43C7798dD2058308781D0662e678E',  # noqa: mock
                     'borrow_index': '1', 'supply_index': '1'},
                 'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55',  # noqa: mock
                 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
