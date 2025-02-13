@@ -514,7 +514,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
     async def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
         exchange_order_id = str(order_fill.get("order_id"))
         fillable_order = all_fillable_order.get(exchange_order_id)
-        print(exchange_order_id)
         if fillable_order is not None:
             _token = await self.trading_pair_associated_to_exchange_symbol(symbol=order_fill["instrument_name"])
             fee_asset = _token.split("-")[1]
