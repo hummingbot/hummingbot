@@ -27,6 +27,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.core.network_iterator import NetworkStatus
 
 
 class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -1673,6 +1674,24 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                             trading_rule.min_price_increment)
 
     @aioresponses()
+    def test_check_network_raises_cancel_exception(self, mock_api):
+        url = self.network_status_url
+
+        mock_api.post(url, exception=asyncio.CancelledError)
+
+        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.exchange.check_network())
+
+    @aioresponses()
+    def test_check_network_success(self, mock_api):
+        url = self.network_status_url
+        response = self.network_status_request_successful_mock_response
+        mock_api.post(url, body=json.dumps(response))
+
+        network_status = self.async_run_with_timeout(coroutine=self.exchange.check_network())
+
+        self.assertEqual(NetworkStatus.CONNECTED, network_status)
+
+    @aioresponses()
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
         pass
 
@@ -1738,6 +1757,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
+        """Open long position"""
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1750,6 +1770,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                       body=json.dumps(creation_response),
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
+        leverage = 2
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order()
         self.async_run_with_timeout(request_sent_event.wait())
 
@@ -1770,17 +1792,21 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order_id, create_event.order_id)
         self.assertEqual(str(self.expected_exchange_order_id),
                          create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
         self.assertTrue(
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000')}."
+                f"{Decimal('100.00')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
+                f"at {Decimal('10000')}."
             )
         )
 
     @aioresponses()
     def test_create_sell_limit_order_successfully(self, mock_api):
+        """Open short position"""
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1791,6 +1817,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_api.post(url,
                       body=json.dumps(creation_response),
                       callback=lambda *args, **kwargs: request_sent_event.set())
+        leverage = 3
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order()
         self.async_run_with_timeout(request_sent_event.wait())
 
@@ -1809,12 +1837,15 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(Decimal("10000"), create_event.price)
         self.assertEqual(order_id, create_event.order_id)
         self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.OPEN.value, create_event.position)
 
         self.assertTrue(
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000')}."
+                f"{Decimal('100.00')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
+                f"at {Decimal('10000')}."
             )
         )
 
