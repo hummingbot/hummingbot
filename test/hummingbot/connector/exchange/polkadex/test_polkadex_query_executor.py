@@ -61,9 +61,9 @@ class PolkadexQueryExecutorTests(TestCase):
             "getAllMarkets"
         ))
 
-        mock_transport.called_once()
+        mock_transport.assert_called_once()
         mock_client.assert_called_once_with(transport=mock_transport(), fetch_schema_from_transport=False)
-        session_mock.execute.called_once_with(query, variable_values={}, parse_result=True)
+        session_mock.execute.assert_called_once_with(query, variable_values={}, parse_result=True)
         self.assertEqual(result, 23)
 
     @patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.AppSyncWebsocketsTransport")
@@ -95,14 +95,14 @@ class PolkadexQueryExecutorTests(TestCase):
             get_all_items_from_async_iter(graphql_query_executor._subscribe_to_stream("big-bro-is-watching-you"))
         )
 
-        mock_transport.called_once()
+        mock_transport.assert_called_once()
         mock_client.assert_called_once_with(transport=mock_transport(), fetch_schema_from_transport=False)
-        session_mock.subscribe.called_once_with(query, variable_values={"name": "big-bro-is-watching-you"}, parse_result=True)
+        session_mock.subscribe.assert_called_once_with(query, variable_values={"name": "big-bro-is-watching-you"}, parse_result=True)
         self.assertEqual(result, [23, 42])
 
     def test_timestamp_to_aws_datetime_string(self):
         aws_datetime_str = GrapQLQueryExecutor._timestamp_to_aws_datetime_string(1715663798.5271418)
-        self.assertEqual(aws_datetime_str, '2024-05-14T05:16:38.527Z')
+        self.assertEqual(aws_datetime_str, '2024-05-14T05:16:38.527+00:00')
 
     def test_query_all_pages_with_empty_next_token(self):
         query = gql(
@@ -459,7 +459,7 @@ class PolkadexQueryExecutorTests(TestCase):
         dt = datetime(2020, 5, 9)
 
         with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
-            datetime_mock.utcnow = MagicMock(return_value=dt)
+            datetime_mock.datetime.now = MagicMock(return_value=dt)
             self.async_run_with_timeout(graphql_query_executor.set_websocket_failure_timestamp())
 
         self.assertEqual(graphql_query_executor._websocket_failure_timestamp, dt.timestamp())
@@ -474,7 +474,7 @@ class PolkadexQueryExecutorTests(TestCase):
         dt = datetime(2020, 5, 9)
 
         with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
-            datetime_mock.utcnow = MagicMock(return_value=dt)
+            datetime_mock.datetime.now = MagicMock(return_value=dt)
             self.async_run_with_timeout(graphql_query_executor.websocket_connect_failure())
 
         self.assertEqual(graphql_query_executor._websocket_failure_timestamp, dt.timestamp())
@@ -491,7 +491,7 @@ class PolkadexQueryExecutorTests(TestCase):
         self.assertFalse(graphql_query_executor._restart_initialization)
 
         with patch("hummingbot.connector.exchange.polkadex.polkadex_query_executor.datetime") as datetime_mock:
-            datetime_mock.utcnow = MagicMock(return_value=datetime(2020, 5, 10))
+            datetime_mock.datetime.now = MagicMock(return_value=datetime(2020, 5, 10))
             self.async_run_with_timeout(graphql_query_executor.websocket_connect_failure())
 
         self.assertEqual(graphql_query_executor._websocket_failure_timestamp, dt.timestamp())
