@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 
 class DerivePerpetualDerivative(PerpetualDerivativePyBase):
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     web_utils = web_utils
 
     SHORT_POLL_INTERVAL = 5.0
@@ -508,6 +509,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     exc_info = request_error,
                 )
             for trade_fill in all_fills_response["result"]["trades"]:
+                print(trade_fill)
                 self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
 
     def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
