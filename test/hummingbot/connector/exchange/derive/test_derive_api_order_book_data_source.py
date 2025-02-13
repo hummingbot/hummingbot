@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
-from typing import Awaitable, Dict
-from unittest import TestCase
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -17,7 +17,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
-class DeriveAPIOrderBookDataSourceTests(TestCase):
+class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -30,8 +30,8 @@ class DeriveAPIOrderBookDataSourceTests(TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
@@ -81,18 +81,12 @@ class DeriveAPIOrderBookDataSourceTests(TestCase):
         self.resume_test_event.set()
         return None
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     @aioresponses()
     @patch("hummingbot.connector.exchange.derive.derive_api_order_book_data_source"
            ".DeriveAPIOrderBookDataSource._time")
-    def test_get_new_order_book_successful(self, mock_api, mock_time):
+    async def test_get_new_order_book_successful(self, mock_api, mock_time):
         mock_time.return_value = 1737885894
-        order_book: OrderBook = self.async_run_with_timeout(
-            self.data_source.get_new_order_book(self.trading_pair)
-        )
+        order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
 
         expected_update_id = 1737885894
 
@@ -176,18 +170,18 @@ class DeriveAPIOrderBookDataSourceTests(TestCase):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+            self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+    async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self._is_logged(
@@ -196,32 +190,26 @@ class DeriveAPIOrderBookDataSourceTests(TestCase):
             )
         )
 
-    def test_subscribe_to_channels_raises_cancel_exception(self):
+    async def test_subscribe_to_channels_raises_cancel_exception(self):
         self._simulate_trading_rules_initialized()
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_channels(mock_ws)
-            )
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source._subscribe_channels(mock_ws)
 
-    def test_subscribe_to_channels_raises_exception_and_logs_error(self):
+    async def test_subscribe_to_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_channels(mock_ws)
-            )
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source._subscribe_channels(mock_ws)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
         )
 
-    def test_listen_for_trades_cancelled_when_listening(self):
+    async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -229,12 +217,9 @@ class DeriveAPIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
 
-    def test_listen_for_trades_logs_exception(self):
+    async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
             "error": 0,
             "message": "",
@@ -270,19 +255,15 @@ class DeriveAPIOrderBookDataSourceTests(TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-        )
-
         try:
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
-    def test_listen_for_trades_successful(self):
+    async def test_listen_for_trades_successful(self):
         self._simulate_trading_rules_initialized()
 
         mock_queue = AsyncMock()
@@ -291,10 +272,9 @@ class DeriveAPIOrderBookDataSourceTests(TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue))
+        await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual("5f249af2-2a84-47b2-946e-2552f886f0a8", msg.trade_id)
 
