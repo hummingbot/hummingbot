@@ -1,9 +1,9 @@
 import asyncio
+import datetime
 import json
 import logging
 import sys
 from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Any, AsyncIterable, Callable, Dict, List, Optional
 
 from gql import Client, gql
@@ -476,13 +476,13 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
     async def websocket_connect_failure(self):
         self.logger().info(f"Websocket connect failure.{self._websocket_failure}")
         if self._websocket_failure:
-            if abs(self._websocket_failure_timestamp - datetime.utcnow().timestamp()) > float(10):
+            if abs(self._websocket_failure_timestamp - datetime.datetime.now(datetime.UTC).timestamp()) > float(10):
                 self._restart_initialization = True
         else:
             await self.set_websocket_failure_timestamp()
 
     async def set_websocket_failure_timestamp(self):
-        self._websocket_failure_timestamp = datetime.utcnow().timestamp()
+        self._websocket_failure_timestamp = datetime.datetime.now(datetime.UTC).timestamp()
         self._websocket_failure = True
 
     async def listen_to_public_trades(self, events_handler: Callable, market_symbol: str):
@@ -552,8 +552,9 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
 
     @staticmethod
     def _timestamp_to_aws_datetime_string(timestamp: float) -> str:
-        timestamp_string = datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + "Z"
-        return timestamp_string
+        return datetime.datetime.fromtimestamp(timestamp, datetime.UTC).isoformat(
+            timespec="milliseconds"
+        )
 
     async def _query_all_pages(
         self,

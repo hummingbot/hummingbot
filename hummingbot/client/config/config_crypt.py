@@ -14,9 +14,9 @@ from eth_keyfile.keyfile import (
     encode_hex_no_prefix,
     encrypt_aes_ctr,
     get_default_work_factor_for_kdf,
-    int_to_big_endian,
     keccak,
 )
+from eth_utils import int_to_big_endian
 from pydantic.v1 import SecretStr
 
 from hummingbot.client.settings import CONF_DIR_PATH
