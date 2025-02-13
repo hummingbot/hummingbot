@@ -25,7 +25,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        cls.base_asset = "COINALPHA"
+        cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -166,12 +166,11 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
+    async def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            await self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -227,7 +226,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 {
                     "created_at": 1642994704633,
                     "trade_id": 1005483402,
-                    "instrument_id": "COINALPHA-USDC",
+                    "instrument_id": "BTC-USDC",
                     "qty": "1.00000000",
                     "side": "sell",
                     "sigma": "0.00000000",
@@ -238,7 +237,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 {
                     "created_at": 1642994704241,
                     "trade_id": 1005483400,
-                    "instrument_id": "COINALPHA-USDC",
+                    "instrument_id": "BTC-USDC",
                     "qty": "1.00000000",
                     "side": "sell",
                     "sigma": "0.00000000",
@@ -272,7 +271,8 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
         msg: OrderBookMessage = await msg_queue.get()
 
