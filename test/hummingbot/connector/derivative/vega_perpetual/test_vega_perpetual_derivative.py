@@ -623,6 +623,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await asyncio.sleep(0.1)
 
         self.assertTrue(self._is_logged(
             "ERROR",
@@ -641,6 +642,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await asyncio.sleep(0.1)
 
         self.assertTrue(self._is_logged(
             "ERROR",
@@ -690,6 +692,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await asyncio.sleep(0.1)
 
         bal1 = self.exchange._account_balances["COINALPHA"]
         expected1 = Decimal(3500)
@@ -825,6 +828,7 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await asyncio.sleep(0.1)
 
         bal1 = self.exchange._account_balances["HBOT"]
         expected1 = Decimal(1)
