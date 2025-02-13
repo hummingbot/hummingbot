@@ -41,7 +41,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         cls.api_key = "0x79d7511382b5dFd1185F6AF268923D3F9FC31B53"  # noqa: mock
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.sub_id = "45686"  # noqa: mock
-        cls.base_asset = "COINALPHA"
+        cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
@@ -97,7 +97,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "instruments": [
                 {
                     'instrument_type': 'erc20',  # noqa: mock
-                    'instrument_name': 'COINALPHA-USDC',
+                    'instrument_name': 'BTC-USDC',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -109,7 +109,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     'maker_fee_rate': '0.0015',
                     'taker_fee_rate': '0.0015',
                     'base_fee': '0.1',
-                    'base_currency': 'COINALPHA',
+                    'base_currency': 'BTC',
                     'quote_currency': 'USDC',
                     'option_details': None,
                     "erc20_details": {
@@ -139,7 +139,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         mock_response = {
             "result": {
                 'instrument_type': 'erc20',  # noqa: mock
-                'instrument_name': 'COINALPHA-USDC',
+                'instrument_name': 'BTC-USDC',
                 'scheduled_activation': 1734464971,
                 'scheduled_deactivation': 9223372036854775807,
                 'is_active': True,
@@ -151,7 +151,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 'maker_fee_rate': '0.0015',
                 'taker_fee_rate': '0.0015',
                 'base_fee': '0.1',
-                'base_currency': 'COINALPHA',
+                'base_currency': 'BTC',
                 'quote_currency': 'USDC',
                 'option_details': None,
                 'perp_details': None,
@@ -181,7 +181,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "instruments": [
                 {
                     'instrument_type': 'erc20',  # noqa: mock
-                    'instrument_name': 'COINALPHA-USDC',
+                    'instrument_name': 'BTC-USDC',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -193,7 +193,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     'maker_fee_rate': '0.0015',
                     'taker_fee_rate': '0.0015',
                     'base_fee': '0.1',
-                    'base_currency': 'COINALPHA',
+                    'base_currency': 'BTC',
                     'quote_currency': 'USDC',
                     'option_details': None,
                     "erc20_details": {
@@ -227,7 +227,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def currency_request_mock_response(self):
         return {
             'result': [
-                {'currency': 'COINALPHA', 'spot_price': '27.761323954505412608', 'spot_price_24h': '33.240154426604556288'},
+                {'currency': 'BTC', 'spot_price': '27.761323954505412608', 'spot_price_24h': '33.240154426604556288'},
             ]
         }
 
@@ -241,7 +241,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "instruments": [
                 {
                     'instrument_type': 'erc20',  # noqa: mock
-                    'instrument_name': 'COINALPHA-USDC',
+                    'instrument_name': 'BTC-USDC',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -251,7 +251,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     'maker_fee_rate': '0.0015',
                     'taker_fee_rate': '0.0015',
                     'base_fee': '0.1',
-                    'base_currency': 'COINALPHA',
+                    'base_currency': 'BTC',
                     'quote_currency': 'USDC',
                     'option_details': None,
                     "erc20_details": {
@@ -681,7 +681,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 'maker_fee_rate': '0.0015',
                 'taker_fee_rate': '0.0015',
                 'base_fee': '0.1',
-                'base_currency': 'COINALPHA',
+                'base_currency': 'BTC',
                 'quote_currency': 'USDC',
                 'option_details': None,
                 'perp_details': None,
@@ -699,7 +699,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'COINALPHA-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-USDC', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -728,7 +728,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'COINALPHA-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-USDC', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -758,7 +758,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'COINALPHA-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-USDC', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
