@@ -106,7 +106,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "instruments": [
                 {
                     'instrument_type': 'erc20',  # noqa: mock
-                    'instrument_name': 'BTC-USDC',
+                    'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -148,7 +148,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {
             "result": {
                 'instrument_type': 'erc20',  # noqa: mock
-                'instrument_name': 'BTC-USDC',
+                'instrument_name': 'BTC-PERP',
                 'scheduled_activation': 1734464971,
                 'scheduled_deactivation': 9223372036854775807,
                 'is_active': True,
@@ -197,7 +197,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "instruments": [
                 {
                     'instrument_type': 'erc20',  # noqa: mock
-                    'instrument_name': 'BTC-USDC',
+                    'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -257,7 +257,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "instruments": [
                 {
                     'instrument_type': 'erc20',  # noqa: mock
-                    'instrument_name': 'BTC-USDC',
+                    'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -297,7 +297,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {'result':
                          {'order': {'subaccount_id': 37799,
                                     'order_id': self.expected_exchange_order_id,
-                                    'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'direction': 'sell',
+                                    'instrument_name': f"{self.base_asset}-PERP", 'direction': 'sell',
                                     'label': '0x7ce68975412a84fc4408b86296f7d1b6',  # noqa: mock
                                     'quote_id': None, 'creation_timestamp': 1737806729813, 'last_update_timestamp': 1737806729813,
                                     'limit_price': '1.7019', 'amount': '4.74', 'filled_amount': '0', 'average_price': '0', 'order_fee': '0',
@@ -841,7 +841,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'BTC-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-PERP', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -870,7 +870,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'BTC-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-PERP', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -900,7 +900,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'BTC-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-PERP', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -1188,7 +1188,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 {
                     'subaccount_id': 37799,
                     'order_id': '50996f90-87f5-414f-b9cc-8a00d84f39eb',  # noqa: mock
-                    'instrument_name': f"{self.base_asset}-{self.quote_asset}",
+                    'instrument_name': f"{self.base_asset}-PERP",
                     'direction': 'buy',
                     'label': '0x3e8a0c2c2969dfdc0604f6c81d4722d1',  # noqa: mock
                     'quote_id': None,
@@ -1208,7 +1208,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {'result':
                 {
                     'subaccount_id': 37799, 'order_id': str(order.exchange_order_id),
-                    'instrument_name': f"{self.base_asset}-{self.quote_asset}",
+                    'instrument_name': f"{self.base_asset}-PERP",
                     'direction': 'buy',
                     'label': '0x3e8a0c2c2969dfdc0604f6c81d4722d1',  # noqa: mock
                     'quote_id': None,
@@ -1228,7 +1228,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {'result':
                 {
                     'subaccount_id': 37799, 'order_id': str(order.exchange_order_id),
-                    'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'direction': 'buy', 'label': order.client_order_id,
+                    'instrument_name': f"{self.base_asset}-PERP", 'direction': 'buy', 'label': order.client_order_id,
                     'quote_id': None, 'creation_timestamp': 1700814942565, 'last_update_timestamp': 1737833906895,
                     'limit_price': str(order.price), 'amount': str(order.amount), 'filled_amount': '0E-18',
                     'average_price': '0', 'order_fee': '0E-18', 'order_type': 'limit', 'time_in_force': 'gtc',
@@ -1280,7 +1280,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {'result':
                 {
                     'subaccount_id': 37799, 'order_id': str(order.exchange_order_id),
-                    'instrument_name': f"{self.base_asset}-{self.quote_asset}",
+                    'instrument_name': f"{self.base_asset}-PERP",
                     'direction': 'buy',
                     'label': '0x3e8a0c2c2969dfdc0604f6c81d4722d1',  # noqa: mock
                     'quote_id': None,
@@ -1927,7 +1927,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     {
                         'subaccount_id': 37799,
                         'order_id': order.exchange_order_id,
-                        'instrument_name': f'{self.base_asset}-{self.quote_asset}',
+                        'instrument_name': f"{self.base_asset}-PERP",
                         'direction': 'buy', 'label': order.client_order_id,
                         'quote_id': None,
                         'trade_id': 30000,
@@ -1946,7 +1946,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     {
                         'subaccount_id': 37799,
                         'order_id': 99999,
-                        'instrument_name': f'{self.base_asset}-{self.quote_asset}',
+                        'instrument_name': f"{self.base_asset}-PERP",
                         'direction': 'buy', 'label': order.client_order_id,
                         'quote_id': None,
                         'trade_id': 30000,
@@ -2099,7 +2099,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     {
                         'subaccount_id': 37799,
                         'order_id': 99999,
-                        'instrument_name': f'{self.base_asset}-{self.quote_asset}',
+                        'instrument_name': f"{self.base_asset}-PERP",
                         'direction': 'buy',
                         'label': '',
                         'quote_id': None,
