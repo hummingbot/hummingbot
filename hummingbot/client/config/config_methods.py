@@ -1,6 +1,7 @@
 from typing import Callable
 
-import pydantic_core
+# import pydantic_core
+from pydantic.v1.json import pydantic_encoder
 
 from hummingbot.client.config.config_var import ConfigVar
 
@@ -21,5 +22,5 @@ def strategy_config_schema_encoder(o):
     if callable(o):
         return None
     else:
-        # return pydantic_encoder(o)pydantic_core.to_jsonable_python
-        return pydantic_core.to_jsonable_python(o)
+        return pydantic_encoder(o)
+        # return pydantic_core.to_jsonable_python(o)
