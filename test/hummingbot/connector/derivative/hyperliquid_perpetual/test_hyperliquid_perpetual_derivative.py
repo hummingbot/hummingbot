@@ -1361,7 +1361,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 order=order,
                 request_call=cancel_request)
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
             any(
                 log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
