@@ -17,12 +17,14 @@ class ConnectionsFactory:
     a separate third-party library. In that case, a factory can be created that returns `RESTConnection`s using
     `aiohttp` and `WSConnection`s using `signalr_aio`.
     """
+    _instance: Optional["ConnectionsFactory"] = None
+    _ws_independent_session: Optional[aiohttp.ClientSession] = None
+    _shared_client: Optional[aiohttp.ClientSession] = None
 
-    def __init__(self):
-        # _ws_independent_session is intended to be used only in unit tests
-        self._ws_independent_session: Optional[aiohttp.ClientSession] = None
-
-        self._shared_client: Optional[aiohttp.ClientSession] = None
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     async def get_rest_connection(self) -> RESTConnection:
         shared_client = await self._get_shared_client()
