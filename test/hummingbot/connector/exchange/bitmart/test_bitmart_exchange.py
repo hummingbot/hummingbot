@@ -624,7 +624,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         # Disabling this test because the anomylous error that occurs when new pairs
         # are listed thorws a KeyError which we are now swallowing
         pass
-    
+
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
             "code": 1000,
