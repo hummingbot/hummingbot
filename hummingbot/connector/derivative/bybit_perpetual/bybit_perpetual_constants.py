@@ -99,7 +99,9 @@ GET_WALLET_BALANCE_PATH_URL = {
     NON_LINEAR_MARKET: "v5/account/wallet-balance"}
 SET_POSITION_MODE_URL = {
     LINEAR_MARKET: "v5/position/switch-mode"}
-
+GET_TRANSFERABLE_AMOUNT_PATH_URL = {
+    LINEAR_MARKET: "v5/account/withdrawal",
+}
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
 

@@ -419,7 +419,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls REST API to update total and available balances
         """
-        unified_wallet_response = await self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL, params={"accountType": "UNIFIED"},
+        unified_wallet_response = await self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
+                                                      params={"accountType": "UNIFIED"},
                                                       is_auth_required=True)
         if unified_wallet_response["retCode"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(unified_wallet_response['retCode'])
@@ -433,7 +434,23 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
         for asset in unified_wallet_balance:
             self._account_balances[asset["coin"]] = Decimal(asset["equity"])
-            self._account_available_balances[asset["coin"]] = Decimal(asset["availableToWithdraw"])
+
+        available_coins = self._account_balances.keys()
+
+        for coin in available_coins:
+            available_balance = await self._fetch_available_balance(coin)
+            self._account_available_balances[coin] = available_balance
+
+    async def _fetch_available_balance(self, coin: str):
+        available_balance_resp = await self._api_get(path_url=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL,
+                                                     params={"coinName": coin},
+                                                     is_auth_required=True)
+        if available_balance_resp["retCode"] != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(available_balance_resp['retCode'])
+            raise IOError(f"{formatted_ret_code} - {available_balance_resp['retMsg']}")
+        balance_data = available_balance_resp["result"]
+        available_balance_str = balance_data.get("availableWithdrawal", "0.0")
+        return Decimal(available_balance_str)
 
     async def _update_positions(self):
         """
