@@ -466,6 +466,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             "is_bid": True if trade_type is TradeType.BUY else False,
             "direction": "buy" if trade_type is TradeType.BUY else "sell",
             "order_type": price_type,
+            "reduce_only": position_action == PositionAction.CLOSE,
             "mmp": False,
             "time_in_force": param_order_type,
             "recipient_id": self._sub_id,
