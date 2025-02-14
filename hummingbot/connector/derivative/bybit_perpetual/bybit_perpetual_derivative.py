@@ -109,8 +109,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _make_trading_rules_request(self) -> Any:
         linear_trading_rules_response, non_linear_trading_rules_response = await asyncio.gather(
-            self._api_get(path_url=self.trading_rules_request_path, params={"category": "linear"}),
-            self._api_get(path_url=self.trading_rules_request_path, params={"category": "inverse"})
+            self._api_get(path_url=self.trading_rules_request_path, params={"category": "linear", "limit": 1000}),
+            self._api_get(path_url=self.trading_rules_request_path, params={"category": "inverse", "limit": 1000})
         )
         for exchange_info_response in [linear_trading_rules_response, non_linear_trading_rules_response]:
             if exchange_info_response["retCode"] != CONSTANTS.RET_CODE_OK:

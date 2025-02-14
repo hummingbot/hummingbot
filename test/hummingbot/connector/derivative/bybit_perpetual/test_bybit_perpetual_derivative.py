@@ -40,7 +40,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
     @property
     def all_symbols_url(self):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
-        params = {"category": "linear"}
+        params = {"category": "linear", "limit": 1000}
         encoded_params = urlencode(params)
         url = f"{url}?{encoded_params}"
         return url
@@ -61,7 +61,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
     @property
     def trading_rules_url(self):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
-        params = {"category": "linear"}
+        params = {"category": "linear", "limit": 1000}
         encoded_params = urlencode(params)
         url = f"{url}?{encoded_params}"
         return url
