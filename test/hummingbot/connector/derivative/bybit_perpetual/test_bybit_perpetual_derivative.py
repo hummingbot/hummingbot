@@ -667,6 +667,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             trading_pair=self.trading_pair,
             min_order_size=Decimal(str(trading_rules_resp["lotSizeFilter"]["minOrderQty"])),
             max_order_size=Decimal(str(trading_rules_resp["lotSizeFilter"]["maxOrderQty"])),
+            min_notional_size=Decimal(str(trading_rules_resp["lotSizeFilter"]["minNotionalValue"])),
             min_price_increment=Decimal(str(trading_rules_resp["priceFilter"]["tickSize"])),
             min_base_amount_increment=Decimal(str(trading_rules_resp["lotSizeFilter"]["qtyStep"])),
         )
@@ -1732,12 +1733,14 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                 trading_pair=self.trading_pair,
                 min_order_size=Decimal(str(0.01)),
                 min_price_increment=Decimal(str(0.0001)),
+                min_notional_size=Decimal("5"),
                 min_base_amount_increment=Decimal(str(0.000001)),
             ),
             self.non_linear_trading_pair: TradingRule(  # non-linear
                 trading_pair=self.non_linear_trading_pair,
                 min_order_size=Decimal(str(0.01)),
                 min_price_increment=Decimal(str(0.0001)),
+                min_notional_size=Decimal("5"),
                 min_base_amount_increment=Decimal(str(0.000001)),
             ),
         }

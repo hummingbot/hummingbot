@@ -732,6 +732,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     trading_rules[trading_pair] = TradingRule(
                         trading_pair=trading_pair,
                         min_order_size=Decimal(instrument["lotSizeFilter"]["minOrderQty"]),
+                        min_notional_size=Decimal(instrument["lotSizeFilter"]["minNotionalValue"]),
                         max_order_size=Decimal(instrument["lotSizeFilter"]["maxOrderQty"]),
                         min_price_increment=Decimal(instrument["priceFilter"]["tickSize"]),
                         min_base_amount_increment=Decimal(instrument["lotSizeFilter"]["qtyStep"]),
