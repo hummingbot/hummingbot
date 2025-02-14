@@ -58,7 +58,7 @@ conda develop .
 
 # For some reason, this needs to be installed outside of the environment file,
 # or it'll give you the graphviz install error.
-pip install objgraph
+pip install --no-deps eip712-structs
 
 pre-commit install
 

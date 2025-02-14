@@ -1,7 +1,6 @@
 import asyncio
 import json
-import unittest
-from typing import Awaitable
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 from aioresponses import aioresponses
 
@@ -10,7 +9,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
 
 
-class CubeRateSourceTest(unittest.TestCase):
+class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -25,10 +24,6 @@ class CubeRateSourceTest(unittest.TestCase):
         cls.cube_test_trading_pair = combine_to_hb_trading_pair(base=cls.base_test_token, quote=cls.quote_test_token)
         cls.cube_ignored_pair = "SOMEPAIR"
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 5):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def setup_cube_responses(self, mock_api, expected_rate: float):
         pairs_test_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain="staging")
@@ -228,7 +223,7 @@ class CubeRateSourceTest(unittest.TestCase):
         self.setup_cube_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = CubeRateSource()
-        prices = self.async_run_with_timeout(rate_source.get_prices())
+        prices = self.run_async_with_timeout(rate_source.get_prices())
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
