@@ -830,12 +830,34 @@ class DeriveExchange(ExchangePyBase):
         return trade_updates
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
+        await self.trading_pair_symbol_map()
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {"instrument_name": exchange_symbol}
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
                                         data=payload)
 
         return response["result"]["mark_price"]
+
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
+        if trading_pairs is None:
+            trading_pairs = []
+
+        symbol_map = await self.trading_pair_symbol_map()
+        exchange_symbols = await asyncio.gather(*[
+            self.exchange_symbol_associated_to_pair(trading_pair=pair) for pair in trading_pairs
+        ])
+        payloads = [{"instrument_name": symbol} for symbol in exchange_symbols]
+        responses = await asyncio.gather(*[
+            self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload)
+            for payload in payloads
+        ])
+        last_traded_prices = {}
+        for ticker in responses:
+            instrument_name = ticker["result"]["instrument_name"]
+            if instrument_name in symbol_map.keys():
+                mapped_name = await self.trading_pair_associated_to_exchange_symbol(instrument_name)
+                last_traded_prices[mapped_name] = float(ticker["result"]["mark_price"])
+        return last_traded_prices
 
     async def _make_network_check_request(self):
         await self._api_get(path_url=self.check_network_request_path)
