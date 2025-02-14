@@ -416,7 +416,7 @@ class DeriveExchange(ExchangePyBase):
         exchange_order_id = str(order_fill.get("order_id"))
         fillable_order = all_fillable_order.get(exchange_order_id)
         if fillable_order is not None:
-            token = order_fill["instrument_name"].split("-")[0]
+            token = order_fill["instrument_name"].split("-")[1]
             fee_asset = token
 
             fee = TradeFeeBase.new_spot_fee(

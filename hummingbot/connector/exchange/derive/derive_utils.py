@@ -7,14 +7,14 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Maker rebates(-0.02%) are paid out continuously on each trade directly to the trading wallet.(https://derive.gitbook.io/derive-docs/trading/fees)
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0"),
-    taker_percent_fee_decimal=Decimal("0.00025"),
+    maker_percent_fee_decimal=Decimal("0.01"),
+    taker_percent_fee_decimal=Decimal("0.03"),
     buy_percent_fee_deducted_from_returns=True
 )
 
 CENTRALIZED = False
 
-EXAMPLE_PAIR = "BTC-USD"
+EXAMPLE_PAIR = "OP-USDC"
 
 BROKER_ID = "HBOT"
 
