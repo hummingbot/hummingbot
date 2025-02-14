@@ -849,7 +849,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             instrument_name = ticker["result"]["instrument_name"]
             if instrument_name in symbol_map.keys():
                 mapped_name = await self.trading_pair_associated_to_exchange_symbol(instrument_name)
-                last_traded_prices[mapped_name] = float(ticker["result"]["mark_price"])
+                last_traded_prices[mapped_name] = Decimal(ticker["result"]["mark_price"])
         return last_traded_prices
 
     async def _update_positions(self):
