@@ -278,7 +278,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                 "volume_24": "117387.58",
                 "mark_price": "146.24",
                 "last_price": "146.24",
-                "index_price": "146.24",
+                "index_price": "146.28",
                 "range": "147.17",
                 "ask_price": "147.11",
                 "ask_vol": "1",
@@ -472,3 +472,11 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         await self.data_source._parse_exchange_info_message(mock_msg)
         self.assertIsNone(self.data_source._last_mark_prices.get("NEWSYMBOL"))
         self.assertIsNone(self.data_source._last_index_prices.get("NEWSYMBOL"))
+
+    async def test_parse_exchange_info_message_success(self):
+        mock_msg = self._ticker_event()
+        await self.data_source._parse_exchange_info_message(mock_msg)
+        self.assertIn(self.trading_pair, self.data_source._last_mark_prices.keys())
+        self.assertEqual(Decimal("146.24"), self.data_source._last_mark_prices[self.trading_pair])
+        self.assertIn(self.trading_pair, self.data_source._last_index_prices.keys())
+        self.assertEqual(Decimal("146.28"), self.data_source._last_index_prices[self.trading_pair])
