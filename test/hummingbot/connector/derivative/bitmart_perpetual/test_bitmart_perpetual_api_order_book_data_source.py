@@ -276,8 +276,9 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             "data": {
                 "symbol": self.ex_trading_pair,
                 "volume_24": "117387.58",
-                "fair_price": "146.24",
+                "mark_price": "146.24",
                 "last_price": "146.24",
+                "index_price": "146.24",
                 "range": "147.17",
                 "ask_price": "147.11",
                 "ask_vol": "1",
