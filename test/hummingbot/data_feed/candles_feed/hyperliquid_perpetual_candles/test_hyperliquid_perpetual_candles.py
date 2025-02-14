@@ -149,7 +149,7 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
         data_mock = self.get_candles_rest_data_mock()
         mock_api.post(url=regex_url, body=json.dumps(data_mock))
 
-        resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
+        resp = self.run_async_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
                                                                         end_time=self.end_time))
 
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))
