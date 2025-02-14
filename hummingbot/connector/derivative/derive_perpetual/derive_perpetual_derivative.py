@@ -516,12 +516,15 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         exchange_order_id = str(order_fill.get("order_id"))
         fillable_order = all_fillable_order.get(exchange_order_id)
         if fillable_order is not None:
-            _token = await self.trading_pair_associated_to_exchange_symbol(symbol=order_fill["instrument_name"])
-            fee_asset = _token.split("-")[1]
-
-            fee = TradeFeeBase.new_spot_fee(
+            fee_asset = fillable_order.quote_asset
+            position_side = PositionSide.LONG if order_fill["direction"] == 'buy' else PositionSide.SHORT
+            position_action = (PositionAction.OPEN
+                               if (fillable_order.trade_type is TradeType.BUY and position_side == "LONG"
+                                   or fillable_order.trade_type is TradeType.SELL and position_side == "SHORT")
+                               else PositionAction.CLOSE)
+            fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
-                trade_type=fillable_order.trade_type,
+                position_action=position_action,
                 percent_token=fee_asset,
                 flat_fees=[TokenAmount(amount=Decimal(order_fill["trade_fee"]), token=fee_asset)]
             )
@@ -611,9 +614,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=trade["instrument_name"])
         if symbol == trading_pair:
             fee_asset = tracked_order.quote_asset
-            fee = TradeFeeBase.new_spot_fee(
+            position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
+            position_action = (PositionAction.OPEN
+                               if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
+                                   or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
+                               else PositionAction.CLOSE)
+            fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
-                trade_type=tracked_order.trade_type,
+                position_action=position_action,
                 percent_token=fee_asset,
                 flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)]
             )
@@ -798,14 +806,18 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)
 
             for trade in all_fills_response["result"]["trades"]:
-                _token = await self.trading_pair_associated_to_exchange_symbol(trade["instrument_name"])
-                token = _token.split("-")[1]
+                fee_asset = order.quote_asset
                 exchange_order_id = str(trade["order_id"])
-                fee = TradeFeeBase.new_spot_fee(
+                position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
+                position_action = (PositionAction.OPEN
+                                   if (order.trade_type is TradeType.BUY and position_side == "LONG"
+                                       or order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                   else PositionAction.CLOSE)
+                fee = TradeFeeBase.new_perpetual_fee(
                     fee_schema=self.trade_fee_schema(),
-                    trade_type=order.trade_type,
-                    percent_token=token,
-                    flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=token)]
+                    position_action=position_action,
+                    percent_token=fee_asset,
+                    flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)]
                 )
                 trade_update = TradeUpdate(
                     trade_id=str(trade["trade_id"]),
