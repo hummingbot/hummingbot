@@ -57,6 +57,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._last_trade_history_timestamp = None
+        self._real_time_balance_update = False  # Remove this once bybit enables available balance again through ws
 
         super().__init__(client_config_map)
 
@@ -604,9 +605,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
                     for trade_msg in payload:
                         self._process_trade_event_message(trade_msg)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
-                    for wallet_msg in payload[0]["coin"]:
-                        self._process_wallet_event_message(wallet_msg)
                 elif endpoint is None:
                     self.logger().error(f"Could not extract endpoint from {event_message}.")
                     raise ValueError
@@ -715,18 +713,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 exchange_order_id=order_msg["orderId"],
             )
             self._order_tracker.process_order_update(new_order_update)
-
-    def _process_wallet_event_message(self, wallet_msg: Dict[str, Any]):
-        """
-        Updates account balances.
-        :param wallet_msg: The account balance update message payload
-        """
-        if "coin" in wallet_msg:  # non-linear
-            symbol = wallet_msg["coin"]
-        else:  # linear
-            symbol = "USDT"
-        self._account_balances[symbol] = Decimal(str(wallet_msg["equity"]))
-        self._account_available_balances[symbol] = Decimal(str(wallet_msg["availableToWithdraw"]))
 
     async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
