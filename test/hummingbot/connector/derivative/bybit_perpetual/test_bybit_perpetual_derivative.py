@@ -396,6 +396,33 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         }
         return mock_response
 
+    @staticmethod
+    def available_balance_request_mock_response_for_base(available_balance: float):
+        mock_response = {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "availableWithdrawal": str(available_balance)
+            },
+            "retExtInfo": {},
+            "time": 1739503317282
+        }
+        return mock_response
+
+    def _configure_available_balance_response(self,
+                                              mock_api: aioresponses,
+                                              coin_name: str,
+                                              available_balance: float) -> str:
+        mock_url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL
+        )
+        params = {"coinName": coin_name}
+        encoded_params = urlencode(params)
+        url = f"{mock_url}?{encoded_params}"
+
+        # Mock the API response to trigger a failure
+        mock_api.get(url, payload=self.available_balance_request_mock_response_for_base(available_balance))
+
     def _configure_balance_response(
             self,
             response: Dict[str, Any],
@@ -1313,7 +1340,74 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
 
     @aioresponses()
-    def test_update_balances_raises_error_when_failure(self, mock_api):
+    def test_update_balances(self, mock_api):
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        mock_api.side_effect = [
+            self._configure_available_balance_response(mock_api, self.base_asset, 10),
+            self._configure_available_balance_response(mock_api, self.quote_asset, 2000)
+        ]
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("10"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+        response = self.balance_request_mock_response_only_base
+
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        self._configure_available_balance_response(mock_api, self.base_asset, 10.0)
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertNotIn(self.quote_asset, available_balances)
+        self.assertNotIn(self.quote_asset, total_balances)
+        self.assertEqual(Decimal("10"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
+
+    @aioresponses()
+    def test_fetch_available_balance_failure(self, mock_api):
+        mock_url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL
+        )
+        params = {"coinName": self.base_asset}
+        encoded_params = urlencode(params)
+        url = f"{mock_url}?{encoded_params}"
+
+        # Mock the API response to trigger a failure
+        mock_api.get(url, payload={
+            "retCode": "ERROR_CODE",  # Not CONSTANTS.RET_CODE_OK, to simulate failure
+            "retMsg": "Mocked error message",
+            "result": {}
+        })
+
+        # Format the ret_code for expected error message
+        formatted_ret_code = self.exchange._format_ret_code_for_print("ERROR_CODE")
+
+        # Check for IOError with expected message and catch it to trigger breakpoints
+        with self.assertRaises(IOError) as context:
+            asyncio.get_event_loop().run_until_complete(self.exchange._fetch_available_balance(self.base_asset))
+
+        # Verify the error message is as expected
+        self.assertIn(f"{formatted_ret_code} - Mocked error message", str(context.exception))
+
+    @aioresponses()
+    def test_fetch_available_balance_success(self, mock_api):
+        self._configure_available_balance_response(mock_api, self.base_asset, 0.00646114)
+
+        # Format the ret_code for expected error message
+        coro = self.exchange._fetch_available_balance(self.base_asset)
+        available_balance = self.async_run_with_timeout(coro)
+        self.assertEqual(available_balance, Decimal("0.00646114"))
+
+    @aioresponses()
+    def test_update_balances_raises_error_when_unified_wallet_resp_failure(self, mock_api):
         mock_url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL
         )
