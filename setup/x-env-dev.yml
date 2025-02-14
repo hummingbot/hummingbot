@@ -67,7 +67,7 @@ dependencies:
   - urllib3>=1.26.15,<2.0
   - vega-python-sdk
   # - websockets>=10.4
-  - xrpl-py
+  - xrpl-py>=4,<4.1.0
   - yaml>=0.2.5
   - zlib>=1.2.13
   #
@@ -76,8 +76,8 @@ dependencies:
   ### packages above (see pip_packages.txt file).
   ### Some care was taken to include as many conda packages as possible
   ### to reduce the number of pip-installed packages.
-  - pip:
-      - eip712-structs==1.1.0
+  # - pip:
+  #     - eip712-structs==1.1.0
       # This tries to install the following pip packages, which happen to already be covered by conda packages
       # Requirement already satisfied: python-telegram-bot==12.4.2
       # Requirement already satisfied: future>=0.16.0
