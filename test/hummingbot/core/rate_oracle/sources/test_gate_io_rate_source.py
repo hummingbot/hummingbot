@@ -1,8 +1,7 @@
 import asyncio
 import json
-import unittest
 from decimal import Decimal
-from typing import Awaitable
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 from aioresponses import aioresponses
 
@@ -11,7 +10,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 
 
-class GateIoRateSourceTest(unittest.TestCase):
+class GateIoRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -20,10 +19,6 @@ class GateIoRateSourceTest(unittest.TestCase):
         cls.global_token = "HBOT"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def setup_gate_io_responses(self, mock_api, expected_rate: Decimal):
         symbols_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.SYMBOL_PATH_URL}"
@@ -105,7 +100,7 @@ class GateIoRateSourceTest(unittest.TestCase):
         self.setup_gate_io_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = GateIoRateSource()
-        prices = self.async_run_with_timeout(rate_source.get_prices())
+        prices = self.run_async_with_timeout(rate_source.get_prices())
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])

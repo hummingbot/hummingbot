@@ -1,3 +1,4 @@
+import asyncio
 import json
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -19,7 +20,13 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
         cls.global_token = "USDC"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
-        cls.mocking_assistant = NetworkMockingAssistant()
+
+    def setUp(self):
+        super().setUp()
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def setup_dexalot_responses(self, ws_connect_mock, mock_api, rate_source):
@@ -74,7 +81,8 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
             message=json.dumps(result_subscribe))
         prices = await rate_source.get_prices()
 
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, 1)
+        await asyncio.sleep(0.1)
         return prices
 
     @aioresponses()
