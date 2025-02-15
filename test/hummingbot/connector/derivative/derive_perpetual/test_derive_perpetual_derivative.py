@@ -21,7 +21,12 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
+from hummingbot.core.event.events import (
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    SellOrderCreatedEvent,
+)
 
 
 class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -1900,117 +1905,98 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             )
         )
 
-    # @aioresponses()
-    # def test_update_trade_history_triggers_filled_event(self, mock_api):
-    #     self.exchange._set_current_timestamp(1640780000)
-    #     self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-    #                                           self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+    @aioresponses()
+    def test_update_trade_history_triggers_filled_event(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
-    #     self.exchange._set_current_timestamp(1640780000)
+        self.exchange._set_current_timestamp(1640780000)
 
-    #     self.exchange.start_tracking_order(
-    #         order_id=self.client_order_id_prefix + "1",
-    #         exchange_order_id="100234",
-    #         trading_pair=self.trading_pair,
-    #         order_type=OrderType.LIMIT,
-    #         trade_type=TradeType.BUY,
-    #         price=Decimal("10000"),
-    #         amount=Decimal("1"),
-    #     )
-    #     order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="100234",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-    #     url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-    #     trade_fill = {
-    #         "result": {
-    #             'subaccount_id': 37799,
-    #             'trades': [
-    #                 {
-    #                     'subaccount_id': 37799,
-    #                     'order_id': order.exchange_order_id,
-    #                     'instrument_name': f"{self.base_asset}-PERP",
-    #                     'direction': 'buy', 'label': order.client_order_id,
-    #                     'quote_id': None,
-    #                     'trade_id': 30000,
-    #                     'timestamp': 1681222254710,
-    #                     'mark_price': "9999",
-    #                     'index_price': '3203.94498334999969792',
-    #                     'trade_price': '3205.31', 'trade_amount': str(Decimal(order.amount)),
-    #                     'liquidity_role': 'maker',
-    #                     'realized_pnl': '0.332573106733025',
-    #                     'realized_pnl_excl_fees': '0.389575',
-    #                     'is_transfer': False,
-    #                     'tx_status': 'settled',
-    #                     'trade_fee': "10.10000000",
-    #                     'tx_hash': '0xad4e10abb398a83955a80d6c072d0064eeecb96cceea1501411b02415b522d30'  # noqa: mock
-    #                 },
-    #                 {
-    #                     'subaccount_id': 37799,
-    #                     'order_id': 99999,
-    #                     'instrument_name': f"{self.base_asset}-PERP",
-    #                     'direction': 'buy', 'label': order.client_order_id,
-    #                     'quote_id': None,
-    #                     'trade_id': 30000,
-    #                     'timestamp': 1681222254710,
-    #                     'mark_price': "9999",
-    #                     'index_price': '3203.94498334999969792',
-    #                     'trade_price': "9999", 'trade_amount': str(Decimal(order.amount)),
-    #                     'liquidity_role': 'maker',
-    #                     'realized_pnl': '0.332573106733025',
-    #                     'realized_pnl_excl_fees': '0.389575',
-    #                     'is_transfer': False,
-    #                     'tx_status': 'settled',
-    #                     'trade_fee': "10.10000000",
-    #                     'tx_hash': '0xad4e10abb398a83955a80d6c072d0064eeecb96cceea1501411b02415b522d30'  # noqa: mock
-    #                 }
-    #             ]
-    #         }
-    #     }
+        trade_fill = {
+            "result": {
+                'subaccount_id': 37799,
+                'trades': [
+                    {
+                        'subaccount_id': 37799,
+                        'order_id': order.exchange_order_id,
+                        'instrument_name': f"{self.base_asset}-PERP",
+                        'direction': 'buy', 'label': order.client_order_id,
+                        'quote_id': None,
+                        'trade_id': 30000,
+                        'timestamp': 1681222254710,
+                        'mark_price': "9999",
+                        'index_price': '3203.94498334999969792',
+                        'trade_price': '3205.31', 'trade_amount': str(Decimal(order.amount)),
+                        'liquidity_role': 'maker',
+                        'realized_pnl': '0.332573106733025',
+                        'realized_pnl_excl_fees': '0.389575',
+                        'is_transfer': False,
+                        'tx_status': 'settled',
+                        'trade_fee': "10.10000000",
+                        'tx_hash': '0xad4e10abb398a83955a80d6c072d0064eeecb96cceea1501411b02415b522d30'  # noqa: mock
+                    },
+                    {
+                        'subaccount_id': 37799,
+                        'order_id': 99999,
+                        'instrument_name': f"{self.base_asset}-PERP",
+                        'direction': 'buy', 'label': order.client_order_id,
+                        'quote_id': None,
+                        'trade_id': 30000,
+                        'timestamp': 1681222254710,
+                        'mark_price': "9999",
+                        'index_price': '3203.94498334999969792',
+                        'trade_price': "9999", 'trade_amount': str(Decimal(order.amount)),
+                        'liquidity_role': 'maker',
+                        'realized_pnl': '0.332573106733025',
+                        'realized_pnl_excl_fees': '0.389575',
+                        'is_transfer': False,
+                        'tx_status': 'settled',
+                        'trade_fee': "10.10000000",
+                        'tx_hash': '0xad4e10abb398a83955a80d6c072d0064eeecb96cceea1501411b02415b522d30'  # noqa: mock
+                    }
+                ]
+            }
+        }
 
-    #     mock_response = trade_fill
-    #     mock_api.get(regex_url, body=json.dumps(mock_response))
+        mock_response = trade_fill
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
-    #     self.exchange.add_exchange_order_ids_from_market_recorder(
-    #         {str(trade_fill["result"]["trades"][1]["order_id"]): "OID99"})
+        self.exchange.add_exchange_order_ids_from_market_recorder(
+            {str(trade_fill["result"]["trades"][1]["order_id"]): "OID99"})
 
-    #     self.async_run_with_timeout(self.exchange._update_trade_history())
+        self.async_run_with_timeout(self.exchange._update_trade_history())
 
-    #     request = self._all_executed_requests(mock_api, url)[0]
-    #     self.validate_auth_credentials_present(request)
-    #     request_params = request.kwargs["params"]
-    #     self.assertEqual(self.sub_id, request_params["subaccount_id"])
+        request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(request)
+        request_params = request.kwargs["params"]
+        self.assertEqual(self.sub_id, request_params["subaccount_id"])
 
-    #     fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-    #     self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
-    #     self.assertEqual(order.client_order_id, fill_event.order_id)
-    #     self.assertEqual(order.trading_pair, fill_event.trading_pair)
-    #     self.assertEqual(order.trade_type, fill_event.trade_type)
-    #     self.assertEqual(order.order_type, fill_event.order_type)
-    #     self.assertEqual(Decimal(trade_fill["result"]["trades"][0]["trade_price"]), fill_event.price)
-    #     self.assertEqual(Decimal(trade_fill["result"]["trades"][0]["trade_amount"]), fill_event.amount)
-    #     self.assertEqual(0.0, fill_event.trade_fee.percent)
-    #     self.assertEqual([TokenAmount(str(trade_fill["result"]["trades"][0]["instrument_name"]).split("-")[1], Decimal(trade_fill["result"]["trades"][0]["trade_fee"]))],
-    #                      fill_event.trade_fee.flat_fees)
-
-    #     fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
-    #     self.assertEqual(float(trade_fill["result"]["trades"][1]["timestamp"]) * 1e-3, fill_event.timestamp)
-    #     self.assertEqual("OID99", fill_event.order_id)
-    #     self.assertEqual(self.trading_pair, fill_event.trading_pair)
-    #     self.assertEqual(TradeType.BUY, fill_event.trade_type)
-    #     self.assertEqual(OrderType.LIMIT, fill_event.order_type)
-    #     self.assertEqual(Decimal(trade_fill["result"]["trades"][1]["trade_price"]), fill_event.price)
-    #     self.assertEqual(Decimal(trade_fill["result"]["trades"][1]["trade_amount"]), fill_event.amount)
-    #     self.assertEqual(0.0, fill_event.trade_fee.percent)
-    #     self.assertEqual([
-    #         TokenAmount(
-    #             str(trade_fill["result"]["trades"][1]["instrument_name"]).split("-")[0],
-    #             Decimal(trade_fill["result"]["trades"][1]["trade_fee"]))],
-    #         fill_event.trade_fee.flat_fees)
-    #     # self.assertTrue(self.is_logged(
-    #     #     "INFO",
-    #     #     f"Recreating missing trade in TradeFill: {trade_fill}"
-    #     # ))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(order.trade_type, fill_event.trade_type)
+        self.assertEqual(order.order_type, fill_event.order_type)
+        self.assertEqual(Decimal(trade_fill["result"]["trades"][0]["trade_price"]), fill_event.price)
+        self.assertEqual(Decimal(trade_fill["result"]["trades"][0]["trade_amount"]), fill_event.amount)
+        self.assertEqual(0.0, fill_event.trade_fee.percent)
+        self.assertEqual([TokenAmount(str(fill_event.trading_pair.split("-")[1]), Decimal(trade_fill["result"]["trades"][0]["trade_fee"]))],
+                         fill_event.trade_fee.flat_fees)
 
     @aioresponses()
     def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
