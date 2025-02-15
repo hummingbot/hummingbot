@@ -57,13 +57,13 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         general_info = await self._request_complete_funding_info(trading_pair)
-
+        data = general_info["result"]
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(general_info["index_price"])),
-            mark_price=Decimal(str(general_info["mark_price"])),
+            index_price=Decimal(str(data["index_price"])),
+            mark_price=Decimal(str(data["mark_price"])),
             next_funding_utc_timestamp=self._next_funding_time(),
-            rate=Decimal(str(general_info["perp_details"]["funding_rate"])),
+            rate=Decimal(str(data["perp_details"]["funding_rate"])),
         )
         return funding_info
 
