@@ -1,4 +1,6 @@
 import asyncio
+import json
+import re
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Dict
@@ -7,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 from bidict import bidict
 
+import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source import (
@@ -15,6 +19,7 @@ from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import DerivePerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
@@ -29,7 +34,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}-PERP"
 
     def setUp(self) -> None:
         super().setUp()
@@ -60,7 +65,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event = asyncio.Event()
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair}))
+            bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -99,11 +104,11 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     def _trade_update_event(self):
         resp = {"params": {
-            'channel': f'trades.{self.quote_asset}-{self.base_asset}',
+            'channel': f'trades.{self.base_asset}-PERP',
             'data': [
                 {
                     'trade_id': '5f249af2-2a84-47b2-946e-2552f886f0a8',  # noqa: mock
-                    'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'timestamp': 1737810932869,
+                    'instrument_name': f'{self.base_asset}-PERP', 'timestamp': 1737810932869,
                     'trade_price': '1.6682', 'trade_amount': '20', 'mark_price': '1.667960602579197952',
                     'index_price': '1.667960602579197952', 'direction': 'sell', 'quote_id': None
                 }
@@ -113,9 +118,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     def get_ws_snapshot_msg(self) -> Dict:
         return {"params": {
-            'channel': f'orderbook.{self.quote_asset}-{self.base_asset}.1.100',
+            'channel': f'orderbook.{self.base_asset}-PERP.1.100',
             'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'publish_id': 2865914,
+                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-PERP', 'publish_id': 2865914,
                 'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
                 'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
             }
@@ -123,9 +128,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     def get_ws_diff_msg(self) -> Dict:
         return {"params": {
-            'channel': f'orderbook.{self.quote_asset}-{self.base_asset}.1.100',
+            'channel': f'orderbook.{self.base_asset}-PERP.1.100',
             'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'publish_id': 2865914,
+                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-PERP', 'publish_id': 2865914,
                 'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
                 'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
             }
@@ -133,19 +138,52 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     def get_ws_diff_msg_2(self) -> Dict:
         return {
-            'channel': f'orderbook.{self.quote_asset}-{self.base_asset}.1.100',
+            'channel': f'orderbook.{self.base_asset}-PERP.1.100',
             'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.quote_asset}-{self.base_asset}', 'publish_id': 2865914,
+                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-PERP', 'publish_id': 2865914,
                 'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
                 'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
             }
         }
 
+    def get_funding_info_rest_msg(self):
+        return {"result":
+                {
+                    'instrument_type': 'perp',
+                    'instrument_name': f'{self.base_asset}-PERP',
+                    'scheduled_activation': 1728508925,
+                    'scheduled_deactivation': 9223372036854775807,
+                    'is_active': True,
+                    'tick_size': '0.01',
+                    'minimum_amount': '0.1',
+                    'maximum_amount': '1000',
+                    'index_price': '36717.0',
+                    'mark_price': '36733.0',
+                    'amount_step': '0.01',
+                    'mark_price_fee_rate_cap': '0',
+                    'maker_fee_rate': '0.0015',
+                    'taker_fee_rate': '0.0015',
+                    'base_fee': '0.1',
+                    'base_currency': self.base_asset,
+                    'quote_currency': self.quote_asset,
+                    'option_details': None,
+                    "perp_details": {
+                        "index": "BTC-USDC",
+                        "max_rate_per_hour": "0.004",
+                        "min_rate_per_hour": "-0.004",
+                        "static_interest_rate": "0.0000125",
+                        "aggregate_funding": "738.587599416709606114",
+                        "funding_rate": "0.00001793"
+                    },
+                    'erc20_details': None,
+                    'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
+                }
+
     def get_trading_rule_rest_msg(self):
         return [
             {
-                'instrument_type': 'erc20',
-                'instrument_name': f'{self.quote_asset}-{self.base_asset}',
+                'instrument_type': 'perp',
+                'instrument_name': f'{self.base_asset}-PERP',
                 'scheduled_activation': 1728508925,
                 'scheduled_deactivation': 9223372036854775807,
                 'is_active': True,
@@ -286,6 +324,20 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual("5f249af2-2a84-47b2-946e-2552f886f0a8", msg.trade_id)
 
+    @aioresponses()
+    async def test_get_funding_info(self, mock_api):
+        endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        resp = self.get_funding_info_rest_msg()
+        mock_api.post(regex_url, body=json.dumps(resp["result"]))
+
+        funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
+        msg_result = resp
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal(str(msg_result["result"]["perp_details"]["funding_rate"])), funding_info.rate)
+
     async def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.connector._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
@@ -301,3 +353,65 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 min_base_amount_increment=Decimal(str(min_base_amount_increment)),
             )
         }
+
+    @aioresponses()
+    @patch.object(DerivePerpetualAPIOrderBookDataSource, "_sleep")
+    async def test_listen_for_funding_info_cancelled_error_raised(self, mock_api, sleep_mock):
+        sleep_mock.side_effect = [asyncio.CancelledError()]
+        endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_funding_info_rest_msg()
+        mock_api.post(regex_url, body=json.dumps(resp["result"]))
+
+        mock_queue: asyncio.Queue = asyncio.Queue()
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_funding_info(mock_queue)
+
+        self.assertEqual(1, mock_queue.qsize())
+
+    @aioresponses()
+    async def test_listen_for_funding_info_logs_exception(self, mock_api):
+        endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        resp = self.get_funding_info_rest_msg()
+        resp["error"] = ""
+        mock_api.post(regex_url, body=json.dumps(resp), callback=self.resume_test_callback)
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+
+        await self.resume_test_event.wait()
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+
+    @patch(
+        "hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source."
+        "DerivePerpetualAPIOrderBookDataSource._next_funding_time")
+    @aioresponses()
+    async def test_listen_for_funding_info_successful(self, next_funding_time_mock, mock_api):
+        next_funding_time_mock.return_value = 1713272400
+        endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
+        url = web_utils.public_rest_url(endpoint)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        resp = self.get_funding_info_rest_msg()
+        mock_api.post(regex_url, body=json.dumps(resp["result"]))
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+
+        msg: FundingInfoUpdate = await msg_queue.get()
+
+        self.assertEqual(self.trading_pair, msg.trading_pair)
+        expected_index_price = Decimal('36717.0')
+        self.assertEqual(expected_index_price, msg.index_price)
+        expected_mark_price = Decimal('36733.0')
+        self.assertEqual(expected_mark_price, msg.mark_price)
+        expected_funding_time = next_funding_time_mock.return_value
+        self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
+        expected_rate = Decimal('0.00001793')
+        self.assertEqual(expected_rate, msg.rate)
