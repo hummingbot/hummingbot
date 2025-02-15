@@ -60,10 +60,10 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(general_info[0]["index_price"])),
-            mark_price=Decimal(str(general_info[0]["mark_price"])),
+            index_price=Decimal(str(general_info["index_price"])),
+            mark_price=Decimal(str(general_info["mark_price"])),
             next_funding_utc_timestamp=self._next_funding_time(),
-            rate=Decimal(str(general_info[0]["perp_details"]["funding_rate"])),
+            rate=Decimal(str(general_info["perp_details"]["funding_rate"])),
         )
         return funding_info
 
@@ -203,8 +203,6 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         pass
 
     async def _request_complete_funding_info(self, trading_pair: str):
-        self._instrument_ticker = []
-        data = []
         pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {
             "instrument_name": pair,
@@ -213,9 +211,7 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                                                         data=payload)
         if "error" in exchange_info:
             self.logger().warning(f"Error: {exchange_info['error']['message']}")
-        self._instrument_ticker.append(exchange_info["result"])
-        data.append(exchange_info["result"])
-        return data
+        return exchange_info
 
     def _next_funding_time(self) -> int:
         return int(((time.time() // 3600) + 1) * 3600)
