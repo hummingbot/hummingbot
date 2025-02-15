@@ -330,7 +330,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp["result"]))
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
         msg_result = resp
@@ -362,7 +362,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp["result"]))
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         mock_queue: asyncio.Queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
@@ -398,7 +398,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         resp = self.get_funding_info_rest_msg()
-        mock_api.post(regex_url, body=json.dumps(resp["result"]))
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
