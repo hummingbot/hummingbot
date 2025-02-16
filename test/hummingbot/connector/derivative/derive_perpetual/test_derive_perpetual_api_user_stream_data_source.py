@@ -129,15 +129,67 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
                                    'timestamp': 1737810932869, 'mark_price': '1.667960602579197952', 'index_price': '1.667960602579197952', 'trade_price': '1.6682', 'trade_amount': '20', 'liquidity_role': 'maker', 'realized_pnl': '0', 'realized_pnl_excl_fees': '0', 'is_transfer': False, 'tx_status': 'requested', 'trade_fee': '0.05003881807737593856', 'tx_hash': None,
                                    'transaction_id': '23455412-476e-4fe0-992a-2c1e2042ceee'  # noqa: mock
                                    }
+        result_subscribe_collaterals = {'subaccount_id': 37799,
+                                        'collaterals': [
+                                            {
+                                                'asset_type': 'perp', 'asset_name': self.base_asset, 'currency': self.base_asset, 'amount': '15',
+                                                'mark_price': '1.676380380787058688', 'mark_value': '33.5276076175',
+                                                'cumulative_interest': '0', 'pending_interest': '0', 'initial_margin': '17.09905',
+                                                'maintenance_margin': '20.11656',
+                                                'realized_pnl': '0', 'average_price': '1.68212', 'unrealized_pnl': '-0.114786',
+                                                'total_fees': '0.050394', 'average_price_excl_fees': '1.6796', 'realized_pnl_excl_fees': '0',
+                                                'unrealized_pnl_excl_fees': '-0.064392', 'open_orders_margin': '-87.884668', 'creation_timestamp': 1737811465712
+                                            },
+                                        ]
+                                        }
+        result_subscribe_positions = {'subaccount_id': 37799,
+                                      "positions": [
+                                          {
+                                              "amount": "string",
+                                              "amount_step": "string",
+                                              "average_price": "string",
+                                              "average_price_excl_fees": "string",
+                                              "creation_timestamp": 0,
+                                              "cumulative_funding": "string",
+                                              "delta": "string",
+                                              "gamma": "string",
+                                              "index_price": "string",
+                                              "initial_margin": "string",
+                                              "instrument_name": self.ex_trading_pair,
+                                              "instrument_type": "erc20",
+                                              "leverage": 25,
+                                              "liquidation_price": "string",
+                                              "maintenance_margin": "string",
+                                              "mark_price": "string",
+                                              "mark_value": "string",
+                                              "net_settlements": "string",
+                                              "open_orders_margin": "string",
+                                              "pending_funding": "string",
+                                              "realized_pnl": "string",
+                                              "realized_pnl_excl_fees": "string",
+                                              "theta": "string",
+                                              "total_fees": "string",
+                                              "unrealized_pnl": "string",
+                                              "unrealized_pnl_excl_fees": "string",
+                                              "vega": "string"
+                                          }
+                                      ],
+                                      }
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_login))
+            websocket_mock = ws_connect_mock.return_value,
+            message = json.dumps(result_subscribe_login))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_orders))
+            websocket_mock = ws_connect_mock.return_value,
+            message = json.dumps(result_subscribe_orders))
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock = ws_connect_mock.return_value,
+            message = json.dumps(result_subscribe_trades))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock = ws_connect_mock.return_value,
+            message = json.dumps(result_subscribe_collaterals))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock = ws_connect_mock.return_value,
+            message = json.dumps(result_subscribe_positions))
         output_queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
@@ -145,9 +197,9 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock = ws_connect_mock.return_value)
 
-        self.assertEqual(3, len(sent_subscription_messages))
+        self.assertEqual(4, len(sent_subscription_messages))
         auth_responce = self.get_ws_auth_payload()
         expected_login_subscription = {
             "method": "public/login",
@@ -155,25 +207,23 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "id": str(mock_utc_now.return_value),
         }
         self.assertEqual(expected_login_subscription, sent_subscription_messages[0])
-        expected_orders_subscription = {
-            "method": "subscribe",
-            "params": {
-                "channels": [f"{self.sub_id}.orders"],
-            }
+        expected_positions_subscription = {
+            "method": "private/get_subaccount",
+            "params": {"subaccount_id": int(self.sub_id)}
         }
-        self.assertEqual(expected_orders_subscription, sent_subscription_messages[1])
+        self.assertEqual(expected_positions_subscription, sent_subscription_messages[1])
+        expected_positions_subscription = {
+            "method": "private/get_positions",
+            "params": {"subaccount_id": int(self.sub_id)}
+        }
+        self.assertEqual(expected_positions_subscription, sent_subscription_messages[2])
         expected_trades_subscription = {
             "method": "subscribe",
             "params": {
-                "channels": [f"{self.sub_id}.trades"],
+                "channels": [f"{self.sub_id}.orders", f"{self.sub_id}.trades"],
             }
         }
-        self.assertEqual(expected_trades_subscription, sent_subscription_messages[2])
-
-        # self.assertTrue(self._is_logged(
-        #     "INFO",
-        #     "Subscribed to private order and trades changes channels..."
-        # ))
+        self.assertEqual(expected_trades_subscription, sent_subscription_messages[3])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")

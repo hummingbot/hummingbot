@@ -210,6 +210,33 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
         ]
 
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_orderbooks(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        result_subscribe_diffs = self.get_ws_snapshot_msg()
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_diffs),
+        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value
+        )
+        self.assertEqual(1, len(sent_subscription_messages))
+        expected_subscription_channel = "subscribe"
+        expected_subscription_payload = {"channels": [f"trades.{self.ex_trading_pair.upper()}", f"orderbook.{self.ex_trading_pair.upper()}.1.100"]}
+        self.assertEqual(expected_subscription_channel, sent_subscription_messages[0]["method"])
+        self.assertEqual(expected_subscription_payload, sent_subscription_messages[0]["params"])
+
+        self.assertTrue(
+            self._is_logged("INFO", "Subscribed to public order book, trade channels...")
+        )
+
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
     async def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):

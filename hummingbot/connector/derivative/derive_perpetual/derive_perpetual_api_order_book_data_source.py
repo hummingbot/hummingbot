@@ -9,7 +9,6 @@ from hummingbot.connector.derivative.derive_perpetual import (
     derive_perpetual_constants as CONSTANTS,
     derive_perpetual_web_utils as web_utils,
 )
-from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -100,35 +99,22 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            trade_params = []
-            order_book_params = []
+            params = []
 
             for trading_pair in self._trading_pairs:
                 # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
-                base, _quote = trading_pair.split("-")
-                _quote = "PERP"
-                symbol = combine_to_hb_trading_pair(base, _quote)
-                trade_params.append(f"trades.{symbol.upper()}")
-                order_book_params.append(f"orderbook.{symbol.upper()}.1.100")
+                symbol = trading_pair.replace("USDC", "PERP")
+                params.append(f"trades.{symbol.upper()}")
+                params.append(f"orderbook.{symbol.upper()}.1.100")
 
             trades_payload = {
                 "method": "subscribe",
                 "params": {
-                    "channels": trade_params
+                    "channels": params
                 }
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
-            order_book_payload = {
-                "method": "subscribe",
-                "params": {
-                    "channels": order_book_params
-                }
-
-            }
-            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
-
             await ws.send(subscribe_trade_request)
-            await ws.send(subscribe_orderbook_request)
 
             self.logger().info("Subscribed to public order book, trade channels...")
         except asyncio.CancelledError:
