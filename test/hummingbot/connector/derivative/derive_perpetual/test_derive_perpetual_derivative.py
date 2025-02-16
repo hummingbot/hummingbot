@@ -9,20 +9,27 @@ from unittest.mock import AsyncMock, patch
 import pandas as pd
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
+from bidict import bidict
 
 import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order_book_data_source import (
+    DerivePerpetualAPIOrderBookDataSource,
+)
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import DerivePerpetualDerivative
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
+    MarketEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
     SellOrderCreatedEvent,
@@ -41,8 +48,48 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.domain = CONSTANTS.DEFAULT_DOMAIN
+        cls.exchange_trading_pair = f"{cls.base_asset}-PERP"
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.log_records = []
+
+        self.ws_sent_messages = []
+        self.ws_incoming_messages = asyncio.Queue()
+        self.resume_test_event = asyncio.Event()
+        self.client_config_map = ClientConfigAdapter(ClientConfigMap())
+
+        self.exchange = DerivePerpetualDerivative(
+            client_config_map=self.client_config_map,
+            derive_perpetual_api_key=self.api_key,
+            derive_perpetual_api_secret=self.api_secret,
+            sub_id=self.sub_id,
+            trading_pairs=[self.trading_pair],
+        )
+
+        if hasattr(self.exchange, "_time_synchronizer"):
+            self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+            self.exchange._time_synchronizer.logger().setLevel(1)
+            self.exchange._time_synchronizer.logger().addHandler(self)
+
+        DerivePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
+            self.domain: bidict({self.exchange_trading_pair: self.trading_pair})
+        }
+
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.logger().setLevel(1)
+        self.exchange.logger().addHandler(self)
+        self.exchange._order_tracker.logger().setLevel(1)
+        self.exchange._order_tracker.logger().addHandler(self)
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.test_task: Optional[asyncio.Task] = None
+        self.resume_test_event = asyncio.Event()
+        self._initialize_event_loggers()
+
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     @property
     def all_symbols_url(self):
@@ -92,14 +139,18 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @property
     def funding_info_url(self):
         url = web_utils.public_rest_url(
-            CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL
+            CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
     def funding_payment_url(self):
-        pass
+        url = web_utils.private_rest_url(
+            path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, domain=self.exchange._domain
+        )
+        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url
 
     @property
     def all_symbols_request_mock_response(self):
@@ -107,7 +158,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "instruments": [
                 {
                     'instrument_type': 'perp',  # noqa: mock
-                    'instrument_name': 'BTC-USDC',
+                    'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -152,7 +203,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {
             "result": {
                 'instrument_type': 'perp',  # noqa: mock
-                'instrument_name': 'BTC-USDC',
+                'instrument_name': 'BTC-PERP',
                 'scheduled_activation': 1734464971,
                 'scheduled_deactivation': 9223372036854775807,
                 'is_active': True,
@@ -207,7 +258,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "instruments": [
                 {
                     'instrument_type': 'perp',  # noqa: mock
-                    'instrument_name': 'BTC-USDC',
+                    'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -270,7 +321,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "instruments": [
                 {
                     'instrument_type': 'perp',  # noqa: mock
-                    'instrument_name': 'BTC-USDC',
+                    'instrument_name': 'BTC-PERP',
                     'scheduled_activation': 1728508925,
                     'scheduled_deactivation': 9223372036854775807,
                     'is_active': True,
@@ -411,6 +462,29 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             )
         )
 
+    def _initialize_event_loggers(self):
+        self.order_failure_logger = EventLogger()
+        self.buy_order_created_logger = EventLogger()
+        self.sell_order_created_logger = EventLogger()
+        self.buy_order_completed_logger = EventLogger()
+        self.sell_order_completed_logger = EventLogger()
+        self.order_cancelled_logger = EventLogger()
+        self.order_filled_logger = EventLogger()
+        self.funding_payment_completed_logger = EventLogger()
+
+        events_and_loggers = [
+            (MarketEvent.OrderFailure, self.order_failure_logger),
+            (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
+            (MarketEvent.SellOrderCreated, self.sell_order_created_logger),
+            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
+            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
+            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
+            (MarketEvent.OrderFilled, self.order_filled_logger),
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger)]
+
+        for event, logger in events_and_loggers:
+            self.exchange.add_listener(event, logger)
+
     @property
     def expected_latest_price(self):
         return 9999.9
@@ -519,7 +593,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return ret
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
-        return f"{base_token}-{quote_token}"
+        return f"{base_token}-PERP"
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -544,7 +618,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["data"]
         data = json.loads(request_params)
-        self.assertEqual(order.trading_pair, data["instrument_name"])
+        self.assertEqual(order.trading_pair, data["instrument_name"].replace("PERP", "USDC"))
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["data"]
@@ -801,11 +875,63 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def test_set_leverage_success(self, mock_api):
         pass
 
+    def _get_funding_info_dict(self) -> Dict[str, Any]:
+        funding_info = {"result":
+                        {
+                            'instrument_type': 'erc20',
+                            'instrument_name': f'{self.base_asset}-PERP',
+                            'scheduled_activation': 1728508925,
+                            'scheduled_deactivation': 9223372036854775807,
+                            'is_active': True,
+                            'tick_size': '0.01',
+                            'minimum_amount': '0.1',
+                            'maximum_amount': '1000',
+                            'index_price': '36717.0',
+                            'mark_price': '36733.0',
+                            'amount_step': '0.01',
+                            'mark_price_fee_rate_cap': '0',
+                            'maker_fee_rate': '0.0015',
+                            'taker_fee_rate': '0.0015',
+                            'base_fee': '0.1',
+                            'base_currency': self.base_asset,
+                            'quote_currency': self.quote_asset,
+                            'option_details': None,
+                            "perp_details": {
+                                "index": "BTC-PERP",
+                                "max_rate_per_hour": "0.004",
+                                "min_rate_per_hour": "-0.004",
+                                "static_interest_rate": "0.0000125",
+                                "aggregate_funding": "738.587599416709606114",
+                                "funding_rate": "0.00001793"
+                            },
+                            'erc20_details': None,
+                            'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
+                        }
+        return funding_info
+
+    def _get_income_history_dict(self):
+        income_history = {
+            "id": "13f7fda9-9543-4e11-a0ba-cbe117989988",
+            "result":
+                {"events":
+                    [
+                        {
+                            "timestamp": 1662518172178,
+                            "funding": "0.000164",
+                            "instrument_name": "BTC-PERP",
+                            "pnl": "0.000164",
+                        }
+                    ]
+                 },
+
+        }
+        return income_history
+
     def get_trading_rule_rest_msg(self):
         return [
             {
                 'instrument_type': 'perp',
-                'instrument_name': f'{self.base_asset}-{self.quote_asset}',
+                'instrument_name': f'{self.base_asset}-PERP',
                 'scheduled_activation': 1728508925,
                 'scheduled_deactivation': 9223372036854775807,
                 'is_active': True,
@@ -834,7 +960,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'BTC-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-PERP', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -863,7 +989,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'BTC-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-PERP', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -893,7 +1019,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
-                'instrument_name': 'BTC-USDC', 'direction': 'buy',
+                'instrument_name': 'BTC-PERP', 'direction': 'buy',
                 'label': order.client_order_id,
                 'quote_id': None,
                 'creation_timestamp': 1737806900308,
@@ -1125,6 +1251,51 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def validate_auth_credentials_present(self, request_call: RequestCall):
         pass
 
+    @aioresponses()
+    def test_fetch_funding_payment_successful(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        income_history = self._get_income_history_dict()
+
+        regex_url_income_history = self.funding_payment_url
+
+        req_mock.post(regex_url_income_history, body=json.dumps(income_history))
+
+        funding_info = self._get_funding_info_dict()
+
+        regex_url_funding_info = self.funding_info_url
+
+        req_mock.post(regex_url_funding_info, body=json.dumps(funding_info))
+
+        # Fetch from exchange with REST API - safe_ensure_future, not immediately
+        self.async_run_with_timeout(self.exchange._update_funding_payment(self.trading_pair, True))
+
+        req_mock.post(regex_url_income_history, body=json.dumps(income_history))
+
+        self.async_run_with_timeout(self.exchange._update_funding_payment(self.trading_pair, True))
+
+        self.assertTrue(len(self.funding_payment_completed_logger.event_log) == 1)
+
+        funding_info_logged = self.funding_payment_completed_logger.event_log[0]
+
+        self.assertTrue(funding_info_logged.trading_pair == f"{self.base_asset}-{self.quote_asset}")
+
+        self.assertEqual(funding_info_logged.funding_rate, Decimal(funding_info["result"]["perp_details"]["funding_rate"]))
+        self.assertEqual(funding_info_logged.amount, Decimal(income_history["result"]["events"][0]["funding"]))
+
+    @aioresponses()
+    def test_fetch_funding_payment_failed(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        regex_url_income_history = self.funding_payment_url
+
+        req_mock.post(regex_url_income_history, exception=Exception)
+
+        self.async_run_with_timeout(self.exchange._update_funding_payment(self.trading_pair, False))
+
+        self.assertTrue(self.is_logged(
+            "NETWORK",
+            f"Unexpected error while fetching last fee payment for {self.trading_pair}.",
+        ))
+
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = DerivePerpetualDerivative(
@@ -1167,6 +1338,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             price=Decimal("10000"),
             amount=Decimal("100"),
             order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
         )
 
         self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)  # noqa: mock
@@ -1284,6 +1456,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
             amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
@@ -1496,6 +1669,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             price=Decimal("10000"),
             amount=Decimal("100"),
             order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
         )
 
         self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)  # noqa: mock
@@ -1545,6 +1719,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             price=Decimal("10000"),
             amount=Decimal("100"),
             order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
         )
 
         self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
@@ -1596,6 +1771,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             price=Decimal("10000"),
             amount=Decimal("100"),
             order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
         )
 
         self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
@@ -1637,6 +1813,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
             amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
         )
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
@@ -2080,6 +2257,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
             amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
         )
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
