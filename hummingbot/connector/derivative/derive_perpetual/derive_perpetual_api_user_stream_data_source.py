@@ -87,35 +87,33 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return ws
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
-        """
-        Subscribes to order events.
-
-        :param websocket_assistant: the websocket assistant used to connect to the exchange's user stream.
-        """
         subaccount_id = self._connector._sub_id
         try:
-            orders_change_payload = {
-                "method": "subscribe",
-                "params": {
-                    "channels": [f"{subaccount_id}.orders"],
-                }
-            }
-            subscribe_order_change_request: WSJSONRequest = WSJSONRequest(
-                payload=orders_change_payload)
+            await self._authenticate(websocket_assistant)  # Authenticate once
 
-            trades_payload = {
-                "method": "subscribe",
-                "params": {
-                    "channels": [f"{subaccount_id}.trades"],
+            # Define all subscription payloads
+            subscription_payloads = [
+                {
+                    "method": channel,
+                    "params": {"subaccount_id": int(subaccount_id)}
                 }
-            }
-            subscribe_trades_request: WSJSONRequest = WSJSONRequest(
-                payload=trades_payload)
-            await self._authenticate(websocket_assistant)
-            await websocket_assistant.send(subscribe_order_change_request)
-            await websocket_assistant.send(subscribe_trades_request)
+                for channel in [CONSTANTS.WS_ACCOUNT_CHANNEL, CONSTANTS.WS_POSITIONS_CHANNEL]
+            ] + [
+                {
+                    "method": "subscribe",
+                    "params": {"channels": [
+                        CONSTANTS.WS_ORDERS_CHANNEL.format(subaccount_id=subaccount_id),
+                        CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id)
+                    ]}
+                }
+            ]
 
-            self.logger().info("Subscribed to private order and trades changes channels...")
+            # Send all subscription requests in parallel
+            await asyncio.gather(*[
+                websocket_assistant.send(WSJSONRequest(payload))
+                for payload in subscription_payloads
+            ])
+            self.logger().info("Subscribed to private account, position and orders channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -129,8 +127,14 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "label": "WSS_ERROR",
                 "message": f"Error received via websocket - {err_msg}."
             })
-        elif event_message.get("params") is not None:
-            if "channel" in event_message["params"]:
+        elif "params" in event_message or "result" in event_message:
+            if "result" in event_message:
+                if "status" in event_message["result"]:
+                    return
+                if "id" in event_message and event_message["id"] is not None:
+                    return
+                queue.put_nowait(event_message)
+            elif "params" in event_message and "channel" in event_message["params"]:
                 if CONSTANTS.USER_ORDERS_ENDPOINT_NAME in event_message["params"]["channel"] or \
                         CONSTANTS.USEREVENT_ENDPOINT_NAME in event_message["params"]["channel"]:
                     queue.put_nowait(event_message["params"])

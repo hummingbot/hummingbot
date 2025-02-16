@@ -51,6 +51,10 @@ GET_LAST_FUNDING_RATE_PATH_URL = "/private/get_funding_history"
 
 WS_PING_REQUEST = "ping"
 
+WS_POSITIONS_CHANNEL = "private/get_positions"
+WS_ORDERS_CHANNEL = "{subaccount_id}.orders"
+WS_ACCOUNT_CHANNEL = "private/get_subaccount"
+WS_TRADES_CHANNEL = "{subaccount_id}.trades"
 
 ALL_ORDERS_PATH_URL = "/private/get_orders"
 OPEN_ORDERS_PATH_URL = "/private/get_open_orders"

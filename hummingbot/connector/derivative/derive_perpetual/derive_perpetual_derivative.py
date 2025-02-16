@@ -444,8 +444,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         if len(self._instrument_ticker) > 0:
-            instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
+            await self.trading_pair_symbol_map()
+        instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
         param_order_type = "gtc"
+        if order_type is OrderType.LIMIT and position_action == PositionAction.CLOSE:
+            param_order_type = "gtc"
         if order_type is OrderType.LIMIT_MAKER:
             param_order_type = "gtc"
         if order_type is OrderType.MARKET:
@@ -466,7 +469,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             "is_bid": True if trade_type is TradeType.BUY else False,
             "direction": "buy" if trade_type is TradeType.BUY else "sell",
             "order_type": price_type,
-            "reduce_only": position_action == PositionAction.CLOSE,
+            "reduce_only": False,
             "mmp": False,
             "time_in_force": param_order_type,
             "recipient_id": self._sub_id,
@@ -565,12 +568,25 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         user_channels = [
             f"{self._sub_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
             f"{self._sub_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
+            "positions",
+            "collaterals",
         ]
         async for event_message in self._iter_user_event_queue():
             try:
                 if isinstance(event_message, dict):
-                    channel: str = event_message.get("channel", None)
-                    results = event_message.get("data", None)
+                    if "channel" in event_message:
+                        channel: str = event_message.get("channel", None)
+                        results = event_message.get("data", None)
+                    else:
+                        if "collaterals" in event_message["result"]:
+                            channel = "collaterals"
+                            results = event_message.get("result", {})
+                        elif "positions" in event_message["result"]:
+                            channel = "positions"
+                            results = event_message.get("result", {})
+                        else:
+                            channel = "none"
+
                 elif event_message is asyncio.CancelledError:
                     raise asyncio.CancelledError
                 else:
@@ -585,12 +601,49 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 elif channel == user_channels[1] and results is not None:
                     for trade_msg in results:
                         await self._process_trade_message(trade_msg)
+                elif channel == user_channels[2] and results is not None:
+                    await self._process_update_positions(results)
+                elif channel == user_channels[3] and results is not None:
+                    for balance_msg in results["collaterals"]:
+                        self._process_update_balances(balance_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error(
                     "Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
+
+    async def _process_update_positions(self, results):
+        for asset in results["positions"]:
+            trading_pair = asset["instrument_name"]
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                if hb_trading_pair in self.trading_pairs:
+                    position_side = PositionSide.LONG if Decimal(asset.get("amount")) > 0 else PositionSide.SHORT
+                    pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+                    position = self._perpetual_trading.get_position(hb_trading_pair, position_side)
+                    trading_rule = self._trading_rules[trading_pair]
+                    amount_precision = Decimal(trading_rule.min_base_amount_increment)
+                    amount = Decimal(asset.get("amount"), 0)
+                    if position is not None:
+                        if amount == Decimal("0"):
+                            self._perpetual_trading.remove_position(pos_key)
+                        else:
+                            entry_price = Decimal(asset.get("index_price"))
+                            unrealized_pnl = Decimal(asset.get("unrealized_pnl"))
+                            position.update_position(position_side=position_side,
+                                                     unrealized_pnl=unrealized_pnl,
+                                                     entry_price=entry_price,
+                                                     amount=Decimal(amount * amount_precision))
+                    else:
+                        await self._update_positions()
+            except KeyError:
+                continue
+
+    def _process_update_balances(self, balance_msg):
+        asset_name = balance_msg["asset_name"]
+        self._account_balances[asset_name] = Decimal(balance_msg["amount"])
+        self._account_available_balances[asset_name] = Decimal(balance_msg["amount"])
 
     async def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
         """
@@ -873,9 +926,12 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             self.logger().error(f"Error fetching positions: {positions['error']['message']}")
         data: List[dict] = positions["result"]["positions"]
         for position in data:
-            ex_trading_pair = position.get("instrument_name")
-            hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
-
+            trading_pair = position.get("instrument_name")
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+            except KeyError:
+                # Ignore results for which their symbols is not tracked by the connector
+                continue
             position_side = PositionSide.LONG if Decimal(position.get("amount")) > 0 else PositionSide.SHORT
             unrealized_pnl = Decimal(position.get("unrealized_pnl"))
             entry_price = Decimal(position.get("index_price"))
@@ -891,7 +947,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     amount=amount,
                     leverage=Decimal(leverage)
                 )
-                self._perpetual_trading.set_leverage(ex_trading_pair, leverage)
+                self._perpetual_trading.set_leverage(trading_pair, leverage)
                 self._perpetual_trading.set_position(pos_key, _position)
             else:
                 self._perpetual_trading.remove_position(pos_key)

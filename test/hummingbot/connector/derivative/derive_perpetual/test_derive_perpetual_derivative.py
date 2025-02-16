@@ -40,6 +40,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         cls.sub_id = "45686"  # noqa: mock
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
+        cls.domain = CONSTANTS.DEFAULT_DOMAIN
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
 
@@ -943,6 +944,142 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 ]
         }
 
+    def _get_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
+        positions = {"result": {
+            "positions": [
+                {
+                    "amount": "5",
+                    "amount_step": "0.001",
+                    "average_price": "1.8980",
+                    "average_price_excl_fees": "string",
+                    "creation_timestamp": 0,
+                    "cumulative_funding": "string",
+                    "delta": 0,
+                    "gamma": 1,
+                    "index_price": "1.8980",
+                    "initial_margin": "26",
+                    "instrument_name": self.exchange_trading_pair,
+                    "instrument_type": "erc20",
+                    "leverage": 25,
+                    "liquidation_price": "string",
+                    "maintenance_margin": "string",
+                    "mark_price": "1.8980",
+                    "mark_value": "1.8980",
+                    "net_settlements": "string",
+                    "open_orders_margin": "string",
+                    "pending_funding": "string",
+                    "realized_pnl": "string",
+                    "realized_pnl_excl_fees": "string",
+                    "theta": "string",
+                    "total_fees": "string",
+                    "unrealized_pnl": "0.144654",
+                    "unrealized_pnl_excl_fees": "-1",
+                    "vega": "string"
+                }
+            ],
+            "subaccount_id": 0
+        }
+        }
+        return positions
+
+    def _get_wrong_symbol_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
+        positions = [
+            {
+                "instrument_name": f"{self.exchange_trading_pair}_230331",
+                "positionAmt": "1",
+                "entryPrice": "10",
+                "markPrice": "11",
+                "unRealizedProfit": "1",
+                "liquidationPrice": "100",
+                "leverage": "1",
+                "maxNotionalValue": "9",
+                "marginType": "cross",
+                "isolatedMargin": "0",
+                "isAutoAddMargin": "false",
+                "positionSide": "BOTH",
+                "notional": "11",
+                "isolatedWallet": "0",
+                "updateTime": int(self.start_timestamp),
+            }
+        ]
+        return positions
+
+    def _get_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
+        account_update = {"result": {
+            "positions": [
+                {
+                    "amount": "5",
+                    "amount_step": "0.001",
+                    "average_price": "1.8980",
+                    "average_price_excl_fees": "string",
+                    "creation_timestamp": 0,
+                    "cumulative_funding": "string",
+                    "delta": 0,
+                    "gamma": 1,
+                    "index_price": "1.8980",
+                    "initial_margin": "26",
+                    "instrument_name": self.exchange_trading_pair,
+                    "instrument_type": "erc20",
+                    "leverage": 25,
+                    "liquidation_price": "string",
+                    "maintenance_margin": "string",
+                    "mark_price": "1.8980",
+                    "mark_value": "1.8980",
+                    "net_settlements": "string",
+                    "open_orders_margin": "string",
+                    "pending_funding": "string",
+                    "realized_pnl": "string",
+                                    "realized_pnl_excl_fees": "string",
+                                    "theta": "string",
+                                    "total_fees": "string",
+                                    "unrealized_pnl": "0.144654",
+                                    "unrealized_pnl_excl_fees": "-1",
+                                    "vega": "string"
+                }
+            ],
+            "subaccount_id": 0
+        }
+        }
+        return account_update
+
+    def _get_wrong_symbol_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
+        account_update = {"result": {
+            "positions": [
+                {
+                    "amount": "5",
+                    "amount_step": "0.001",
+                    "average_price": "1.8980",
+                    "average_price_excl_fees": "string",
+                    "creation_timestamp": 0,
+                    "cumulative_funding": "string",
+                    "delta": 0,
+                    "gamma": 1,
+                    "index_price": "1.8980",
+                    "initial_margin": "26",
+                    "instrument_name": self.exchange_trading_pair,
+                    "instrument_type": "erc20",
+                    "leverage": 25,
+                    "liquidation_price": "string",
+                    "maintenance_margin": "string",
+                    "mark_price": "1.8980",
+                    "mark_value": "1.8980",
+                    "net_settlements": "string",
+                    "open_orders_margin": "string",
+                    "pending_funding": "string",
+                    "realized_pnl": "string",
+                    "realized_pnl_excl_fees": "string",
+                    "theta": "string",
+                    "total_fees": "string",
+                    "unrealized_pnl": "0.144654",
+                    "unrealized_pnl_excl_fees": "-1",
+                    "vega": "string"
+                }
+            ],
+            "subaccount_id": 0
+        }
+        }
+        return account_update
+
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         pass
 
@@ -1069,6 +1206,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             trade_type=TradeType.BUY,
             price=Decimal("10000"),
             amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
         )
         order = self.exchange.in_flight_orders["OID1"]
 
@@ -1290,6 +1428,27 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     'cancel_reason': 'user_request', 'mmp': False, 'is_transfer': False, 'replaced_order_id': None, 'trigger_type': None,
                     'trigger_price_type': None, 'trigger_price': None, 'trigger_reject_message': None},
                 }
+
+    def test_create_order_with_invalid_position_action_raises_value_error(self):
+        self._simulate_trading_rules_initialized()
+
+        with self.assertRaises(ValueError) as exception_context:
+            asyncio.get_event_loop().run_until_complete(
+                self.exchange._create_order(
+                    trade_type=TradeType.BUY,
+                    order_id="C1",
+                    trading_pair=self.trading_pair,
+                    amount=Decimal("1"),
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("46000"),
+                    position_action=PositionAction.NIL,
+                ),
+            )
+
+        self.assertEqual(
+            f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
+            str(exception_context.exception)
+        )
 
     @aioresponses()
     def test_get_last_trade_prices(self, mock_api):
