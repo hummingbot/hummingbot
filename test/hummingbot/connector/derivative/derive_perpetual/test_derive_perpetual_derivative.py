@@ -38,6 +38,7 @@ from hummingbot.core.event.events import (
 
 class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
     _logger = logging.getLogger(__name__)
+    start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -303,6 +304,17 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {"result": 1587884283175}
         return mock_response
 
+    def _get_trading_pair_symbol_map(self) -> Dict[str, str]:
+        trading_pair_symbol_map = {self.exchange_trading_pair: f"{self.base_asset}-{self.quote_asset}"}
+        return trading_pair_symbol_map
+
+    def test_get_collateral_token(self):
+        margin_asset = self.quote_asset
+        self._simulate_trading_rules_initialized()
+
+        self.assertEqual(margin_asset, self.exchange.get_buy_collateral_token(self.trading_pair))
+        self.assertEqual(margin_asset, self.exchange.get_sell_collateral_token(self.trading_pair))
+
     @property
     def currency_request_mock_response(self):
         return {
@@ -447,6 +459,14 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 message="Position mode PositionMode.HEDGE is not supported. Mode not set."
             )
         )
+
+    def test_user_stream_event_listener_raises_cancelled_error(self):
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = asyncio.CancelledError
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
 
     def is_cancel_request_executed_synchronously_by_server(self):
         return False
@@ -1078,7 +1098,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "amount_step": "0.001",
                     "average_price": "1.8980",
                     "average_price_excl_fees": "string",
-                    "creation_timestamp": 0,
+                    "creation_timestamp": self.start_timestamp,
                     "cumulative_funding": "string",
                     "delta": 0,
                     "gamma": 1,
@@ -1109,25 +1129,41 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return positions
 
     def _get_wrong_symbol_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
-        positions = [
-            {
-                "instrument_name": f"{self.exchange_trading_pair}_230331",
-                "positionAmt": "1",
-                "entryPrice": "10",
-                "markPrice": "11",
-                "unRealizedProfit": "1",
-                "liquidationPrice": "100",
-                "leverage": "1",
-                "maxNotionalValue": "9",
-                "marginType": "cross",
-                "isolatedMargin": "0",
-                "isAutoAddMargin": "false",
-                "positionSide": "BOTH",
-                "notional": "11",
-                "isolatedWallet": "0",
-                "updateTime": int(self.start_timestamp),
-            }
-        ]
+        positions = {"result": {
+            "positions": [
+                {
+                    "amount": "5",
+                    "amount_step": "0.001",
+                    "average_price": "1.8980",
+                    "average_price_excl_fees": "string",
+                    "creation_timestamp": self.start_timestamp,
+                    "cumulative_funding": "string",
+                    "delta": 0,
+                    "gamma": 1,
+                    "index_price": "1.8980",
+                    "initial_margin": "26",
+                    "instrument_name": f"{self.exchange_trading_pair}_wrong",
+                    "instrument_type": "erc20",
+                    "leverage": 25,
+                    "liquidation_price": "string",
+                    "maintenance_margin": "string",
+                    "mark_price": "1.8980",
+                    "mark_value": "1.8980",
+                    "net_settlements": "string",
+                    "open_orders_margin": "string",
+                    "pending_funding": "string",
+                    "realized_pnl": "string",
+                                    "realized_pnl_excl_fees": "string",
+                                    "theta": "string",
+                                    "total_fees": "string",
+                                    "unrealized_pnl": "0.144654",
+                                    "unrealized_pnl_excl_fees": "-1",
+                                    "vega": "string"
+                }
+            ],
+            "subaccount_id": 0
+        }
+        }
         return positions
 
     def _get_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
@@ -1138,7 +1174,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "amount_step": "0.001",
                     "average_price": "1.8980",
                     "average_price_excl_fees": "string",
-                    "creation_timestamp": 0,
+                    "creation_timestamp": self.start_timestamp,
                     "cumulative_funding": "string",
                     "delta": 0,
                     "gamma": 1,
@@ -1176,13 +1212,13 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "amount_step": "0.001",
                     "average_price": "1.8980",
                     "average_price_excl_fees": "string",
-                    "creation_timestamp": 0,
+                    "creation_timestamp": self.start_timestamp,
                     "cumulative_funding": "string",
                     "delta": 0,
                     "gamma": 1,
                     "index_price": "1.8980",
                     "initial_margin": "26",
-                    "instrument_name": self.exchange_trading_pair,
+                    "instrument_name": f"{self.exchange_trading_pair}_wrong",
                     "instrument_type": "erc20",
                     "leverage": 25,
                     "liquidation_price": "string",
@@ -1207,7 +1243,41 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return account_update
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
-        pass
+        return {"result": {
+            "positions": [
+                {
+                    "amount": str(order.amount),
+                    "amount_step": "0.001",
+                    "average_price": "1.8980",
+                    "average_price_excl_fees": "string",
+                    "creation_timestamp": "1627293049406",
+                    "cumulative_funding": "string",
+                    "delta": 0,
+                    "gamma": 1,
+                    "index_price": "1.8980",
+                    "initial_margin": str(order.amount),
+                    "instrument_name": f"{self.exchange_trading_pair}",
+                    "instrument_type": "erc20",
+                    "leverage": str(order.leverage),
+                    "liquidation_price": "string",
+                    "maintenance_margin": "string",
+                    "mark_price": "1.8980",
+                    "mark_value": "1.8980",
+                    "net_settlements": "string",
+                    "open_orders_margin": "string",
+                    "pending_funding": "string",
+                    "realized_pnl": "string",
+                    "realized_pnl_excl_fees": "string",
+                    "theta": "string",
+                    "total_fees": "string",
+                    "unrealized_pnl": str(unrealized_pnl),
+                    "unrealized_pnl_excl_fees": "-1",
+                    "vega": "string"
+                }
+            ],
+            "subaccount_id": 0
+        }
+        }
 
     def test_user_stream_update_for_new_order(self):
         self.exchange._set_current_timestamp(1640780000)
@@ -1281,6 +1351,105 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(funding_info_logged.funding_rate, Decimal(funding_info["result"]["perp_details"]["funding_rate"]))
         self.assertEqual(funding_info_logged.amount, Decimal(income_history["result"]["events"][0]["funding"]))
+
+    @aioresponses()
+    def test_new_account_position_detected_on_positions_update(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        url = web_utils.private_rest_url(
+            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.post(regex_url, body=json.dumps([]))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(len(self.exchange.account_positions), 0)
+
+        positions = self._get_position_risk_api_endpoint_single_position_list()
+        req_mock.post(regex_url, body=json.dumps(positions))
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(len(self.exchange.account_positions), 1)
+
+    @aioresponses()
+    def test_closed_account_position_removed_on_positions_update(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        url = web_utils.private_rest_url(
+            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        positions = self._get_position_risk_api_endpoint_single_position_list()
+        req_mock.post(regex_url, body=json.dumps(positions))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(len(self.exchange.account_positions), 1)
+
+        positions["result"]["positions"][0]["amount"] = "0"
+        req_mock.post(regex_url, body=json.dumps(positions))
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(len(self.exchange.account_positions), 0)
+
+    @aioresponses()
+    def test_existing_account_position_detected_on_positions_update(self, req_mock):
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(
+            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        positions = self._get_position_risk_api_endpoint_single_position_list()
+        req_mock.post(regex_url, body=json.dumps(positions))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(len(self.exchange.account_positions), 1)
+        pos = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(pos.trading_pair, self.trading_pair)
+
+    @aioresponses()
+    def test_wrong_symbol_position_detected_on_positions_update(self, req_mock):
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(
+            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        positions = self._get_wrong_symbol_position_risk_api_endpoint_single_position_list()
+        req_mock.post(regex_url, body=json.dumps(positions))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(len(self.exchange.account_positions), 0)
+
+    @aioresponses()
+    def test_account_position_updated_on_positions_update(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        url = web_utils.private_rest_url(
+            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        positions = self._get_position_risk_api_endpoint_single_position_list()
+        req_mock.post(regex_url, body=json.dumps(positions))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(len(self.exchange.account_positions), 1)
+        pos = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(pos.amount, 5)
+
+        positions["result"]["positions"][0]["amount"] = "2"
+        req_mock.post(regex_url, body=json.dumps(positions))
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        pos = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(pos.amount, 2)
 
     @aioresponses()
     def test_fetch_funding_payment_failed(self, req_mock):
