@@ -924,33 +924,36 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                                          limit_id=CONSTANTS.POSITION_INFORMATION_URL)
         if "error" in positions:
             self.logger().error(f"Error fetching positions: {positions['error']['message']}")
-        data: List[dict] = positions["result"]["positions"]
-        for position in data:
-            trading_pair = position.get("instrument_name")
-            try:
-                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
-            except KeyError:
-                # Ignore results for which their symbols is not tracked by the connector
-                continue
-            position_side = PositionSide.LONG if Decimal(position.get("amount")) > 0 else PositionSide.SHORT
-            unrealized_pnl = Decimal(position.get("unrealized_pnl"))
-            entry_price = Decimal(position.get("index_price"))
-            amount = Decimal(position.get("amount", 0))
-            leverage = position.get("leverage", 0)
-            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
-            if amount != 0:
-                _position = Position(
-                    trading_pair=hb_trading_pair,
-                    position_side=position_side,
-                    unrealized_pnl=unrealized_pnl,
-                    entry_price=entry_price,
-                    amount=amount,
-                    leverage=Decimal(leverage)
-                )
-                self._perpetual_trading.set_leverage(trading_pair, leverage)
-                self._perpetual_trading.set_position(pos_key, _position)
-            else:
-                self._perpetual_trading.remove_position(pos_key)
+        if "result" in positions:
+            data: List[dict] = positions["result"]["positions"]
+            if len(data) == 0:
+                return
+            for position in data:
+                trading_pair = position.get("instrument_name")
+                try:
+                    hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
+                position_side = PositionSide.LONG if Decimal(position.get("amount")) > 0 else PositionSide.SHORT
+                unrealized_pnl = Decimal(position.get("unrealized_pnl"))
+                entry_price = Decimal(position.get("index_price"))
+                amount = Decimal(position.get("amount", 0))
+                leverage = position.get("leverage", 0)
+                pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+                if amount != 0:
+                    _position = Position(
+                        trading_pair=hb_trading_pair,
+                        position_side=position_side,
+                        unrealized_pnl=unrealized_pnl,
+                        entry_price=entry_price,
+                        amount=amount,
+                        leverage=Decimal(leverage)
+                    )
+                    self._perpetual_trading.set_leverage(trading_pair, leverage)
+                    self._perpetual_trading.set_position(pos_key, _position)
+                else:
+                    self._perpetual_trading.remove_position(pos_key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # NOTE: This is default to ONEWAY as there is nothing available on current version of Vega
