@@ -52,9 +52,9 @@ class DataTypesTest(unittest.TestCase):
     @aioresponses()
     def test_rest_response_with_test_properties(self, mocked_api):
         url = "https://some.url"
-        body = '{"one": 1}'
-        new_body = body.encode('utf-8')
-        new_body.decode('utf-8')
+        data = '{"one": 1}'
+        data_str = data.encode("utf-8")
+        body = f'{data_str}'
         body_str = json.dumps(body)
         headers = {"content-type": "text/html"}
         mocked_api.get(url=url, body=body_str, headers=headers)
