@@ -970,25 +970,31 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        funding_info_response = await self._api_post(path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
-                                                     data={
-                                                         "period": 3600,
-                                                         "page": 1,
-                                                         "page_size": 100,
-                                                         "start_timestamp": self._last_funding_time(),
-                                                         "instrument_name": symbol,
-                                                         "subaccount_id": self._sub_id
-                                                     },
-                                                     is_auth_required=True,
-                                                     limit_id=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL
-                                                     )
-        sorted_payment_response = funding_info_response["result"]["events"]
+        payment_response = await self._api_post(
+            path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+            data={
+                "period": 3600,
+                "page": 1,
+                "page_size": 100,
+                "start_timestamp": self._last_funding_time(),
+                "instrument_name": symbol,
+                "subaccount_id": self._sub_id
+            },
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
+        payload = {
+            "instrument_name": symbol,
+        }
+        funding_info_response = await self._api_post(
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            data=payload)
+        sorted_payment_response = payment_response["result"]["events"]
         if len(sorted_payment_response) < 1:
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
             return timestamp, funding_rate, payment
         funding_payment = sorted_payment_response[0]
         _payment = Decimal(funding_payment["funding"])
-        funding_rate = Decimal(funding_payment["pnl"])
+        funding_rate = Decimal(funding_info_response["result"]["perp_details"]["funding_rate"])
         timestamp = funding_payment["timestamp"] * 1e-3
         if _payment != Decimal("0"):
             payment = _payment
