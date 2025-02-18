@@ -3,8 +3,8 @@ import json
 import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
-from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -35,7 +35,7 @@ class AbstractExchangeConnectorTests:
     frameworks from discovering and tyring to run the abstract class
     """
 
-    class ExchangeConnectorTests(ABC, TestCase):
+    class ExchangeConnectorTests(ABC, IsolatedAsyncioWrapperTestCase):
         # the level is required to receive logs from the data source logger
         level = 0
 
@@ -411,7 +411,8 @@ class AbstractExchangeConnectorTests:
             return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
         def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-            ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+            # ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+            ret = self.run_async_with_timeout(coroutine, timeout)
             return ret
 
         def configure_all_symbols_response(
