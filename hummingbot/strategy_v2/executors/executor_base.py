@@ -259,11 +259,11 @@ class ExecutorBase(RunnableBase):
             for event_pair in self._event_pairs:
                 connector.remove_listener(event_pair[0], event_pair[1])
 
-    def adjust_order_candidates(self, exchange: str, order_candidates: List[OrderCandidate]) -> List[OrderCandidate]:
+    def adjust_order_candidates(self, exchange: str, order_candidates: List[OrderCandidate], all_or_none: bool = True) -> List[OrderCandidate]:
         """
         Adjusts the order candidates based on the budget checker of the specified exchange.
         """
-        return self.connectors[exchange].budget_checker.adjust_candidates(order_candidates)
+        return self.connectors[exchange].budget_checker.adjust_candidates(order_candidates, all_or_none=all_or_none)
 
     def place_order(self,
                     connector_name: str,
