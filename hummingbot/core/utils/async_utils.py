@@ -14,7 +14,8 @@ async def safe_wrapper(c):
 
 
 def safe_ensure_future(coro, *args, **kwargs):
-    return asyncio.ensure_future(safe_wrapper(coro), *args, **kwargs)
+    wrapped = safe_wrapper(coro)
+    return asyncio.ensure_future(wrapped, *args, **kwargs)
 
 
 async def safe_gather(*args, **kwargs):

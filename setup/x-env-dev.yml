@@ -36,6 +36,7 @@ dependencies:
   # - eth-keyfile
   # - eip712_structs>=1.1.1a1
   # - ethsnarks-loopring>=0.1.6a1
+  - dydxprotocol-v4-proto-py
   - injective-py
   - gql-with-aiohttp>=3.4.1
   - msgpack-python
