@@ -264,7 +264,10 @@ class InjectiveVaultsDataSourceTests(TestCase):
         self.query_executor = ProgrammableQueryExecutor()
         self.data_source._query_executor = self.query_executor
 
-        self.data_source._composer = Composer(network=self.data_source.network_name)
+        self.data_source._composer = Composer(
+            network=self.data_source.network_name,
+            spot_markets=self._spot_markets_response(),
+        )
 
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source.stop())
