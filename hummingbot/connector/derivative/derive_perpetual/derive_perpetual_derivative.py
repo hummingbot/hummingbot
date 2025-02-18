@@ -443,7 +443,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         Creates an order on the derivative exchange using the specified parameters.
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        if len(self._instrument_ticker) > 0:
+        if len(self._instrument_ticker) == 0:
             await self.trading_pair_symbol_map()
         instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
         param_order_type = "gtc"
