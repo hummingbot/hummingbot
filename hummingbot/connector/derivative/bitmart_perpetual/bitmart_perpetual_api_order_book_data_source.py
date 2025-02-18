@@ -237,8 +237,8 @@ class BitmartPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if trading_pair not in self._trading_pairs:
             return
 
-        self._last_mark_prices[trading_pair] = Decimal(data["last_price"])
-        self._last_index_prices[trading_pair] = Decimal(data["fair_price"])
+        self._last_mark_prices[trading_pair] = Decimal(data["mark_price"])
+        self._last_index_prices[trading_pair] = Decimal(data["index_price"])
 
     async def _request_complete_funding_info(self, trading_pair: str):
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
