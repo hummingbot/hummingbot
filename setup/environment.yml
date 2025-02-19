@@ -61,9 +61,7 @@ dependencies:
     - rsa==4.7
     - ruamel-yaml==0.16.10
     - signalr-client-aio==0.0.1.6.2
-    - solders==0.1.4
     - web3>=6.2.0,<7.0.0
     - websockets
     - yarl==1.*
-    - git+https://github.com/CoinAlpha/python-signalr-client.git
     - xrpl-py==3.0.0
