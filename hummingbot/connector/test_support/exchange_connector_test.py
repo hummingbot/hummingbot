@@ -1343,7 +1343,7 @@ class AbstractExchangeConnectorTests:
                 )
             )
 
-        def test_user_stream_update_for_new_order(self):
+        async def test_user_stream_update_for_new_order(self):
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id=self.client_order_id_prefix + "1",
@@ -1364,9 +1364,10 @@ class AbstractExchangeConnectorTests:
             self.exchange._user_stream_tracker._user_stream = mock_queue
 
             try:
-                self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+                await (self.exchange._user_stream_event_listener())
             except asyncio.CancelledError:
                 pass
+            await asyncio.sleep(0.1)
 
             event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, event.timestamp)
@@ -1382,7 +1383,7 @@ class AbstractExchangeConnectorTests:
 
             self.assertTrue(self.is_logged("INFO", tracked_order.build_order_created_message()))
 
-        def test_user_stream_update_for_canceled_order(self):
+        async def test_user_stream_update_for_canceled_order(self):
             self.exchange._set_current_timestamp(1640780000)
             self.exchange.start_tracking_order(
                 order_id=self.client_order_id_prefix + "1",
@@ -1403,9 +1404,10 @@ class AbstractExchangeConnectorTests:
             self.exchange._user_stream_tracker._user_stream = mock_queue
 
             try:
-                self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+                await (self.exchange._user_stream_event_listener())
             except asyncio.CancelledError:
                 pass
+            await asyncio.sleep(0.1)
 
             cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)

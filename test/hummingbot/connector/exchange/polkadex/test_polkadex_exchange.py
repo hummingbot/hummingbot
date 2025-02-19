@@ -43,21 +43,18 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def setUp(self) -> None:
         super().setUp()
-        self._original_async_loop = asyncio.get_event_loop()
-        self.async_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.async_loop)
-        self._logs_event: Optional[asyncio.Event] = None
         self.exchange._data_source.logger().setLevel(1)
         self.exchange._data_source.logger().addHandler(self)
         self.exchange._set_trading_pair_symbol_map(bidict({self.exchange_trading_pair: self.trading_pair}))
         exchange_base, exchange_quote = self.trading_pair.split("-")
         self.exchange._data_source._assets_map = {exchange_base: self.base_asset, "1": self.quote_asset}
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self._logs_event = asyncio.Event()
+
     def tearDown(self) -> None:
         super().tearDown()
-        self.async_loop.stop()
-        self.async_loop.close()
-        asyncio.set_event_loop(self._original_async_loop)
         self._logs_event = None
 
     def handle(self, record):
@@ -1410,9 +1407,9 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             self.is_logged("ERROR", self.expected_logged_error_for_erroneous_trading_rule)
         )
 
-    def test_user_stream_status_is_based_on_listening_tasks(self):
+    async def test_user_stream_status_is_based_on_listening_tasks(self):
         self.exchange._set_trading_pair_symbol_map(None)
-        self.exchange._data_source._events_listening_tasks.append(self.async_loop.create_task(asyncio.sleep(120)))
+        self.exchange._data_source._events_listening_tasks.append(asyncio.create_task(asyncio.sleep(120)))
 
         status_dict = self.exchange.status_dict
 

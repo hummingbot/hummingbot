@@ -625,6 +625,8 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             mock_api=mock_api)
 
         await (self.exchange._update_order_status())
+        await asyncio.sleep(0.1)
+
         cancel_event = self.order_cancelled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
@@ -736,6 +738,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
         order_id = self.place_buy_order()
         await (request_sent_event.wait())
+        await asyncio.sleep(0.1)
 
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
@@ -770,6 +773,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
         await (request_sent_event.wait())
+        await asyncio.sleep(0.1)
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -821,6 +825,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
         self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
         await (request_sent_event.wait())
+        await asyncio.sleep(0.1)
         self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(order.is_pending_cancel_confirmation)
 
@@ -1039,7 +1044,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         latest_prices: Dict[str, float] = await (
             self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
         )
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
         self.assertEqual(1, len(latest_prices))
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 

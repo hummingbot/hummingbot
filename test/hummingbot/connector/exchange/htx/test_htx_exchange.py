@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import re
 from decimal import Decimal
@@ -949,10 +950,9 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         mock_queue.get.side_effect = event_messages
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await self.exchange._user_stream_event_listener()
-        except asyncio.CancelledError:
-            pass
+        await asyncio.sleep(0.1)
 
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
