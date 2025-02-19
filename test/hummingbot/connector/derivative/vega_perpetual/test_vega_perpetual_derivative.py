@@ -28,6 +28,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_base import NetworkStatus
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
@@ -54,8 +55,6 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.log_records = []
 
         self.ws_sent_messages = []
-        self.ws_incoming_messages = asyncio.Queue()
-        self.resume_test_event = asyncio.Event()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.exchange = VegaPerpetualDerivative(
@@ -89,11 +88,16 @@ class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.exchange._user_stream_tracker.logger().addHandler(self)
         self.exchange._user_stream_tracker.data_source.logger().setLevel(1)
         self.exchange._user_stream_tracker.data_source.logger().addHandler(self)
-        self.mocking_assistant = NetworkMockingAssistant()
         self.mock_time_ns = time.time_ns()
         self.test_task: Optional[asyncio.Task] = None
-        self.resume_test_event = asyncio.Event()
         self._initialize_event_loggers()
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.ws_incoming_messages = asyncio.Queue()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
 
     @property
     def all_symbols_url(self):

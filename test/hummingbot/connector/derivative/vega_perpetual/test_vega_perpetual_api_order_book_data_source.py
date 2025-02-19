@@ -1,8 +1,8 @@
 import asyncio
 import json
-import unittest
 from decimal import Decimal
 from test.hummingbot.connector.derivative.vega_perpetual import mock_orderbook, mock_requests
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Awaitable, List
 from unittest.mock import AsyncMock, patch
 
@@ -21,9 +21,10 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
+class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -64,14 +65,18 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.mocking_assistant = NetworkMockingAssistant()
-        self.resume_test_event = asyncio.Event()
         VegaPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
             self.domain: bidict({self.ex_trading_pair: self.ex_trading_pair})
         }
 
         self.connector._set_trading_pair_symbol_map(
             bidict({f"{self.base_asset}{self.quote_asset}": self.ex_trading_pair}))
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
 
     @property
     def all_symbols_url(self):
