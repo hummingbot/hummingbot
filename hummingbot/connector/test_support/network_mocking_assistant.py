@@ -21,16 +21,11 @@ def get_stable_key(ws: AsyncMock) -> uuid.UUID:
     current = ws
     while True:
         if hasattr(current, "_stable_key"):
-            key = current._stable_key
-            print(f"[get_stable_key] Found _stable_key: {key} in {current}")
-            return key
+            return current._stable_key
         elif hasattr(current, "__wrapped__"):
-            print(f"[get_stable_key] Unwrapping {current}")
             current = current.__wrapped__
         else:
-            key = id(current)
-            print(f"[get_stable_key] No _stable_key found, using id: {key} from {current}")
-            return key
+            return id(current)
 
 
 class MockWebsocketClientSession:
@@ -199,8 +194,6 @@ class NetworkMockingAssistant:
 
     async def _get_next_websocket_aiohttp_message(self, ws_key: uuid.UUID, *args, **kwargs):
         self.verify_async_init()
-        print(f"_get_next_websocket_aiohttp_message ws_key: {ws_key}")
-        print(f"_incoming_websocket_aiohttp_queues ws_key: {self._incoming_websocket_aiohttp_queues}")
         queue = self._incoming_websocket_aiohttp_queues[ws_key]
         message = await queue.get()
         if queue.empty():
@@ -237,7 +230,6 @@ class NetworkMockingAssistant:
         ws.receive_str.side_effect = self.async_partial(self._get_next_websocket_text_message, stable_key)
         ws.receive.side_effect = self.async_partial(self._get_next_websocket_aiohttp_message, stable_key)
         ws.recv.side_effect = self.async_partial(self._get_next_websocket_text_message, stable_key)
-        print(f"create_websocket_mock ws_mock: {stable_key}:{ws}")
         return ws
 
     def add_websocket_json_message(self, websocket_mock, message):
@@ -260,10 +252,8 @@ class NetworkMockingAssistant:
     ):
         self.verify_async_init()
         key: uuid.UUID = get_stable_key(websocket_mock)
-        print(f"add_websocket_aiohttp_message ws_key: {key}")
         msg = aiohttp.WSMessage(message_type, message, extra=None)
         self._incoming_websocket_aiohttp_queues[key].put_nowait(msg)
-        print(f"_incoming_websocket_aiohttp_queues ws_key: {self._incoming_websocket_aiohttp_queues}")
         self._all_incoming_websocket_aiohttp_delivered_event[key].clear()
 
     def add_websocket_aiohttp_exception(self, websocket_mock, exception: Union[Exception, BaseException]):
@@ -297,6 +287,5 @@ class NetworkMockingAssistant:
     async def run_until_all_aiohttp_messages_delivered(self, websocket_mock, timeout: int = 1):
         self.verify_async_init()
         key: uuid.UUID = get_stable_key(websocket_mock)
-        print(f"run_until_all_aiohttp_messages_delivered ws_key: {key}")
         all_delivered = self._all_incoming_websocket_aiohttp_delivered_event[key]
         await asyncio.wait_for(all_delivered.wait(), timeout)
