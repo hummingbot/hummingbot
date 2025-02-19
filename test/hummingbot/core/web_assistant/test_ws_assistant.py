@@ -5,6 +5,7 @@ import aiohttp
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest, WSResponse
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -20,11 +21,11 @@ class WSAssistantTest(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
-        await self.mocking_assistant.async_init()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.aiohttp_client_session = aiohttp.ClientSession()
         self.ws_connection = WSConnection(self.aiohttp_client_session)
         self.ws_assistant = WSAssistant(self.ws_connection)

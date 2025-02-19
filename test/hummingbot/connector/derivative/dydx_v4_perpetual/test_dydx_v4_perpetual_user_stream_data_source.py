@@ -1,15 +1,16 @@
 import asyncio
-import unittest
-from typing import Awaitable, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Optional
 from unittest.mock import AsyncMock, patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivative import DydxV4PerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class DydxV4PerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
+class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -45,6 +46,9 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
@@ -61,10 +65,6 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
