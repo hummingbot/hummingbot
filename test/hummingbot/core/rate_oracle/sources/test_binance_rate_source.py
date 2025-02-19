@@ -1,4 +1,3 @@
-import asyncio
 import json
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -14,7 +13,6 @@ class BinanceRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.binance_pair = f"{cls.target_token}-{cls.global_token}"
@@ -63,12 +61,12 @@ class BinanceRateSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_api.get(binance_prices_global_url, body=json.dumps(binance_prices_global_response))
 
     @aioresponses()
-    def test_get_binance_prices(self, mock_api):
+    async def test_get_binance_prices(self, mock_api):
         expected_rate = Decimal("10")
         self.setup_binance_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = BinanceRateSource()
-        prices = self.run_async_with_timeout(rate_source.get_prices())
+        prices = await rate_source.get_prices()
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
