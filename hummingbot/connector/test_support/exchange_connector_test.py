@@ -853,7 +853,7 @@ class AbstractExchangeConnectorTests:
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
             self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
-            await (request_sent_event.wait())
+            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
             await asyncio.sleep(0.1)
 
             if url != "":
@@ -904,7 +904,8 @@ class AbstractExchangeConnectorTests:
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
             self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
-            await (request_sent_event.wait())
+            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+            await asyncio.sleep(0.1)
 
             if url != "":
                 cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1256,6 +1257,7 @@ class AbstractExchangeConnectorTests:
             self.assertTrue(order.is_open)
 
             await (self.exchange._update_order_status())
+            await asyncio.sleep(0.1)
 
             if order_url:
                 order_status_request = self._all_executed_requests(mock_api, order_url)[0]
@@ -1596,6 +1598,7 @@ class AbstractExchangeConnectorTests:
             await (request_sent_event.wait())
 
             await (order.wait_until_completely_filled())
+            await asyncio.sleep(0.1)
 
             self.assertTrue(order.is_done)
             self.assertTrue(order.is_failure)
@@ -1682,8 +1685,9 @@ class AbstractExchangeConnectorTests:
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
-            await (self.exchange._cancel_lost_orders())
-            await (request_sent_event.wait())
+            await asyncio.wait_for(self.exchange._cancel_lost_orders(), timeout=1)
+            await asyncio.sleep(0.1)
+            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
             await asyncio.sleep(0.1)
 
             if url:
@@ -1731,8 +1735,10 @@ class AbstractExchangeConnectorTests:
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
-            await (self.exchange._cancel_lost_orders())
-            await (request_sent_event.wait())
+            await asyncio.wait_for(self.exchange._cancel_lost_orders(), timeout=1)
+            await asyncio.sleep(0.1)
+            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+            await asyncio.sleep(0.1)
 
             if url:
                 cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1784,6 +1790,7 @@ class AbstractExchangeConnectorTests:
             await (self.exchange._update_lost_orders_status())
             # Execute one more synchronization to ensure the async task that processes the update is finished
             await (request_sent_event.wait())
+            await asyncio.sleep(0.1)
 
             self.assertTrue(order.is_done)
             self.assertTrue(order.is_failure)
