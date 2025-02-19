@@ -1,4 +1,3 @@
-import asyncio
 import json
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
@@ -13,7 +12,6 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_token = "SOL"
         cls.quote_token = "USDC"
         cls.cube_pair = f"{cls.base_token}{cls.quote_token}"
@@ -218,12 +216,12 @@ class CubeRateSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_api.get(cube_prices_live_url, body=json.dumps(cube_prices_live_response))
 
     @aioresponses()
-    def test_get_cube_prices(self, mock_api):
+    async def test_get_cube_prices(self, mock_api):
         expected_rate = 10
         self.setup_cube_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = CubeRateSource()
-        prices = self.run_async_with_timeout(rate_source.get_prices())
+        prices = await rate_source.get_prices()
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])

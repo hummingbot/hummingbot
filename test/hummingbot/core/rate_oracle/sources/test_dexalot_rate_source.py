@@ -1,4 +1,3 @@
-import asyncio
 import json
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -10,6 +9,14 @@ from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
+
+# Override the async_ttl_cache decorator to be a no-op.
+# def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
+#     def decorator(fn):
+#         return fn
+#
+#     return decorator
 
 
 class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
@@ -26,7 +33,14 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
-        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
+        await ConnectionsFactory().close()
+        self.factory = ConnectionsFactory()
+        self.mocking_assistant = NetworkMockingAssistant("__this_is_not_a_loop__")
+        await self.mocking_assistant.async_init()
+
+    async def asyncTearDown(self) -> None:
+        await self.factory.close()
+        await super().asyncTearDown()
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def setup_dexalot_responses(self, ws_connect_mock, mock_api, rate_source):
@@ -81,8 +95,7 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
             message=json.dumps(result_subscribe))
         prices = await rate_source.get_prices()
 
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, 1)
-        await asyncio.sleep(0.1)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
         return prices
 
     @aioresponses()

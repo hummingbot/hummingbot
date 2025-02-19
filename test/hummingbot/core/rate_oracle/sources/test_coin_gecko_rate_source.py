@@ -184,7 +184,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_api.get(url=url, body=json.dumps(data))
 
     @aioresponses()
-    def test_get_prices_no_extra_tokens(self, mock_api: aioresponses):
+    async def test_get_prices_no_extra_tokens(self, mock_api: aioresponses):
         print("test_get_prices_no_extra_tokens() - mock_api.responses", mock_api)
         expected_rate = Decimal("10")
         self.setup_responses(mock_api=mock_api, expected_rate=expected_rate)
@@ -192,27 +192,27 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
         rate_source = CoinGeckoRateSource(extra_token_ids=[])
 
-        prices = self.run_async_with_timeout(rate_source.get_prices(quote_token=self.global_token))
+        prices = await rate_source.get_prices(quote_token=self.global_token)
 
         self.assertIn(self.trading_pair, prices)
         self.assertNotIn(self.extra_trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
 
     @aioresponses()
-    def test_get_prices_with_extra_tokens(self, mock_api: aioresponses):
+    async def test_get_prices_with_extra_tokens(self, mock_api: aioresponses):
         expected_rate = Decimal("10")
         self.setup_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = CoinGeckoRateSource(extra_token_ids=[self.extra_token])
 
-        prices = self.run_async_with_timeout(rate_source.get_prices(quote_token=self.global_token))
+        prices = await rate_source.get_prices(quote_token=self.global_token)
 
         self.assertIn(self.trading_pair, prices)
         self.assertIn(self.extra_trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
 
     @aioresponses()
-    def test_get_prices_raises_IOError_cooloff(self, mock_api: aioresponses):
+    async def test_get_prices_raises_IOError_cooloff(self, mock_api: aioresponses):
         # setup supported tokens response
         expected_rate = Decimal("10")
         # IOError exception on page 7 (hardcoded to page 7
@@ -225,7 +225,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
         # that the exception was raised, the prices are not returned and the mocked API returns ClientConnectionError
         with patch.object(CoinGeckoRateSource, "_sleep", new_callable=AsyncMock) as mock_sleep:
             with self.assertRaises(Exception) as e:
-                self.run_async_with_timeout(rate_source.get_prices(quote_token=self.global_token))
+                await rate_source.get_prices(quote_token=self.global_token)
             self.assertIn("page=7", e.exception.args[0])
             # Exception is caught and the code continues, so the sleep is called
             mock_sleep.assert_called_with(COOLOFF_AFTER_BAN)

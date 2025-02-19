@@ -1,4 +1,3 @@
-import asyncio
 import json
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -14,7 +13,6 @@ class TegroRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "USDC"
         cls.chain_id = "base"
@@ -138,12 +136,12 @@ class TegroRateSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_api.get(tegro_prices_global_url, body=json.dumps(tegro_prices_global_response))
 
     @aioresponses()
-    def test_get_tegro_prices(self, mock_api):
+    async def test_get_tegro_prices(self, mock_api):
         expected_rate = Decimal("10")
         self.setup_tegro_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = TegroRateSource()
-        prices = self.run_async_with_timeout(rate_source.get_prices())
+        prices = await rate_source.get_prices()
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])

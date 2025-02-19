@@ -1,4 +1,3 @@
-import asyncio
 from copy import deepcopy
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -29,7 +28,6 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
@@ -39,6 +37,9 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         if RateOracle._shared_instance is not None:
             RateOracle._shared_instance.stop()
         RateOracle._shared_instance = None
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
 
     def tearDown(self) -> None:
         RateOracle._shared_instance = None

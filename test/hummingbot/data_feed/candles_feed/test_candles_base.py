@@ -160,13 +160,14 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             self.data_feed.ensure_timestamp_in_seconds(162250)
 
     @aioresponses()
-    def test_fetch_candles(self, mock_api):
+    async def test_fetch_candles(self, mock_api):
         regex_url = re.compile(f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
 
-        resp = self.run_async_with_timeout(self.data_feed.fetch_candles(start_time=int(self.start_time),
-                                                                        end_time=int(self.end_time)))
+        resp = await self.data_feed.fetch_candles(
+            start_time=int(self.start_time),
+            end_time=int(self.end_time))
 
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))
         self.assertEqual(resp.shape[1], 10)
@@ -184,6 +185,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await asyncio.sleep(0.1)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
@@ -255,6 +257,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await asyncio.sleep(0.1)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
@@ -278,6 +281,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
+        await asyncio.sleep(0.1)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
@@ -298,6 +302,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await asyncio.sleep(0.1)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 2)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)

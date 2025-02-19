@@ -1,4 +1,3 @@
-import asyncio
 import json
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -20,7 +19,6 @@ class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.coinbase_pair = f"{cls.target_token}{cls.global_token}"
@@ -85,12 +83,12 @@ class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
         mock_api.get(pairs_url, body=json.dumps(symbols_response))
 
     @aioresponses()
-    def test_get_coinbase_prices(self, mock_api):
+    async def test_get_coinbase_prices(self, mock_api):
         expected_rate = Decimal("10")
         self.setup_coinbase_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = CoinbaseAdvancedTradeRateSource()
-        prices = self.run_async_with_timeout(rate_source.get_prices())
+        prices = await rate_source.get_prices()
 
         self.assertIn("COINALPHA-USD", prices)
         self.assertEqual(expected_rate, prices["COINALPHA-USD"])
