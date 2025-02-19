@@ -447,7 +447,10 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         exchange._data_source._spot_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
         exchange._data_source._derivative_market_and_trading_pair_map = bidict()
 
-        exchange._data_source._composer = Composer(network=exchange._data_source.network_name)
+        exchange._data_source._composer = Composer(
+            network=exchange._data_source.network_name,
+            spot_markets=self.all_markets_mock_response,
+        )
 
         return exchange
 
