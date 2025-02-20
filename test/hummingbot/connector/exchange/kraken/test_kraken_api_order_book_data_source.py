@@ -1,8 +1,7 @@
 import asyncio
 import json
 import re
-import unittest
-from typing import Awaitable
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -20,13 +19,12 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 
 
-class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
+class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -34,11 +32,11 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         cls.ws_ex_trading_pairs = cls.base_asset + "/" + cls.quote_asset
         cls.api_tier = KrakenAPITier.STARTER
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.log_records = []
         self.listening_task = None
-        self.mocking_assistant = NetworkMockingAssistant()
+        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
         self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -77,10 +75,6 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def _trade_update_event(self):
         resp = [
@@ -158,7 +152,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         return resp
 
     @aioresponses()
-    def test_get_new_order_book_successful(self, mock_api):
+    async def test_get_new_order_book_successful(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -166,7 +160,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         mock_api.get(regex_url, body=json.dumps(resp))
 
-        ret = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
+        ret = await self.data_source.get_new_order_book(self.trading_pair)
 
         self.assertTrue(isinstance(ret, OrderBook))
 
@@ -179,18 +173,16 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         self.assertEqual(first_ask_price, asks_df.iloc[0]["price"])
 
     @aioresponses()
-    def test_get_new_order_book_raises_exception(self, mock_api):
+    async def test_get_new_order_book_raises_exception(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
-            self.async_run_with_timeout(
-                self.data_source.get_new_order_book(self.trading_pair)
-            )
+            await self.data_source.get_new_order_book(self.trading_pair)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
+    async def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_trades = {
@@ -209,9 +201,9 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_diffs))
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
@@ -237,49 +229,46 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
+    async def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_subscriptions()
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+    async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self._is_logged(
                 "ERROR",
                 "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
-    def test_subscribe_channels_raises_cancel_exception(self):
+    async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_source._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source._subscribe_channels(mock_ws)
 
-    def test_subscribe_channels_raises_exception_and_logs_error(self):
+    async def test_subscribe_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(self.data_source._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source._subscribe_channels(mock_ws)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
         )
 
-    def test_listen_for_trades_cancelled_when_listening(self):
+    async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -287,12 +276,9 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
 
-    def test_listen_for_trades_logs_exception(self):
+    async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
             "m": 1,
             "i": 2,
@@ -304,33 +290,29 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
-        )
-
         try:
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
-    def test_listen_for_trades_successful(self):
+    async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(self.ev_loop, msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(1534614057.321597, msg.trade_id)
 
-    def test_listen_for_order_book_diffs_cancelled(self):
+    async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
@@ -338,12 +320,9 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
 
-    def test_listen_for_order_book_diffs_logs_exception(self):
+    async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
             "m": 1,
             "i": 2,
@@ -355,19 +334,15 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-        )
-
         try:
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
-    def test_listen_for_order_book_diffs_successful(self):
+    async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
         diff_event = self._order_diff_event()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
@@ -375,29 +350,27 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(diff_event[1]["a"][0][2], str(msg.update_id))
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+    async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError, repeat=True)
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(
-                self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
-            )
+            await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
     @patch("hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source"
            ".KrakenAPIOrderBookDataSource._sleep")
-    def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
+    async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
@@ -406,26 +379,26 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         mock_api.get(regex_url, exception=Exception, repeat=True)
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
         )
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
+    async def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
         )
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(1616663113, msg.update_id)

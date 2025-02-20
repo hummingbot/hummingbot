@@ -24,8 +24,16 @@ class ArbitrageControllerConfig(ControllerConfigBase):
     quote_conversion_asset: str = "USDT"
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
-        markets = {self.exchange_pair_1.connector_name: {self.exchange_pair_1.trading_pair},
-                   self.exchange_pair_2.connector_name: {self.exchange_pair_2.trading_pair}}
+        if self.exchange_pair_1.connector_name == self.exchange_pair_2.connector_name:
+            markets.update({
+                self.exchange_pair_1.connector_name: {self.exchange_pair_1.trading_pair,
+                                                      self.exchange_pair_2.trading_pair}
+            })
+        else:
+            markets.update({
+                self.exchange_pair_1.connector_name: {self.exchange_pair_1.trading_pair},
+                self.exchange_pair_2.connector_name: {self.exchange_pair_2.trading_pair}
+            })
         return markets
 
 

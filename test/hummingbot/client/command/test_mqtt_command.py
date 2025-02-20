@@ -1,4 +1,5 @@
 import asyncio
+from test.mock.mock_mqtt_server import FakeMQTTBroker
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -8,7 +9,6 @@ from async_timeout import timeout
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
 
 
 @patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_HEALTH_CHECK", 0.0)
