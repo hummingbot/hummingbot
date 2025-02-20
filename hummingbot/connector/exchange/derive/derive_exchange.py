@@ -283,7 +283,11 @@ class DeriveExchange(ExchangePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
-        price = self.quantize_order_price(trading_pair, price)
+        if order_type is OrderType.MARKET:
+            mid_price = self.get_mid_price(trading_pair)
+            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
+            market_price = mid_price * Decimal(1 + slippage)
+            price = self.quantize_order_price(trading_pair, market_price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -318,7 +322,11 @@ class DeriveExchange(ExchangePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
-        price = self.quantize_order_price(trading_pair, price)
+        if order_type is OrderType.MARKET:
+            mid_price = self.get_mid_price(trading_pair)
+            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
+            market_price = mid_price * Decimal(1 - slippage)
+            price = self.quantize_order_price(trading_pair, market_price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
