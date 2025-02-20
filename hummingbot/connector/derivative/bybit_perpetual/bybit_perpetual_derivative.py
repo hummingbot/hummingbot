@@ -176,14 +176,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     # TODO: Implement the following methods before sending PR
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
-        ts_error_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
-        param_error_target_str = (
-            f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp"
-        )
-        is_time_synchronizer_related = (
-            ts_error_target_str in error_description
-            or param_error_target_str in error_description
-        )
+        ts_error_target_str = (f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_INVALID_TIME)} - "
+                               f"The request time exceeds the time window range")
+        is_time_synchronizer_related = ts_error_target_str in error_description
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:

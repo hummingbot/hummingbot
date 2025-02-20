@@ -1520,8 +1520,8 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         )
 
     def test_time_synchronizer_related_reqeust_error_detection(self):
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
-        exception = IOError(f"{error_code_str} - Failed to cancel order for timestamp reason.")
+        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_INVALID_TIME)
+        exception = IOError(f"{error_code_str} - The request time exceeds the time window range.")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_ORDER_NOT_EXISTS)
