@@ -151,8 +151,8 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": trading_pair,
             "update_id": int(data['publish_id']),
-            "bids": [[float(i[0]), float(i[1])] for i in data['bids']],
-            "asks": [[float(i[0]), float(i[1])] for i in data['asks']],
+            "bids": ([i[0], i[1]] for i in data['bids']),
+            "asks": ([i[0], i[1]] for i in data['asks']),
         }, timestamp=timestamp)
         message_queue.put_nowait(trade_message)
 
@@ -189,7 +189,8 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         pass
 
     async def _request_complete_funding_info(self, trading_pair: str):
-        pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
+        pair = trading_pair.replace("USDC", "PERP")
         payload = {
             "instrument_name": pair,
         }
