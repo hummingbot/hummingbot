@@ -4,10 +4,9 @@ import json
 import test.hummingbot.connector.derivative.vega_perpetual.mock_requests as mock_requests
 import test.hummingbot.connector.derivative.vega_perpetual.mock_ws as mock_ws
 import time
-import unittest
-from asyncio import exceptions
 from decimal import Decimal
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Any, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
@@ -31,7 +30,7 @@ from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_base import NetworkStatus
 
 
-class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
+class VegaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -48,8 +47,6 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         cls.domain = CONSTANTS.TESTNET_DOMAIN
         cls.public_key = "f882e93e63ea662b9ddee6b61de17345d441ade06475788561e6d470bebc9ece"  # noqa: mock
         cls.mnemonic = "liberty unfair next zero business small okay insane juice reject veteran random pottery model matter giant artist during six napkin pilot bike immune rigid"  # noqa: mock
-
-        cls.ev_loop = asyncio.get_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
@@ -209,10 +206,6 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.resume_test_event.set()
         raise exception
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     def _return_calculation_and_set_done_event(self, calculation: Callable, *args, **kwargs):
         if self.resume_test_event.is_set():
             raise asyncio.CancelledError
@@ -271,14 +264,13 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
             )
         }
 
-    def _setup_symbols(self, mock_api):
+    async def _setup_symbols(self, mock_api):
         mock_api.get(self.symbols_url,
                      body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
-        task = self.ev_loop.create_task(self.exchange._populate_symbols())
-        self.async_run_with_timeout(task)
+        await self.exchange._populate_symbols()
 
-    def _setup_markets(self, mock_api):
+    async def _setup_markets(self, mock_api):
         mock_api.get(self.symbols_url,
                      body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
@@ -287,145 +279,134 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests._get_exchange_info_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._populate_exchange_info())
-        self.async_run_with_timeout(task)
+        await self.exchange._populate_exchange_info()
 
     @aioresponses()
     @patch('time.time_ns', return_value=1697015092507003000)
-    def test_make_blockchain_check_request(self, mock_api, mock_time):
+    async def test_make_blockchain_check_request(self, mock_api, mock_time):
 
         timestamp_resp = self._get_blockchain_timestamp_rest_mock()
 
         # we have to add this twice as the time sync url gets hit twice, once for a time
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
-        task = self.ev_loop.create_task(self.exchange._make_blockchain_check_request())
-        ret = self.async_run_with_timeout(task)
+        ret = await self.exchange._make_blockchain_check_request()
         self.assertTrue(ret)
 
     @aioresponses()
-    def test_check_network_old_block(self, mock_api):
+    async def test_check_network_old_block(self, mock_api):
         timestamp_resp = self._get_blockchain_timestamp_rest_mock()
         network_status_resp = mock_requests._get_network_requests_rest_mock()
 
         mock_api.get(self.network_status_url, body=json.dumps(network_status_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
-        task = self.ev_loop.create_task(self.exchange.check_network())
 
-        ret = self.async_run_with_timeout(task)
+        ret = await self.exchange.check_network()
 
         self.assertEqual(NetworkStatus.STOPPED, ret)
 
     @aioresponses()
     @patch('time.time_ns', return_value=1697015092507006000)
     # @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_derivative.Vegexchange._user_stream_tracker._user_stream._ws_connected', True)
-    def test_check_network_failed_blockchain_check_no_block(self, mock_api, mock_time):
+    async def test_check_network_failed_blockchain_check_no_block(self, mock_api, mock_time):
         timestamp_resp = self._get_blockchain_timestamp_rest_mock()
         network_status_resp = mock_requests._get_network_requests_rest_mock()
 
         mock_api.get(self.network_status_url, body=json.dumps(network_status_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
         # mock_api.get(self.blockchain_url, body=json.dumps(""))
-        task = self.ev_loop.create_task(self.exchange.check_network())
 
-        ret = self.async_run_with_timeout(task)
+        ret = await self.exchange.check_network()
 
         self.assertEqual(NetworkStatus.STOPPED, ret)
 
     @aioresponses()
     @patch('time.time_ns', return_value=1697015092507006000)
-    def test_check_network_failed_blockchain_check_bad_data(self, mock_api, mock_time):
+    async def test_check_network_failed_blockchain_check_bad_data(self, mock_api, mock_time):
         timestamp_resp = self._get_blockchain_timestamp_rest_mock()
         network_status_resp = mock_requests._get_network_requests_rest_mock()
 
         mock_api.get(self.network_status_url, body=json.dumps(network_status_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(""))
-        task = self.ev_loop.create_task(self.exchange.check_network())
 
-        ret = self.async_run_with_timeout(task)
+        ret = await self.exchange.check_network()
 
         self.assertEqual(NetworkStatus.NOT_CONNECTED, ret)
 
     @aioresponses()
     @patch('time.time_ns', return_value=1697015092507003000)
-    def test_check_network_fail(self, mock_api, mock_time):
+    async def test_check_network_fail(self, mock_api, mock_time):
         # this will 404 on the time request
         # timestamp_resp = self._get_blockchain_timestamp_rest_mock()
         # mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
         # mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
 
-        task = self.ev_loop.create_task(self.exchange.check_network())
-
-        ret = self.async_run_with_timeout(task)
+        ret = await self.exchange.check_network()
 
         self.assertEqual(NetworkStatus.STOPPED, ret)
 
     @aioresponses()
     @patch('time.time_ns', return_value=1697015092507003000)
-    def test_check_network(self, mock_api, mock_time):
+    async def test_check_network(self, mock_api, mock_time):
         timestamp_resp = self._get_blockchain_timestamp_rest_mock()
         network_status_resp = mock_requests._get_network_requests_rest_mock()
 
         mock_api.get(self.network_status_url, body=json.dumps(network_status_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
         mock_api.get(self.blockchain_url, body=json.dumps(timestamp_resp))
-        task = self.ev_loop.create_task(self.exchange.check_network())
 
-        ret = self.async_run_with_timeout(task)
+        ret = await self.exchange.check_network()
 
         self.assertEqual(NetworkStatus.CONNECTED, ret)
 
-    @aioresponses()
-    def test_stop_network(self, mock_api):
-
-        task = self.ev_loop.create_task(self.exchange.stop_network())
-        self.async_run_with_timeout(task, 10)
+    async def test_stop_network(self):
+        self.exchange._sleep = AsyncMock()
+        await self.exchange.stop_network()
 
     @aioresponses()
-    def test_get_collateral_token(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_get_collateral_token(self, mock_api):
+        await self._setup_markets(mock_api)
         buy_collateral_token = self.exchange.get_buy_collateral_token(self.ex_trading_pair)
         sell_collateral_token = self.exchange.get_sell_collateral_token(self.ex_trading_pair)
 
         self.assertEqual(buy_collateral_token, "HBOT")
         self.assertEqual(sell_collateral_token, "HBOT")
 
-    def test_supported_order_types(self):
+    async def test_supported_order_types(self):
         supported_types = self.exchange.supported_order_types()
         self.assertIn(OrderType.MARKET, supported_types)
         self.assertIn(OrderType.LIMIT, supported_types)
         self.assertIn(OrderType.LIMIT_MAKER, supported_types)
 
-    def test_supported_position_modes(self):
+    async def test_supported_position_modes(self):
         linear_connector = self.exchange
         expected_result = [PositionMode.ONEWAY]
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
 
     @aioresponses()
     @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_auth.VegaPerpetualAuth.sign_payload', return_value="FAKE_SIGNATURE".encode('utf-8'))
-    def test_place_order(self, mock_api, mock_signature):
-        self._setup_markets(mock_api)
+    async def test_place_order(self, mock_api, mock_signature):
+        await self._setup_markets(mock_api)
 
         mock_api.post(self.submit_transaction_url,
                       body=json.dumps(mock_requests.get_transaction_success_mock()),
                       headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._place_order(
+        await self.exchange._place_order(
             order_id="FAKE_ORDER_ID",
             trading_pair=self.ex_trading_pair,
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal("2000"),
-            position_action=PositionAction.OPEN))
-        self.async_run_with_timeout(task)
+            position_action=PositionAction.OPEN)
 
     @aioresponses()
     @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_auth.VegaPerpetualAuth.sign_payload', return_value="FAKE_SIGNATURE".encode('utf-8'))
-    def test_place_cancel(self, mock_api, mock_signature):
-        self._setup_markets(mock_api)
+    async def test_place_cancel(self, mock_api, mock_signature):
+        await self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id= "FAKE_CLIENT_ID",
                           trading_pair=self.ex_trading_pair,
                           order_type= OrderType.LIMIT,
@@ -440,15 +421,14 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                       body=json.dumps(mock_requests.get_transaction_success_mock()),
                       headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._place_cancel(
+        await self.exchange._place_cancel(
             order_id="FAKE_ORDER_ID",
-            tracked_order=o))
-        self.async_run_with_timeout(task)
+            tracked_order=o)
 
     @aioresponses()
     @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_auth.VegaPerpetualAuth.sign_payload', return_value="FAKE_SIGNATURE".encode('utf-8'))
-    def test_place_cancel_missing_exchange_order_id(self, mock_api, mock_signature):
-        self._setup_markets(mock_api)
+    async def test_place_cancel_missing_exchange_order_id(self, mock_api, mock_signature):
+        await self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id= "FAKE_CLIENT_ID",
                           trading_pair=self.ex_trading_pair,
                           order_type= OrderType.LIMIT,
@@ -462,15 +442,14 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                       body=json.dumps(mock_requests.get_transaction_success_mock()),
                       headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._place_cancel(
+        await self.exchange._place_cancel(
             order_id="FAKE_CLIENT_ID",
-            tracked_order=o))
-        self.async_run_with_timeout(task)
+            tracked_order=o)
 
     # @aioresponses()
     # @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_auth.VegaPerpetualAuth.sign_payload', return_value="FAKE_SIGNATURE".encode('utf-8'))
     # @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_web_utils.get_current_server_time', return_value=1000000000.00)
-    # def test_place_cancel_missing_exchange_order_id_tx_failed(self, mock_api, mock_signature, mock_server_time):
+    # async def test_place_cancel_missing_exchange_order_id_tx_failed(self, mock_api, mock_signature, mock_server_time):
     #     self._setup_markets(mock_api)
     #     o = InFlightOrder(client_order_id= "FAKE_CLIENT_ID",
     #                       trading_pair=self.ex_trading_pair,
@@ -485,28 +464,27 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
     #                   body=json.dumps(mock_requests.get_transaction_failure_mock()),
     #                   headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-    #     task = self.ev_loop.create_task(self.exchange._place_cancel(
+    #     task = self.local_event_loop.create_task(self.exchange._place_cancel(
     #         order_id="FAKE_CLIENT_ID",
     #         tracked_order=o))
-    #     self.async_run_with_timeout(task)
+    #     await task)
 
     @aioresponses()
-    def test_set_leverage(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_set_leverage(self, mock_api):
+        await self._setup_markets(mock_api)
 
         mock_api.get(self.risk_factors_url + "/COIN_ALPHA_HBOT_MARKET_ID/risk/factors",
                      body=json.dumps(mock_requests.get_risk_factors_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._set_trading_pair_leverage(self.trading_pair, 30))
-        succes, msg = self.async_run_with_timeout(task)
+        succes, msg = await self.exchange._set_trading_pair_leverage(self.trading_pair, 30)
 
         self.assertEqual(succes, True)
 
     @aioresponses()
     @patch('time.time_ns', return_value=1697015092507003000)
-    def test_last_fee_payment(self, mock_api, mock_time):
-        self._setup_markets(mock_api)
+    async def test_last_fee_payment(self, mock_api, mock_time):
+        await self._setup_markets(mock_api)
 
         mock_api.get(self.funding_payment_url + "?partyId=f882e93e63ea662b9ddee6b61de17345d441ade06475788561e6d470bebc9ece",  # noqa: mock
                      body=json.dumps(mock_requests._get_user_last_funding_payment_rest_mock()),
@@ -517,17 +495,15 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests.get_funding_periods()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._fetch_last_fee_payment(self.ex_trading_pair))
-
-        timestamp, funding_rate, payment = self.async_run_with_timeout(task)
+        timestamp, funding_rate, payment = await self.exchange._fetch_last_fee_payment(self.ex_trading_pair)
 
         self.assertEqual(timestamp, float(1697724166.111149))
         self.assertEqual(funding_rate, Decimal("-0.0014109983417459"))
         self.assertEqual(payment, Decimal("0.00000000000470078"))
 
     @aioresponses()
-    def test_update_balances(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_update_balances(self, mock_api):
+        await self._setup_markets(mock_api)
 
         position_url = f"{self.positions_url}?filter.marketIds=COIN_ALPHA_HBOT_MARKET_ID&filter.partyIds=f882e93e63ea662b9ddee6b61de17345d441ade06475788561e6d470bebc9ece"  # noqa: mock
         mock_api.get(position_url,
@@ -547,9 +523,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests._get_exchange_info_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._update_balances())
-
-        self.async_run_with_timeout(task)
+        await self.exchange._update_balances()
 
         bal1 = self.exchange._account_balances["HBOT"]
         expected1 = Decimal("1.5E-10")
@@ -561,8 +535,8 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(expected2, bal2)
 
     @aioresponses()
-    def test_all_trade_updates_for_order(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_all_trade_updates_for_order(self, mock_api):
+        await self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id= "FAKE_CLIENT_ID",
                           trading_pair=self.trading_pair,
                           order_type= OrderType.LIMIT,
@@ -578,17 +552,15 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests._get_user_trades_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._all_trade_updates_for_order(o))
-
-        trade_update = self.async_run_with_timeout(task)
+        trade_update = await self.exchange._all_trade_updates_for_order(o)
 
         self.assertIsNotNone(trade_update)
         self.assertTrue(len(trade_update) > 0)
         self.assertIsInstance(trade_update[0], TradeUpdate)
 
     @aioresponses()
-    def test_request_order_status_with_code(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_request_order_status_with_code(self, mock_api):
+        await self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id="FAKE_CLIENT_ID",
                           trading_pair=self.trading_pair,
                           order_type= OrderType.LIMIT,
@@ -604,7 +576,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.exchange._order_tracker.start_tracking_order(o)
 
-        # task = self.ev_loop.create_task(self.exchange._request_order_status(exchange_order_id="FAKE_EXCHANGE_ID"))
+        # task = self.local_event_loop.create_task(self.exchange._request_order_status(exchange_order_id="FAKE_EXCHANGE_ID"))
 
         # NOTE: This below makes it work when commented out (we'll return nothing)
         self.exchange._exchange_order_id_to_hb_order_id["BUYER_ORDER_ID"] = o.client_order_id
@@ -612,11 +584,11 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests._get_user_orders_with_code_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        # task = self.ev_loop.create_task(self.exchange._request_order_status(tracked_order=o))
+        # task = self.local_event_loop.create_task(self.exchange._request_order_status(tracked_order=o))
 
     @aioresponses()
-    def test_request_order_status(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_request_order_status(self, mock_api):
+        await self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id="FAKE_CLIENT_ID",
                           trading_pair=self.ex_trading_pair,
                           order_type= OrderType.LIMIT,
@@ -632,27 +604,25 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests._get_user_orders_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._request_order_status(tracked_order=o))
-
-        order_update = self.async_run_with_timeout(task)
+        order_update = await self.exchange._request_order_status(tracked_order=o)
 
         self.assertIsInstance(order_update, OrderUpdate)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_error(self, ws_connect_mock):
+    async def test_ws_error(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.exchange._user_stream_tracker.data_source._connector._best_connection_endpoint = "wss://test.com"
 
-        self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
+        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
         error_payload = mock_ws.ws_connect_error()
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(error_payload))
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(self._is_logged(
             "ERROR",
@@ -660,17 +630,17 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_invalid_data(self, ws_connect_mock):
+    async def test_ws_invalid_data(self, ws_connect_mock):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.exchange._user_stream_tracker.data_source._connector._best_connection_endpoint = "wss://test.com"
-        self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
+        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
 
         error_payload = mock_ws.ws_invalid_data()
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(error_payload))
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(self._is_logged(
             "ERROR",
@@ -678,13 +648,13 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_exception(self, ws_connect_mock):
+    async def test_ws_exception(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
+        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.mocking_assistant.add_websocket_aiohttp_exception(ws_connect_mock.return_value, exception=Exception("test exception"))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(self._is_logged_contains(
             "ERROR",
@@ -692,40 +662,34 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         ))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_cancel_exception(self, ws_connect_mock):
+    async def test_ws_cancel_exception(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.exchange._user_stream_tracker.data_source._connector._best_connection_endpoint = "wss://test.com"
-        self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
+        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.mocking_assistant.add_websocket_aiohttp_exception(ws_connect_mock.return_value, exception=asyncio.CancelledError)
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(self._is_logged_contains(
             "ERROR",
             "Websocket closed"
         ))
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_user_stream_event_listener_raises_cancelled_error(self, ws_connect_mock):
-
-        task = self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
-        self.assertRaises(exceptions.TimeoutError, self.async_run_with_timeout, task)
-
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_account_snapshot(self, mock_api, ws_connect_mock):
+    async def test_ws_account_snapshot(self, mock_api, ws_connect_mock):
 
-        self._setup_symbols(mock_api)
+        await self._setup_symbols(mock_api)
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
+        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
 
         account_update = mock_ws.account_snapshot_update()
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         bal1 = self.exchange._account_balances["COINALPHA"]
         expected1 = Decimal(3500)
@@ -736,9 +700,8 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(bal2, expected2)
 
     @aioresponses()
-    def test_ws_trade(self, mock_api):
-
-        self._setup_markets(mock_api)
+    async def test_ws_trade(self, mock_api):
+        await self._setup_markets(mock_api)
         client_order_id = "REFERENCE_ID"
         self.exchange.start_tracking_order(
             order_id=client_order_id,
@@ -763,7 +726,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         # ensure we were see that we were filled
         tracked_order: InFlightOrder = self.exchange._order_tracker.all_fillable_orders.get(client_order_id, None)
@@ -774,9 +737,8 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(tracked_order.executed_amount_base, Decimal("0.03"))
 
     @aioresponses()
-    def test_ws_trade_seller(self, mock_api):
-
-        self._setup_markets(mock_api)
+    async def test_ws_trade_seller(self, mock_api):
+        await self._setup_markets(mock_api)
         client_order_id = "REFERENCE_ID"
         self.exchange.start_tracking_order(
             order_id=client_order_id,
@@ -801,7 +763,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         # ensure we were see that we were filled
         tracked_order: InFlightOrder = self.exchange._order_tracker.all_fillable_orders.get(client_order_id, None)
@@ -812,9 +774,9 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(tracked_order.executed_amount_base, Decimal("0.00"))
 
     @aioresponses()
-    def test_ws_position(self, mock_api):
+    async def test_ws_position(self, mock_api):
 
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
 
         mock_data = mock_ws.position_update_status()
         mock_data["channel_id"] = "positions"
@@ -826,15 +788,14 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         # ensure we did not track this order
         self.assertEqual(len(self.exchange._perpetual_trading.account_positions), 0)
 
     @aioresponses()
-    def test_ws_order_unknown(self, mock_api):
-
-        self._setup_markets(mock_api)
+    async def test_ws_order_unknown(self, mock_api):
+        await self._setup_markets(mock_api)
 
         mock_data = mock_ws.orders_update()
         mock_data["channel_id"] = "orders"
@@ -846,25 +807,24 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
         self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         # ensure we did not track this order
         self.assertEqual(len(self.exchange._order_tracker.all_fillable_orders), 0)
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_account_update(self, mock_api, ws_connect_mock):
-
-        self._setup_symbols(mock_api)
+    async def test_ws_account_update(self, mock_api, ws_connect_mock):
+        await self._setup_symbols(mock_api)
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
+        self.local_event_loop.create_task(self.exchange._user_stream_tracker.start())
 
         account_update = mock_ws.account_update()
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
-        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         bal1 = self.exchange._account_balances["HBOT"]
         expected1 = Decimal(1)
@@ -872,9 +832,9 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_update_order(self, mock_api, ws_connect_mock):
-        self._setup_symbols(mock_api)
-        self._setup_markets(mock_api)
+    async def test_update_order(self, mock_api, ws_connect_mock):
+        await self._setup_symbols(mock_api)
+        await self._setup_markets(mock_api)
 
         self.exchange.start_tracking_order(
             order_id="REFERENCE_ID",
@@ -892,8 +852,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests._get_user_orders_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._update_order_status())
-        self.async_run_with_timeout(task)
+        await self.exchange._update_order_status()
 
         in_flight_orders = self.exchange._order_tracker.active_orders
 
@@ -901,7 +860,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual("REFERENCE_ID", in_flight_orders["REFERENCE_ID"].client_order_id)
 
     @aioresponses()
-    def test_populate_exchange_info(self, mock_api):
+    async def test_populate_exchange_info(self, mock_api):
 
         mock_api.get(self.symbols_url,
                      body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),
@@ -911,8 +870,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                      body=json.dumps(mock_requests._get_exchange_info_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._populate_exchange_info())
-        exchange_info = self.async_run_with_timeout(task)
+        exchange_info = await self.exchange._populate_exchange_info()
 
         self.assertIn("COIN_ALPHA_HBOT_MARKET_ID", exchange_info)
 
@@ -921,17 +879,16 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
             self.assertIsNotNone(m.symbol)
 
     @aioresponses()
-    def test_populate_symbols(self, mock_api):
+    async def test_populate_symbols(self, mock_api):
         mock_api.get(self.symbols_url,
                      body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
-        task = self.ev_loop.create_task(self.exchange._populate_symbols())
-        self.async_run_with_timeout(task)
+        await self.exchange._populate_symbols()
 
         self.assertIn("HBOT_ASSET_ID", self.exchange._assets_by_id)
         self.assertIn("COINALPHA_ASSET_ID", self.exchange._assets_by_id)
 
-    def test_do_housekeeping(self):
+    async def test_do_housekeeping(self):
         self.exchange._exchange_order_id_to_hb_order_id["FAKE_EXCHANGE_ID"] = "FAKE_CLIENT_ID"
 
         self.exchange._exchange_order_id_to_hb_order_id["FAKE_EXCHANGE_ID_BAD"] = "FAKE_CLIENT_ID_BAD"
@@ -951,58 +908,32 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertNotIn("FAKE_EXCHANGE_ID_BAD", self.exchange._exchange_order_id_to_hb_order_id)
 
     @aioresponses()
-    def test_funding_fee_poll_interval(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_funding_fee_poll_interval(self, mock_api):
+        await self._setup_markets(mock_api)
         self.assertEqual(300, self.exchange.funding_fee_poll_interval)
 
     @aioresponses()
-    def test_start_network(self, mock_api):
-        self._setup_markets(mock_api)
-
-        network_status_resp = mock_requests._get_network_requests_rest_mock()
-
-        mock_api.get(self.network_status_url, body=json.dumps(network_status_resp))
-
-        mock_api.get(self.symbols_url,
-                     body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),
-                     headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
-
-        mock_api.get(self.all_symbols_url,
-                     body=json.dumps(mock_requests._get_exchange_info_rest_mock()),
-                     headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
-
-        task = self.ev_loop.create_task(self.exchange.start_network())
-        self.async_run_with_timeout(task)
-
-        self.assertGreater(len(self.exchange._assets_by_id), 0)
-        self.assertGreater(len(self.exchange._exchange_info), 0)
-        self.assertIn("COINALPHA_ASSET_ID", self.exchange._assets_by_id)
-        self.assertIn("COIN_ALPHA_HBOT_MARKET_ID", self.exchange._exchange_info)
-
-    @aioresponses()
-    def test_get_last_traded_price(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_get_last_traded_price(self, mock_api):
+        await self._setup_markets(mock_api)
 
         mock_api.get(self.last_trade_price_url,
                      body=json.dumps(mock_requests._get_last_trade()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._get_last_traded_price(self.ex_trading_pair))
-        last_price = self.async_run_with_timeout(task)
+        last_price = await self.exchange._get_last_traded_price(self.ex_trading_pair)
         self.assertEqual(last_price, 29.04342)
 
     @aioresponses()
-    def test_format_trading_rules(self, mock_api):
-        self._setup_markets(mock_api)
-        task = self.ev_loop.create_task(self.exchange._format_trading_rules(self.exchange._exchange_info))
+    async def test_format_trading_rules(self, mock_api):
+        await self._setup_markets(mock_api)
 
-        trading_rules = self.async_run_with_timeout(task)
+        trading_rules = await self.exchange._format_trading_rules(self.exchange._exchange_info)
 
         self.assertIsInstance(trading_rules, List)
         self.assertTrue(len(trading_rules) > 0)
         self.assertIsInstance(trading_rules[0], TradingRule)
 
-    def test_constants(self):
+    async def test_constants(self):
         # really unneeded but?
         self.assertEqual(self.exchange.client_order_id_max_length, CONSTANTS.MAX_ORDER_ID_LEN)
         self.assertEqual(self.exchange.client_order_id_prefix, CONSTANTS.BROKER_ID)
@@ -1013,16 +944,16 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertFalse(self.exchange._is_order_not_found_during_status_update_error(None))
         self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(None))
         self.assertFalse(self.exchange.is_cancel_request_in_exchange_synchronous)
-        self.exchange._update_trading_fees()
+        await self.exchange._update_trading_fees()
 
     @aioresponses()
-    def test_collateral_tokens(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_collateral_tokens(self, mock_api):
+        await self._setup_markets(mock_api)
         self.assertEqual(self.exchange.get_buy_collateral_token(self.ex_trading_pair), "HBOT")
         self.assertEqual(self.exchange.get_sell_collateral_token(self.ex_trading_pair), "HBOT")
 
     @aioresponses()
-    def test_get_fee(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_get_fee(self, mock_api):
+        await self._setup_markets(mock_api)
         fee = self.exchange._get_fee(base_currency="COINALPHA", quote_currency="HBOT", order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(1), is_maker= True)
         self.assertEqual(fee.percent, Decimal("0.0002"))
