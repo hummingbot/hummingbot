@@ -324,7 +324,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         expected_timestamp = int(trade_data["blockTime"]) * 1e-3
         expected_price = Decimal(trade_data["derivativeTrades"][0]["positionDelta"]["executionPrice"]) * Decimal(
-            f"1e{-quote_decimals-18}")
+            f"1e{-quote_decimals - 18}")
         expected_amount = Decimal(trade_data["derivativeTrades"][0]["positionDelta"]["executionQuantity"]) * Decimal(
             "1e-18")
         expected_trade_id = trade_data["derivativeTrades"][0]["tradeId"]
@@ -482,7 +482,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(2, len(bids))
         first_bid_price = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]) * Decimal(
-            f"1e{-quote_decimals-18}")
+            f"1e{-quote_decimals - 18}")
         first_bid_quantity = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]) * Decimal("1e-18")
         self.assertEqual(float(first_bid_price), bids[0].price)
@@ -491,7 +491,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(1, len(asks))
         first_ask_price = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]) * Decimal(
-            f"1e{-quote_decimals-18}")
+            f"1e{-quote_decimals - 18}")
         first_ask_quantity = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]) * Decimal("1e-18")
         self.assertEqual(float(first_ask_price), asks[0].price)

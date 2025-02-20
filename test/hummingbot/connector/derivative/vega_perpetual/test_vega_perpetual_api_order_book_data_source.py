@@ -3,7 +3,7 @@ import json
 from decimal import Decimal
 from test.hummingbot.connector.derivative.vega_perpetual import mock_orderbook, mock_requests
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from typing import Awaitable, List
+from typing import List
 from unittest.mock import AsyncMock, patch
 
 from aioresponses.core import aioresponses
@@ -102,10 +102,6 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
     def handle(self, record):
         self.log_records.append(record)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     def resume_test_callback(self, *_, **__):
         self.resume_test_event.set()
         return None
@@ -120,7 +116,7 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         self.resume_test_event.set()
         raise exception
 
-    def _setup_markets(self, mock_api):
+    async def _setup_markets(self, mock_api):
         mock_api.get(self.symbols_url,
                      body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
@@ -129,39 +125,39 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
                      body=json.dumps(mock_requests._get_exchange_info_rest_mock()),
                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.connector._populate_exchange_info())
-        self.async_run_with_timeout(task)
+        task = asyncio.create_task(self.connector._populate_exchange_info())
+        await (task)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_subscriptions_cancelled_when_connecting(self, _, mock_ws):
+    async def test_listen_for_subscriptions_cancelled_when_connecting(self, _, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.side_effect = asyncio.CancelledError
 
         self.data_source._connector._best_connection_endpoint = "wss://test.com"
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            self.listening_task = asyncio.create_task(self.data_source.listen_for_subscriptions())
+            await (self.listening_task)
         self.assertEqual(msg_queue.qsize(), 0)
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+    async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
         sleep_mock.side_effect = asyncio.CancelledError
         mock_ws.side_effect = Exception("TEST ERROR.")
 
         self.data_source._connector._best_connection_endpoint = "wss://test.com"
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            self.listening_task = asyncio.create_task(self.data_source.listen_for_subscriptions())
+            await (self.listening_task)
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_ob_diff(self, mock_api, mock_ws):
+    async def test_ws_ob_diff(self, mock_api, mock_ws):
 
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
         msg_queue_diffs: asyncio.Queue = asyncio.Queue()
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -171,12 +167,12 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
             mock_ws.return_value, json.dumps(mock_orderbook._get_order_book_diff_mock())
         )
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-        self.listening_task_diffs = self.ev_loop.create_task(
+        self.listening_task = asyncio.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task_diffs = asyncio.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue_diffs)
         )
 
-        result: OrderBookMessage = self.async_run_with_timeout(msg_queue_diffs.get())
+        result: OrderBookMessage = await (msg_queue_diffs.get())
         self.assertIsInstance(result, OrderBookMessage)
         self.assertEqual(OrderBookMessageType.DIFF, result.type)
         self.assertTrue(result.has_update_id)
@@ -187,9 +183,9 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_ob_snapshot(self, mock_api, mock_ws):
+    async def test_ws_ob_snapshot(self, mock_api, mock_ws):
 
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -199,12 +195,12 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
             mock_ws.return_value, json.dumps(mock_orderbook._get_order_book_snapshot_mock())
         )
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-        self.listening_task_diffs = self.ev_loop.create_task(
+        self.listening_task = asyncio.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task_diffs = asyncio.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
         )
 
-        result: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        result: OrderBookMessage = await (msg_queue.get())
         self.assertIsInstance(result, OrderBookMessage)
         self.assertEqual(OrderBookMessageType.SNAPSHOT, result.type)
         self.assertTrue(result.has_update_id)
@@ -215,9 +211,9 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_trades(self, mock_api, mock_ws):
+    async def test_ws_trades(self, mock_api, mock_ws):
 
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -227,12 +223,12 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
             mock_ws.return_value, json.dumps(mock_orderbook._get_trades_mock())
         )
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-        self.listening_task_diffs = self.ev_loop.create_task(
+        self.listening_task = asyncio.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task_diffs = asyncio.create_task(
             self.data_source.listen_for_trades(self.ev_loop, msg_queue)
         )
 
-        result: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        result: OrderBookMessage = await (msg_queue.get())
         self.assertIsInstance(result, OrderBookMessage)
         self.assertEqual(OrderBookMessageType.TRADE, result.type)
         self.assertTrue(result.has_trade_id)
@@ -241,9 +237,9 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_funding_info(self, mock_api, mock_ws):
+    async def test_ws_funding_info(self, mock_api, mock_ws):
 
-        self._setup_markets(mock_api)
+        await self._setup_markets(mock_api)
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -253,20 +249,20 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
             mock_ws.return_value, json.dumps(mock_orderbook._get_market_data_mock())
         )
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-        self.listening_task_diffs = self.ev_loop.create_task(
+        self.listening_task = asyncio.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task_diffs = asyncio.create_task(
             self.data_source.listen_for_funding_info(msg_queue)
         )
 
-        result: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+        result: FundingInfoUpdate = await (msg_queue.get())
         self.assertIsInstance(result, FundingInfoUpdate)
         self.assertTrue(result.index_price)
         self.assertEqual(result.mark_price, Decimal('29.04342'))
         self.assertEqual(result.rate, Decimal("0.0005338755797842"))
 
     @aioresponses()
-    def test_get_funding_info(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_get_funding_info(self, mock_api):
+        await self._setup_markets(mock_api)
 
         # https://api.n07.testnet.vega.rocks/api/v2/market/data/COINALPHAHBOT/latest
         market_id = "COINALPHAHBOT"
@@ -277,16 +273,16 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
             headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"},
         )
 
-        task = self.ev_loop.create_task(self.data_source.get_funding_info(self.ex_trading_pair))
-        info = self.async_run_with_timeout(task)
+        task = asyncio.create_task(self.data_source.get_funding_info(self.ex_trading_pair))
+        info = await (task)
 
         self.assertEqual(info.trading_pair, self.ex_trading_pair)
         self.assertIsInstance(info, FundingInfo)
         self.assertEqual(info.index_price, Decimal("28432.23000"))
 
     @aioresponses()
-    def test_get_ob_snapshot(self, mock_api):
-        self._setup_markets(mock_api)
+    async def test_get_ob_snapshot(self, mock_api):
+        await self._setup_markets(mock_api)
 
         # https://api.n07.testnet.vega.rocks/api/v2/market/data/COINALPHAHBOT/latest
         market_id = "COINALPHAHBOT"
@@ -298,8 +294,8 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
             headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"},
         )
 
-        task = self.ev_loop.create_task(self.data_source._order_book_snapshot(self.ex_trading_pair))
-        result: OrderBookMessage = self.async_run_with_timeout(task)
+        task = asyncio.create_task(self.data_source._order_book_snapshot(self.ex_trading_pair))
+        result: OrderBookMessage = await (task)
         self.assertIsInstance(result, OrderBookMessage)
         self.assertEqual(OrderBookMessageType.SNAPSHOT, result.type)
         self.assertTrue(result.has_update_id)
