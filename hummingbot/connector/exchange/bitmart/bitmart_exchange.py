@@ -22,7 +22,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -119,9 +118,8 @@ class BitmartExchange(ExchangePyBase):
     def supported_order_types(self) -> List[OrderType]:
         """
         :return a list of OrderType supported by this connector.
-        Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
@@ -188,12 +186,16 @@ class BitmartExchange(ExchangePyBase):
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
 
+        if order_type is OrderType.MARKET:
+            price = await self._get_last_traded_price(trading_pair)
+        notionalValue: Decimal = (amount * Decimal(price))
         api_params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
                       "side": trade_type.name.lower(),
-                      "type": "limit",
+                      "type": order_type.name.lower(),
                       "size": f"{amount:f}",
                       "price": f"{price:f}",
-                      "clientOrderId": order_id,
+                      "client_order_id": order_id,
+                      "notional": f"{notionalValue:f}",
                       }
         order_result = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_PATH_URL,
@@ -204,14 +206,17 @@ class BitmartExchange(ExchangePyBase):
         return exchange_order_id, self.current_timestamp
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
-            "clientOrderId": order_id,
+            "symbol": symbol,
+            "client_order_id": order_id,
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
             data=api_params,
             is_auth_required=True)
-        return cancel_result.get("data", {}).get("result", False)
+        # await cancel_result.get("data", {}).get("result", False)
+        return bool(cancel_result["data"]["result"])
 
     async def _format_trading_rules(self, symbols_details: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -256,6 +261,9 @@ class BitmartExchange(ExchangePyBase):
                                               min_order_value=Decimal(str(rule["min_buy_amount"])),
                                               min_base_amount_increment=Decimal(str(rule["base_min_size"])),
                                               min_price_increment=price_step))
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
                 except Exception:
                     self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return result
@@ -287,18 +295,15 @@ class BitmartExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
-        return await self._api_get(
+        return await self._api_post(
             path_url=CONSTANTS.GET_ORDER_DETAIL_PATH_URL,
-            params={"order_id": order.exchange_order_id},
+            data={"orderId": order.exchange_order_id},
             is_auth_required=True)
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
-        return await self._api_request(
-            method=RESTMethod.GET,
+        return await self._api_post(
             path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL,
-            params={
-                "symbol": await self.exchange_symbol_associated_to_pair(order.trading_pair),
-                "order_id": await order.get_exchange_order_id()},
+            data={"orderId": order.exchange_order_id},
             is_auth_required=True)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
@@ -326,25 +331,25 @@ class BitmartExchange(ExchangePyBase):
 
     def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
         updates = []
-        fills_data = fill_update["data"]["trades"]
+        fills_data = fill_update["data"]
 
         for fill_data in fills_data:
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=order.trade_type,
-                percent_token=fill_data["fee_coin_name"],
-                flat_fees=[TokenAmount(amount=Decimal(fill_data["fees"]), token=fill_data["fee_coin_name"])]
+                percent_token=fill_data["feeCoinName"],
+                flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCoinName"])]
             )
             trade_update = TradeUpdate(
-                trade_id=str(fill_data["detail_id"]),
+                trade_id=str(fill_data["tradeId"]),
                 client_order_id=order.client_order_id,
-                exchange_order_id=str(fill_data["order_id"]),
+                exchange_order_id=str(fill_data["orderId"]),
                 trading_pair=order.trading_pair,
                 fee=fee,
                 fill_base_amount=Decimal(fill_data["size"]),
-                fill_quote_amount=Decimal(fill_data["size"]) * Decimal(fill_data["price_avg"]),
-                fill_price=Decimal(fill_data["price_avg"]),
-                fill_timestamp=int(fill_data["create_time"]) * 1e-3,
+                fill_quote_amount=Decimal(fill_data["notional"]),
+                fill_price=Decimal(fill_data["price"]),
+                fill_timestamp=int(fill_data["createTime"]) * 1e-3,
             )
             updates.append(trade_update)
 
@@ -352,10 +357,14 @@ class BitmartExchange(ExchangePyBase):
 
     def _create_order_update(self, order: InFlightOrder, order_update: Dict[str, Any]) -> OrderUpdate:
         order_data = order_update["data"]
-        new_state = CONSTANTS.ORDER_STATE[order_data["status"]]
+        new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
+        # This is a workaround to account for a MARKET BUY order reporting the state as "partially cancelled"
+        # Bitmart reports this state for a successfully filled MARKET BUY order which is confusing.
+        if order_data["state"] == "partially_canceled" and order_data["type"] == "market" and order_data["side"] == "buy":
+            new_state = OrderState.FILLED
         update = OrderUpdate(
             client_order_id=order.client_order_id,
-            exchange_order_id=str(order_data["order_id"]),
+            exchange_order_id=str(order_data["orderId"]),
             trading_pair=order.trading_pair,
             update_timestamp=self.current_timestamp,
             new_state=new_state,
@@ -376,7 +385,11 @@ class BitmartExchange(ExchangePyBase):
                             fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
                             updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
-                            new_state = CONSTANTS.ORDER_STATE[each_event["state"]]
+                            new_state = CONSTANTS.ORDER_STATE[each_event["order_state"]]
+                            # This is a workaround to account for a MARKET BUY order reporting the state as "partially cancelled"
+                            # Bitmart reports this state for a successfully filled MARKET BUY order which is confusing.
+                            if each_event["order_state"] == "partially_canceled" and each_event["type"] == "market" and each_event["side"] == "buy":
+                                new_state = CONSTANTS.ORDER_STATE["filled"]
                             event_timestamp = int(each_event["ms_t"]) * 1e-3
 
                             if fillable_order is not None:
@@ -433,4 +446,4 @@ class BitmartExchange(ExchangePyBase):
             params=params
         )
 
-        return float(resp_json["data"]["tickers"][0]["last_price"])
+        return float(resp_json["data"]["last"])
