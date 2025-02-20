@@ -722,7 +722,6 @@ class CoinCapRateSourceMode(RateSourceModeBase):
                     "FIRO": "zcoin",
                     "BUSD": "binance-usd",
                     "ONE": "harmony",
-                    "PDEX": "polkadex",
                 }.items()
             ]
         ),
