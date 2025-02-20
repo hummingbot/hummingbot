@@ -344,8 +344,9 @@ class DeriveExchange(ExchangePyBase):
         Creates an order on the exchange using the specified parameters.
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        if len(self._instrument_ticker) > 0:
-            instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
+        if len(self._instrument_ticker) == 0:
+            await self._make_trading_rules_request(self, trading_pair=symbol, fetch_pair=True)
+        instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
         param_order_type = "gtc"
         if order_type is OrderType.LIMIT_MAKER:
             param_order_type = "gtc"
@@ -354,7 +355,7 @@ class DeriveExchange(ExchangePyBase):
         type_str = DeriveExchange.derive_order_type(order_type)
 
         price_type = "limit" if type_str == "limit_maker" or type_str == "limit" else "market"
-        new_price = float(f"{price:.5g}")
+        new_price = float(f"{price:.4g}")
         api_params = {
             "asset_address": instrument[0]["base_asset_address"],
             "sub_id": instrument[0]["base_asset_sub_id"],
@@ -869,30 +870,38 @@ class DeriveExchange(ExchangePyBase):
         self.currencies.append(currencies)
         return currencies
 
-    async def _make_trading_rules_request(self) -> Any:
+    async def _make_trading_rules_request(self, trading_pair: Optional[str] = None, fetch_pair: Optional[bool] = False) -> Any:
         self._instrument_ticker = []
-        if len(self.currencies) == 0:
-            self.currencies.append(await self._make_currency_request())
         exchange_infos = []
-        for currency in self.currencies[0]["result"]:
+        if not fetch_pair:
+            if len(self.currencies) == 0:
+                self.currencies.append(await self._make_currency_request())
+            for currency in self.currencies[0]["result"]:
+                payload = {
+                    "expired": True,
+                    "instrument_type": "erc20",
+                    "currency": currency["currency"],
+                }
 
-            payload = {
+                exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
+                if "error" in exchange_info:
+                    if 'Instrument not found' in exchange_info['error']['message']:
+                        self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
+                        continue
+                    self.logger().warning(f"Error: {exchange_info['error']['message']}")
+                    raise
+
+                exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
+                self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
+                exchange_infos.append(exchange_info["result"]["instruments"][0])
+        else:
+            exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data={
                 "expired": True,
                 "instrument_type": "erc20",
-                "currency": currency["currency"],
-            }
-
-            exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
-            if "error" in exchange_info:
-                if 'Instrument not found' in exchange_info['error']['message']:
-                    self.logger().debug(f"Ignoring currency {currency['currency']}: not supported sport.")
-                    continue
-                self.logger().warning(f"Error: {exchange_info['error']['message']}")
-                raise
+                "currency": trading_pair.split("-")[0],
+            })
             exchange_info["result"]["instruments"][0]["spot_price"] = currency["spot_price"]
             self._instrument_ticker.append(exchange_info["result"]["instruments"][0])
-            # self._instrument_ticker[0]["spot_price"] = currency["spot_price"]
-
             exchange_infos.append(exchange_info["result"]["instruments"][0])
         return exchange_infos
 
