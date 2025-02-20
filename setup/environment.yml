@@ -32,7 +32,7 @@ dependencies:
   - commlib-py>=0.11
   - cryptography>=41.0.2
   - dydxprotocol-v4-proto-py
-  # - eth-account
+  - eth-account
   # - eth-keyfile
   # - eip712_structs>=1.1.1a1
   # - ethsnarks-loopring>=0.1.6a1
@@ -67,6 +67,7 @@ dependencies:
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
   - vega-python-sdk
+  - web3
   # - websockets>=10.4
   - xrpl-py>=4,<4.1.0
   - yaml>=0.2.5
