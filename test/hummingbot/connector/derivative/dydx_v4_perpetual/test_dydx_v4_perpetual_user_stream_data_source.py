@@ -17,7 +17,6 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
 
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
@@ -71,36 +70,37 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_user_stream_data_source."
         "DydxV4PerpetualUserStreamDataSource._sleep"
     )
-    def test_listen_for_user_stream_raises_cancelled_exception(self, _, ws_connect_mock):
+    async def test_listen_for_user_stream_raises_cancelled_exception(self, _, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(asyncio.Queue()))
+            await (self.data_source.listen_for_user_stream(asyncio.Queue()))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_user_stream_data_source."
         "DydxV4PerpetualUserStreamDataSource._sleep"
     )
-    def test_listen_for_user_stream_raises_logs_exception(self, mock_sleep, ws_connect_mock):
-        mock_sleep.side_effect = lambda: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
+    async def test_listen_for_user_stream_raises_logs_exception(self, mock_sleep, ws_connect_mock):
+        mock_sleep.side_effect = lambda: (asyncio.get_running_loop().run_until_complete(asyncio.sleep(0.5)))
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = lambda *_: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR")
         )
-        self.async_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(asyncio.Queue()))
+        self.async_task = asyncio.create_task(self.data_source.listen_for_user_stream(asyncio.Queue()))
 
-        self.async_run_with_timeout(self.resume_test_event.wait(), 1.0)
+        await asyncio.wait_for(self.resume_test_event.wait(), 2.0)
+        await asyncio.sleep(0.1)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_ws_authentication_successful(self, ws_connect_mock):
+    async def test_ws_authentication_successful(self, ws_connect_mock):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        await (self.data_source._connected_websocket_assistant())
 
         json_msgs = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
