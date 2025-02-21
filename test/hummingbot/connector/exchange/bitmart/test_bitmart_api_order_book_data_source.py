@@ -64,34 +64,23 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     def _order_book_snapshot_example(self):
         return {
             "data": {
-                "timestamp": 1527777538000,
-                "buys": [
-                    {
-                        "amount": "4800.00",
-                        "total": "4800.00",
-                        "price": "0.000767",
-                        "count": "1"
-                    },
-                    {
-                        "amount": "99996475.79",
-                        "total": "100001275.79",
-                        "price": "0.000201",
-                        "count": "1"
-                    },
+                "ts": 1527777538000,
+                "symbol": "COINALPHA_HBOT",
+                "asks": [
+                    [
+                        "1.00",
+                        "0.007000"
+                    ]
                 ],
-                "sells": [
-                    {
-                        "amount": "100.00",
-                        "total": "100.00",
-                        "price": "0.007000",
-                        "count": "1"
-                    },
-                    {
-                        "amount": "6997.00",
-                        "total": "7097.00",
-                        "price": "1.000000",
-                        "count": "1"
-                    },
+                "bids": [
+                    [
+                        "0.000767",
+                        "4800.0"
+                    ],
+                    [
+                        "0.000201",
+                        "99996475.79"
+                    ]
                 ]
             }
         }
@@ -107,24 +96,18 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "code": 1000,
             "trace": "6e42c7c9-fdc5-461b-8fd1-b4e2e1b9ed57",
             "data": {
-                "tickers": [
-                    {
-                        "symbol": "COINALPHA_HBOT",
-                        "last_price": "1.00",
-                        "quote_volume_24h": "201477650.88000",
-                        "base_volume_24h": "25186.48000",
-                        "high_24h": "8800.00",
-                        "low_24h": "1.00",
-                        "open_24h": "8800.00",
-                        "close_24h": "1.00",
-                        "best_ask": "0.00",
-                        "best_ask_size": "0.00000",
-                        "best_bid": "0.00",
-                        "best_bid_size": "0.00000",
-                        "fluctuation": "-0.9999",
-                        "url": "https://www.bitmart.com/trade?symbol=COINALPHA_HBOT"
-                    }
-                ]
+                "symbol": "COINALPHA_HBOT",
+                "last": "1.00",
+                "qv_24h": "201477650.88000",
+                "v_24h": "25186.48000",
+                "high_24h": "8800.00",
+                "low_24h": "1.00",
+                "open_24h": "8800.00",
+                "ask_px": "0.00",
+                "ask_sz": "0.00000",
+                "bid_px": "0.00",
+                "bid_sz": "0.00000",
+                "fluctuation": "-0.9999"
             }
         }
         regex_url = re.compile(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}")
@@ -147,19 +130,19 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         order_book: OrderBook = results[0]
 
         self.assertTrue(type(order_book) is OrderBook)
-        self.assertEqual(order_book.snapshot_uid, mock_response["data"]["timestamp"])
+        self.assertEqual(order_book.snapshot_uid, mock_response["data"]["ts"])
 
-        self.assertEqual(mock_response["data"]["timestamp"], order_book.snapshot_uid)
+        self.assertEqual(mock_response["data"]["ts"], order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
         self.assertEqual(2, len(bids))
-        self.assertEqual(float(mock_response["data"]["buys"][0]["price"]), bids[0].price)
-        self.assertEqual(float(mock_response["data"]["buys"][0]["amount"]), bids[0].amount)
-        self.assertEqual(mock_response["data"]["timestamp"], bids[0].update_id)
-        self.assertEqual(2, len(asks))
-        self.assertEqual(float(mock_response["data"]["sells"][0]["price"]), asks[0].price)
-        self.assertEqual(float(mock_response["data"]["sells"][0]["amount"]), asks[0].amount)
-        self.assertEqual(mock_response["data"]["timestamp"], asks[0].update_id)
+        self.assertEqual(float(mock_response["data"]["bids"][0][0]), bids[0].price)
+        self.assertEqual(float(mock_response["data"]["bids"][0][1]), bids[0].amount)
+        self.assertEqual(mock_response["data"]["ts"], bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(float(mock_response["data"]["asks"][0][0]), asks[0].price)
+        self.assertEqual(float(mock_response["data"]["asks"][0][1]), asks[0].amount)
+        self.assertEqual(mock_response["data"]["ts"], asks[0].update_id)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
