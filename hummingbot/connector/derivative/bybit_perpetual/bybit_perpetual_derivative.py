@@ -99,9 +99,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             self._api_get(path_url=self.trading_pairs_request_path, params={"category": "inverse", "limit": 1000})
         )
         for exchange_info_response in [linear_exchange_info_response, non_linear_exchange_info_response]:
-            if exchange_info_response["retCode"] != CONSTANTS.RET_CODE_OK:
-                formatted_ret_code = self._format_ret_code_for_print(exchange_info_response['retCode'])
-                raise IOError(f"{formatted_ret_code} - {exchange_info_response['retMsg']}")
+            self._validate_exchange_response(exchange_info_response)
 
         linear_trading_pairs = linear_exchange_info_response["result"]["list"]
         non_linear_trading_pairs = non_linear_exchange_info_response["result"]["list"]
@@ -113,13 +111,16 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             self._api_get(path_url=self.trading_rules_request_path, params={"category": "inverse", "limit": 1000})
         )
         for exchange_info_response in [linear_trading_rules_response, non_linear_trading_rules_response]:
-            if exchange_info_response["retCode"] != CONSTANTS.RET_CODE_OK:
-                formatted_ret_code = self._format_ret_code_for_print(exchange_info_response['retCode'])
-                raise IOError(f"{formatted_ret_code} - {exchange_info_response['retMsg']}")
+            self._validate_exchange_response(exchange_info_response)
 
         linear_trading_rules = linear_trading_rules_response["result"]["list"]
         non_linear_trading_rules = non_linear_trading_rules_response["result"]["list"]
         return linear_trading_rules + non_linear_trading_rules
+
+    def _validate_exchange_response(self, response: Dict[str, Any], before_text: str = ""):
+        if response["retCode"] != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(response['retCode'])
+            raise IOError(f"{before_text}{formatted_ret_code} - {response['retMsg']}")
 
     @property
     def check_network_request_path(self) -> str:
@@ -209,12 +210,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
         )
-        response_code = cancel_result["retCode"]
-
-        if response_code != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(response_code)
-            raise IOError(f"{formatted_ret_code} - {cancel_result['retMsg']}")
-
+        self._validate_exchange_response(cancel_result)
         return True
 
     async def _place_order(
@@ -253,9 +249,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             **kwargs,
         )
 
-        if resp["retCode"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(resp['retCode'])
-            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['retMsg']}")
+        self._validate_exchange_response(resp, before_text="Error submitting order {order_id}: ")
 
         return str(resp["result"]["orderId"]), self.current_timestamp
 
@@ -415,9 +409,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         unified_wallet_response = await self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
                                                       params={"accountType": "UNIFIED"},
                                                       is_auth_required=True)
-        if unified_wallet_response["retCode"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(unified_wallet_response['retCode'])
-            raise IOError(f"{formatted_ret_code} - {unified_wallet_response['retMsg']}")
+        self._validate_exchange_response(unified_wallet_response)
 
         unified_wallet_balance = [d for d in unified_wallet_response["result"]["list"][0]["coin"] if
                                   Decimal(d["equity"]) > 0]
@@ -438,9 +430,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         available_balance_resp = await self._api_get(path_url=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL,
                                                      params={"coinName": coin},
                                                      is_auth_required=True)
-        if available_balance_resp["retCode"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(available_balance_resp['retCode'])
-            raise IOError(f"{formatted_ret_code} - {available_balance_resp['retMsg']}")
+        self._validate_exchange_response(available_balance_resp)
         balance_data = available_balance_resp["result"]
         available_balance_str = balance_data.get("availableWithdrawal", "0.0")
         return Decimal(available_balance_str)
@@ -576,9 +566,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
         )
-        if resp["retCode"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(resp['retCode'])
-            raise IOError(f"{formatted_ret_code} - {resp['retMsg']}")
+        self._validate_exchange_response(resp)
 
         return resp
 
