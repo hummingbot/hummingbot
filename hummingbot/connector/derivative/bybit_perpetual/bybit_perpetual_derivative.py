@@ -173,7 +173,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
 
-    # TODO: Implement the following methods before sending PR
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
         ts_error_target_str = (f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_INVALID_TIME)} - "
@@ -182,11 +181,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        return (
+            str(CONSTANTS.RET_CODE_ORDER_NOT_EXISTS) in str(status_update_exception) or
+            str(CONSTANTS.RET_CODE_ORDER_NOT_FOUND) in str(status_update_exception) or
+            CONSTANTS.RET_MSG_ORDER_NOT_EXISTS in str(status_update_exception) or
+            CONSTANTS.RET_MSG_ORDER_NOT_FOUND in str(status_update_exception))
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return (
@@ -577,6 +576,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
         )
+        if resp["retCode"] != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(resp['retCode'])
+            raise IOError(f"{formatted_ret_code} - {resp['retMsg']}")
 
         return resp
 

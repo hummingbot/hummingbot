@@ -835,14 +835,30 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         mock_api.post(mock_url, body=json.dumps(response), callback=callback)
         return mock_url
 
-    # TODO
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
+            self, order: InFlightOrder, mock_api: aioresponses, ret_code: int = 110001,
+            ret_msg: str = "Order does not exist",
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        # Implement the expected not found response when enabling
-        # test_lost_order_removed_if_not_found_during_order_status_update
-        raise NotImplementedError
+        mock_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
+                                                       trading_pair=order.trading_pair)
+        params = {
+            "category": "linear",
+            "symbol": self.exchange_trading_pair,
+            "orderLinkId": order.client_order_id,
+            "orderId": order.exchange_order_id
+        }
+        encoded_params = urlencode(params)
+        url = f"{mock_url}?{encoded_params}"
+        response = {
+            "retCode": ret_code,
+            "retMsg": ret_msg,
+            "result": {},
+            "retExtInfo": {},
+            "time": 1740090023701
+        }
+        mock_api.get(url, body=json.dumps(response), callback=callback)
+        return url
 
     def configure_completely_filled_order_status_response(
         self,
@@ -1586,12 +1602,6 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             pass
 
         self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
-
-    @aioresponses()
-    def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during status update (check _is_order_not_found_during_status_update_error)
-        pass
 
     @staticmethod
     def _order_cancelation_request_successful_mock_response(order: InFlightOrder) -> Any:
