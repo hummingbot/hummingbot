@@ -92,7 +92,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
                                 dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
 
-    gateway_parser = subparsers.add_parser("gateway", help="Helper comands for Gateway server.")
+    gateway_parser = subparsers.add_parser("gateway", help="Helper commands for Gateway server.")
     gateway_subparsers = gateway_parser.add_subparsers()
 
     gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display your asset balances and allowances across all connected gateway connectors")
