@@ -189,11 +189,11 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        return (
+            str(CONSTANTS.RET_CODE_ORDER_NOT_EXISTS) in str(cancelation_exception) or
+            str(CONSTANTS.RET_CODE_ORDER_NOT_FOUND) in str(cancelation_exception) or
+            CONSTANTS.RET_MSG_ORDER_NOT_EXISTS in str(cancelation_exception) or
+            CONSTANTS.RET_MSG_ORDER_NOT_FOUND in str(cancelation_exception))
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         data = {
@@ -213,8 +213,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         response_code = cancel_result["retCode"]
 
         if response_code != CONSTANTS.RET_CODE_OK:
-            if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
-                await self._order_tracker.process_order_not_found(order_id)
             formatted_ret_code = self._format_ret_code_for_print(response_code)
             raise IOError(f"{formatted_ret_code} - {cancel_result['retMsg']}")
 

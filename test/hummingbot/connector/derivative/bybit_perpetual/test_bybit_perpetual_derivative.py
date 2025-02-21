@@ -818,12 +818,24 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
+            self, order: InFlightOrder, mock_api: aioresponses, ret_code: int = 110001,
+            ret_msg: str = "Order does not exist",
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
-        raise NotImplementedError
+        mock_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
+                                                       trading_pair=order.trading_pair)
+        response = {
+            "retCode": ret_code,
+            "retMsg": ret_msg,
+            "result": {},
+            "retExtInfo": {},
+            "time": 1740090023701
+        }
+        mock_api.post(mock_url, body=json.dumps(response), callback=callback)
+        return mock_url
 
+    # TODO
     def configure_order_not_found_error_order_status_response(
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
@@ -1574,12 +1586,6 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             pass
 
         self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
-
-    @aioresponses()
-    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
-        pass
 
     @aioresponses()
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
