@@ -712,10 +712,12 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     trading_pair = combine_to_hb_trading_pair(instrument['baseCoin'], instrument['quoteCoin'])
                     is_linear = bybit_utils.is_linear_perpetual(trading_pair)
                     collateral_token = instrument["quoteCoin"] if is_linear else instrument["baseCoin"]
+                    min_notional_size = (Decimal(instrument["lotSizeFilter"]["minNotionalValue"])
+                                         if is_linear else s_decimal_0)
                     trading_rules[trading_pair] = TradingRule(
                         trading_pair=trading_pair,
                         min_order_size=Decimal(instrument["lotSizeFilter"]["minOrderQty"]),
-                        min_notional_size=Decimal(instrument["lotSizeFilter"]["minNotionalValue"]),
+                        min_notional_size=min_notional_size,
                         max_order_size=Decimal(instrument["lotSizeFilter"]["maxOrderQty"]),
                         min_price_increment=Decimal(instrument["priceFilter"]["tickSize"]),
                         min_base_amount_increment=Decimal(instrument["lotSizeFilter"]["qtyStep"]),
