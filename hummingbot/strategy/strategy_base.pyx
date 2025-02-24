@@ -501,18 +501,21 @@ cdef class StrategyBase(TimeIterator):
                                  order_type=OrderType.MARKET,
                                  price=s_decimal_nan,
                                  expiration_seconds=NaN,
-                                 position_action=PositionAction.OPEN):
+                                 position_action=PositionAction.OPEN,
+                                 stop_loss_price=Decimal):
         return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
                                                order_type,
                                                price,
                                                expiration_seconds,
-                                               position_action)
+                                               position_action,
+                                               stop_loss_price)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
                                         object price=s_decimal_nan,
                                         double expiration_seconds=NaN,
-                                        position_action=PositionAction.OPEN):
+                                        position_action=PositionAction.OPEN,
+                                        stop_loss_price=Decimal):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -521,7 +524,8 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
-                      "position_action": position_action}
+                      "position_action": position_action,
+                      "stop_loss_price":stop_loss_price}
             ConnectorBase market = market_trading_pair_tuple.market
 
         if market not in self._sb_markets:
@@ -546,18 +550,21 @@ cdef class StrategyBase(TimeIterator):
                                   order_type=OrderType.MARKET,
                                   price=s_decimal_nan,
                                   expiration_seconds=NaN,
-                                  position_action=PositionAction.OPEN):
+                                  position_action=PositionAction.OPEN,
+                                  stop_loss_price=Decimal):
         return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
                                                 order_type,
                                                 price,
                                                 expiration_seconds,
-                                                position_action)
+                                                position_action,
+                                                stop_loss_price)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,
                                          object price=s_decimal_nan,
                                          double expiration_seconds=NaN,
-                                         position_action=PositionAction.OPEN):
+                                         position_action=PositionAction.OPEN,
+                                         stop_loss_price=Decimal):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -566,7 +573,8 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
-                      "position_action": position_action}
+                      "position_action": position_action,
+                        "stop_loss_price": stop_loss_price}
             ConnectorBase market = market_trading_pair_tuple.market
 
         if market not in self._sb_markets:

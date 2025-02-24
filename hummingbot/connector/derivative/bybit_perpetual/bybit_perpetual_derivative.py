@@ -70,8 +70,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> BybitPerpetualAuth:
-        return BybitPerpetualAuth(self.bybit_perpetual_api_key, self.bybit_perpetual_secret_key,
-                                  self._time_synchronizer)
+        return BybitPerpetualAuth(self.bybit_perpetual_api_key, self.bybit_perpetual_secret_key, self._time_synchronizer)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -185,8 +184,8 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp"
         )
         is_time_synchronizer_related = (
-                ts_error_target_str in error_description
-                or param_error_target_str in error_description
+            ts_error_target_str in error_description
+            or param_error_target_str in error_description
         )
         return is_time_synchronizer_related
 
@@ -407,14 +406,14 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             if self._last_trade_history_timestamp:
                 body_params["startTime"] = int(int(self._last_trade_history_timestamp) * 1e3)
 
-            # trade_history_tasks.append(
-            #     asyncio.create_task(self._api_get(
-            #         path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
-            #         params=body_params,
-            #         is_auth_required=True,
-            #         trading_pair=trading_pair,
-            #     ))
-            # )
+            trade_history_tasks.append(
+                asyncio.create_task(self._api_get(
+                    path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
+                    params=body_params,
+                    is_auth_required=True,
+                    trading_pair=trading_pair,
+                ))
+            )
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
 
@@ -442,8 +441,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         Calls REST API to get order status
         """
 
-        active_orders: List[InFlightOrder] = [order for order in self.in_flight_orders.values()
-                                              if isinstance(order, PerpetualDerivativeInFlightOrder)]
+        active_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
 
         tasks = []
         for active_order in active_orders:
@@ -471,8 +469,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls REST API to update total and available balances
         """
-        unified_wallet_response = await self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
-                                                      params={"accountType": "UNIFIED"},
+        unified_wallet_response = await self._api_get(path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL, params={"accountType": "UNIFIED"},
                                                       is_auth_required=True)
         if unified_wallet_response["retCode"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(unified_wallet_response['retCode'])
@@ -484,15 +481,9 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_available_balances.clear()
         self._account_balances.clear()
 
-        #self._account_balances["USDT"] = Decimal(unified_wallet_response["result"]["list"][0]["totalAvailableBalance"])
-        self._account_balances["USDT"] = Decimal(unified_wallet_response["result"]["list"][0]["totalWalletBalance"])
-        self._account_available_balances["USDT"] = Decimal(
-            unified_wallet_response["result"]["list"][0]["totalWalletBalance"])
-
-        # for asset in unified_wallet_balance:
-        #     self._account_balances[asset["coin"]] = Decimal(asset["equity"])
-        #     self._account_available_balances[asset["coin"]] = Decimal(asset["availableToWithdraw"])
-
+        for asset in unified_wallet_balance:
+            self._account_balances[asset["coin"]] = Decimal(asset["equity"])
+            self._account_available_balances[asset["coin"]] = Decimal(asset["equity"])
 
     async def _update_positions(self):
         """
@@ -753,9 +744,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
         """
-        status_ = order_msg["orderStatus"]
-        self.logger().info(f"Order status: {status_} and message: {order_msg}")
-        order_status = CONSTANTS.ORDER_STATE[status_]
+        order_status = CONSTANTS.ORDER_STATE[order_msg["orderStatus"]]
         client_order_id = str(order_msg["orderLinkId"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
@@ -771,42 +760,15 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _process_wallet_event_message(self, wallet_msg: Dict[str, Any]):
         """
-        Updates account balances based on the wallet event message payload.
-
-        Logs the symbol, equity, and available balance before updating internal state.
-
-        If the "availableToWithdraw" field is empty or missing, it defaults to 0.
-
-        :param wallet_msg: The account balance update message payload.
+        Updates account balances.
+        :param wallet_msg: The account balance update message payload
         """
-        # Determine symbol based on whether it's non-linear or linear
         if "coin" in wallet_msg:  # non-linear
             symbol = wallet_msg["coin"]
         else:  # linear
             symbol = "USDT"
-
-        try:
-            equity = Decimal(str(wallet_msg["equity"]))
-        except Exception as e:
-            self.logger().error("Error parsing equity from wallet message %s: %s", wallet_msg, e)
-            raise
-
-        # Check for availableToWithdraw and default to "0" if empty or missing.
-        available_str = wallet_msg.get("availableToWithdraw", "")
-        if not available_str:
-            self.logger().warning("availableToWithdraw is empty or missing for symbol %s; defaulting to 0", symbol)
-            available_str = "0"
-        try:
-            available = Decimal(str(available_str))
-        except Exception as e:
-            self.logger().error("Error parsing availableToWithdraw from wallet message %s: %s", wallet_msg, e)
-            raise
-
-        self.logger().info("Processing wallet event for symbol %s: equity=%s, availableToWithdraw=%s", symbol, equity,
-                           available)
-
-        self._account_balances[symbol] = equity
-        self._account_available_balances[symbol] = available
+        self._account_balances[symbol] = Decimal(str(wallet_msg["equity"]))
+        self._account_available_balances[symbol] = Decimal(str(wallet_msg["equity"]))
 
     async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """

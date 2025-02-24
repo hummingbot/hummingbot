@@ -386,7 +386,7 @@ class ScalpingExecutor(ExecutorBase):
             self.close_type = CloseType.FAILED
             self.stop()
 
-    def on_start(self):
+    async def on_start(self):
         """
         This method is responsible for starting the executor and validating if the position is expired. The base method
         validates if there is enough balance to place the open order.
@@ -462,7 +462,6 @@ class ScalpingExecutor(ExecutorBase):
             side=self.config.side,
             position_action=PositionAction.OPEN,
             stop_loss_price=self.config.triple_barrier_config.stop_loss_price
-
         )
         self._open_order = TrackedOrder(order_id=order_id)
         self.logger().info(f"Scalping executor:{self} Executor ID: {self.config.id} - Placing open order {order_id}")

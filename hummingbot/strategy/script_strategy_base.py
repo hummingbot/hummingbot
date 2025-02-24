@@ -102,6 +102,7 @@ class ScriptStrategyBase(StrategyPyBase):
         :param order_type: The type of the order
         :param price: An order price
         :param position_action: A position action (for perpetual market only)
+        :param stop_loss_price: The stop loss price of the sell order
 
         :return: The client assigned id for the new order
         """
@@ -127,6 +128,7 @@ class ScriptStrategyBase(StrategyPyBase):
         :param order_type: The type of the order
         :param price: An order price
         :param position_action: A position action (for perpetual market only)
+        :param stop_loss_price: The stop loss price of the sell order
 
         :return: The client assigned id for the new order
         """
