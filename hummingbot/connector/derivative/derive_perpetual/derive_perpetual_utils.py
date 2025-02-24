@@ -24,7 +24,7 @@ class DerivePerpetualConfigMap(BaseConnectorConfigMap):
     derive_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter Your DerivePerpetual Walllet address",
+            prompt=lambda cm: "Enter Your DerivePerpetual Wallet address",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -63,7 +63,7 @@ class DerivePerpetualTestnetConfigMap(BaseConnectorConfigMap):
     derive_perpetual_testnet_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter Your DerivePerpetual Walllet address",
+            prompt=lambda cm: "Enter Your DerivePerpetual Wallet address",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
