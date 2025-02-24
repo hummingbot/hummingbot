@@ -273,6 +273,7 @@ class ExecutorBase(RunnableBase):
                     amount: Decimal,
                     position_action: PositionAction = PositionAction.NIL,
                     price=Decimal("NaN"),
+                    stop_loss_price=Decimal
                     ):
         """
         Places an order with the specified parameters.
@@ -287,9 +288,9 @@ class ExecutorBase(RunnableBase):
         :return: The result of the order placement.
         """
         if side == TradeType.BUY:
-            return self._strategy.buy(connector_name, trading_pair, amount, order_type, price, position_action)
+            return self._strategy.buy(connector_name, trading_pair, amount, order_type, price, position_action,stop_loss_price)
         else:
-            return self._strategy.sell(connector_name, trading_pair, amount, order_type, price, position_action)
+            return self._strategy.sell(connector_name, trading_pair, amount, order_type, price, position_action,stop_loss_price)
 
     def get_price(self, connector_name: str, trading_pair: str, price_type: PriceType = PriceType.MidPrice):
         """
