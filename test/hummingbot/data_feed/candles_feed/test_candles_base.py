@@ -34,10 +34,11 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.end_time = 10e17
 
         self.log_records = []
-        self.resume_test_event = asyncio.Event()
 
     async def asyncSetUp(self):
-        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
 
     def handle(self, record):
         self.log_records.append(record)

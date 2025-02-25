@@ -18,7 +18,6 @@ class TestKrakenSpotCandles(TestCandlesBase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"
         cls.interval = "1h"
@@ -29,15 +28,18 @@ class TestKrakenSpotCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = KrakenSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
-        self.resume_test_event = asyncio.Event()
         self._time = int(time.time())
         self._interval_in_seconds = 3600
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
 
     def _candles_data_mock(self):
         return [[1716127200, '66934.0', '66951.8', '66800.0', '66901.6', '28.50228560', 1906800.0564114398, 0, 0, 0],

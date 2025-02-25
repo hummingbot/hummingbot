@@ -17,7 +17,6 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.kucoin_base_asset = "XBT"
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"
@@ -28,7 +27,6 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = KucoinPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
         self.data_feed.symbols_dict = self.get_symbols_dict_mock()
         self.data_feed._ws_url = "wss://api.kucoin.com"
@@ -37,6 +35,10 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
     @staticmethod
