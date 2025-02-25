@@ -3,7 +3,7 @@ from decimal import Decimal
 from random import randint
 from typing import Any, Dict, Optional
 
-from pydantic import Field, SecretStr
+from pydantic.v1 import Field, SecretStr
 
 import hummingbot.connector.exchange.vertex.vertex_constants as CONSTANTS
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
