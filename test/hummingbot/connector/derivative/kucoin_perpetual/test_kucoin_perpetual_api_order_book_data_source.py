@@ -209,7 +209,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_trade_subscription = {
             "id": 1,
             "type": "subscribe",
-            "topic": f"/contractMarket/ticker:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -217,7 +217,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_diff_subscription = {
             "id": 2,
             "type": "subscribe",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -367,7 +367,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
             "type": "message",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
         }
 
         mock_queue = AsyncMock()
@@ -389,7 +389,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         mock_queue = AsyncMock()
         diff_event = {
             "subject": "level2",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
             "type": "message",
             "data": {
                 "sequence": 18,

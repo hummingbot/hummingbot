@@ -67,7 +67,7 @@ PRIVATE_WS_DATA_PATH_URL = f"{REST_API_VERSION}/bullet-private"
 
 WS_PING_REQUEST = "ping"
 WS_ORDER_BOOK_EVENTS_TOPIC = "/contractMarket/level2"
-WS_TRADES_TOPIC = "/contractMarket/tradeOrders"
+WS_TRADES_TOPIC = "/contractMarket/execution"
 WS_INSTRUMENTS_INFO_TOPIC = "/contract/instrument"
 WS_TICKER_INFO_TOPIC = "/contractMarket/ticker"
 WS_WALLET_INFO_TOPIC = "/contractAccount/wallet"

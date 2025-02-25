@@ -62,7 +62,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trades_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/contractMarket/ticker:{symbols}",
+                "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{symbols}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -71,7 +71,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             order_book_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/contractMarket/level2:{symbols}",
+                "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{symbols}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -155,7 +155,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trade_data: Dict[str, Any] = raw_message["data"]
-        timestamp: float = int(trade_data["time"]) * 1e-9
+        timestamp: float = int(trade_data["ts"]) * 1e-9
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade_data["symbol"])
         message_content = {
             "trade_id": str(trade_data["tradeId"]),
