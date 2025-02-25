@@ -18,7 +18,6 @@ class TestGateioSpotCandles(TestCandlesBase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"
         cls.interval = "1h"
@@ -28,15 +27,18 @@ class TestGateioSpotCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = GateioSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
-        self.resume_test_event = asyncio.Event()
         self._time = int(time.time())
         self._interval_in_seconds = 3600
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
 
     @aioresponses()
     def test_fetch_candles_raises_exception(self, mock_api):
