@@ -73,7 +73,9 @@ def patch_file(file_path):
     search_key = descriptor_key_re.search(content)
     descriptor_key = search_key.group(1) if search_key else None
 
-    if descriptor_key is None:
+    already_applied = re.compile(r'(DESCRIPTOR\s*=\s*_descriptor_pool\.Default\(\)\.FindFileByName\()')
+
+    if descriptor_key is None or already_applied.search(content):
         return
 
     new_content, count = pattern.subn(lambda m: replacement(m, descriptor_key), content)
