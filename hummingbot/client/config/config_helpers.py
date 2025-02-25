@@ -14,9 +14,9 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, 
 
 import ruamel.yaml
 import yaml
-from pydantic import SecretStr, ValidationError
-from pydantic.fields import FieldInfo
-from pydantic.main import ModelMetaclass, validate_model
+from pydantic.v1 import SecretStr, ValidationError
+from pydantic.v1.fields import FieldInfo
+from pydantic.v1.main import ModelMetaclass, validate_model
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path

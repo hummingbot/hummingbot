@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, SecretStr, root_validator, validator
+from pydantic.v1 import BaseModel, Field, SecretStr, root_validator, validator
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
