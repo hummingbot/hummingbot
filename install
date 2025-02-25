@@ -58,7 +58,7 @@ conda develop .
 
 # For some reason, this needs to be installed outside of the environment file,
 # or it'll give you the graphviz install error.
-pip install objgraph
+pip install --no-deps eip712-structs
 
 pre-commit install
 
@@ -70,3 +70,10 @@ if [ "$(uname)" = "Linux" ]; then
         sudo apt-get install -y build-essential
     fi
 fi
+
+# Apply patches to the installed packages
+patching_script="setup/patches/apply-duplicate-proof.py"
+dydx_dir=$(python -c "import v4_proto.amino.amino_pb2; print(v4_proto.amino.amino_pb2.__file__)" | sed 's|/amino/amino_pb2.py||')
+for file in $(find $dydx_dir -type f -name '*_pb2.py'); do \
+  python $patching_script --file "$file"; \
+done
