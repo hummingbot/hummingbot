@@ -108,7 +108,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
                                          connector_name=self.data_feed.name, trading_pair=self.trading_pair)
         with self.assertRaises(ValueError,
                                msg="Kraken REST API does not support fetching more than 720 candles ago."):
-            self.async_run_with_timeout(self.data_feed.get_historical_candles(config))
+            self.run_async_with_timeout(self.data_feed.get_historical_candles(config))
 
     @aioresponses()
     def test_fetch_candles(self, mock_api):
@@ -117,7 +117,7 @@ class TestKrakenSpotCandles(TestCandlesBase):
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
         self.start_time = self._time - self._interval_in_seconds * 3
         self.end_time = self._time
-        candles = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
+        candles = self.run_async_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
                                                                            end_time=self.end_time,
                                                                            limit=4))
         self.assertEqual(len(candles), len(data_mock["result"][self.ex_trading_pair]))

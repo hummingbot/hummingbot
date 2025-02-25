@@ -47,7 +47,7 @@ class TestGateioSpotCandles(TestCandlesBase):
         end_time = self._time
         config = HistoricalCandlesConfig(start_time=start_time, end_time=end_time, interval=self.interval, connector_name=self.data_feed.name, trading_pair=self.trading_pair)
         with self.assertRaises(ValueError, msg="Gate.io REST API does not support fetching more than 10000 candles ago."):
-            self.async_run_with_timeout(self.data_feed.get_historical_candles(config))
+            self.run_async_with_timeout(self.data_feed.get_historical_candles(config))
 
     @aioresponses()
     def test_fetch_candles(self, mock_api):
@@ -58,7 +58,7 @@ class TestGateioSpotCandles(TestCandlesBase):
         self.start_time = self._time - self._interval_in_seconds * 3
         self.end_time = self._time
 
-        candles = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
+        candles = self.run_async_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
                                                                            end_time=self.end_time))
         self.assertEqual(len(candles), len(data_mock))
 
