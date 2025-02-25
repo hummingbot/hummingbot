@@ -12,8 +12,6 @@
 test:
 	coverage run -m pytest \
  	--ignore="test/mock" \
- 	--ignore="test/connector/derivative/vega_perpetual/*" \
- 	--ignore="test/connector/exchange/polkadex/*" \
  	--ignore="test/connector/utilities/*" \
  	--ignore="test/hummingbot/strategy/amm_arb/"
 
