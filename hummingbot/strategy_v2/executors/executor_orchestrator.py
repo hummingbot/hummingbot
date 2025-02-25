@@ -189,8 +189,8 @@ class ExecutorOrchestrator:
             for executor in executors_list:
                 # Store the executor in the database
                 MarketsRecorder.get_instance().store_or_update_executor(executor)
-                # Remove the executor from the list
-                self.active_executors[controller_id].remove(executor)
+        # Remove the executors from the list
+        self.active_executors = {}
 
     def execute_action(self, action: ExecutorAction):
         """
