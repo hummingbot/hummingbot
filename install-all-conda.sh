@@ -59,3 +59,10 @@ ${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/x-installed:${ENV_FILE}"
 update_environment_yml "${_ENV_DIR}/${ENV_FILE}" "${_ENV_DIR}/x-installed:${ENV_FILE}" "${_ENV_DIR}/x-installed:${ENV_FILE}"
 
 pre-commit install
+
+# Apply patches to the installed packages
+patching_script="${_ENV_DIR}/patches/apply-duplicate-proof.py"
+dydx_dir=$(python -c "import v4_proto.amino.amino_pb2; print(v4_proto.amino.amino_pb2.__file__)" | sed 's|/amino/amino_pb2.py||')
+for file in $(find $dydx_dir -type f -name '*_pb2.py'); do \
+  python $patching_script --file "$file"; \
+done
