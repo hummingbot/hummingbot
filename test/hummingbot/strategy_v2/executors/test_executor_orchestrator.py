@@ -258,7 +258,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         position_executor.config = config_mock
         self.orchestrator.active_executors["test"] = [position_executor]
         self.orchestrator.store_all_executors()
-        self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
+        self.assertEqual(self.orchestrator.active_executors, {})
 
     @patch.object(ExecutorOrchestrator, "store_all_positions")
     def test_stop(self, store_all_positions):
