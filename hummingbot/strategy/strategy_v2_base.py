@@ -208,6 +208,7 @@ class StrategyV2Base(ScriptStrategyBase):
         self.market_data_provider.initialize_candles_feed_list(config.candles_config)
         self.controllers: Dict[str, ControllerBase] = {}
         self.initialize_controllers()
+        self._is_stop_triggered = False
 
     def initialize_controllers(self):
         """
@@ -277,6 +278,7 @@ class StrategyV2Base(ScriptStrategyBase):
         return "perpetual" in connector
 
     async def on_stop(self):
+        self._is_stop_triggered = True
         self.executor_orchestrator.stop()
         self.market_data_provider.stop()
         self.listen_to_executor_actions_task.cancel()
@@ -291,7 +293,7 @@ class StrategyV2Base(ScriptStrategyBase):
     def on_tick(self):
         self.update_executors_info()
         self.update_controllers_configs()
-        if self.market_data_provider.ready:
+        if self.market_data_provider.ready and not self._is_stop_triggered:
             executor_actions: List[ExecutorAction] = self.determine_executor_actions()
             for action in executor_actions:
                 self.executor_orchestrator.execute_action(action)
