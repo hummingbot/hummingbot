@@ -58,7 +58,7 @@ conda develop .
 
 # For some reason, this needs to be installed outside of the environment file,
 # or it'll give you the graphviz install error.
-pip install --no-deps eip712-structs
+python -m pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
 
 pre-commit install
 
