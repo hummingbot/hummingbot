@@ -26,6 +26,7 @@ dependencies:
   - aiounittest>=1.4.2
   - async-timeout>=4.0.2,<5
   - bidict>=0.22.1
+  - bip-utils
   - cachetools>=5.3.1
   # - coinbase-advanced-py  # Requires websockets >=12, we don't actually use this package
   # - coincurve>=18.0.0
