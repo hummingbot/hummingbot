@@ -46,6 +46,28 @@ class DataTypesTest(IsolatedAsyncioWrapperTestCase):
         await (aiohttp_client_session.close())
 
     @aioresponses()
+    async def test_rest_response_with_test_properties(self, mocked_api):
+        url = "https://some.url"
+        data = '{"one": 1}'
+        data_str = data.encode("utf-8")
+        body = f'{data_str}'
+        body_str = json.dumps(body)
+        headers = {"content-type": "text/html"}
+        mocked_api.get(url=url, body=body_str, headers=headers)
+ 
+        async with aiohttp.ClientSession() as session:
+            response = RESTResponse(session.get(url))
+
+        self.assertEqual(url, response.url)
+        self.assertEqual(RESTMethod.GET, response.method)
+        self.assertEqual(200, response.status)
+        self.assertEqual(headers, response.headers)
+
+        json_ = self.async_run_with_timeout(response.json())
+
+        self.assertEqual(body, json_)
+
+    @aioresponses()
     async def test_rest_response_repr(self, mocked_api):
         url = "https://some.url"
         body = {"one": 1}
