@@ -54,16 +54,17 @@ class DataTypesTest(IsolatedAsyncioWrapperTestCase):
         body_str = json.dumps(body)
         headers = {"content-type": "text/html"}
         mocked_api.get(url=url, body=body_str, headers=headers)
- 
-        async with aiohttp.ClientSession() as session:
-            response = RESTResponse(session.get(url))
+        aiohttp_client_session = aiohttp.ClientSession()
+        aiohttp_response = await (aiohttp_client_session.get(url))
+
+        response = RESTResponse(aiohttp_response)
 
         self.assertEqual(url, response.url)
         self.assertEqual(RESTMethod.GET, response.method)
         self.assertEqual(200, response.status)
         self.assertEqual(headers, response.headers)
 
-        json_ = self.async_run_with_timeout(response.json())
+        json_ = await (response.json())
 
         self.assertEqual(body, json_)
 
