@@ -28,8 +28,8 @@ dependencies:
   - cachetools>=5.3.1
   - commlib-py>=0.11
   - cryptography>=41.0.2
+  - dydxprotocol-v4-proto-py
   - eth-account
-  - injective-py
   - gql-with-aiohttp>=3.4.1
   - msgpack-python
   - numpy>=1.25.0
@@ -40,7 +40,7 @@ dependencies:
   - protobuf>=4.23.3
   - psutil>=5.9.5
   - ptpython>=3.0.20
-  - pydantic>=1.10.12
+  - pydantic>=2
   - pyjwt>=2.3.0
   - pyperclip>=1.8.2
   - requests>=2.31.0
