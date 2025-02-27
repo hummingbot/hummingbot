@@ -840,6 +840,17 @@ class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
         title = "hyperliquid"
 
 
+class DeriveRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="derive",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title = "derive"
+
+
 class TegroRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="tegro",
@@ -863,6 +874,7 @@ RATE_SOURCE_MODES = {
     CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.Config.title: CubeRateSourceMode,
     HyperliquidRateSourceMode.Config.title: HyperliquidRateSourceMode,
+    DeriveRateSourceMode.Config.title: DeriveRateSourceMode,
     TegroRateSourceMode.Config.title: TegroRateSourceMode,
 }
 
