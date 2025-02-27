@@ -111,7 +111,6 @@ class RESTResponse:
 
     async def json(self) -> Any:
         if self._aiohttp_response.content_type == "text/html":
-
             byte_string = await self._aiohttp_response.read()
             if isinstance(byte_string, bytes):
                 decoded_string = byte_string.decode('utf-8')
