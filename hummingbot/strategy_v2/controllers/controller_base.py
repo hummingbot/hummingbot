@@ -4,7 +4,7 @@ import asyncio
 import importlib
 import inspect
 from decimal import Decimal
-from typing import Callable, Dict, List, Set
+from typing import TYPE_CHECKING, Callable, Dict, List, Set
 
 from pydantic.v1 import Field, validator
 
@@ -18,6 +18,9 @@ from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 from hummingbot.strategy_v2.utils.common import generate_unique_id
+
+if TYPE_CHECKING:
+    from hummingbot.strategy_v2.executors.data_types import PositionSummary
 
 
 class ControllerConfigBase(BaseClientModel):
@@ -127,7 +130,7 @@ class ControllerBase(RunnableBase):
         super().__init__(update_interval=update_interval)
         self.config = config
         self.executors_info: List[ExecutorInfo] = []
-        self.positions_held: List[Dict] = []
+        self.positions_held: List[PositionSummary] = []
         self.market_data_provider: MarketDataProvider = market_data_provider
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
