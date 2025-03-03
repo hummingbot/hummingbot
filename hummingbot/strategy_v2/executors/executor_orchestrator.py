@@ -4,7 +4,7 @@ from copy import deepcopy
 from decimal import Decimal
 from typing import Dict, List
 
-from pydantic.v1.main import BaseModel
+from pydantic.main import BaseModel
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import PriceType, TradeType
@@ -13,6 +13,7 @@ from hummingbot.model.position import Position
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.strategy_v2.executors.data_types import PositionSummary
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
@@ -31,16 +32,6 @@ from hummingbot.strategy_v2.models.executor_actions import (
 )
 from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
-
-
-class PositionSummary(BaseModel):
-    connector_name: str
-    trading_pair: str
-    volume_traded_quote: Decimal
-    amount: Decimal
-    breakeven_price: Decimal
-    unrealized_pnl_quote: Decimal
-    cum_fees_quote: Decimal
 
 
 class PositionHeld:
