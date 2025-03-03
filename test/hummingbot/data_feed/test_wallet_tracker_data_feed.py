@@ -36,8 +36,9 @@ class TestWalletTrackerDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTe
         self.assertTrue(self.is_logged(log_level=LogLevel.WARNING,
                                        message="Gateway is not online. Please check your gateway connection.", ))
 
+    @patch("hummingbot.data_feed.wallet_tracker_data_feed.WalletTrackerDataFeed._async_sleep", new_callable=AsyncMock)
     @patch("hummingbot.data_feed.wallet_tracker_data_feed.WalletTrackerDataFeed._fetch_data", new_callable=AsyncMock)
-    async def test_fetch_data_loop_exception(self, fetch_data_mock: AsyncMock):
+    async def test_fetch_data_loop_exception(self, fetch_data_mock: AsyncMock, _):
         fetch_data_mock.side_effect = [Exception("test exception"), asyncio.CancelledError()]
         try:
             await self.data_feed._fetch_data_loop()

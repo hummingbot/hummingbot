@@ -2,9 +2,9 @@ import asyncio
 import json
 import os
 import re
-import unittest
 from abc import ABC
 from collections import deque
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -15,14 +15,13 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 
 
-class TestCandlesBase(unittest.TestCase, ABC):
+class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
     __test__ = False
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.trading_pair: str = None
         cls.interval: str = None
         cls.ex_trading_pair: str = None
@@ -175,7 +174,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
         self.assertEqual(resp.shape[1], 10)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_subscribes_to_klines(self, ws_connect_mock):
+    async def test_listen_for_subscriptions_subscribes_to_klines(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_klines = self._success_subscription_mock()
@@ -184,9 +183,9 @@ class TestCandlesBase(unittest.TestCase, ABC):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_klines))
 
-        self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
@@ -207,44 +206,41 @@ class TestCandlesBase(unittest.TestCase, ABC):
 
     @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
+    async def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_feed.listen_for_subscriptions()
 
     @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
+    async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(
             asyncio.CancelledError())
 
-        self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self.is_logged(
                 "ERROR",
                 "Unexpected error occurred when listening to public klines. Retrying in 1 seconds..."))
 
-    def test_subscribe_channels_raises_cancel_exception(self):
+    async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_feed._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_feed._subscribe_channels(mock_ws)
 
-    def test_subscribe_channels_raises_exception_and_logs_error(self):
+    async def test_subscribe_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(self.data_feed._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_feed._subscribe_channels(mock_ws)
 
         self.assertTrue(
             self.is_logged("ERROR", "Unexpected error occurred subscribing to public klines...")
@@ -252,15 +248,15 @@ class TestCandlesBase(unittest.TestCase, ABC):
 
     @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_empty_candle(self, ws_connect_mock, fill_historical_candles_mock):
+    async def test_process_websocket_messages_empty_candle(self, ws_connect_mock, fill_historical_candles_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_1()))
 
-        self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
@@ -268,7 +264,7 @@ class TestCandlesBase(unittest.TestCase, ABC):
 
     @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
+    async def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         fill_historical_candles.return_value = None
 
@@ -280,16 +276,16 @@ class TestCandlesBase(unittest.TestCase, ABC):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_1()))
 
-        self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
     @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
+    async def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -300,9 +296,9 @@ class TestCandlesBase(unittest.TestCase, ABC):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_2()))
 
-        self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 2)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)

@@ -227,8 +227,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    # @track_memory_growth(runs=10)
-    def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
+    async def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_trades = None
@@ -243,7 +242,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_diffs))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)

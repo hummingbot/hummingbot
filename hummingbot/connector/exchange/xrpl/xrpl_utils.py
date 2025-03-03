@@ -250,6 +250,10 @@ async def get_latest_validated_ledger_sequence(client: Client) -> int:
 _LEDGER_CLOSE_TIME: Final[int] = 1
 
 
+async def _sleep(seconds: int):
+    await asyncio.sleep(seconds)
+
+
 async def _wait_for_final_transaction_outcome(
     transaction_hash: str, client: Client, prelim_result: str, last_ledger_sequence: int
 ) -> Response:
@@ -259,7 +263,7 @@ async def _wait_for_final_transaction_outcome(
     validated ledger, or the transaction's LastLedgerSequence has been surpassed by the
     latest ledger sequence (meaning it will never be included in a validated ledger).
     """
-    await asyncio.sleep(_LEDGER_CLOSE_TIME)
+    await _sleep(_LEDGER_CLOSE_TIME)
 
     current_ledger_sequence = await get_latest_validated_ledger_sequence(client)
 

@@ -1,7 +1,7 @@
 import asyncio
 import json
-import unittest
-from typing import Awaitable, Dict
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -23,26 +23,25 @@ ORDER_BOOK_DIFF_KEY = "order_book_diff"
 ORDER_BOOK_SNAPSHOT_KEY = "order_book_snapshot"
 
 
-class TestVertexAPIOrderBookDataSource(unittest.TestCase):
+class TestVertexAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "wBTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = CONSTANTS.TESTNET_DOMAIN
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
 
         self.log_records = []
         self.async_task = None
-        self.mocking_assistant = NetworkMockingAssistant()
+        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
         client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         # NOTE: RANDOM KEYS GENERATED JUST FOR UNIT TESTS
@@ -91,10 +90,6 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def get_exchange_market_info_mock(self) -> Dict:
         exchange_rules = {
@@ -221,7 +216,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         return snapshot
 
     @aioresponses()
-    def test_request_order_book_snapshot(self, mock_api):
+    async def test_request_order_book_snapshot(self, mock_api):
         url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?depth={CONSTANTS.ORDER_BOOK_DEPTH}&product_id=1&type={CONSTANTS.MARKET_LIQUIDITY_REQUEST_TYPE}"
         snapshot_data = self._snapshot_response()
         tradingrule_url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?type={CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE}"
@@ -229,12 +224,12 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         mock_api.get(tradingrule_url, body=json.dumps(tradingrule_resp))
         mock_api.get(url, body=json.dumps(snapshot_data))
 
-        ret = self.async_run_with_timeout(coroutine=self.ob_data_source._request_order_book_snapshot(self.trading_pair))
+        ret = await self.ob_data_source._request_order_book_snapshot(self.trading_pair)
 
         self.assertEqual(snapshot_data, ret)
 
     @aioresponses()
-    def test_get_snapshot_raises(self, mock_api):
+    async def test_get_snapshot_raises(self, mock_api):
         url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?depth={CONSTANTS.ORDER_BOOK_DEPTH}&product_id=1&type={CONSTANTS.MARKET_LIQUIDITY_REQUEST_TYPE}"
         tradingrule_url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?type={CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE}"
         tradingrule_resp = self.get_exchange_rules_mock()
@@ -242,10 +237,10 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         mock_api.get(url, status=500)
 
         with self.assertRaises(IOError):
-            self.async_run_with_timeout(coroutine=self.ob_data_source._order_book_snapshot(self.trading_pair))
+            await self.ob_data_source._order_book_snapshot(self.trading_pair)
 
     @aioresponses()
-    def test_get_new_order_book(self, mock_api):
+    async def test_get_new_order_book(self, mock_api):
         url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?depth={CONSTANTS.ORDER_BOOK_DEPTH}&product_id=1&type={CONSTANTS.MARKET_LIQUIDITY_REQUEST_TYPE}"
         resp = self._snapshot_response()
         tradingrule_url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?type={CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE}"
@@ -253,7 +248,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         mock_api.get(tradingrule_url, body=json.dumps(tradingrule_resp))
         mock_api.get(url, body=json.dumps(resp))
 
-        ret = self.async_run_with_timeout(coroutine=self.ob_data_source.get_new_order_book(self.trading_pair))
+        ret = await self.ob_data_source.get_new_order_book(self.trading_pair)
         bid_entries = list(ret.bid_entries())
         ask_entries = list(ret.ask_entries())
         self.assertEqual(2, len(bid_entries))
@@ -271,7 +266,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         self.assertEqual(int(resp["data"]["timestamp"]), ask_entries[0].update_id)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_subscribes_to_trades_and_depth(self, ws_connect_mock):
+    async def test_listen_for_subscriptions_subscribes_to_trades_and_depth(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_trades = {"method": "subscribe", "stream": {"type": "trade", "product_id": 1}, "id": 1}
@@ -285,9 +280,9 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
             websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_depth)
         )
 
-        self.listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.ob_data_source.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value
@@ -307,21 +302,19 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, _, ws_connect_mock):
+    async def test_listen_for_subscriptions_raises_cancel_exception(self, _, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source.listen_for_subscriptions()
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_subscriptions_logs_exception_details(self, sleep_mock, ws_connect_mock):
+    async def test_listen_for_subscriptions_logs_exception_details(self, sleep_mock, ws_connect_mock):
         sleep_mock.side_effect = asyncio.CancelledError
         ws_connect_mock.side_effect = Exception("TEST ERROR.")
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source.listen_for_subscriptions()
 
         self.assertTrue(
             self._is_logged(
@@ -329,7 +322,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
             )
         )
 
-    def test_listen_for_trades_cancelled_when_listening(self):
+    async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
@@ -337,12 +330,9 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source.listen_for_trades(self.local_event_loop, msg_queue)
 
-    def test_listen_for_trades_logs_exception(self):
+    async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
             "type": "trade",
             "timestamp": 1676151190656903000,
@@ -359,16 +349,14 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue))
-
         try:
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source.listen_for_trades(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
-    def test_listen_for_trades_successful(self):
+    async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         trade_event = {
             "type": "trade",
@@ -386,17 +374,17 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         try:
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue)
+            self.listening_task = self.local_event_loop.create_task(
+                self.ob_data_source.listen_for_trades(self.local_event_loop, msg_queue)
             )
         except asyncio.CancelledError:
             pass
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertTrue(trade_event["timestamp"], msg.trade_id)
 
-    def test_listen_for_order_book_diffs_cancelled(self):
+    async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.ob_data_source._message_queue[ORDER_BOOK_DIFF_KEY] = mock_queue
@@ -404,12 +392,9 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-            )
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
 
-    def test_listen_for_order_book_diffs_logs_exception(self):
+    async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
             "type": "book_depth",
             "min_timestamp": "1683805381879572835",
@@ -425,12 +410,8 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-        )
-
         try:
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
@@ -438,7 +419,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
         )
 
-    def test_listen_for_order_book_diffs_successful(self):
+    async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
         diff_event = {
             "type": "book_depth",
@@ -455,29 +436,27 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         try:
-            self.listening_task = self.ev_loop.create_task(
-                self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+            self.listening_task = self.local_event_loop.create_task(
+                self.ob_data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
             )
         except asyncio.CancelledError:
             pass
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertTrue(diff_event["last_max_timestamp"], msg.update_id)
 
     @aioresponses()
-    def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+    async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?depth={CONSTANTS.ORDER_BOOK_DEPTH}&product_id=1&type={CONSTANTS.MARKET_LIQUIDITY_REQUEST_TYPE}"
         mock_api.get(url, exception=asyncio.CancelledError)
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(
-                self.ob_data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
-            )
+            await self.ob_data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
+    async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = asyncio.CancelledError
 
@@ -485,7 +464,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         mock_api.get(url, exception=Exception)
 
         try:
-            self.async_run_with_timeout(self.ob_data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
+            await self.ob_data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
@@ -494,8 +473,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         )
 
     @aioresponses()
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_order_book_snapshots_successful(self, mock_api, _):
+    async def test_listen_for_order_book_snapshots_successful(self, mock_api):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.TimeoutError
         self.ob_data_source._message_queue[ORDER_BOOK_SNAPSHOT_KEY] = mock_queue
@@ -504,30 +482,29 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?depth={CONSTANTS.ORDER_BOOK_DEPTH}&product_id=1&type={CONSTANTS.MARKET_LIQUIDITY_REQUEST_TYPE}"
         snapshot_data = self._snapshot_response()
         mock_api.get(url, body=json.dumps(snapshot_data))
+        self.ob_data_source._sleep = AsyncMock()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.ob_data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
+        self.listening_task = self.local_event_loop.create_task(
+            self.ob_data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
         )
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(int(snapshot_data["data"]["timestamp"]), msg.update_id)
 
-    def test_subscribe_channels_raises_cancel_exception(self):
+    async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.ob_data_source._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source._subscribe_channels(mock_ws)
 
-    def test_subscribe_channels_raises_exception_and_logs_error(self):
+    async def test_subscribe_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(self.ob_data_source._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.ob_data_source._subscribe_channels(mock_ws)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to trading and order book stream...")

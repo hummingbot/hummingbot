@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 class BacktestingDataProvider(MarketDataProvider):
     CONNECTOR_TYPES = [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.Exchange,
                        ConnectorType.Derivative]
-    EXCLUDED_CONNECTORS = ["vega_perpetual", "hyperliquid_perpetual", "dydx_perpetual", "cube",
-                           "polkadex", "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc",
+    EXCLUDED_CONNECTORS = ["hyperliquid_perpetual", "dydx_perpetual", "cube",
+                           "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc",
                            "hyperliquid"]
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
