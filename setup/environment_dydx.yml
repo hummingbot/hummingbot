@@ -62,4 +62,4 @@ dependencies:
     - web3
     - websockets
     - yarl==1.*
-    - xrpl-py
+    - xrpl-py==3.0.0
