@@ -63,3 +63,5 @@ dependencies:
     - websockets
     - yarl==1.*
     - xrpl-py==3.0.0
+    - ecdsa
+    - bip_utils
