@@ -2,7 +2,7 @@
 
 ----
 [![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/hummingbot/hummingbot/blob/master/LICENSE)
-[![Twitter](https://img.shields.io/twitter/url?url=https://twitter.com/_hummingbot?style=social&label=_hummingbot)](https://twitter.com/_hummingbot)
+[![Twitter](https://img.shields.io/twitter/url?url=https://twitter.com/_hummingbot?style=social&label=_hummingbot)](https://x.com/_hummingbot)
 [![Youtube](https://img.shields.io/youtube/channel/subscribers/UCxzzdEnDRbylLMWmaMjywOA)](https://www.youtube.com/@hummingbot)
 [![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot)
 
@@ -16,7 +16,7 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 * [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most of of Hummingbot
-* [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
+* [X](https://x.com/_hummingbot): Get the latest announcements about Hummingbot
 * [Reported Volumes](https://p.datadoghq.com/sb/a96a744f5-a15479d77992ccba0d23aecfd4c87a52): Reported trading volumes across all Hummingbot instances
 * [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
 
