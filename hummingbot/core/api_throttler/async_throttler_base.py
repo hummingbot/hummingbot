@@ -56,6 +56,9 @@ class AsyncThrottlerBase(ABC):
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
 
+        # Dictionary of limit_id to (last_usage, last_timestamp) for decay-based rate limits
+        self._decay_usage: Dict[str, Tuple[float, float]] = {}
+
     def set_rate_limits(self, rate_limits: List[RateLimit]):
         # Rate Limit Definitions
         self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)
