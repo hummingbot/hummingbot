@@ -10,6 +10,7 @@ from typing import (
 from async_timeout import timeout
 
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.delayed_market_order import DelayedMarketOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 
 s_decimal_0 = Decimal(0)
@@ -111,6 +112,20 @@ cdef class InFlightOrderBase:
             self.trade_type is TradeType.BUY,
             self.base_asset,
             self.quote_asset,
+            self.price,
+            self.amount,
+            creation_timestamp=int(self.creation_timestamp * 1e6)
+        )
+
+    def to_delayed_market_order(self) -> DelayedMarketOrder:
+        return DelayedMarketOrder(
+            self.client_order_id,
+            self.order_type,
+            self.trading_pair,
+            self.trade_type is TradeType.BUY,
+            self.base_asset,
+            self.quote_asset,
+            self.price,
             self.price,
             self.amount,
             creation_timestamp=int(self.creation_timestamp * 1e6)
