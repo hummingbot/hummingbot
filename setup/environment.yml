@@ -39,7 +39,7 @@ dependencies:
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
-  - ptpython>=3.0.20
+  - ptpython>=3.0.25
   - pydantic>=2
   - pyjwt>=2.3.0
   - pyperclip>=1.8.2
