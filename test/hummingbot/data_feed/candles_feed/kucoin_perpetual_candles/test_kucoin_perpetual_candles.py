@@ -17,7 +17,6 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.kucoin_base_asset = "XBT"
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"
@@ -28,7 +27,6 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = KucoinPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
         self.data_feed.symbols_dict = self.get_symbols_dict_mock()
         self.data_feed._ws_url = "wss://api.kucoin.com"
@@ -37,6 +35,10 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
     @staticmethod
@@ -443,7 +445,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
         self.data_feed._ws_token = None
         self.data_feed._ws_url = None
 
-        self.async_run_with_timeout(self.data_feed._get_ws_token(), timeout=5)
+        self.run_async_with_timeout(self.data_feed._get_ws_token(), timeout=5)
 
         self.assertEqual(self.data_feed._ws_token, data_mock["data"]["token"])
         self.assertEqual(self.data_feed._ws_url, data_mock["data"]["instanceServers"][0]["endpoint"])
@@ -457,7 +459,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
         self.data_feed._ws_url = None
 
         with self.assertRaises(Exception):
-            self.async_run_with_timeout(self.data_feed._get_ws_token(), timeout=5)
+            self.run_async_with_timeout(self.data_feed._get_ws_token(), timeout=5)
 
     @aioresponses()
     def test_get_symbols_dict(self, mock_api):
@@ -465,7 +467,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
         data_mock = self.get_symbols_response_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
 
-        self.async_run_with_timeout(self.data_feed._get_symbols_dict(), timeout=5)
+        self.run_async_with_timeout(self.data_feed._get_symbols_dict(), timeout=5)
 
         self.assertEqual(self.data_feed.symbols_dict, self.get_symbols_dict_mock())
 
@@ -475,4 +477,4 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
         mock_api.get(url=regex_url, status=500)
 
         with self.assertRaises(Exception):
-            self.async_run_with_timeout(self.data_feed._get_symbols_dict(), timeout=5)
+            self.run_async_with_timeout(self.data_feed._get_symbols_dict(), timeout=5)

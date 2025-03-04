@@ -1,9 +1,10 @@
 import asyncio
+import contextlib
 import json
 import re
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -365,9 +366,9 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             trading_pair=self.trading_pair,
             min_order_size=Decimal(self.trading_rules_request_mock_response["data"][0]["minoa"]),
             max_order_size=Decimal(self.trading_rules_request_mock_response["data"][0]["maxoa"]),
-            min_price_increment=Decimal(str(10**-price_precision)),
-            min_base_amount_increment=Decimal(str(10**-amount_precision)),
-            min_quote_amount_increment=Decimal(str(10**-value_precision)),
+            min_price_increment=Decimal(str(10 ** -price_precision)),
+            min_base_amount_increment=Decimal(str(10 ** -amount_precision)),
+            min_quote_amount_increment=Decimal(str(10 ** -value_precision)),
             min_notional_size=Decimal(self.trading_rules_request_mock_response["data"][0]["minov"]),
         )
 
@@ -459,7 +460,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertIsNone(request_data)
 
     def configure_successful_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_URL)
         url = url.format(order.exchange_order_id)
@@ -469,7 +471,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_erroneous_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_URL)
         url = url.format(order.exchange_order_id)
@@ -478,7 +481,7 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+            self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -506,7 +509,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_DETAIL_URL.format(order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + r"\?.*")
@@ -515,7 +519,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_canceled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> Union[str, List[str]]:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_DETAIL_URL).format(order.exchange_order_id)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + r"\?.*")
@@ -524,7 +529,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return regex_url
 
     def configure_erroneous_http_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_MATCHES_URL.format(order.exchange_order_id))
         regex_url = re.compile(url + r"\?.*")
@@ -532,7 +538,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_open_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
@@ -544,7 +551,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return [url]
 
     def configure_http_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_DETAIL_URL).format(order.exchange_order_id)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + r"\?.*")
@@ -552,7 +560,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_partially_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_DETAIL_URL).format(order.exchange_order_id)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + r"\?.*")
@@ -561,7 +570,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_partial_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_MATCHES_URL.format(order.exchange_order_id))
         regex_url = re.compile(url + r"\?.*")
@@ -570,7 +580,8 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_full_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.ORDER_MATCHES_URL.format(order.exchange_order_id))
         regex_url = re.compile(url + r"\?.*")
@@ -858,7 +869,7 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         }
 
     def _validate_auth_credentials_taking_parameters_from_argument(
-        self, request_call_tuple: RequestCall, params: Dict[str, Any]
+            self, request_call_tuple: RequestCall, params: Dict[str, Any]
     ):
         self.assertIn("Timestamp", params)
         self.assertIn("Signature", params)
@@ -913,3 +924,38 @@ class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 }
             ],
         }
+
+    async def test_lost_order_removed_after_cancel_status_user_event_received(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
+            await self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+        order_event = self.order_event_for_canceled_order_websocket_update(order=order)
+
+        mock_queue = AsyncMock()
+        event_messages = [order_event, asyncio.CancelledError]
+        mock_queue.get.side_effect = event_messages
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        with contextlib.suppress(asyncio.CancelledError):
+            await self.exchange._user_stream_event_listener()
+        await asyncio.sleep(0.1)
+
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertFalse(order.is_cancelled)
+        self.assertTrue(order.is_failure)

@@ -48,7 +48,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._network = network
         self._client = AsyncClient(
             network=self._network,
-            insecure=not use_secure_connection,
+            # insecure=not use_secure_connection,
         )
         self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)

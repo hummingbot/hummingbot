@@ -24,6 +24,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 os.environ['PYTHONASYNCIODEBUG'] = '1'
 
@@ -40,8 +41,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.log_records = []
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
@@ -70,6 +71,13 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         self.connector._set_trading_pair_symbol_map(
             bidict({self.ex_trading_pair: self.trading_pair}))
+
+    async def asyncTearDown(self) -> None:
+        if hasattr(self, '_ws_session'):
+            await ConnectionsFactory().ws_independent_session().__aexit__(None, None, None)
+        if hasattr(self, '_shared_session'):
+            await ConnectionsFactory().shared_client().__aexit__(None, None, None)
+        await super().asyncTearDown()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -142,7 +150,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
     @aioresponses()
     async def test_get_new_order_book_raises_exception(self, mock_api):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair))
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -152,7 +161,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_web_utils.next_message_id")
-    async def test_listen_for_subscriptions_subscribes_to_trades_order_diffs_and_instruments(self, mock_api, id_mock, mock_ws):
+    async def test_listen_for_subscriptions_subscribes_to_trades_order_diffs_and_instruments(self, mock_api, id_mock,
+                                                                                             mock_ws):
         id_mock.side_effect = [1, 2, 3]
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PUBLIC_WS_DATA_PATH_URL)
 
@@ -460,7 +470,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self._simulate_trading_rules_initialized()
         logging.getLogger("asyncio").setLevel(logging.WARNING)
         msg_queue: asyncio.Queue = asyncio.Queue()
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair))
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         snapshot_data = {
@@ -540,7 +551,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     @aioresponses()
     async def test_get_funding_info(self, mock_api):
         future_info_url = web_utils.get_rest_url_for_endpoint(
-            endpoint = CONSTANTS.GET_CONTRACT_INFO_PATH_URL.format(symbol=self.ex_trading_pair)
+            endpoint=CONSTANTS.GET_CONTRACT_INFO_PATH_URL.format(symbol=self.ex_trading_pair)
         )
         future_info_regex_url = re.compile(f"^{future_info_url}".replace(".", r"\.").replace("?", r"\?"))
         future_info_response = {

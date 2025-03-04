@@ -16,7 +16,6 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"
         cls.interval = "1h"
@@ -26,12 +25,15 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = HyperliquidPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
     def get_fetch_candles_data_mock(self):
@@ -149,7 +151,7 @@ class TestHyperliquidPerpetualCandles(TestCandlesBase):
         data_mock = self.get_candles_rest_data_mock()
         mock_api.post(url=regex_url, body=json.dumps(data_mock))
 
-        resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
+        resp = self.run_async_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
                                                                         end_time=self.end_time))
 
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))

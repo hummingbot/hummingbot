@@ -22,6 +22,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
@@ -65,14 +66,18 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.mocking_assistant = NetworkMockingAssistant()
-        self.resume_test_event = asyncio.Event()
         BitmartPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
             self.domain: bidict({self.ex_trading_pair: self.trading_pair})
         }
 
         self.connector._set_trading_pair_symbol_map(
             bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()

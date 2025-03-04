@@ -3,7 +3,7 @@ import random
 import time
 
 import base58
-from pydantic import BaseModel, validator
+from pydantic.v1 import BaseModel, validator
 
 from hummingbot.client.settings import AllConnectorSettings
 

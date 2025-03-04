@@ -179,7 +179,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
         shortcut_parser = subparsers.add_parser(command, help=help_str)
         args = shortcut.arguments
         for i in range(len(args)):
-            shortcut_parser.add_argument(f'${i+1}', help=args[i])
+            shortcut_parser.add_argument(f'${i + 1}', help=args[i])
 
     rate_parser = subparsers.add_parser('rate', help="Show rate of a given trading pair")
     rate_parser.add_argument("-p", "--pair", default=None,

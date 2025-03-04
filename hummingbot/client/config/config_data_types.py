@@ -4,8 +4,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Optional
 
-from pydantic import BaseModel, Extra, Field, validator
-from pydantic.schema import default_ref_template
+from pydantic.v1 import BaseModel, Extra, Field, validator
+from pydantic.v1.schema import default_ref_template
 
 from hummingbot.client.config.config_methods import strategy_config_schema_encoder
 from hummingbot.client.config.config_validators import validate_connector, validate_decimal

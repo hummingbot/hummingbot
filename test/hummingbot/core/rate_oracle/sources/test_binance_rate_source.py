@@ -1,8 +1,6 @@
-import asyncio
 import json
-import unittest
 from decimal import Decimal
-from typing import Awaitable
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 from aioresponses import aioresponses
 
@@ -11,21 +9,16 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.binance_rate_source import BinanceRateSource
 
 
-class BinanceRateSourceTest(unittest.TestCase):
+class BinanceRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.binance_pair = f"{cls.target_token}-{cls.global_token}"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
         cls.binance_ignored_pair = "SOMEPAIR"
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def setup_binance_responses(self, mock_api, expected_rate: Decimal):
         pairs_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
@@ -68,12 +61,12 @@ class BinanceRateSourceTest(unittest.TestCase):
         mock_api.get(binance_prices_global_url, body=json.dumps(binance_prices_global_response))
 
     @aioresponses()
-    def test_get_binance_prices(self, mock_api):
+    async def test_get_binance_prices(self, mock_api):
         expected_rate = Decimal("10")
         self.setup_binance_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = BinanceRateSource()
-        prices = self.async_run_with_timeout(rate_source.get_prices())
+        prices = await rate_source.get_prices()
 
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])

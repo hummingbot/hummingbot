@@ -1,15 +1,10 @@
-import unittest
 import asyncio
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+
 import pandas as pd
 
-from hummingbot.core.clock import (
-    Clock,
-    ClockMode
-)
-from hummingbot.core.network_iterator import (
-    NetworkIterator,
-    NetworkStatus,
-)
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.network_iterator import NetworkIterator, NetworkStatus
 
 
 class MockNetworkIterator(NetworkIterator):
@@ -37,7 +32,7 @@ class MockNetworkIterator(NetworkIterator):
             return NetworkStatus.NOT_CONNECTED
 
 
-class NetworkIteratorUnitTest(unittest.TestCase):
+class NetworkIteratorUnitTest(IsolatedAsyncioWrapperTestCase):
 
     start: pd.Timestamp = pd.Timestamp("2021-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2022-01-01 01:00:00", tz="UTC")
@@ -47,33 +42,35 @@ class NetworkIteratorUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        return super().setUpClass()
+        super().setUpClass()
 
     def setUp(self):
         self.network_iterator = MockNetworkIterator()
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.clock.add_iterator(self.network_iterator)
-        return super().setUp()
+        super().setUp()
 
-    def test_network_status(self):
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+
+    async def test_network_status(self):
         # This test technically tests the _check_network_loop() and all its paths.
         self.assertEqual(NetworkStatus.STOPPED, self.network_iterator.network_status)
 
         self.network_iterator.check_network_interval = 0.5
 
         self.clock.backtest_til(self.start_timestamp)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        await asyncio.sleep(0.5)
         self.assertEqual(NetworkStatus.CONNECTED, self.network_iterator.network_status)
         self.assertTrue(self.network_iterator._start_network_event.is_set())
 
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        await asyncio.sleep(0.5)
         self.assertEqual(NetworkStatus.NOT_CONNECTED, self.network_iterator.network_status)
         self.assertTrue(self.network_iterator._stop_network_event.is_set())
 
     def test_last_connected_timestamp(self):
         self.clock.backtest_til(self.start_timestamp)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.5))
+        self.local_event_loop.run_until_complete(asyncio.sleep(0.5))
         self.assertEqual(self.start_timestamp, self.network_iterator.last_connected_timestamp)
 
     def test_check_network_task(self):
@@ -96,7 +93,7 @@ class NetworkIteratorUnitTest(unittest.TestCase):
         self.assertFalse(self.network_iterator._start_network_event.is_set())
         self.assertFalse(self.network_iterator._stop_network_event.is_set())
 
-        self.ev_loop.run_until_complete(self.network_iterator.start_network())
+        self.local_event_loop.run_until_complete(self.network_iterator.start_network())
         self.assertTrue(self.network_iterator._start_network_event.is_set())
         self.assertFalse(self.network_iterator._stop_network_event.is_set())
 
@@ -104,7 +101,7 @@ class NetworkIteratorUnitTest(unittest.TestCase):
         self.assertFalse(self.network_iterator._start_network_event.is_set())
         self.assertFalse(self.network_iterator._stop_network_event.is_set())
 
-        self.ev_loop.run_until_complete(self.network_iterator.stop_network())
+        self.local_event_loop.run_until_complete(self.network_iterator.stop_network())
         self.assertFalse(self.network_iterator._start_network_event.is_set())
         self.assertTrue(self.network_iterator._stop_network_event.is_set())
         self.assertEqual(NetworkStatus.STOPPED, self.network_iterator.network_status)

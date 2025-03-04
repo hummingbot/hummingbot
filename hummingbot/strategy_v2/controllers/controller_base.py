@@ -6,7 +6,7 @@ import inspect
 from decimal import Decimal
 from typing import Callable, Dict, List, Set
 
-from pydantic import Field, validator
+from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TokenAmount

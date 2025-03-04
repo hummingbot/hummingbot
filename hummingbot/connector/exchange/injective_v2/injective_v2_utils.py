@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
-from pydantic import Field, SecretStr
-from pydantic.class_validators import validator
+from pydantic.v1 import Field, SecretStr
+from pydantic.v1.class_validators import validator
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer
 from pyinjective.core.broadcaster import (

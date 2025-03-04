@@ -22,10 +22,14 @@ MAX_ORDER_ID_LEN = 32
 HBOT_BROKER_ID = "Hummingbot"
 
 # Base URL
+BASE_URL = "api.coinbase.com"
 SIGNIN_URL = "https://api.coinbase.{domain}/v2"
 REST_URL = "https://api.coinbase.{domain}/api/v3"
 WSS_URL = "wss://advanced-trade-ws.coinbase.{domain}"
 USER_WSS_URL = "wss://advanced-trade-ws-user.coinbase.{domain}"
+
+# Coinbase SDK version: 1.7.0 - The official SDK requires websocket >=12
+USER_AGENT = "coinbase-advanced-py/1.7.0"
 
 # Coinbase Signin API endpoints
 EXCHANGE_RATES_USD_EP = "/exchange-rates"

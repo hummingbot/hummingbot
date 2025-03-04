@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Union
 
 import pandas as pd
-from pydantic import BaseModel, validator
+from pydantic.v1 import BaseModel, validator
 
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig

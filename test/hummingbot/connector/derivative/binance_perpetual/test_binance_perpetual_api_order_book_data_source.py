@@ -22,6 +22,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
@@ -39,6 +40,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
+        await ConnectionsFactory().close()
         self.log_records = []
         self.listening_task = None
         self.async_tasks: List[asyncio.Task] = []

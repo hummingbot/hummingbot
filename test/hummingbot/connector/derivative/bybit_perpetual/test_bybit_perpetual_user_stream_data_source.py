@@ -10,6 +10,7 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream
     BybitPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class BybitPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -29,11 +30,11 @@ class BybitPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         super().setUp()
         self.log_records = []
         self.listening_task = None
-        self.mocking_assistant = NetworkMockingAssistant()
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
 
-        auth = BybitPerpetualAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET", time_provider=self.mock_time_provider)
+        auth = BybitPerpetualAuth(api_key="TEST_API_KEY", secret_key="TEST_SECRET",
+                                  time_provider=self.mock_time_provider)
         api_factory = web_utils.build_api_factory(auth=auth)
         self.data_source = BybitPerpetualUserStreamDataSource(
             auth=auth, api_factory=api_factory, domain=self.domain
@@ -41,8 +42,10 @@ class BybitPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
-
         self.resume_test_event = asyncio.Event()
 
     def tearDown(self) -> None:
@@ -90,7 +93,8 @@ class BybitPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         initial_last_recv_time = self.data_source.last_recv_time
 
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, self._authentication_response(True, ""))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value,
+                                                             self._authentication_response(True, ""))
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
             self._subscription_response(True, CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME))

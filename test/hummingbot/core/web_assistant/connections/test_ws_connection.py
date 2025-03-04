@@ -21,16 +21,19 @@ class WSConnectionTest(IsolatedAsyncioWrapperTestCase):
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
-        self.mocking_assistant = NetworkMockingAssistant(event_loop=self.local_event_loop)
-        self.client_session = aiohttp.ClientSession(loop=self.local_event_loop)
+        self.mocking_assistant = NetworkMockingAssistant()
+        await self.mocking_assistant.async_init()
+        self.client_session = aiohttp.ClientSession()
         self.ws_connection = WSConnection(self.client_session)
         self.async_tasks: List[asyncio.Task] = []
 
-    def tearDown(self) -> None:
-        self.local_event_loop.run_until_complete(self.ws_connection.disconnect())
-        self.local_event_loop.run_until_complete(self.client_session.close())
+    async def asyncTearDown(self) -> None:
+        await self.client_session.close()
         for task in self.async_tasks:
             task.cancel()
+        await super().asyncTearDown()
+
+    def tearDown(self) -> None:
         super().tearDown()
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)

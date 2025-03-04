@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import Dict, Union
 
-from pydantic import Field
-from pydantic.class_validators import validator
+from pydantic.v1 import Field
+from pydantic.v1.class_validators import validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (

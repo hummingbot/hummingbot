@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from typing import Awaitable, List, Optional
 from unittest.mock import MagicMock, patch
 
-from pydantic import Field, SecretStr
+from pydantic.v1 import Field, SecretStr
 
 from hummingbot.client.config import config_helpers
 from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
