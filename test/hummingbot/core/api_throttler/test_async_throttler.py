@@ -404,3 +404,34 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         # Advance time by 2 more seconds - should have decayed by another 2.0 units (total 5.0)
         time_mock.return_value = initial_time + 8.0
         self.assertTrue(context.within_capacity())
+
+    def test_acquire_appends_to_task_logs_with_decay_limit(self):
+        decay_rate_limit = RateLimit(
+            limit_id="TEST_DECAY_LIMIT",
+            limit=6.0,
+            time_interval=60.0,
+            weight=2.0,
+            limit_type=RateLimitType.DECAY,
+            decay_rate=1.0
+        )
+
+        throttler = AsyncThrottler(rate_limits=[decay_rate_limit])
+
+        throttler._task_logs.append(
+            TaskLog(timestamp=1, rate_limit=decay_rate_limit, weight=2.0)
+        )
+
+        context = AsyncRequestContext(
+            task_logs=throttler._task_logs,
+            rate_limit=decay_rate_limit,
+            related_limits=[
+                (decay_rate_limit, decay_rate_limit.weight)
+            ],
+            lock=asyncio.Lock(),
+            safety_margin_pct=throttler._safety_margin_pct,
+            retry_interval=throttler._retry_interval,
+            decay_usage=throttler._decay_usage
+        )
+        self.ev_loop.run_until_complete(context.acquire())
+
+        self.assertEqual(2, len(throttler._task_logs))
