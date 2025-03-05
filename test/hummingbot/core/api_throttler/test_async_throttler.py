@@ -391,6 +391,7 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self.assertTrue(context.within_capacity())
 
         time_mock.return_value = initial_time + 6.0
+        context._last_max_cap_warning_ts = initial_time - 100
         # Add two more tasks with weight 2.0 each
         for _ in range(2):
             throttler._task_logs.append(
