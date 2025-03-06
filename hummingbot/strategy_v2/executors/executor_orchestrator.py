@@ -314,7 +314,7 @@ class ExecutorOrchestrator:
         for executor in active_executors:
             executor_info = executor.executor_info
             side = executor_info.custom_info.get("side", None)
-            if executor_info.is_active:
+            if not executor_info.is_done:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
                 if side:
                     report.inventory_imbalance += executor_info.filled_amount_quote \
