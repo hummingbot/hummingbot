@@ -33,7 +33,7 @@ class ExecutorInfo(BaseModel):
 
     @property
     def is_done(self):
-        return self.status in [RunnableStatus.TERMINATED]
+        return self.status == RunnableStatus.TERMINATED
 
     @property
     def side(self) -> Optional[TradeType]:
