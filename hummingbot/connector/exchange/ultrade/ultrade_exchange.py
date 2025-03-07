@@ -3,7 +3,6 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
-from ultrade import Client as UltradeClient
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.ultrade import (
@@ -23,6 +22,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from ultrade import Client as UltradeClient
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -37,6 +37,8 @@ class UltradeExchange(ExchangePyBase):
                  client_config_map: "ClientConfigAdapter",
                  ultrade_trading_key: str,
                  ultrade_wallet_address: str,
+                 ultrade_company_id: str,
+                 ultrade_api_url: str,
                  ultrade_mnemonic_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
@@ -45,6 +47,8 @@ class UltradeExchange(ExchangePyBase):
         self.ultrade_trading_key = ultrade_trading_key
         self.ultrade_wallet_address = ultrade_wallet_address
         self.ultrade_mnemonic_key = ultrade_mnemonic_key
+        self.ultrade_company_id = int(ultrade_company_id)
+        self.ultrade_api_url = ultrade_api_url
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -61,7 +65,11 @@ class UltradeExchange(ExchangePyBase):
         super().__init__(client_config_map)
 
     def create_ultrade_client(self) -> UltradeClient:
-        client = UltradeClient(network=self._domain)
+        client = UltradeClient(
+            network=self._domain,
+            company_id=self.ultrade_company_id,
+            api_url=self.ultrade_api_url
+        )
         client.set_trading_key(
             trading_key=self.ultrade_trading_key,
             address=self.ultrade_wallet_address,
@@ -83,6 +91,8 @@ class UltradeExchange(ExchangePyBase):
             trading_key=self.ultrade_trading_key,
             wallet_address=self.ultrade_wallet_address,
             mnemonic_key=self.ultrade_mnemonic_key,
+            company_id=self.ultrade_company_id,
+            api_url=self.ultrade_api_url,
             time_provider=self._time_synchronizer)
 
     @property

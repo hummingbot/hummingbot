@@ -2,14 +2,13 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, List, Optional
 
-from ultrade import Client as UltradeClient, socket_options
-
 from hummingbot.connector.exchange.ultrade import ultrade_constants as CONSTANTS
 from hummingbot.connector.exchange.ultrade.ultrade_auth import UltradeAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+from ultrade import Client as UltradeClient, socket_options
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.ultrade.ultrade_exchange import UltradeExchange
@@ -37,7 +36,11 @@ class UltradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._last_recv_time = 1.0
 
     def create_ultrade_client(self) -> UltradeClient:
-        client = UltradeClient(network=self._domain)
+        client = UltradeClient(
+            network=self._domain,
+            company_id=self._connector.ultrade_company_id,
+            api_url=self._connector.ultrade_api_url
+        )
         client.set_trading_key(
             trading_key=self._connector.ultrade_trading_key,
             address=self._connector.ultrade_wallet_address,
