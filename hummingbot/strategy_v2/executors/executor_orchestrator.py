@@ -38,52 +38,93 @@ class PositionHeld:
     def __init__(self, connector_name: str, trading_pair: str):
         self.connector_name = connector_name
         self.trading_pair = trading_pair
-        self.filled_orders = []
+        # Store only client order IDs
+        self.order_ids = set()
+
+        # Pre-calculated metrics
+        self.volume_traded_quote = Decimal("0")
+        self.cum_fees_quote = Decimal("0")
+
+        # Separate tracking for buys and sells
+        self.buy_amount_base = Decimal("0")
+        self.buy_amount_quote = Decimal("0")
+        self.sell_amount_base = Decimal("0")
+        self.sell_amount_quote = Decimal("0")
 
     def add_orders_from_executor(self, executor: ExecutorInfo):
         custom_info = executor.custom_info
-        if "held_position_orders" in custom_info:
-            self.filled_orders.extend(custom_info["held_position_orders"])
+        if "held_position_orders" not in custom_info:
+            return
 
-    def get_position_summary(self, mid_price: Decimal):
-        volume_traded_quote = Decimal("0")
-        net_amount = Decimal("0")
-        total_cost = Decimal("0")
-        cum_fees_quote = Decimal("0")
+        for order in custom_info["held_position_orders"]:
+            # Skip if we've already processed this order
+            order_id = order.get("client_order_id")
+            if order_id in self.order_ids:
+                continue
 
-        for order in self.filled_orders:
+            # Add the order ID to our set
+            self.order_ids.add(order_id)
+
+            # Update metrics incrementally
             executed_amount_base = Decimal(str(order.get("executed_amount_base", 0)))
             executed_amount_quote = Decimal(str(order.get("executed_amount_quote", 0)))
             is_buy = order.get("trade_type") == "BUY"
 
-            # Calculate volume traded in quote
-            volume_traded_quote += executed_amount_quote
+            # Update volume traded in quote
+            self.volume_traded_quote += executed_amount_quote
 
-            # Calculate net position amount (buy - sell) and total cost
+            # Update buy/sell amounts
             if is_buy:
-                net_amount += executed_amount_base
-                total_cost += executed_amount_quote
+                self.buy_amount_base += executed_amount_base
+                self.buy_amount_quote += executed_amount_quote
             else:
-                net_amount -= executed_amount_base
-                total_cost -= executed_amount_quote
+                self.sell_amount_base += executed_amount_base
+                self.sell_amount_quote += executed_amount_quote
 
-            # Add fees in quote directly from the order
-            cum_fees_quote += Decimal(str(order.get("cumulative_fee_paid_quote", 0)))
+            # Update fees
+            self.cum_fees_quote += Decimal(str(order.get("cumulative_fee_paid_quote", 0)))
 
-        # Calculate breakeven price
-        breakeven_price = abs(total_cost / net_amount) if net_amount != 0 else Decimal("0")
+    def get_position_summary(self, mid_price: Decimal):
+        # Calculate buy and sell breakeven prices
+        buy_breakeven_price = self.buy_amount_quote / self.buy_amount_base if self.buy_amount_base > 0 else Decimal("0")
+        sell_breakeven_price = self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal("0")
 
-        # Calculate unrealized PnL in quote
-        unrealized_pnl = (mid_price - breakeven_price) * net_amount if net_amount != 0 else Decimal("0")
+        # Calculate matched volume (minimum of buy and sell base amounts)
+        matched_amount_base = min(self.buy_amount_base, self.sell_amount_base)
+
+        # Calculate realized PnL from matched volume
+        realized_pnl_quote = (sell_breakeven_price - buy_breakeven_price) * matched_amount_base if matched_amount_base > 0 else Decimal("0")
+
+        # Calculate net position amount and direction
+        net_amount_base = self.buy_amount_base - self.sell_amount_base
+        is_net_long = net_amount_base > 0
+
+        # Calculate unrealized PnL for the remaining unmatched volume
+        unrealized_pnl_quote = Decimal("0")
+        breakeven_price = Decimal("0")
+        if net_amount_base != 0:
+            if is_net_long:
+                # Long position: remaining buy amount
+                remaining_base = net_amount_base
+                remaining_quote = self.buy_amount_quote - (matched_amount_base * buy_breakeven_price)
+                breakeven_price = remaining_quote / remaining_base
+                unrealized_pnl_quote = (mid_price - breakeven_price) * remaining_base
+            else:
+                # Short position: remaining sell amount
+                remaining_base = abs(net_amount_base)
+                remaining_quote = self.sell_amount_quote - (matched_amount_base * sell_breakeven_price)
+                breakeven_price = remaining_quote / remaining_base
+                unrealized_pnl_quote = (breakeven_price - mid_price) * remaining_base
 
         return PositionSummary(
             connector_name=self.connector_name,
             trading_pair=self.trading_pair,
-            volume_traded_quote=volume_traded_quote,
-            amount=net_amount,
+            volume_traded_quote=self.volume_traded_quote,
+            amount=net_amount_base,
             breakeven_price=breakeven_price,
-            unrealized_pnl_quote=unrealized_pnl,
-            cum_fees_quote=cum_fees_quote)
+            unrealized_pnl_quote=unrealized_pnl_quote,
+            realized_pnl_quote=realized_pnl_quote,
+            cum_fees_quote=self.cum_fees_quote)
 
 
 class ExecutorOrchestrator:
