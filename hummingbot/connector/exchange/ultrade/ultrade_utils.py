@@ -89,7 +89,7 @@ class UltradeConfigMap(BaseConnectorConfigMap):
         ),
     )
     ultrade_company_id: SecretStr = Field(
-        default=1,
+        default="1",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ultrade Company ID",
             is_secure=False,
@@ -144,25 +144,6 @@ class UltradeConfigMap(BaseConnectorConfigMap):
             )
         return v
 
-    @validator("ultrade_company_id", always=True)
-    def check_company_id(cls, v, values):
-        try:
-            int(v)
-        except ValueError:
-            raise ValueError(
-                "Invalid type for Ultrade Company ID, need it to be an integer."
-            )
-        return v
-
-    @validator("ultrade_api_url", always=True)
-    def check_api_url(cls, v, values):
-        if not isinstance(v, str):
-            raise ValueError(
-                "Invalid type for Ultrade API URL, need it to be a string url."
-            )
-
-        return v
-
     class Config:
         title = "ultrade"
 
@@ -205,7 +186,7 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
         ),
     )
     ultrade_company_id: SecretStr = Field(
-        default=1,
+        default="1",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ultrade Testnet Company ID",
             is_secure=False,
@@ -258,25 +239,6 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
             raise ValueError(
                 "Invalid Ultrade Testnet Algorand Mnemonic or EVM Private Key provided."
             )
-        return v
-
-    @validator("ultrade_company_id", always=True)
-    def check_company_id(cls, v, values):
-        try:
-            int(v)
-        except ValueError:
-            raise ValueError(
-                "Invalid type for Ultrade Testnet Company ID, need it to be an integer."
-            )
-        return v
-
-    @validator("ultrade_api_url", always=True)
-    def check_api_url(cls, v, values):
-        if not isinstance(v, str):
-            raise ValueError(
-                "Invalid type for Ultrade Testnet API URL, need it to be a string url."
-            )
-
         return v
 
     class Config:
