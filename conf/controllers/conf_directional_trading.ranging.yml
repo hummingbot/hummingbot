@@ -1,0 +1,11 @@
+id: EWjU1yUKt4p9EV5mpXbAC22yrUHuM1BDNy2iAH9F7U3C
+controller_name: ranging
+controller_type: directional_trading
+total_amount_quote: 100
+manual_kill_switch: null
+candles_config: []
+connector_name: bybit_perpetual_testnet
+candles_connector: bybit_perpetual
+candles_trading_pair: BTC-USDT
+max_executors_per_side: 1
+cooldown_time: 300

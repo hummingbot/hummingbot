@@ -1,0 +1,14 @@
+markets: {}
+candles_config: []
+controllers_config:
+- conf_directional_trading.follow_the_price.yml
+config_update_interval: 60
+script_file_name: v2_with_controllers.py
+time_to_cash_out: null
+max_global_drawdown: null
+max_controller_drawdown: null
+performance_report_interval: 1
+rebalance_interval: null
+extra_inventory: 0.02
+min_amount_to_rebalance_usd: 8
+asset_to_rebalance: USDT

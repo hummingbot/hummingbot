@@ -1,0 +1,11 @@
+id: EWjU1yUKt4p9EV5mpXbAC22yrUHuM1BDNy2iAH9F7U3C
+controller_name: scalping_v1
+controller_type: generic
+total_amount_quote: 100
+manual_kill_switch: null
+candles_config: []
+connector_name: bybit_perpetual
+candles_connector: bybit_perpetual
+candles_trading_pair: BTC-USDT
+max_executors_per_side: 5
+cooldown_time: 300

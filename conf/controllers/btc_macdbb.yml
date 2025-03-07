@@ -1,0 +1,29 @@
+id: btc_macdbb
+controller_name: macd_bb_v1
+controller_type: directional_trading
+total_amount_quote: 1000
+manual_kill_switch: null
+candles_config: []
+connector_name: bybit_perpetual_testnet
+trading_pair: BTC-USDT
+max_executors_per_side: 2
+cooldown_time: 300
+leverage: 20
+position_mode: HEDGE
+stop_loss: 0.02
+take_profit: 0.03
+time_limit: 6000
+take_profit_order_type: 2
+trailing_stop:
+  activation_price: 0.015
+  trailing_delta: 0.005
+candles_connector: bybit_perpetual
+candles_trading_pair: BTC-USDT
+interval: 3m
+bb_length: 200
+bb_std: 2.0
+bb_long_threshold: 0.2
+bb_short_threshold: 0.8
+macd_fast: 21
+macd_slow: 42
+macd_signal: 9
