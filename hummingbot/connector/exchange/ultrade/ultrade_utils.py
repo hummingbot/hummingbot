@@ -92,7 +92,7 @@ class UltradeConfigMap(BaseConnectorConfigMap):
         default="1",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ultrade Company ID",
-            is_secure=False,
+            is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         ),
@@ -101,7 +101,7 @@ class UltradeConfigMap(BaseConnectorConfigMap):
         default="https://api.ultrade.org",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ultrade connecting API URL",
-            is_secure=False,
+            is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         ),
@@ -189,7 +189,7 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
         default="1",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ultrade Testnet Company ID",
-            is_secure=False,
+            is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         ),
@@ -198,7 +198,7 @@ class UltradeTestnetConfigMap(BaseConnectorConfigMap):
         default="https://api.testnet.ultrade.org",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Ultrade Testnet connecting API URL",
-            is_secure=False,
+            is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         ),
