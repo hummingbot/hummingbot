@@ -32,7 +32,7 @@ dependencies:
   - eth-account
   - gql-with-aiohttp>=3.4.1
   - msgpack-python
-  - numpy>=1.25.0
+  - numpy>=1.25.0,<2
   - objgraph
   - pandas>=2.0.3
   - pandas-ta>=0.3.14b
