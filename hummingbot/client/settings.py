@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.utils.gateway_config_utils import SUPPORTED_CHAINS
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
@@ -108,7 +109,7 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
-        for chain in ["ethereum", "solana"]:
+        for chain in SUPPORTED_CHAINS:
             if f"_{chain}_" in market_name:
                 connector, network = market_name.split(f"_{chain}_")
                 return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
@@ -120,6 +121,7 @@ class GatewayConnectionSetting:
         chain: str,
         network: str,
         trading_type: str,
+        chain_type: str,
         wallet_address: str,
         additional_prompt_values: Dict[str, str],
     ):
@@ -128,6 +130,7 @@ class GatewayConnectionSetting:
             "chain": chain,
             "network": network,
             "trading_type": trading_type,
+            "chain_type": chain_type,
             "wallet_address": wallet_address,
             "additional_prompt_values": additional_prompt_values,
         }
@@ -192,7 +195,7 @@ class ConnectorSetting(NamedTuple):
         if self.uses_gateway_generic_connector():
             # Gateway DEX connectors may be on different types of chains (ethereum, solana, etc)
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
-            return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain'].lower()}_{self._get_module_package()}"
+            return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain_type'].lower()}_{self._get_module_package()}"
         return f"{self.base_name()}_{self._get_module_package()}"
 
     def module_path(self) -> str:

@@ -24,7 +24,7 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class GatewayEthereumAMM(GatewayAMMBase):
+class GatewayEvmAMM(GatewayAMMBase):
     """
     Defines Ethereum-specific functions for interacting with AMM protocols via Gateway.
     """

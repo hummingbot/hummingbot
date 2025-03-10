@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import cast
 
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
+from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEvmAMM
 from hummingbot.connector.gateway.amm.gateway_solana_amm import GatewaySolanaAMM
 from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
@@ -56,7 +56,7 @@ def start(self):
             other_market_info = market_info_1
             other_market_name = connector_1
         if Chain.ETHEREUM.chain == amm_market_info.market.chain:
-            amm_connector: GatewayEthereumAMM = cast(GatewayEthereumAMM, amm_market_info.market)
+            amm_connector: GatewayEvmAMM = cast(GatewayEvmAMM, amm_market_info.market)
         elif Chain.SOLANA.chain == amm_market_info.market.chain:
             amm_connector: GatewaySolanaAMM = cast(GatewaySolanaAMM, amm_market_info.market)
         else:
