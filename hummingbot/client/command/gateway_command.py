@@ -326,6 +326,7 @@ class GatewayCommand(GatewayChainApiManager):
                     # they use an existing wallet
                     if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
                         native_token: str = await self._get_native_currency_symbol(chain, network)
+                        self.notify(f"Native token: {native_token}")
                         wallet_table: List[Dict[str, Any]] = []
                         for w in wallets:
                             balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(

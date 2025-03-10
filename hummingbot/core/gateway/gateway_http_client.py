@@ -280,9 +280,8 @@ class GatewayHttpClient:
         request.update(kwargs)
         return await self.api_request(method="post", path_url="wallet/add", params=request)
 
-    async def get_configuration(self, chain: str = None, fail_silently: bool = False) -> Dict[str, Any]:
-        params = {"chainOrConnector": chain} if chain is not None else {}
-        return await self.api_request("get", "config", params=params, fail_silently=fail_silently)
+    async def get_configuration(self, fail_silently: bool = False) -> Dict[str, Any]:
+        return await self.api_request("get", "chain/config", fail_silently=fail_silently)
 
     async def get_balances(
             self,
@@ -296,6 +295,7 @@ class GatewayHttpClient:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
             request_params = {
+                "chain": chain,
                 "network": network,
                 "address": address,
                 "tokenSymbols": token_symbols,
@@ -304,7 +304,7 @@ class GatewayHttpClient:
                 request_params["connector"] = connector
             return await self.api_request(
                 method="post",
-                path_url=f"{chain}/balances",
+                path_url="chain/balances",
                 params=request_params,
                 fail_silently=fail_silently,
             )
@@ -317,7 +317,8 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", f"{chain}/tokens", {
+        return await self.api_request("get", "chain/tokens", {
+            "chain": chain,
             "network": network
         }, fail_silently=fail_silently)
 
@@ -329,9 +330,9 @@ class GatewayHttpClient:
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         req_data: Dict[str, str] = {}
         if chain is not None and network is not None:
+            req_data["chain"] = chain
             req_data["network"] = network
-            return await self.api_request("get", f"{chain}/status", req_data, fail_silently=fail_silently)
-        return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)  # Default endpoint when chain is None
+        return await self.api_request("get", "chain/status", req_data, fail_silently=fail_silently)
 
     async def approve_token(
             self,
@@ -345,6 +346,7 @@ class GatewayHttpClient:
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
         request_payload: Dict[str, Any] = {
+            "chain": chain,
             "network": network,
             "address": address,
             "token": token,
@@ -358,7 +360,7 @@ class GatewayHttpClient:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request(
             "post",
-            "ethereum/approve",
+            "chain/approve",
             request_payload
         )
 
@@ -371,7 +373,8 @@ class GatewayHttpClient:
             spender: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "ethereum/allowances", {
+        return await self.api_request("post", "chain/allowances", {
+            "chain": chain,
             "network": network,
             "address": address,
             "tokenSymbols": token_symbols,
@@ -388,6 +391,7 @@ class GatewayHttpClient:
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         request = {
+            "chain": chain,
             "network": network,
             "txHash": transaction_hash
         }
@@ -419,7 +423,8 @@ class GatewayHttpClient:
             address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "ethereum/nextNonce", {
+        return await self.api_request("post", "chain/nextNonce", {
+            "chain": chain,
             "network": network,
             "address": address
         }, fail_silently=fail_silently)
@@ -431,7 +436,8 @@ class GatewayHttpClient:
             address: str,
             nonce: int
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "ethereum/cancel", {
+        return await self.api_request("post", "chain/cancel", {
+            "chain": chain,
             "network": network,
             "address": address,
             "nonce": nonce
@@ -468,7 +474,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "post",
-            f"{connector}/price",
+            "amm/price",
             request_payload,
             fail_silently=fail_silently,
         )
@@ -509,7 +515,7 @@ class GatewayHttpClient:
             request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
-        return await self.api_request("post", f"{connector}/trade", request_payload)
+        return await self.api_request("post", "amm/trade", request_payload)
 
     async def amm_estimate_gas(
             self,
@@ -517,7 +523,7 @@ class GatewayHttpClient:
             network: str,
             connector: str,
     ) -> Dict[str, Any]:
-        return await self.api_request("post", f"{connector}/estimateGas", {
+        return await self.api_request("post", "amm/estimateGas", {
             "chain": chain,
             "network": network,
             "connector": connector,
