@@ -51,12 +51,12 @@ else
     ${CONDA_EXE} env create -f $ENV_FILE
 fi
 
+source "${CONDA_BIN}/activate" hummingbot
+
 # Additional dependencies for Mac OS
 if [ "$(uname)" == "Darwin" ]; then
-    conda install appnope
+    conda install -n hummingbot appnope
 fi
-
-source "${CONDA_BIN}/activate" hummingbot
 
 # Add the project directory to module search paths.
 conda develop .
