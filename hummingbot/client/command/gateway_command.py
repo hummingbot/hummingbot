@@ -233,12 +233,6 @@ class GatewayCommand(GatewayChainApiManager):
                 available_networks: List[Dict[str, Any]
                                          ] = connector_config[0]["available_networks"]
                 trading_types: str = connector_config[0]["trading_types"]
-                additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
-                    # If Gateway requires additional, prompts with secure info,
-                    "additional_add_wallet_prompts",
-                    # a new attribute must be added (e.g. additional_secure_add_wallet_prompts)
-                    {}
-                )
 
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
@@ -301,9 +295,9 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1 or len(additional_prompts) != 0:
-                    wallet_address, additional_prompt_values = await self._prompt_for_wallet_address(
-                        chain=chain, network=network, additional_prompts=additional_prompts
+                if len(wallets) < 1:
+                    wallet_address = await self._prompt_for_wallet_address(
+                        chain=chain, network=network
                     )
 
                 # the user has a wallet. Ask if they want to use it or create a new one.
@@ -342,7 +336,6 @@ class GatewayCommand(GatewayChainApiManager):
                         self.notify(wallet_df.to_string(index=False))
                         self.app.input_field.completer.set_list_gateway_wallets_parameters(
                             wallets_response, chain)
-                        additional_prompt_values = {}
 
                         while True:
                             wallet_address: str = await self.app.prompt(prompt="Select a gateway wallet >>> ")
@@ -358,8 +351,8 @@ class GatewayCommand(GatewayChainApiManager):
                     else:
                         while True:
                             try:
-                                wallet_address, additional_prompt_values = await self._prompt_for_wallet_address(
-                                    chain=chain, network=network, additional_prompts=additional_prompts
+                                wallet_address = await self._prompt_for_wallet_address(
+                                    chain=chain, network=network
                                 )
                                 break
                             except Exception:
@@ -387,7 +380,6 @@ class GatewayCommand(GatewayChainApiManager):
                     network=network,
                     trading_types=trading_types,
                     wallet_address=wallet_address,
-                    additional_prompt_values=additional_prompt_values,
                 )
                 self.notify(
                     f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
@@ -406,7 +398,6 @@ class GatewayCommand(GatewayChainApiManager):
         self,           # type: HummingbotApplication
         chain: str,
         network: str,
-        additional_prompts: Dict[str, str],
     ) -> Tuple[Optional[str], Dict[str, str]]:
         self.app.clear_input()
         self.placeholder_mode = True
@@ -418,20 +409,11 @@ class GatewayCommand(GatewayChainApiManager):
         if self.app.to_stop_config:
             return
 
-        additional_prompt_values = {}
-
-        for field, prompt in additional_prompts.items():
-            value = await self.app.prompt(prompt=prompt, is_password=True)
-            self.app.clear_input()
-            if self.app.to_stop_config:
-                return
-            additional_prompt_values[field] = value
-
         response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-            chain, network, wallet_private_key, **additional_prompt_values
+            chain, network, wallet_private_key
         )
         wallet_address: str = response["address"]
-        return wallet_address, additional_prompt_values
+        return wallet_address
 
     async def _get_balance_for_exchange(self, exchange_name: str):
         gateway_connections = GatewayConnectionSetting.load()

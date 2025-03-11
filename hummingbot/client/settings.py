@@ -118,7 +118,6 @@ class GatewayConnectionSetting:
         network: str,
         trading_types: str,
         wallet_address: str,
-        additional_prompt_values: Dict[str, str],
     ):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
@@ -126,7 +125,6 @@ class GatewayConnectionSetting:
             "network": network,
             "trading_types": trading_types,
             "wallet_address": wallet_address,
-            "additional_prompt_values": additional_prompt_values,
         }
         updated: bool = False
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
