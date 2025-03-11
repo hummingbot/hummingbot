@@ -29,7 +29,6 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
-    build_list_display,
     build_wallet_display,
     flatten,
     search_configs,
@@ -659,17 +658,17 @@ class GatewayCommand(GatewayChainApiManager):
             return {}
         return self._market[exchange].get_all_balances()
 
-    async def update_exchange_balances(self, exchange_name: str, client_config_map: ClientConfigMap) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
-        is_gateway_markets = self.is_gateway_markets(exchange_name)
-        if is_gateway_markets and exchange_name in self._market:
-            del self._market[exchange_name]
-        if exchange_name in self._market:
-            return await self._update_balances(self._market[exchange_name])
+    async def update_exchange_balances(self, exchange, client_config_map: ClientConfigMap) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+        is_gateway_markets = self.is_gateway_markets(exchange)
+        if is_gateway_markets and exchange in self._market:
+            del self._market[exchange]
+        if exchange in self._market:
+            return await self._update_balances(self._market[exchange])
         else:
             await Security.wait_til_decryption_done()
             api_keys = Security.api_keys(
-                exchange_name) if not is_gateway_markets else {}
-            return await self.add_gateway_exchange(exchange_name, client_config_map, **api_keys)
+                exchange) if not is_gateway_markets else {}
+            return await self.add_gateway_exchange(exchange, client_config_map, **api_keys)
 
     @staticmethod
     @lru_cache(maxsize=10)
@@ -793,13 +792,38 @@ class GatewayCommand(GatewayChainApiManager):
     ):
         connector_list: List[Dict[str, Any]] = await self._get_gateway_instance().get_connectors()
         connectors_tiers: List[Dict[str, Any]] = []
+
         for connector in connector_list["connectors"]:
-            available_networks: List[Dict[str, Any]
-                                     ] = connector["available_networks"]
-            chains: List[str] = [d['chain'] for d in available_networks]
-            connector['chains'] = chains
-            connectors_tiers.append(connector)
-        connectors_df: pd.DataFrame = build_list_display(connectors_tiers)
+            available_networks: List[Dict[str, Any]] = connector["available_networks"]
+
+            # Extract chain type and flatten the list
+            chain_type: List[str] = [d['chain'] for d in available_networks]
+            chain_type_str = ", ".join(chain_type)  # Convert list to comma-separated string
+
+            # Extract networks and flatten the nested lists
+            all_networks = []
+            for network_item in available_networks:
+                all_networks.extend(network_item['networks'])
+            networks_str = ", ".join(all_networks)  # Convert flattened list to string
+
+            # Extract trading types and convert to string
+            trading_types: List[str] = connector.get("trading_types", [])
+            trading_types_str = ", ".join(trading_types) if trading_types else "N/A"
+
+            # Create a new dictionary with the fields we want to display
+            display_connector = {
+                "connector": connector.get("name", ""),
+                "chain_type": chain_type_str,  # Use string instead of list
+                "networks": networks_str,      # Use string instead of list
+                "trading_types": trading_types_str
+            }
+
+            connectors_tiers.append(display_connector)
+
+        # Make sure to include all fields in the dataframe
+        columns = ["connector", "chain_type", "networks", "trading_types"]
+        connectors_df = pd.DataFrame(connectors_tiers, columns=columns)
+
         lines = ["    " + line for line in format_df_for_printout(
             connectors_df,
             table_format=self.client_config_map.tables_format).split("\n")]
