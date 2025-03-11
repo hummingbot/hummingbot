@@ -174,7 +174,8 @@ class ConnectorSetting(NamedTuple):
     """
 
     def uses_gateway_generic_connector(self) -> bool:
-        return not self.centralised
+        non_gateway_connectors_types = [ConnectorType.Exchange, ConnectorType.Derivative, ConnectorType.Connector]
+        return self.type not in non_gateway_connectors_types
 
     def connector_connected(self) -> str:
         from hummingbot.client.config.security import Security
