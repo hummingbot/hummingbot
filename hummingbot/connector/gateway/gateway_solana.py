@@ -2,7 +2,7 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
-from hummingbot.connector.gateway.amm.gateway_amm_base import GatewayAMMBase
+from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
@@ -14,9 +14,9 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class GatewaySolanaAMM(GatewayAMMBase):
+class GatewaySolana(GatewayBase):
     """
-    Defines Solana-specific functions for interacting with AMM protocols via Gateway.
+    Defines Solana-specific functions for interacting with DEX protocols via Gateway.
     """
 
     def __init__(self, *args, **kwargs):

@@ -233,7 +233,7 @@ class GatewayCommand(GatewayChainApiManager):
                     return
                 available_networks: List[Dict[str, Any]
                                          ] = connector_config[0]["available_networks"]
-                trading_type: str = connector_config[0]["trading_type"][0]
+                trading_types: str = connector_config[0]["trading_types"]
                 additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
                     # If Gateway requires additional, prompts with secure info,
                     "additional_add_wallet_prompts",
@@ -386,7 +386,7 @@ class GatewayCommand(GatewayChainApiManager):
                     connector_name=connector,
                     chain=chain,
                     network=network,
-                    trading_type=trading_type,
+                    trading_types=trading_types,
                     wallet_address=wallet_address,
                     additional_prompt_values=additional_prompt_values,
                 )
@@ -459,8 +459,7 @@ class GatewayCommand(GatewayChainApiManager):
                 w for w in gateway_connections
                 if w["chain"] == chain and
                 w["network"] == network and
-                w["connector"] == conf["connector"] and
-                w["trading_type"] == conf["trading_type"]
+                w["connector"] == conf["connector"]
             ]
 
             connector = connector_chain_network[0]['connector']
@@ -539,8 +538,7 @@ class GatewayCommand(GatewayChainApiManager):
                     w for w in network_connections
                     if w["chain"] == chain and
                     w["network"] == network and
-                    w["connector"] == conf["connector"] and
-                    w["trading_type"] == conf["trading_type"]
+                    w["connector"] == conf["connector"]
                 ]
 
                 allowance_resp = gateway_instance.get_allowances(

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 from async_timeout import timeout
 
-from hummingbot.connector.gateway.amm.gateway_amm_base import GatewayAMMBase
+from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
@@ -24,7 +24,7 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class GatewayEthereumAMM(GatewayAMMBase):
+class GatewayEthereum(GatewayBase):
     """
     Defines Ethereum-specific functions for interacting with AMM protocols via Gateway.
     """
