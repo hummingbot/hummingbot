@@ -29,7 +29,6 @@ KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".yml"
 ENCYPTED_CONF_POSTFIX = ".json"
 DEFAULT_LOG_FILE_PATH = root_path() / "logs"
-DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
 TEMPLATE_PATH = root_path() / "hummingbot" / "templates"
 CONF_DIR_PATH = root_path() / "conf"
 CLIENT_CONFIG_PATH = CONF_DIR_PATH / "conf_client.yml"
@@ -61,9 +60,7 @@ class ConnectorType(Enum):
     The types of exchanges that hummingbot client can communicate with.
     """
 
-    AMM = "AMM"
-    SWAP = "SWAP"
-    CLMM = "CLMM"
+    GATEWAY_DEX = "GATEWAY_DEX"
     CLOB_SPOT = "CLOB_SPOT"
     CLOB_PERP = "CLOB_PERP"
     Connector = "connector"
@@ -119,7 +116,7 @@ class GatewayConnectionSetting:
         connector_name: str,
         chain: str,
         network: str,
-        trading_type: str,
+        trading_types: str,
         wallet_address: str,
         additional_prompt_values: Dict[str, str],
     ):
@@ -127,7 +124,7 @@ class GatewayConnectionSetting:
             "connector": connector_name,
             "chain": chain,
             "network": network,
-            "trading_type": trading_type,
+            "trading_types": trading_types,
             "wallet_address": wallet_address,
             "additional_prompt_values": additional_prompt_values,
         }
@@ -177,8 +174,7 @@ class ConnectorSetting(NamedTuple):
     """
 
     def uses_gateway_generic_connector(self) -> bool:
-        non_gateway_connectors_types = [ConnectorType.Exchange, ConnectorType.Derivative, ConnectorType.Connector]
-        return self.type not in non_gateway_connectors_types
+        return not self.centralised
 
     def connector_connected(self) -> str:
         from hummingbot.client.config.security import Security
@@ -192,7 +188,10 @@ class ConnectorSetting(NamedTuple):
         if self.uses_gateway_generic_connector():
             # Gateway DEX connectors may be on different types of chains (ethereum, solana, etc)
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
-            return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain'].lower()}_{self._get_module_package()}"
+            if connector_spec is None:
+                # Handle the case where connector_spec is None
+                raise ValueError(f"Cannot find connector specification for {self.name}. Please check your gateway connection settings.")
+            return f"gateway.gateway_{connector_spec['chain'].lower()}"
         return f"{self.base_name()}_{self._get_module_package()}"
 
     def module_path(self) -> str:
@@ -208,10 +207,10 @@ class ConnectorSetting(NamedTuple):
             file_name = module_name.split('.')[-1]
             splited_name = file_name.split('_')
             for i in range(len(splited_name)):
-                if splited_name[i] in ['amm']:
-                    splited_name[i] = splited_name[i].upper()
-                else:
-                    splited_name[i] = splited_name[i].capitalize()
+                # if splited_name[i] in ['amm']:
+                #     splited_name[i] = splited_name[i].upper()
+                # else:
+                splited_name[i] = splited_name[i].capitalize()
             return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
@@ -406,7 +405,7 @@ class AllConnectorSettings:
             market_name: str = GatewayConnectionSetting.get_market_name_from_connector_spec(connection_spec)
             cls.all_connector_settings[market_name] = ConnectorSetting(
                 name=market_name,
-                type=ConnectorType[connection_spec["trading_type"]],
+                type=ConnectorType.GATEWAY_DEX,
                 centralised=False,
                 example_pair="WETH-USDC",
                 use_ethereum_wallet=False,
@@ -490,7 +489,7 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.AMM}
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.GATEWAY_DEX}
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:

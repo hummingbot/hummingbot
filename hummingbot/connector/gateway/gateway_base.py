@@ -31,7 +31,7 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class GatewayAMMBase(ConnectorBase):
+class GatewayBase(ConnectorBase):
     """
     Defines basic functions common to all Gateway AMM connectors
     """
