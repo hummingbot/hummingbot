@@ -132,9 +132,6 @@ class MockAMM(ConnectorBase):
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED
 
-    async def cancel_outdated_orders(self, _: int) -> List:
-        return []
-
 
 class HedgedMarketMakingUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")

@@ -4,7 +4,7 @@ from decimal import Decimal
 from enum import Enum
 from functools import lru_cache
 from math import ceil, floor
-from typing import Dict, List, Tuple, cast
+from typing import Dict, List, Tuple
 
 import pandas as pd
 from bidict import bidict
@@ -121,7 +121,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
 
         self._main_task = None
         self._gateway_quotes_task = None
-        self._cancel_outdated_orders_task = None
         self._hedge_maker_order_tasks = []
 
         self._last_conv_rates_logged = 0
@@ -419,9 +418,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main(timestamp))
 
-        if self._cancel_outdated_orders_task is None or self._cancel_outdated_orders_task.done():
-            self._cancel_outdated_orders_task = safe_ensure_future(self.apply_gateway_transaction_cancel_interval())
-
     async def main(self, timestamp: float):
         try:
             # Calculate a mapping from market pair to list of active limit orders on the market.
@@ -475,15 +471,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         if len(self._ongoing_hedging.keys()) > 0:
             return False
         return True
-
-    async def apply_gateway_transaction_cancel_interval(self):
-        # XXX (martin_kou): Concurrent cancellations are not supported before the nonce architecture is fixed.
-        # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
-        from hummingbot.connector.gateway.gateway_ethereum import GatewayEthereum
-        gateway_connectors: List[GatewayEthereum] = []
-        for market_pair in self._market_pairs.values():
-            if self.is_gateway_market(market_pair.taker):
-                gateway_connectors.append(cast(GatewayEthereum, market_pair.taker.market))
 
     def has_active_taker_order(self, market_pair: MarketTradingPairTuple):
         # Market orders are not being submitted as taker orders, limit orders are preferred at all times
