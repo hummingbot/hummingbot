@@ -1,18 +1,15 @@
 import asyncio
 import re
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import check_transaction_exceptions
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
-s_logger = None
 s_decimal_0 = Decimal("0")
-s_decimal_NaN = Decimal("nan")
 
 
 class GatewayEthereum(GatewayBase):
@@ -22,19 +19,17 @@ class GatewayEthereum(GatewayBase):
 
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
-    _ev_loop: asyncio.AbstractEventLoop
     _allowances: Dict[str, Decimal]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._ev_loop = asyncio.get_event_loop()
         self._allowances = {}
 
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
+            self._get_allowances_task = safe_ensure_future(self.update_allowances())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
@@ -47,22 +42,9 @@ class GatewayEthereum(GatewayBase):
         if self._get_gas_estimate_task is not None:
             self._get_gas_estimate_task.cancel()
             self._get_chain_info_task = None
-
-    async def _status_polling_loop(self):
-        await self.update_balances(on_interval=False)
-        while True:
-            try:
-                self._poll_notifier = asyncio.Event()
-                await self._poll_notifier.wait()
-                await safe_gather(
-                    self.update_balances(on_interval=True),
-                    self.update_order_status(self.amm_orders)
-                )
-                self._last_poll_timestamp = self.current_timestamp
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
+        if self._get_allowances_task is not None:
+            self._get_allowances_task.cancel()
+            self._get_allowances_task = None
 
     def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
         match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
@@ -120,7 +102,6 @@ class GatewayEthereum(GatewayBase):
         """
         while True:
             self._allowances = await self.get_allowances()
-            await asyncio.sleep(120)  # sleep for 2 mins
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -153,100 +134,40 @@ class GatewayEthereum(GatewayBase):
         :param price_response: Price response from Gateway.
         :param process_exception: Flag to trigger error on exception
         """
-        required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-        if any(item not in price_response.keys() for item in required_items):
-            if "info" in price_response.keys():
-                self.logger().info(f"Unable to get price. {price_response['info']}")
-            else:
-                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
-        else:
-            gas_price_token: str = price_response["gasPriceToken"]
-            gas_cost: Decimal = Decimal(price_response["gasCost"])
-            price: Decimal = Decimal(price_response["price"])
-            # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-            if process_exception is True:
-                gas_limit: int = int(price_response["gasLimit"])
-                exceptions: List[str] = check_transaction_exceptions(
-                    balances=self._account_balances,
-                    base_asset=base,
-                    quote_asset=quote,
-                    amount=amount,
-                    side=side,
-                    gas_limit=gas_limit,
-                    gas_cost=gas_cost,
-                    gas_asset=gas_price_token,
-                    swaps_count=len(price_response.get("swaps", [])),
-                    allowances=self._allowances
-                )
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
-                if len(exceptions) > 0:
-                    return None
-            return Decimal(str(price))
-        return None
-
-    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
-        """
-        Calls REST API to get status update for each in-flight amm orders.
-        """
-        if len(tracked_orders) < 1:
-            return
-
-        # split canceled and non-canceled orders
-        tx_hash_list: List[str] = await safe_gather(
-            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders]
+        return super().parse_price_response(
+            base=base,
+            quote=quote,
+            amount=amount,
+            side=side,
+            price_response=price_response,
+            process_exception=process_exception,
+            allowances=self._allowances
         )
-        self.logger().info(
-            "Polling for order status updates of %d orders. Transaction hashes: %s",
-            len(tracked_orders),
-            tx_hash_list
-        )
-        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            self._get_gateway_instance().get_transaction_status(
-                self.chain,
-                self.network,
-                tx_hash
-            )
-            for tx_hash in tx_hash_list
-        ], return_exceptions=True)
-        for tracked_order, tx_details in zip(tracked_orders, update_results):
-            if isinstance(tx_details, Exception):
-                self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
-                continue
-            if "txHash" not in tx_details:
-                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
-                                    f"{tx_details}.")
-                continue
-            tx_status: int = tx_details["txStatus"]
-            tx_receipt: Optional[Dict[str, Any]] = tx_details["txReceipt"]
-            if tx_status == 1 and (tx_receipt is not None and tx_receipt.get("status") == 1):
-                gas_used: int = tx_receipt["gasUsed"]
-                gas_price: Decimal = tracked_order.gas_price
-                fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
 
-                self.process_trade_fill_update(tracked_order=tracked_order, fee=fee)
+    def _get_transaction_receipt_from_details(self, tx_details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Extract transaction receipt from tx_details for Ethereum."""
+        return tx_details.get("txReceipt")
 
-                order_update: OrderUpdate = OrderUpdate(
-                    client_order_id=tracked_order.client_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=self.current_timestamp,
-                    new_state=OrderState.FILLED,
-                )
-                self._order_tracker.process_order_update(order_update)
-            elif tx_status in [0, 2, 3]:
-                # 0: in the mempool but we dont have data to guess its status
-                # 2: in the mempool and likely to succeed
-                # 3: in the mempool and likely to fail
-                pass
+    def _is_transaction_successful(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
+        """Determine if an Ethereum transaction is successful."""
+        return tx_status == 1 and tx_receipt is not None and tx_receipt.get("status") == 1
 
-            elif tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0):
-                self.logger().network(
-                    f"Error fetching transaction status for the order {tracked_order.client_order_id}: {tx_details}.",
-                    app_warning_msg=f"Failed to fetch transaction status for the order {tracked_order.client_order_id}."
-                )
-                await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
+    def _is_transaction_pending(self, tx_status: int) -> bool:
+        """Determine if an Ethereum transaction is still pending."""
+        return tx_status in [0, 2, 3]
+        # 0: in the mempool but we dont have data to guess its status
+        # 2: in the mempool and likely to succeed
+        # 3: in the mempool and likely to fail
+
+    def _is_transaction_failed(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
+        """Determine if an Ethereum transaction has failed."""
+        return tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0)
+
+    def _calculate_transaction_fee(self, tracked_order: GatewayInFlightOrder, tx_receipt: Dict[str, Any]) -> Decimal:
+        """Calculate the transaction fee for Ethereum."""
+        gas_used: int = tx_receipt["gasUsed"]
+        gas_price: Decimal = tracked_order.gas_price
+        return Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
 
     def has_allowances(self) -> bool:
         """
