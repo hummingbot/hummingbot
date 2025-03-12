@@ -491,6 +491,16 @@ class AllConnectorSettings:
         return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.GATEWAY_DEX}
 
     @classmethod
+    def get_gateway_ethereum_connector_names(cls) -> Set[str]:
+        connector_names = set()
+        for cs in cls.get_connector_settings().values():
+            if cs.type == ConnectorType.GATEWAY_DEX:
+                connector_spec = GatewayConnectionSetting.get_connector_spec_from_market_name(cs.name)
+                if connector_spec is not None and connector_spec["chain"] == "ethereum":
+                    connector_names.add(cs.name)
+        return connector_names
+
+    @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
         return {name: cs.example_pair for name, cs in cls.get_connector_settings().items()}
 

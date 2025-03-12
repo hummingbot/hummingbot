@@ -290,7 +290,6 @@ class GatewayHttpClient:
             network: str,
             address: str,
             token_symbols: List[str],
-            connector: str = None,
             fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
@@ -300,8 +299,6 @@ class GatewayHttpClient:
                 "address": address,
                 "tokenSymbols": token_symbols,
             }
-            if connector is not None:
-                request_params["connector"] = connector
             return await self.api_request(
                 method="post",
                 path_url=f"{chain}/balances",
