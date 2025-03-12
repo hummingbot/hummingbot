@@ -1,21 +1,12 @@
 import asyncio
 import re
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Set, Union
-
-from async_timeout import timeout
+from typing import Any, Dict, List, Optional, Union
 
 from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
-from hummingbot.core.event.events import (
-    TokenApprovalCancelledEvent,
-    TokenApprovalEvent,
-    TokenApprovalFailureEvent,
-    TokenApprovalSuccessEvent,
-    TradeType,
-)
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
@@ -33,19 +24,16 @@ class GatewayEthereum(GatewayBase):
 
     _ev_loop: asyncio.AbstractEventLoop
     _allowances: Dict[str, Decimal]
-    _update_allowances: Optional[asyncio.Task]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._ev_loop = asyncio.get_event_loop()
         self._allowances = {}
-        self._update_allowances = None
 
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._update_allowances = safe_ensure_future(self.update_allowances())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
@@ -53,9 +41,6 @@ class GatewayEthereum(GatewayBase):
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
-        if self._update_allowances is not None:
-            self._update_allowances.cancel()
-            self._update_allowances = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
@@ -71,8 +56,6 @@ class GatewayEthereum(GatewayBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self.update_balances(on_interval=True),
-                    self.update_canceling_transactions(self.canceling_orders),
-                    self.update_token_approval_status(self.approval_orders),
                     self.update_order_status(self.amm_orders)
                 )
                 self._last_poll_timestamp = self.current_timestamp
@@ -81,36 +64,11 @@ class GatewayEthereum(GatewayBase):
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
 
-    @property
-    def approval_orders(self) -> List[GatewayInFlightOrder]:
-        return [
-            approval_order
-            for approval_order in self._order_tracker.active_orders.values()
-            if approval_order.is_approval_request
-        ]
-
-    @property
-    def canceling_orders(self) -> List[GatewayInFlightOrder]:
-        return [
-            cancel_order
-            for cancel_order in self.amm_orders
-            if cancel_order.is_pending_cancel_confirmation
-        ]
-
-    def create_approval_order_id(self, token_symbol: str) -> str:
-        return f"approve-{self.connector_name}-{token_symbol}"
-
     def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
         match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
         if match:
             return match.group(2)
         return None
-
-    def is_pending_approval(self, token: str) -> bool:
-        for order in self.approval_orders:
-            if token in order.client_order_id:
-                return order.is_pending_approval
-        return False
 
     async def approve_token(self, token_symbol: str, **request_args) -> Optional[GatewayInFlightOrder]:
         """
@@ -228,122 +186,6 @@ class GatewayEthereum(GatewayBase):
                     return None
             return Decimal(str(price))
         return None
-
-    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
-        """
-        Calls REST API to get status update for each in-flight token approval transaction.
-        """
-        if len(tracked_approvals) < 1:
-            return
-        tx_hash_list: List[str] = await safe_gather(*[
-            tracked_approval.get_exchange_order_id() for tracked_approval in tracked_approvals
-        ])
-        transaction_states: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            self._get_gateway_instance().get_transaction_status(
-                self.chain,
-                self.network,
-                tx_hash
-            )
-            for tx_hash in tx_hash_list
-        ], return_exceptions=True)
-        for tracked_approval, transaction_status in zip(tracked_approvals, transaction_states):
-            token_symbol: str = self.get_token_symbol_from_approval_order_id(tracked_approval.client_order_id)
-            if isinstance(transaction_status, Exception):
-                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
-                                    f"{transaction_status}")
-                continue
-            if "txHash" not in transaction_status:
-                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
-                                    "txHash key not found in transaction status.")
-                continue
-            if transaction_status["txStatus"] == 1:
-                if transaction_status["txReceipt"]["status"] == 1:
-                    self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
-                                       f"successful.")
-                    tracked_approval.current_state = OrderState.APPROVED
-                    self.trigger_event(
-                        TokenApprovalEvent.ApprovalSuccessful,
-                        TokenApprovalSuccessEvent(
-                            self.current_timestamp,
-                            self.connector_name,
-                            token_symbol
-                        )
-                    )
-                else:
-                    self.logger().warning(
-                        f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
-                    )
-                    tracked_approval.current_state = OrderState.FAILED
-                    self.trigger_event(
-                        TokenApprovalEvent.ApprovalFailed,
-                        TokenApprovalFailureEvent(
-                            self.current_timestamp,
-                            self.connector_name,
-                            token_symbol
-                        )
-                    )
-                self.stop_tracking_order(tracked_approval.client_order_id)
-
-    async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightOrder]):
-        """
-        Update tracked orders that have a cancel_tx_hash.
-        :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
-        """
-        if len(canceled_tracked_orders) < 1:
-            return
-
-        self.logger().debug(
-            "Polling for order status updates of %d canceled orders.",
-            len(canceled_tracked_orders)
-        )
-        update_results: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            self._get_gateway_instance().get_transaction_status(
-                self.chain,
-                self.network,
-                tx_hash
-            )
-            for tx_hash in [t.cancel_tx_hash for t in canceled_tracked_orders]
-        ], return_exceptions=True)
-        for tracked_order, update_result in zip(canceled_tracked_orders, update_results):
-            if isinstance(update_result, Exception):
-                raise update_result
-            if "txHash" not in update_result:
-                self.logger().error(f"No txHash field for transaction status of {tracked_order.client_order_id}: "
-                                    f"{update_result}.")
-                continue
-            if update_result["txStatus"] == 1:
-                if update_result["txReceipt"]["status"] == 1:
-                    if tracked_order.current_state == OrderState.PENDING_CANCEL:
-                        if not tracked_order.is_approval_request:
-                            order_update: OrderUpdate = OrderUpdate(
-                                trading_pair=tracked_order.trading_pair,
-                                client_order_id=tracked_order.client_order_id,
-                                update_timestamp=self.current_timestamp,
-                                new_state=OrderState.CANCELED
-                            )
-                            self._order_tracker.process_order_update(order_update)
-
-                        elif tracked_order.is_approval_request:
-                            order_update: OrderUpdate = OrderUpdate(
-                                trading_pair=tracked_order.trading_pair,
-                                client_order_id=tracked_order.client_order_id,
-                                update_timestamp=self.current_timestamp,
-                                new_state=OrderState.CANCELED
-                            )
-                            token_symbol: str = self.get_token_symbol_from_approval_order_id(
-                                tracked_order.client_order_id
-                            )
-                            self.trigger_event(
-                                TokenApprovalEvent.ApprovalCancelled,
-                                TokenApprovalCancelledEvent(
-                                    self.current_timestamp,
-                                    self.connector_name,
-                                    token_symbol
-                                )
-                            )
-                            self.logger().info(f"Token approval for {tracked_order.client_order_id} on "
-                                               f"{self.connector_name} has been canceled.")
-                            self.stop_tracking_order(tracked_order.client_order_id)
 
     async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
@@ -475,52 +317,3 @@ class GatewayEthereum(GatewayBase):
                 f"Failed to cancel order {order_id}: {str(err)}.",
                 exc_info=True
             )
-
-    async def cancel_outdated_orders(self, cancel_age: int) -> List[CancellationResult]:
-        """
-        Iterate through all known orders and cancel them if their age is greater than cancel_age.
-        """
-        incomplete_orders: List[GatewayInFlightOrder] = []
-
-        # Incomplete Approval Requests
-        incomplete_orders.extend([
-            o for o in self.approval_orders
-            if o.is_pending_approval
-        ])
-        # Incomplete Active Orders
-        incomplete_orders.extend([
-            o for o in self.amm_orders
-            if not o.is_done
-        ])
-
-        if len(incomplete_orders) < 1:
-            return []
-
-        timeout_seconds: float = 30.0
-        canceling_id_set: Set[str] = set([o.client_order_id for o in incomplete_orders])
-        sent_cancellations: List[CancellationResult] = []
-
-        try:
-            async with timeout(timeout_seconds):
-                for incomplete_order in incomplete_orders:
-                    try:
-                        canceling_order_id: Optional[str] = await self._execute_cancel(
-                            incomplete_order.client_order_id,
-                            cancel_age
-                        )
-                    except Exception:
-                        continue
-                    if canceling_order_id is not None:
-                        canceling_id_set.remove(canceling_order_id)
-                        sent_cancellations.append(CancellationResult(canceling_order_id, True))
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().network(
-                "Unexpected error cancelling outdated orders.",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel orders on {self.chain}-{self.network}."
-            )
-
-        skipped_cancellations: List[CancellationResult] = [CancellationResult(oid, False) for oid in canceling_id_set]
-        return sent_cancellations + skipped_cancellations
