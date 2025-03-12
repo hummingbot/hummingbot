@@ -57,7 +57,7 @@ source "${CONDA_BIN}/activate" hummingbot
 if [ "$(uname)" == "Darwin" ]; then
     conda install -n hummingbot -y appnope
 elif [ "$(uname)" == "Linux" ] && [ "$(uname -m)" == "x86_64" ]; then
-    conda run -n hummingbot install ptpython
+    conda install -n hummingbot  ptpython
 elif [ "$(uname)" == "Linux" ] && [ "$(uname -m)" != "x86_64" ]; then
     conda run -n hummingbot pip install --no-deps ptpython
 fi
