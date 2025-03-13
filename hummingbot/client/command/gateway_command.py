@@ -381,7 +381,6 @@ class GatewayCommand(GatewayChainApiManager):
         self,           # type: HummingbotApplication
         chain: str,
         network: str,
-        additional_prompts: Dict[str, str],
     ) -> Tuple[Optional[str], Dict[str, str]]:
         self.app.clear_input()
         self.placeholder_mode = True
