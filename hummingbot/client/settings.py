@@ -190,7 +190,7 @@ class ConnectorSetting(NamedTuple):
             if connector_spec is None:
                 # Handle the case where connector_spec is None
                 raise ValueError(f"Cannot find connector specification for {self.name}. Please check your gateway connection settings.")
-            return "gateway.gateway_base"
+            return "gateway.gateway_swap"
         return f"{self.base_name()}_{self._get_module_package()}"
 
     def module_path(self) -> str:
