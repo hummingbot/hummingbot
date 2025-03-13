@@ -55,9 +55,9 @@ source "${CONDA_BIN}/activate" hummingbot
 
 # Additional dependencies for Mac OS
 if [ "$(uname)" == "Darwin" ]; then
-    conda install -n hummingbot -y appnope
+    conda install -n hummingbot -y appnope ptpython
 elif [ "$(uname)" == "Linux" ] && [ "$(uname -m)" == "x86_64" ]; then
-    conda install -n hummingbot  ptpython
+    conda install -n hummingbot -y ptpython
 elif [ "$(uname)" == "Linux" ] && [ "$(uname -m)" != "x86_64" ]; then
     conda run -n hummingbot pip install --no-deps ptpython
 fi
