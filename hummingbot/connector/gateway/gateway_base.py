@@ -11,7 +11,6 @@ from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeFeeBase, TradeUpdate
@@ -285,7 +284,6 @@ class GatewayBase(ConnectorBase):
             trading_pair: str,
             is_buy: bool,
             amount: Decimal,
-            ignore_shim: bool = False
     ) -> Optional[Decimal]:
         """
         Retrieves a quote price.
@@ -293,7 +291,6 @@ class GatewayBase(ConnectorBase):
         :param trading_pair: The market trading pair
         :param is_buy: True for an intention to buy, False for an intention to sell
         :param amount: The amount required (in base token unit)
-        :param ignore_shim: Ignore the price shim, and return the real price on the network
         :return: The quote price.
         """
         pool_id = None
@@ -304,31 +301,6 @@ class GatewayBase(ConnectorBase):
             pass
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
-
-        # Get the price from gateway price shim for integration tests.
-        if not ignore_shim:
-            test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
-                self.connector_name,
-                self.chain,
-                self.network,
-                trading_pair,
-                is_buy,
-                amount
-            )
-            if test_price is not None:
-                # Grab the gas price for test net.
-                try:
-                    resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
-                        self.chain, self.network, self.connector_name, base, quote, amount, side
-                    )
-                    # gas_price_token: str = resp["gasPriceToken"]
-                    # gas_cost: Decimal = Decimal(resp["gasCost"])
-                    # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    pass
-                return test_price
 
         # Pull the price from gateway.
         try:

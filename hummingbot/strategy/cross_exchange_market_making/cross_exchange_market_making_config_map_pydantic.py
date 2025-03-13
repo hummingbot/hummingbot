@@ -336,17 +336,6 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             prompt_on_new=True,
         ),
     )
-
-    debug_price_shim: bool = Field(
-        default=False,
-        description="Usd the debug price shim to mock gateway price.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Do you want to enable the debug price shim for integration tests? If you don't know what this does "
-                "you should keep it disabled."
-            ),
-        ),
-    )
     gateway_transaction_cancel_interval: int = Field(
         default= 600,
         description="Gateway transaction cancellation timeout.",
@@ -359,14 +348,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             prompt_on_new=True,
         ),
     )
-    taker_market: ClientConfigEnum(
-        value="TakerMarkets",  # noqa: F821
-        names={e: e for e in
-               sorted(AllConnectorSettings.get_exchange_names().union(
-                   AllConnectorSettings.get_gateway_amm_connector_names()
-               ))},
-        type=str,
-    ) = Field(
+    taker_market: ClientConfigEnum = Field(
         default=...,
         description="The name of the taker exchange connector.",
         client_data=ClientFieldData(
@@ -491,13 +473,13 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             ret = validate_connector(v)
             if ret is not None:
                 raise ValueError(ret)
-            cls.__fields__["taker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-                value="TakerMarkets",  # noqa: F821
-                names={e: e for e in sorted(
-                    AllConnectorSettings.get_exchange_names().union(
-                        AllConnectorSettings.get_gateway_amm_connector_names()
-                    ))},
+            TakerMarketsEnum = ClientConfigEnum(
+                value="TakerMarkets",
+                names={e: e for e in sorted(AllConnectorSettings.get_exchange_names().union(
+                    AllConnectorSettings.get_gateway_amm_connector_names()
+                ))},
                 type=str,
             )
+            cls.__fields__["taker_market"].type_ = TakerMarketsEnum
             cls._clear_schema_cache()
         return v
