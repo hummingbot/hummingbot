@@ -45,6 +45,8 @@ class HummingbotCompleter(Completer):
         self._exchange_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_amm_connector_names()), ignore_case=True)
         self._exchange_ethereum_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_ethereum_connector_names()), ignore_case=True)
         self._exchange_clob_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
+        self._exchange_clob_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(
+            AllConnectorSettings.get_gateway_amm_connector_names())), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
@@ -190,9 +192,12 @@ class HummingbotCompleter(Completer):
         return text_before_cursor.startswith("connect ")
 
     def _complete_exchange_amm_connectors(self, document: Document) -> bool:
-        return "(Exchange/AMM/CLOB)" in self.prompt_text
+        return "(Exchange/AMM)" in self.prompt_text
 
     def _complete_exchange_clob_connectors(self, document: Document) -> bool:
+        return "(Exchange/CLOB)" in self.prompt_text
+
+    def _complete_exchange_clob_amm_connectors(self, document: Document) -> bool:
         return "(Exchange/AMM/CLOB)" in self.prompt_text
 
     def _complete_spot_exchanges(self, document: Document) -> bool:
@@ -340,6 +345,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_wallet_addresses(document):
             for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_exchange_clob_amm_connectors(document):
+            for c in self._exchange_clob_amm_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchange_amm_connectors(document):

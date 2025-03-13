@@ -33,9 +33,6 @@ market_2_slippage_buffer: null
 # If false, the bot will wait for first exchange order filled before submitting the other order
 concurrent_orders_submission: null
 
-# A flag (true/false), if true would enable a price shim feature on the AMM connector to allow developer to simulate
-# different prices on the AMM market. This is used for development and testing purpose only.
-debug_price_shim: false
 
 # After how many seconds should blockchain transactions be cancelled if they are not included in a block?
 gateway_transaction_cancel_interval: 600
@@ -68,4 +65,4 @@ gas_token: ETH
 # Sets the conversion rate between the gas token and the quote asset
 # For example, if gas_price is 3500 and quote asset is USDC, then 1 ETH = 3500 USDC
 # This rate is used to convert gas fees to quote asset for profit calculations
-gas_price: 3500
+gas_price: 2000
