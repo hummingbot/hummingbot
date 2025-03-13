@@ -129,8 +129,6 @@ class GatewayInFlightOrder(InFlightOrder):
 
     @property
     def is_done(self) -> bool:
-        if self.is_approval_request:
-            return not self.is_pending_approval
         return super().is_done
 
     def update_creation_transaction_hash(self, creation_transaction_hash: str):

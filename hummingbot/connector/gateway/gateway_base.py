@@ -2,6 +2,7 @@ import asyncio
 import copy
 import itertools as it
 import logging
+import re
 import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union, cast
@@ -40,6 +41,7 @@ class GatewayBase(ConnectorBase):
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
     UPDATE_BALANCE_INTERVAL = 30.0
+    APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     _connector_name: str
     _name: str
@@ -61,6 +63,8 @@ class GatewayBase(ConnectorBase):
     _order_tracker: ClientOrderTracker
     _native_currency: str
     _amount_quantum_dict: Dict[str, Decimal]
+    _allowances: Dict[str, Decimal]
+    _get_allowances_task: Optional[asyncio.Task]
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
@@ -101,6 +105,8 @@ class GatewayBase(ConnectorBase):
         self._native_currency = None
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self, lost_order_count_limit=10)
         self._amount_quantum_dict = {}
+        self._allowances = {}
+        self._get_allowances_task: Optional[asyncio.Task] = None
         safe_ensure_future(self.load_token_data())
 
     @classmethod
@@ -195,6 +201,8 @@ class GatewayBase(ConnectorBase):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
+            if self.chain == "ethereum":
+                self._get_allowances_task = safe_ensure_future(self.update_allowances())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
@@ -206,7 +214,10 @@ class GatewayBase(ConnectorBase):
             self._get_chain_info_task = None
         if self._get_gas_estimate_task is not None:
             self._get_gas_estimate_task.cancel()
-            self._get_chain_info_task = None
+            self._get_gas_estimate_task = None
+        if self._get_allowances_task is not None:
+            self._get_allowances_task.cancel()
+            self._get_allowances_task = None
 
     async def _status_polling_loop(self):
         await self.update_balances(on_interval=False)
@@ -624,8 +635,7 @@ class GatewayBase(ConnectorBase):
         amount: Decimal,
         side: TradeType,
         price_response: Dict[str, Any],
-        process_exception: bool = False,
-        allowances: Optional[Dict[str, Decimal]] = None
+        process_exception: bool = False
     ) -> Optional[Decimal]:
         """
         Parses price response
@@ -635,7 +645,6 @@ class GatewayBase(ConnectorBase):
         :param side: trade side
         :param price_response: Price response from Gateway.
         :param process_exception: Flag to trigger error on exception
-        :param allowances: Dictionary of token allowances (optional)
         """
         required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
         if any(item not in price_response.keys() for item in required_items):
@@ -661,9 +670,9 @@ class GatewayBase(ConnectorBase):
                     "gas_asset": gas_price_token,
                     "swaps_count": len(price_response.get("swaps", []))
                 }
-                # Add allowances to kwargs if provided
-                if allowances is not None:
-                    kwargs["allowances"] = allowances
+                # Add allowances for Ethereum
+                if self.chain == "ethereum":
+                    kwargs["allowances"] = self._allowances
 
                 exceptions: List[str] = check_transaction_exceptions(**kwargs)
                 for index in range(len(exceptions)):
@@ -743,23 +752,39 @@ class GatewayBase(ConnectorBase):
                 )
                 await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
-        # Methods to be overridden by chain-specific subclasses
-        def _get_transaction_receipt_from_details(self, tx_details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-            """Extract transaction receipt from tx_details. To be overridden by chain-specific subclasses."""
-            raise NotImplementedError
+    def _get_transaction_receipt_from_details(self, tx_details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if self.chain == "ethereum":
+            return tx_details.get("txReceipt")
+        elif self.chain == "solana":
+            return tx_details.get("txData")
+        raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
-        def _is_transaction_successful(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-            """Determine if a transaction is successful. To be overridden by chain-specific subclasses."""
-            raise NotImplementedError
+    def _is_transaction_successful(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
+        if self.chain == "ethereum":
+            return tx_status == 1 and tx_receipt is not None and tx_receipt.get("status") == 1
+        elif self.chain == "solana":
+            return tx_status == 1 and tx_receipt is not None
+        raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
-        def _is_transaction_pending(self, tx_status: int) -> bool:
-            """Determine if a transaction is still pending. To be overridden by chain-specific subclasses."""
-            raise NotImplementedError
+    def _is_transaction_pending(self, tx_status: int) -> bool:
+        if self.chain == "ethereum":
+            return tx_status in [0, 2, 3]
+        elif self.chain == "solana":
+            return tx_status == 0
+        raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
-        def _is_transaction_failed(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
-            """Determine if a transaction has failed. To be overridden by chain-specific subclasses."""
-            raise NotImplementedError
+    def _is_transaction_failed(self, tx_status: int, tx_receipt: Optional[Dict[str, Any]]) -> bool:
+        if self.chain == "ethereum":
+            return tx_status == -1 or (tx_receipt is not None and tx_receipt.get("status") == 0)
+        elif self.chain == "solana":
+            return tx_status == -1
+        raise NotImplementedError(f"Unsupported chain: {self.chain}")
 
-        def _calculate_transaction_fee(self, tracked_order: GatewayInFlightOrder, tx_receipt: Dict[str, Any]) -> Decimal:
-            """Calculate the transaction fee. To be overridden by chain-specific subclasses."""
-            raise NotImplementedError
+    def _calculate_transaction_fee(self, tracked_order: GatewayInFlightOrder, tx_receipt: Dict[str, Any]) -> Decimal:
+        if self.chain == "ethereum":
+            gas_used: int = tx_receipt["gasUsed"]
+            gas_price: Decimal = tracked_order.gas_price
+            return Decimal(str(gas_used)) * gas_price / Decimal(1e9)
+        elif self.chain == "solana":
+            return Decimal(tx_receipt["meta"]["fee"]) / Decimal(1e9)
+        raise NotImplementedError(f"Unsupported chain: {self.chain}")
