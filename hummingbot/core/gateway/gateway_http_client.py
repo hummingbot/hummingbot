@@ -434,7 +434,7 @@ class GatewayHttpClient:
             "nonce": nonce
         })
 
-    async def get_price(
+    async def get_price_legacy(
             self,
             chain: str,
             network: str,
@@ -457,7 +457,7 @@ class GatewayHttpClient:
             "quote": quote_asset,
             "amount": f"{amount:.18f}",
             "side": side.name,
-            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
+            # "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
 
         if pool_id not in ["", None]:
@@ -466,6 +466,36 @@ class GatewayHttpClient:
         return await self.api_request(
             "post",
             f"{connector}/price",
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def get_price(
+            self,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            amount: Decimal,
+            side: TradeType,
+            slippage_pct: Decimal,
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        if side not in [TradeType.BUY, TradeType.SELL]:
+            raise ValueError("Only BUY and SELL prices are supported.")
+
+        request_payload = {
+            "network": network,
+            "baseToken": base_asset,
+            "quoteToken": quote_asset,
+            "amount": f"{amount:.18f}",
+            "side": side.name,
+            "slippacePct": slippage_pct,  # hummingbot applies slippage itself
+        }
+
+        return await self.api_request(
+            "post",
+            f"{connector}/quote-swap",
             request_payload,
             fail_silently=fail_silently,
         )
