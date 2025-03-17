@@ -34,7 +34,6 @@ class MockWebsocketClientSession:
 class NetworkMockingAssistant:
     def __init__(self, event_loop=None):
         super().__init__()
-
         self._response_text_queues = defaultdict(asyncio.Queue)
         self._response_json_queues = defaultdict(asyncio.Queue)
         self._response_status_queues = defaultdict(deque)
@@ -49,7 +48,7 @@ class NetworkMockingAssistant:
         self._sent_websocket_json_messages = defaultdict(list)
         self._sent_websocket_text_messages = defaultdict(list)
 
-        self._ev_loop = asyncio.get_event_loop()
+        self._ev_loop = event_loop or asyncio.get_event_loop()
 
     @staticmethod
     def async_partial(function, *args, **kwargs):
@@ -173,6 +172,6 @@ class NetworkMockingAssistant:
         all_delivered = self._all_incoming_websocket_json_delivered_event[websocket_mock]
         self._ev_loop.run_until_complete(asyncio.wait_for(all_delivered.wait(), timeout))
 
-    def run_until_all_aiohttp_messages_delivered(self, websocket_mock, timeout: int = 1):
+    async def run_until_all_aiohttp_messages_delivered(self, websocket_mock, timeout: int = 1):
         all_delivered = self._all_incoming_websocket_aiohttp_delivered_event[websocket_mock]
-        self._ev_loop.run_until_complete(asyncio.wait_for(all_delivered.wait(), timeout))
+        await asyncio.wait_for(all_delivered.wait(), timeout)

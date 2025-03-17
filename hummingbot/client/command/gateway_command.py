@@ -32,7 +32,6 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_list_display,
     build_wallet_display,
     flatten,
-    native_tokens,
     search_configs,
 )
 from hummingbot.core.utils.ssl_cert import create_self_sign_certs
@@ -235,9 +234,6 @@ class GatewayCommand(GatewayChainApiManager):
                 available_networks: List[Dict[str, Any]
                                          ] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
-                chain_type: str = connector_config[0]["chain_type"]
-                additional_spenders: List[str] = connector_config[0].get(
-                    "additional_spenders", [])
                 additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
                     # If Gateway requires additional, prompts with secure info,
                     "additional_add_wallet_prompts",
@@ -249,19 +245,23 @@ class GatewayCommand(GatewayChainApiManager):
                 chains: List[str] = [d['chain'] for d in available_networks]
                 chain: str
 
-                # chains as options
-                while True:
-                    self.app.input_field.completer.set_gateway_chains(chains)
-                    chain = await self.app.prompt(
-                        prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
-                    )
-                    if self.app.to_stop_config:
-                        self.app.to_stop_config = False
-                        return
+                if len(chains) == 1:
+                    chain = chains[0]
+                    self.notify(f"Only {chain} chain is available. Selected automatically.")
+                else:
+                    # chains as options
+                    while True:
+                        self.app.input_field.completer.set_gateway_chains(chains)
+                        chain = await self.app.prompt(
+                            prompt=f"Which chain do you want {connector} to connect to? ({', '.join(chains)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            self.app.to_stop_config = False
+                            return
 
-                    if chain in chains:
-                        break
-                    self.notify(f"{chain} chain not supported.\n")
+                        if chain in chains:
+                            break
+                        self.notify(f"{chain} chain not supported.\n")
 
                 # ask user to select a network. Automatically select if there is only one.
                 networks: List[str] = list(
@@ -270,17 +270,20 @@ class GatewayCommand(GatewayChainApiManager):
                 )
 
                 network: str
-                while True:
-                    self.app.input_field.completer.set_gateway_networks(
-                        networks)
-                    network = await self.app.prompt(
-                        prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
-                    )
-                    if self.app.to_stop_config:
-                        return
-                    if network in networks:
-                        break
-                    self.notify("Error: Invalid network")
+                if len(networks) == 1:
+                    network = networks[0]
+                    self.notify(f"Only {network} network is available. Selected automatically.")
+                else:
+                    while True:
+                        self.app.input_field.completer.set_gateway_networks(networks)
+                        network = await self.app.prompt(
+                            prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
+                        )
+                        if self.app.to_stop_config:
+                            return
+                        if network in networks:
+                            break
+                        self.notify("Error: Invalid network")
 
                 # test you can connect to the uri, otherwise request the url
                 await self._test_node_url_from_gateway_config(chain, network, attempt_connection=False)
@@ -299,7 +302,7 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1 or chain == "near" or len(additional_prompts) != 0:
+                if len(wallets) < 1 or len(additional_prompts) != 0:
                     wallet_address, additional_prompt_values = await self._prompt_for_wallet_address(
                         chain=chain, network=network, additional_prompts=additional_prompts
                     )
@@ -322,7 +325,7 @@ class GatewayCommand(GatewayChainApiManager):
                     self.app.clear_input()
                     # they use an existing wallet
                     if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
-                        native_token: str = native_tokens[chain]
+                        native_token: str = await self._get_native_currency_symbol(chain, network)
                         wallet_table: List[Dict[str, Any]] = []
                         for w in wallets:
                             balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
@@ -365,7 +368,7 @@ class GatewayCommand(GatewayChainApiManager):
                                     "Error adding wallet. Check private key.\n")
 
                         # display wallet balance
-                        native_token: str = native_tokens[chain]
+                        native_token: str = await self._get_native_currency_symbol(chain, network)
                         balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                             chain, network, wallet_address, [
                                 native_token], connector
@@ -384,9 +387,7 @@ class GatewayCommand(GatewayChainApiManager):
                     chain=chain,
                     network=network,
                     trading_type=trading_type,
-                    chain_type=chain_type,
                     wallet_address=wallet_address,
-                    additional_spenders=additional_spenders,
                     additional_prompt_values=additional_prompt_values,
                 )
                 self.notify(
@@ -419,14 +420,6 @@ class GatewayCommand(GatewayChainApiManager):
             return
 
         additional_prompt_values = {}
-        if chain == "near":
-            wallet_account_id: str = await self.app.prompt(
-                prompt=f"Enter your {chain}-{network} account Id >>> ",
-            )
-            additional_prompt_values["address"] = wallet_account_id
-            self.app.clear_input()
-            if self.app.to_stop_config:
-                return
 
         for field, prompt in additional_prompts.items():
             value = await self.app.prompt(prompt=prompt, is_password=True)
@@ -455,8 +448,12 @@ class GatewayCommand(GatewayChainApiManager):
             chain, network, address = (
                 conf["chain"], conf["network"], conf["wallet_address"]
             )
+            # Add native token to the tokens list
+            native_token = await self._get_native_currency_symbol(chain, network)
             tokens_str = conf.get("tokens", "")
             tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+            if native_token not in tokens:
+                tokens.append(native_token)
 
             connector_chain_network = [
                 w for w in gateway_connections
@@ -531,8 +528,12 @@ class GatewayCommand(GatewayChainApiManager):
                     conf["chain"], conf["network"], conf["wallet_address"]
                 )
 
+                # Add native token to the tokens list
+                native_token = await self._get_native_currency_symbol(chain, network)
                 tokens_str = conf.get("tokens", "")
                 tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+                if native_token not in tokens:
+                    tokens.append(native_token)
 
                 connector_chain_network = [
                     w for w in network_connections
@@ -677,11 +678,7 @@ class GatewayCommand(GatewayChainApiManager):
     def is_gateway_markets(exchange_name: str) -> bool:
         return (
             exchange_name in sorted(
-                AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
-                ).union(
-                    AllConnectorSettings.get_gateway_clob_connector_names()
-                )
+                AllConnectorSettings.get_gateway_amm_connector_names()
             )
         )
 
