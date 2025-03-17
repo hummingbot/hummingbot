@@ -143,6 +143,24 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.is_logged("WARNING", "Candles are malformed. Restarting...")
         self.assertEqual(len(self.data_feed._candles), 0)
 
+    def test_check_candles_sorted_and_equidistant_invalid_type(self):
+        invalid_data = self._candles_data_mock()  # This is a deque, not a NumPy array
+        self.data_feed._candles.extend(invalid_data)
+
+        with self.assertRaises(TypeError) as e:
+            self.data_feed.check_candles_sorted_and_equidistant(invalid_data)
+        try:
+            self.assertIn("sequence index must be integer, not 'tuple'", str(e.exception))
+        except AssertionError:
+            self.assertIn("list indices must be integers or slices, not tuple", str(e.exception))
+
+    def test_check_candles_sorted_and_equidistant_numpy_array(self):
+        # Convert the deque to a NumPy array for valid input
+        valid_data_np = np.array(self._candles_data_mock())
+        self.data_feed._candles.extend(valid_data_np)
+        self.assertIsNone(self.data_feed.check_candles_sorted_and_equidistant(valid_data_np))
+        self.assertEqual(len(self.data_feed._candles), 4)
+
     def test_reset_candles(self):
         self.data_feed._candles.extend(self._candles_data_mock())
         self.data_feed._ws_candle_available.set()
