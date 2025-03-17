@@ -26,7 +26,7 @@ class GatewaySwap(GatewayBase):
             amount: Decimal,
     ) -> Optional[Decimal]:
         """
-        Retrieves a quote price.
+        Retrieves the volume weighted average price. For an AMM DEX connectors, this is the swap price for a given amount.
 
         :param trading_pair: The market trading pair
         :param is_buy: True for an intention to buy, False for an intention to sell
@@ -64,11 +64,65 @@ class GatewaySwap(GatewayBase):
             amount: Decimal,
             ignore_shim: bool = False
     ) -> Decimal:
-
         """
-        This is simply the quote price
+        Retreives the price required for an order of a given amount. For AMM DEX connectors, this equals the quote price.
         """
         return await self.get_quote_price(trading_pair, is_buy, amount, ignore_shim=ignore_shim)
+
+    def parse_price_response(
+        self,
+        base: str,
+        quote: str,
+        amount: Decimal,
+        side: TradeType,
+        price_response: Dict[str, Any],
+        process_exception: bool = False
+    ) -> Optional[Decimal]:
+        """
+        Parses price response
+        :param base: The base asset
+        :param quote: The quote asset
+        :param amount: amount
+        :param side: trade side
+        :param price_response: Price response from Gateway.
+        :param process_exception: Flag to trigger error on exception
+        """
+        required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
+        if any(item not in price_response.keys() for item in required_items):
+            if "info" in price_response.keys():
+                self.logger().info(f"Unable to get price. {price_response['info']}")
+            else:
+                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
+        else:
+            gas_price_token: str = self._native_currency
+            gas_cost: Decimal = Decimal(price_response["gasCost"])
+            price: Decimal = Decimal(price_response["price"])
+            gas_limit: int = int(price_response["gasLimit"])
+            # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            if process_exception is True:
+                kwargs = {
+                    "balances": self._account_balances,
+                    "base_asset": base,
+                    "quote_asset": quote,
+                    "amount": amount,
+                    "side": side,
+                    "gas_limit": gas_limit,
+                    "gas_cost": gas_cost,
+                    "gas_asset": gas_price_token
+                }
+                # Add allowances for Ethereum
+                if self.chain == "ethereum":
+                    kwargs["allowances"] = self._allowances
+
+                exceptions: List[str] = check_transaction_exceptions(**kwargs)
+                for index in range(len(exceptions)):
+                    self.logger().warning(
+                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
+                    )
+                if len(exceptions) > 0:
+                    return None
+            return Decimal(str(price))
+        return None
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
@@ -153,8 +207,6 @@ class GatewaySwap(GatewayBase):
             )
             transaction_hash: Optional[str] = order_result.get("txHash")
             if transaction_hash is not None and transaction_hash != "":
-                # gas_cost: Decimal = Decimal(order_result.get("gasCost"))
-                # gas_price_token: str = order_result.get("gasPriceToken")
                 # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
                 order_update: OrderUpdate = OrderUpdate(
@@ -168,7 +220,7 @@ class GatewaySwap(GatewayBase):
                         "gas_price": Decimal(order_result.get("gasPrice")),
                         "gas_limit": int(order_result.get("gasLimit")),
                         "gas_cost": Decimal(order_result.get("gasCost")),
-                        "gas_price_token": order_result.get("gasPriceToken"),
+                        "gas_price_token": self._native_currency,
                         "fee_asset": self._native_currency
                     }
                 )
@@ -221,59 +273,3 @@ class GatewaySwap(GatewayBase):
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         base, quote = trading_pair.split("_")[0].split("-")
         return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
-
-    def parse_price_response(
-        self,
-        base: str,
-        quote: str,
-        amount: Decimal,
-        side: TradeType,
-        price_response: Dict[str, Any],
-        process_exception: bool = False
-    ) -> Optional[Decimal]:
-        """
-        Parses price response
-        :param base: The base asset
-        :param quote: The quote asset
-        :param amount: amount
-        :param side: trade side
-        :param price_response: Price response from Gateway.
-        :param process_exception: Flag to trigger error on exception
-        """
-        required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-        if any(item not in price_response.keys() for item in required_items):
-            if "info" in price_response.keys():
-                self.logger().info(f"Unable to get price. {price_response['info']}")
-            else:
-                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
-        else:
-            gas_price_token: str = price_response["gasPriceToken"]
-            gas_cost: Decimal = Decimal(price_response["gasCost"])
-            price: Decimal = Decimal(price_response["price"])
-            # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-            if process_exception is True:
-                gas_limit: int = int(price_response["gasLimit"])
-                kwargs = {
-                    "balances": self._account_balances,
-                    "base_asset": base,
-                    "quote_asset": quote,
-                    "amount": amount,
-                    "side": side,
-                    "gas_limit": gas_limit,
-                    "gas_cost": gas_cost,
-                    "gas_asset": gas_price_token,
-                    "swaps_count": len(price_response.get("swaps", []))
-                }
-                # Add allowances for Ethereum
-                if self.chain == "ethereum":
-                    kwargs["allowances"] = self._allowances
-
-                exceptions: List[str] = check_transaction_exceptions(**kwargs)
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
-                if len(exceptions) > 0:
-                    return None
-            return Decimal(str(price))
-        return None
