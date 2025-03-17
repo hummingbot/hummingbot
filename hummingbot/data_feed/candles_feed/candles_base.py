@@ -340,7 +340,7 @@ class CandlesBase(NetworkBase):
                     "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
                 )
                 await self._sleep(1.0)
-        self.check_candles_sorted_and_equidistant(self._candles)
+        self.check_candles_sorted_and_equidistant(np.array(self._candles))
 
     async def listen_for_subscriptions(self):
         """
