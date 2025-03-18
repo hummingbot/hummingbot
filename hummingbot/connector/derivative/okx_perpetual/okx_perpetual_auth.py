@@ -47,6 +47,7 @@ class OkxPerpetualAuth(AuthBase):
 
     def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
         timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).isoformat(timespec="milliseconds")
+        timestamp = timestamp.replace("+00:00", "Z")
 
         path_url = f"/api{request.url.split('/api')[-1]}"
         if request.params:
