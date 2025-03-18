@@ -1,11 +1,11 @@
 import asyncio
 import base64
-import datetime
 import hashlib
 import hmac
 import time
 import unittest
 from copy import copy
+from datetime import datetime
 from unittest.mock import MagicMock
 from urllib.parse import urlencode
 
@@ -29,7 +29,7 @@ class HtxAuthTests(unittest.TestCase):
         now = time.time()
         mock_time_provider = MagicMock()
         mock_time_provider.time.return_value = now
-        now = datetime.datetime.fromtimestamp(now, datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S")
+        now = datetime.utcfromtimestamp(now).strftime("%Y-%m-%dT%H:%M:%S")
         test_url = "https://api.huobi.pro/v1/order/openOrders"
         params = {
             "order-id": "EO1D1",
