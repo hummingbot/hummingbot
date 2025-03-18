@@ -493,7 +493,6 @@ class GatewayHttpClient:
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
-        self.logger().info(f"Price request payload: {request_payload}")
 
         return await self.api_request(
             "get",

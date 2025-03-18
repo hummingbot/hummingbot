@@ -44,8 +44,6 @@ class DEXPrice(ScriptStrategyBase):
         self.base, self.quote = self.config.trading_pair.split("-")
 
     def on_tick(self):
-        # only execute once
-        self.log_with_clock(logging.INFO, "on_tick")
         # wrap async task in safe_ensure_future
         safe_ensure_future(self.async_task())
 
