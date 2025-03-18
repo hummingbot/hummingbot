@@ -7,7 +7,11 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import AsyncWeb3, Web3
-from web3.middleware import async_geth_poa_middleware
+
+try:
+    from web3.middleware import async_geth_poa_middleware
+except ImportError:
+    from web3.middleware import ExtraDataToPOAMiddleware as async_geth_poa_middleware
 
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
