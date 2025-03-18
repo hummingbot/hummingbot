@@ -24,6 +24,7 @@ class GatewaySwap(GatewayBase):
             trading_pair: str,
             is_buy: bool,
             amount: Decimal,
+            slippage_pct: Optional[Decimal] = None
     ) -> Optional[Decimal]:
         """
         Retrieves the volume weighted average price. For an AMM DEX connectors, this is the swap price for a given amount.
@@ -33,20 +34,30 @@ class GatewaySwap(GatewayBase):
         :param amount: The amount required (in base token unit)
         :return: The quote price.
         """
-        pool_id = None
 
-        try:
-            trading_pair, pool_id = trading_pair.split("_")
-        except Exception:
-            pass
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
 
         # Pull the price from gateway.
         try:
-            resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
-                self.chain, self.network, self.connector_name, base, quote, amount, side, pool_id=pool_id
+            self.logger().info(
+                f"Calling get_price with chain: {self.chain}, network: {self.network}, "
+                f"connector: {self.connector_name}, base: {base}, quote: {quote}, "
+                f"amount: {amount}, side: {side}"
             )
+            resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
+                network=self.network,
+                connector=self.connector_name,
+                base_asset=base,
+                quote_asset=quote,
+                amount=amount,
+                side=side,
+                slippage_pct=slippage_pct,
+            )
+            self.logger().info(f"Raw gateway response for {base}-{quote}:")
+            self.logger().info(f"{resp}")
+            # price = resp.get("price")
+            # return Decimal(price)
             return self.parse_price_response(base, quote, amount, side, price_response=resp)
         except asyncio.CancelledError:
             raise
@@ -76,7 +87,7 @@ class GatewaySwap(GatewayBase):
         amount: Decimal,
         side: TradeType,
         price_response: Dict[str, Any],
-        process_exception: bool = False
+        process_exception: bool = True
     ) -> Optional[Decimal]:
         """
         Parses price response
