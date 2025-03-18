@@ -40,11 +40,6 @@ class GatewaySwap(GatewayBase):
 
         # Pull the price from gateway.
         try:
-            self.logger().info(
-                f"Calling get_price with chain: {self.chain}, network: {self.network}, "
-                f"connector: {self.connector_name}, base: {base}, quote: {quote}, "
-                f"amount: {amount}, side: {side}"
-            )
             resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
                 network=self.network,
                 connector=self.connector_name,
@@ -54,10 +49,6 @@ class GatewaySwap(GatewayBase):
                 side=side,
                 slippage_pct=slippage_pct,
             )
-            self.logger().info(f"Raw gateway response for {base}-{quote}:")
-            self.logger().info(f"{resp}")
-            # price = resp.get("price")
-            # return Decimal(price)
             return self.parse_price_response(base, quote, amount, side, price_response=resp)
         except asyncio.CancelledError:
             raise
