@@ -1,49 +1,66 @@
-from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+import logging
+import os
+from decimal import Decimal
+from typing import Dict
+
+from pydantic import Field
+
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.strategy.script_strategy_base import Decimal, ScriptStrategyBase
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class AmmPriceExample(ScriptStrategyBase):
+class DEXPriceConfig(BaseClientModel):
+    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    connector: str = Field("jupiter", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "DEX to swap on"))
+    chain: str = Field("solana", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Chain"))
+    network: str = Field("mainnet-beta", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Network"))
+    trading_pair: str = Field("SOL-USDC", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Trading pair in which the bot will place orders"))
+    is_buy: bool = Field(True, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Buying or selling the base asset? (True for buy, False for sell)"))
+    amount: Decimal = Field(Decimal("0.01"), client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Amount of base asset to buy or sell"))
+
+
+class DEXPrice(ScriptStrategyBase):
     """
-    This example shows how to call the /amm/price Gateway endpoint to fetch price for a swap
+    This example shows how to use the GatewaySwap connector to fetch price for a swap
     """
-    # swap params
-    connector_chain_network = "uniswap_ethereum_goerli"
-    trading_pair = {"WETH-DAI"}
-    side = "SELL"
-    order_amount = Decimal("0.01")
-    markets = {
-        connector_chain_network: trading_pair
-    }
-    on_going_task = False
+
+    @classmethod
+    def init_markets(cls, config: DEXPriceConfig):
+        connector_chain_network = f"{config.connector}_{config.chain}_{config.network}"
+        cls.markets = {connector_chain_network: {config.trading_pair}}
+
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: DEXPriceConfig):
+        super().__init__(connectors)
+        self.config = config
+        self.exchange = f"{config.connector}_{config.chain}_{config.network}"
+        self.base, self.quote = self.config.trading_pair.split("-")
 
     def on_tick(self):
         # only execute once
-        if not self.on_going_task:
-            self.on_going_task = True
-            # wrap async task in safe_ensure_future
-            safe_ensure_future(self.async_task())
+        self.log_with_clock(logging.INFO, "on_tick")
+        # wrap async task in safe_ensure_future
+        safe_ensure_future(self.async_task())
 
     # async task since we are using Gateway
     async def async_task(self):
-        base, quote = list(self.trading_pair)[0].split("-")
-        connector, chain, network = self.connector_chain_network.split("_")
-        if (self.side == "BUY"):
-            trade_type = TradeType.BUY
-        else:
-            trade_type = TradeType.SELL
-
-        # fetch price
-        self.logger().info(f"POST /amm/price [ connector: {connector}, base: {base}, quote: {quote}, amount: {self.order_amount}, side: {self.side} ]")
-        data = await GatewayHttpClient.get_instance().get_price(
-            chain,
-            network,
-            connector,
-            base,
-            quote,
-            self.order_amount,
-            trade_type
-        )
-        self.logger().info(f"Price: {data['price']}")
-        self.logger().info(f"Amount: {data['amount']}")
+        # fetch price using GatewaySwap instead of direct HTTP call
+        side = "buy" if self.config.is_buy else "sell"
+        msg = f"Getting quote to {side} {self.config.amount} in {self.base} for {self.quote}"
+        try:
+            self.log_with_clock(logging.INFO, msg)
+            price = await self.connectors[self.exchange].get_quote_price(
+                trading_pair=self.config.trading_pair,
+                is_buy=self.config.is_buy,
+                amount=self.config.amount,
+            )
+            self.log_with_clock(logging.INFO, f"Price: {price}")
+        except Exception as e:
+            self.log_with_clock(logging.ERROR, f"Error getting quote: {e}")

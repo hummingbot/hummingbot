@@ -478,7 +478,7 @@ class GatewayHttpClient:
             quote_asset: str,
             amount: Decimal,
             side: TradeType,
-            slippage_pct: Decimal,
+            slippage_pct: Optional[Decimal] = None,
             fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if side not in [TradeType.BUY, TradeType.SELL]:
@@ -488,16 +488,18 @@ class GatewayHttpClient:
             "network": network,
             "baseToken": base_asset,
             "quoteToken": quote_asset,
-            "amount": f"{amount:.18f}",
-            "side": side.name,
-            "slippacePct": slippage_pct,  # hummingbot applies slippage itself
+            "amount": float(amount),
+            "side": side.name
         }
+        if slippage_pct is not None:
+            request_payload["slippagePct"] = float(slippage_pct)
+        self.logger().info(f"Price request payload: {request_payload}")
 
         return await self.api_request(
-            "post",
+            "get",
             f"{connector}/quote-swap",
             request_payload,
-            fail_silently=fail_silently,
+            fail_silently=fail_silently
         )
 
     async def amm_trade(
