@@ -28,7 +28,7 @@ dependencies:
   - cachetools>=5.3.1
   - commlib-py>=0.11
   - cryptography>=41.0.2
-  - eth-account
+  - eth-account >=0.13.0
   - injective-py
   - gql-with-aiohttp>=3.4.1
   - msgpack-python
