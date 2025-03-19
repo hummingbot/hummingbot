@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import eth_account
 from bidict import bidict
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
+
+try:
+    from web3.middleware import geth_poa_middleware
+except ImportError:
+    from web3.middleware import ExtraDataToPOAMiddleware as geth_poa_middleware
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.tegro import tegro_constants as CONSTANTS, tegro_utils, tegro_web_utils as web_utils
