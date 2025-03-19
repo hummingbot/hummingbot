@@ -1901,8 +1901,8 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @pytest.mark.asyncio
     @patch('web3.Web3')
-    @patch('web3.middleware.geth_poa_middleware')
-    def test_approve_allowance(self, mock_geth_poa_middleware, mock_web3):
+    # @patch('web3.middleware.geth_poa_middleware')
+    def test_approve_allowance(self, mock_web3):
         mock_w3 = mock_web3.return_value
         mock_contract = Mock()
         mock_contract.functions.approve.return_value.estimate_gas.return_value = 21000
