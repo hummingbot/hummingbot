@@ -1,57 +1,103 @@
-import logging
-from abc import ABC, abstractmethod
-import functools
-from sqlalchemy import (
-    Column,
-)
+import re
+from typing import List, Dict, Any, Optional
+
+from sqlalchemy import Inspector, inspect
+
+from hummingbot.logger import HummingbotLogger
+from hummingbot.model.db_migration.script_base import ScriptBase
 
 
-@functools.total_ordering
-class DatabaseTransformation(ABC):
-    def __init__(self, migrator):
-        self.migrator = migrator
+class BaseTransformation(ScriptBase):
+    """
+    Base class for transformations
+    """
 
-    @abstractmethod
-    def apply(self, db_handle):
-        pass
+    _logger = None
 
-    @property
-    @abstractmethod
-    def name(self):
-        return ""
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = HummingbotLogger(cls.__name__)
+        return cls._logger
 
-    @property
-    def from_version(self):
-        return 0
+    def __init__(self, table_name: str, session_factory: callable, **kwargs):
+        super().__init__(session_factory)
+        self.table_name = table_name
+        self.where_clause = kwargs.get("where_clause", None)
+        self.columns = kwargs.get("columns", [])
+        self.inspector: Inspector = inspect(self.engine)
 
-    @property
-    @abstractmethod
-    def to_version(self):
-        return None
+    def validate_table_name(self, table_name: str) -> bool:
+        """
+        Validate that the table name exists and only contains alphanumeric characters and underscores
+        """
+        if not re.match(r'^[a-zA-Z0-9_]+$', table_name):
+            self.logger().error(f"Invalid table name format: {table_name}")
+            return False
+        
+        # Check if table exists in the database
+        if table_name not in self.inspector.get_table_names():
+            self.logger().error(f"Table does not exist: {table_name}")
+            return False
+            
+        return True
+        
+    def validate_where_clause(self, where_clause: str) -> bool:
+        """
+        Validate that the where clause only contains safe characters
+        This is a basic validation and should be enhanced based on specific needs
+        """
+        if not where_clause:
+            return True
+            
+        # Basic validation - allow alphanumeric, spaces, and common SQL operators
+        if not re.match(r'^[a-zA-Z0-9_\s=<>!\'"%.*()]+$', where_clause):
+            self.logger().error(f"Invalid where clause format: {where_clause}")
+            return False
+            
+        return True
 
-    def does_apply_to_version(self, original_version: int, target_version: int) -> bool:
-        if self.to_version is not None:
-            # from_version > 0 means from_version property was overridden by transformation class
-            if self.from_version > 0:
-                return (self.from_version >= original_version) and (self.to_version <= target_version)
-            return (self.to_version > original_version) and (self.to_version <= target_version)
-        return False
-
-    def __eq__(self, other):
-        return (self.to_version == other.to_version) and (self.from_version == other.to_version)
-
-    def __lt__(self, other):
-        if self.to_version == other.to_version:
-            return self.from_version < other.from_version
+    def delete(self) -> None:
+        """
+        Delete data from the table
+        """
+        if not self.validate_table_name(self.table_name):
+            raise ValueError(f"Invalid table name: {self.table_name}")
+            
+        if self.where_clause and not self.validate_where_clause(self.where_clause):
+            raise ValueError(f"Invalid where clause: {self.where_clause}")
+        
+        # Execute the DELETE query with validated inputs
+        if self.where_clause:
+            query = f"DELETE FROM {self.table_name} WHERE {self.where_clause}"
         else:
-            return self.to_version < other.to_version
+            query = f"DELETE FROM {self.table_name}"
+            
+        self.execute(query)
 
-    def add_column(self, engine, table_name, column: Column, dry_run=True):
-        column_name = column.compile(dialect=engine.dialect)
-        column_type = column.type.compile(engine.dialect)
-        column_nullable = "NULL" if column.nullable else "NOT NULL"
-        query_to_execute = f'ALTER TABLE \"{table_name}\" ADD COLUMN {column_name} {column_type} {column_nullable}'
-        if dry_run:
-            logging.getLogger().info(f"Query to execute in DB: {query_to_execute}")
+    def select(self) -> List[Dict[str, Any]]:
+        """
+        Select data from the table
+        """
+        if not self.validate_table_name(self.table_name):
+            raise ValueError(f"Invalid table name: {self.table_name}")
+            
+        if self.where_clause and not self.validate_where_clause(self.where_clause):
+            raise ValueError(f"Invalid where clause: {self.where_clause}")
+            
+        # Validate columns if specified
+        columns_str = "*"
+        if self.columns:
+            # Validate each column name
+            for col in self.columns:
+                if not re.match(r'^[a-zA-Z0-9_]+$', col):
+                    raise ValueError(f"Invalid column name: {col}")
+            columns_str = ", ".join(self.columns)
+            
+        # Execute the SELECT query with validated inputs
+        if self.where_clause:
+            query = f"SELECT {columns_str} FROM {self.table_name} WHERE {self.where_clause}"
         else:
-            engine.execute(query_to_execute)
+            query = f"SELECT {columns_str} FROM {self.table_name}"
+            
+        return self.query(query)
