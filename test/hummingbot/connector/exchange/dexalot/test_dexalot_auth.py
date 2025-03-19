@@ -32,10 +32,10 @@ class DexalotAuthTests(TestCase):
 
         message = encode_defunct(text="dexalot")
         signed_message = self.wallet.sign_message(signable_message=message)
-        content = f"{self.wallet.address}:{signed_message.signature.hex()}"
+        content = f"{self.wallet.address}:0x{signed_message.signature.hex()}"
 
         self.assertIn("x-signature", configured_request.headers)
-        self.assertEqual(content, configured_request.headers["x-signature"])
+        self.assertEqual(configured_request.headers["x-signature"], content)
 
     def test_ws_authenticate(self):
         request: WSJSONRequest = WSJSONRequest(
