@@ -62,7 +62,7 @@ LEDGER_OFFSET = _LEDGER_OFFSET * 2
 PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
 
 # Request Timeout
-REQUEST_TIMEOUT = 30
+REQUEST_TIMEOUT = 60
 
 # Rate Limits
 # NOTE: We don't have rate limits for xrpl at the moment
@@ -80,7 +80,7 @@ PLACE_ORDER_RETRY_INTERVAL = 3
 FEE_MULTIPLIER = 2
 
 # Cancel All Timeout
-CANCEL_ALL_TIMEOUT = 60.0
+CANCEL_ALL_TIMEOUT = 120.0
 
 # Cancel retry parameters
 CANCEL_MAX_RETRY = 3
