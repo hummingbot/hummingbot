@@ -21,8 +21,10 @@ class DexalotAuth(AuthBase):
         """
 
         message = encode_defunct(text="dexalot")
-        signed_message = self.wallet.sign_message(signable_message=message)
-        headers = {"x-signature": f"{self.wallet.address}:{signed_message.signature.hex()}"}
+        signed_message = self.wallet.sign_message(signable_message=message).signature.hex()
+        signed_message = signed_message if signed_message.startswith("0x") else f"0x{signed_message}"
+
+        headers = {"x-signature": f"{self.wallet.address}:{signed_message}"}
         if request.headers is not None:
             headers.update(request.headers)
         request.headers = headers
