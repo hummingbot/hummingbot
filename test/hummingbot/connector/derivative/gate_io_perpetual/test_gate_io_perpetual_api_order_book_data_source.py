@@ -440,7 +440,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(trade_event["result"][0]["id"], msg.trade_id)
-        self.assertEqual(trade_event["result"][0]["create_time"], msg.timestamp)
+        self.assertEqual(float(trade_event["result"][0]["create_time_ms"] * 1e-3), msg.timestamp)
 
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
