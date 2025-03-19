@@ -93,7 +93,7 @@ class GateIoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         for trade_data in raw_message["result"]:
-            trade_timestamp: int = trade_data["create_time"]
+            trade_timestamp: float = float(trade_data["create_time_ms"]) * 1e-3
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
                 symbol=trade_data["contract"])
             message_content = {
