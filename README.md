@@ -61,6 +61,7 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 |----|------|-------|------|------|----------|
 | `ascend_ex` | AscendEx | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/ascendex/) | - |
 | `balancer` | Balancer | DEX | AMM | [Docs](https://hummingbot.org/exchanges/balancer/) | - |
+| `bing_x` | BingX | CEX     | CLOB Spot | [Docs](https://hummingbot.org/exchanges/bing_x/) | - |
 | `bitget_perpetual` | Bitget | CEX | CLOB Perp | [Docs](https://hummingbot.org/exchanges/bitget-perpetual/) | - |
 | `bitmart` | BitMart | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/bitmart/) | - |
 | `bitrue` | Bitrue | CEX | CLOB Spot | [Docs](https://hummingbot.org/exchanges/bitrue/) | - |
