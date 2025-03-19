@@ -56,7 +56,6 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -209,7 +208,7 @@ class XrplExchange(ExchangePyBase):
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:  # type: ignore
         pass
 
-    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+    def _create_order_book_data_source(self) -> XRPLAPIOrderBookDataSource:
         return XRPLAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs or [], connector=self, api_factory=self._web_assistants_factory
         )
@@ -732,7 +731,7 @@ class XrplExchange(ExchangePyBase):
                     continue
 
                 self.logger().debug(
-                    f"Handling TransactionType: {transaction.get('TransactionType')}, Hash: {transaction.get('hash')} OfferSequence: {transaction.get('OfferSequence')}, Sequence: {transaction.get('Sequence')}"
+                    f"Handling TransactionType: {transaction.get('TransactionType')}, Hash: {event_message.get('hash')} OfferSequence: {transaction.get('OfferSequence')}, Sequence: {transaction.get('Sequence')}"
                 )
 
                 balance_changes = get_balance_changes(meta)
@@ -1588,37 +1587,44 @@ class XrplExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         # NOTE: We are querying both the order book and the AMM pool to get the last traded price
+        last_traded_price = float("NaN")
+        last_traded_price_timestamp = 0
+
         order_book = self.order_books.get(trading_pair)
-        if order_book is None:
-            return float("NaN")
+        data_source: XRPLAPIOrderBookDataSource = self.order_book_tracker.data_source
 
-        last_price = order_book.last_trade_price
+        if order_book is not None:
+            last_traded_price = order_book.last_trade_price
+            last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
 
-        if last_price is float("NaN"):
+        if last_traded_price is float("NaN") and order_book is not None:
             best_bid = order_book.get_price(is_buy=True)
             best_ask = order_book.get_price(is_buy=False)
 
             if best_bid is not None and best_ask is not None:
-                last_price = (best_bid + best_ask) / 2
+                last_traded_price = (best_bid + best_ask) / 2
+                last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
             else:
-                last_price = float("NaN")
+                last_traded_price = float("NaN")
+                last_traded_price_timestamp = 0
 
-        amm_pool_price = await self._get_price_from_amm_pool(trading_pair)
+        amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
 
         if amm_pool_price is not float("NaN"):
-            last_price = amm_pool_price
+            if amm_pool_last_tx_timestamp > last_traded_price_timestamp or last_traded_price is float("NaN"):
+                last_traded_price = amm_pool_price
 
-        return last_price
+        return last_traded_price
 
     async def _get_best_price(self, trading_pair: str, is_buy: bool) -> float:
+        best_price = float("NaN")
+
         order_book = self.order_books.get(trading_pair)
 
-        if order_book is None:
-            return float("NaN")
+        if order_book is not None:
+            best_price = order_book.get_price(is_buy)
 
-        best_price = order_book.get_price(is_buy)
-
-        amm_pool_price = await self._get_price_from_amm_pool(trading_pair)
+        amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
 
         if amm_pool_price is not float("NaN"):
             if is_buy:
@@ -1628,8 +1634,10 @@ class XrplExchange(ExchangePyBase):
 
         return best_price
 
-    async def _get_price_from_amm_pool(self, trading_pair: str) -> float:
+    async def _get_price_from_amm_pool(self, trading_pair: str) -> Tuple[float, int]:
         base_token, quote_token = self.get_currencies_from_trading_pair(trading_pair)
+        tx_timestamp = 0
+        price = float("NaN")
 
         try:
             resp: Response = await self.request_with_retry(
@@ -1644,12 +1652,30 @@ class XrplExchange(ExchangePyBase):
             )
         except Exception as e:
             self.logger().error(f"Error fetching AMM pool info for {trading_pair}: {e}")
-            return float("NaN")
+            return price, tx_timestamp
 
         amm_pool_info = resp.result.get("amm", None)
 
         if amm_pool_info is None:
-            return float("NaN")
+            return price, tx_timestamp
+
+        # Get latest transaction time for the AMM pool
+        try:
+            tx_resp: Response = await self.request_with_retry(
+                self._xrpl_query_client,
+                AccountTx(
+                    account=resp.result.get("amm", {}).get("account"),
+                    limit=1,
+                ),
+                3,
+                self._xrpl_query_client_lock,
+                1,
+            )
+
+            tx = tx_resp.result.get("transactions", [{}])[0]
+            tx_timestamp = ripple_time_to_posix(tx.get("tx_json", {}).get("date", 0))
+        except Exception as e:
+            self.logger().error(f"Error fetching AMM pool transaction info for {trading_pair}: {e}")
 
         # Extract amount and amount2 from the AMM pool info
         amount = amm_pool_info.get("amount")  # type: ignore
@@ -1657,7 +1683,7 @@ class XrplExchange(ExchangePyBase):
 
         # Check if we have valid amounts
         if amount is None or amount2 is None:
-            return float("NaN")
+            return price, tx_timestamp
 
         # Convert base amount (amount) if it's XRP
         if isinstance(base_token, XRP):
@@ -1674,10 +1700,13 @@ class XrplExchange(ExchangePyBase):
 
         # Calculate price as quote/base
         if base_amount == 0:
-            return float("NaN")
+            return price, tx_timestamp
 
         price = float(quote_amount / base_amount)
-        return price
+
+        self.logger().debug(f"AMM pool price for {trading_pair}: {price}")
+        self.logger().debug(f"AMM pool transaction timestamp for {trading_pair}: {tx_timestamp}")
+        return price, tx_timestamp
 
     def buy(
         self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
@@ -1994,4 +2023,5 @@ class XrplExchange(ExchangePyBase):
 
             if token_symbol is not None:
                 return token_symbol.upper()
+
         return None

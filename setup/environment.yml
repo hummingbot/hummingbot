@@ -64,5 +64,5 @@ dependencies:
     - web3>=6.2.0,<7.0.0
     - websockets
     - yarl==1.*
-    - xrpl-py==3.0.0
+    - xrpl-py==4.1.0
     - lyra_v2_action_signing==0.0.3
