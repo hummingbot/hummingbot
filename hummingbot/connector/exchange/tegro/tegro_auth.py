@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from eth_account import Account, messages
 
-from hummingbot.connector.other.to_0x_hex import to_0x_hex
+from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 

@@ -8,7 +8,7 @@ from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import AsyncWeb3, Web3
 
-from hummingbot.connector.other.to_0x_hex import to_0x_hex
+from hummingbot.connector.utils import to_0x_hex
 
 try:
     from web3.middleware import async_geth_poa_middleware
