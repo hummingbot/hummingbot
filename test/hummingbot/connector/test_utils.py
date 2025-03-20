@@ -8,13 +8,14 @@ from os.path import exists, join
 from typing import cast
 from unittest.mock import patch
 
+from hexbytes import HexBytes
 from pydantic.v1 import SecretStr
 
 from hummingbot import root_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.settings import CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
-from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.connector.utils import get_new_client_order_id, to_0x_hex
 
 
 class UtilsTest(unittest.TestCase):
@@ -100,3 +101,19 @@ class UtilsTest(unittest.TestCase):
                         self.assertEqual(el.value, connector_dir.name)
                     elif el.client_field_data.is_secure:
                         self.assertEqual(el.type_, SecretStr)
+
+    def test_to_0x_hex_with_to_0x_hex_method(self):
+        signature = HexBytes("0x1234")
+        signature.to_0x_hex = lambda: "0x1234"
+        result = to_0x_hex(signature)
+        self.assertEqual(result, "0x1234")
+
+    def test_to_0x_hex_without_to_0x_hex_method_0x_prefixed(self):
+        signature = HexBytes("0x1234")
+        result = to_0x_hex(signature)
+        self.assertEqual(result, "0x1234")
+
+    def test_to_0x_hex_without_to_0x_hex_method_not_0x_prefixed(self):
+        signature = HexBytes("1234")
+        result = to_0x_hex(signature)
+        self.assertEqual(result, "0x1234")
