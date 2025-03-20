@@ -11,6 +11,7 @@ from hummingbot.connector.derivative.derive_perpetual import (
     derive_perpetual_constants as CONSTANTS,
     derive_perpetual_web_utils as web_utils,
 )
+from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -58,9 +59,9 @@ class DerivePerpetualAuth(AuthBase):
     def get_ws_auth_payload(self) -> List[Dict[str, Any]]:
         payload = {}
         timestamp = str(self.utc_now_ms())
-        signature = self._w3.eth.account.sign_message(
+        signature = to_0x_hex(self._w3.eth.account.sign_message(
             encode_defunct(text=timestamp), private_key=self._api_secret
-        ).signature.hex()
+        ).signature)
         """
         This method is intended to configure a websocket request to be authenticated. Dexalot does not use this
         functionality
@@ -115,9 +116,9 @@ class DerivePerpetualAuth(AuthBase):
 
     def header_for_authentication(self) -> Dict[str, str]:
         timestamp = str(self.utc_now_ms())
-        signature = self._w3.eth.account.sign_message(
+        signature = to_0x_hex(self._w3.eth.account.sign_message(
             encode_defunct(text=timestamp), private_key=self._api_secret
-        ).signature.hex()
+        ).signature)
         payload = {}
 
         payload["accept"] = 'application/json'

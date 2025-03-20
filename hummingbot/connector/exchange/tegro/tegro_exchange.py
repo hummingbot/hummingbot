@@ -20,7 +20,7 @@ from hummingbot.connector.exchange.tegro.tegro_auth import TegroAuth
 from hummingbot.connector.exchange.tegro.tegro_messages import encode_typed_data
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, to_0x_hex
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -347,7 +347,7 @@ class TegroExchange(ExchangePyBase):
         message_types = {message: data["sign_data"]["types"][message]}
         # encode and sign
         structured_data = encode_typed_data(domain_data, message_types, message_data)
-        return eth_account.Account.from_key(self.secret_key).sign_message(structured_data).signature.hex()
+        return to_0x_hex(eth_account.Account.from_key(self.secret_key).sign_message(structured_data).signature)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         ids = []
