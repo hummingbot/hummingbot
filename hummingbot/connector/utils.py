@@ -124,7 +124,7 @@ class GZipCompressionWSPostProcessor(WSPostProcessorBase):
         return WSResponse(data=msg)
 
 
-def to_0x_hex(signature: HexBytes) -> str:
+def to_0x_hex(signature: HexBytes | bytes) -> str:
     """
     Convert a string to a 0x-prefixed hex string.
     """
