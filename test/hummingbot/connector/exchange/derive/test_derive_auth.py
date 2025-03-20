@@ -32,7 +32,7 @@ class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
         mock_signature = "0x123signature"
 
         mock_account = MagicMock()
-        mock_account.sign_message.return_value.signature.hex.return_value = mock_signature
+        mock_account.sign_message.return_value.signature.to_0x_hex.return_value = mock_signature
         self.auth._w3.eth.account = mock_account
 
         headers = self.auth.header_for_authentication()
@@ -93,7 +93,7 @@ class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
         mock_signature = "0x123signature"
 
         mock_account = MagicMock()
-        mock_account.sign_message.return_value.signature.hex.return_value = mock_signature
+        mock_account.sign_message.return_value.signature.to_0x_hex.return_value = mock_signature
         self.auth._w3.eth.account = mock_account
 
         payload = self.auth.get_ws_auth_payload()
