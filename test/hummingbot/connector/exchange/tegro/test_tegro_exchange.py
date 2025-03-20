@@ -1912,7 +1912,7 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         mock_w3.eth.contract.return_value = mock_contract
         mock_w3.eth.get_transaction_count.return_value = 0
         mock_w3.eth.gas_price = 1
-        mock_w3.eth.account.sign_transaction.return_value.rawTransaction = b"signed_tx"
+        mock_w3.eth.account.sign_transaction.return_value.raw_transaction = b"signed_tx"
         mock_w3.eth.send_raw_transaction.return_value = "txn_hash"
         mock_w3.eth.wait_for_transaction_receipt.return_value = {"status": 1}
         request_sent_event = asyncio.Event()
