@@ -70,7 +70,7 @@ class DerivePerpetualAuthTests(TestCase):
     def test_add_auth_to_params_post(self):
         params = {
             "type": "order",
-            "asset_address": "0xabc",
+            "asset_address": "abc",
             "sub_id": 1,
             "limit_price": "100",
             "amount": "10",
