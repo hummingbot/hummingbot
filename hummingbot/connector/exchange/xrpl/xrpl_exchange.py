@@ -1597,7 +1597,7 @@ class XrplExchange(ExchangePyBase):
             last_traded_price = order_book.last_trade_price
             last_traded_price_timestamp = data_source.last_parsed_order_book_timestamp.get(trading_pair, 0)
 
-        if last_traded_price is float("NaN") and order_book is not None:
+        if math.isnan(last_traded_price) and order_book is not None:
             best_bid = order_book.get_price(is_buy=True)
             best_ask = order_book.get_price(is_buy=False)
 
@@ -1607,13 +1607,13 @@ class XrplExchange(ExchangePyBase):
             else:
                 last_traded_price = float("NaN")
                 last_traded_price_timestamp = 0
-
         amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
 
-        if amm_pool_price is not float("NaN"):
-            if amm_pool_last_tx_timestamp > last_traded_price_timestamp or last_traded_price is float("NaN"):
+        if not math.isnan(amm_pool_price):
+            if amm_pool_last_tx_timestamp > last_traded_price_timestamp:
                 last_traded_price = amm_pool_price
-
+            elif math.isnan(last_traded_price):
+                last_traded_price = amm_pool_price
         return last_traded_price
 
     async def _get_best_price(self, trading_pair: str, is_buy: bool) -> float:
@@ -1626,12 +1626,11 @@ class XrplExchange(ExchangePyBase):
 
         amm_pool_price, amm_pool_last_tx_timestamp = await self._get_price_from_amm_pool(trading_pair)
 
-        if amm_pool_price is not float("NaN"):
+        if not math.isnan(amm_pool_price):
             if is_buy:
-                best_price = min(best_price, amm_pool_price)
+                best_price = min(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
             else:
-                best_price = max(best_price, amm_pool_price)
-
+                best_price = max(best_price, amm_pool_price) if not math.isnan(best_price) else amm_pool_price
         return best_price
 
     async def _get_price_from_amm_pool(self, trading_pair: str) -> Tuple[float, int]:
