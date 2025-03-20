@@ -651,7 +651,7 @@ class TegroExchange(ExchangePyBase):
                 # Building, signing, and sending the approval transaction
                 approval_contract = contract.functions.approve(exchange_con_addr, MAX_UINT256).build_transaction(tx_params)
                 signed_tx = w3.eth.account.sign_transaction(approval_contract, self.secret_key)
-                txn_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+                txn_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
                 reciept = w3.eth.wait_for_transaction_receipt(txn_hash)
                 print(f"Approved allowance for token {token} with transaction hash {txn_hash}")
                 receipts.append(reciept)
