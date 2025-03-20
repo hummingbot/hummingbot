@@ -260,8 +260,8 @@ class GatewayBase(ConnectorBase):
         Gets the gas estimates for the connector.
         """
         try:
-            response: Dict[Any] = await self._get_gateway_instance().amm_estimate_gas(
-                chain=self.chain, network=self.network, connector=self.connector_name
+            response: Dict[Any] = await self._get_gateway_instance().estimate_gas(
+                chain=self.chain, network=self.network
             )
             self.network_transaction_fee = TokenAmount(
                 response.get("gasPriceToken"), Decimal(response.get("gasCost"))
@@ -281,11 +281,12 @@ class GatewayBase(ConnectorBase):
 
     @property
     def status_dict(self) -> Dict[str, bool]:
-        return {
+        status = {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }
+        return status
 
     async def check_network(self) -> NetworkStatus:
         """

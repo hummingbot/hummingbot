@@ -9,6 +9,7 @@ import aiohttp
 from aiohttp import ContentTypeError
 
 from hummingbot.client.config.security import Security
+from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 
@@ -470,7 +471,13 @@ class GatewayHttpClient:
             fail_silently=fail_silently,
         )
 
-    async def get_price(
+    def _transform_connector_route(self, connector: str) -> str:
+        if "_" in connector:
+            main, sub = connector.split("_", 1)
+            return f"{main}/{sub}"
+        return connector
+
+    async def quote_swap(
             self,
             network: str,
             connector: str,
@@ -479,10 +486,13 @@ class GatewayHttpClient:
             amount: Decimal,
             side: TradeType,
             slippage_pct: Optional[Decimal] = None,
+            pool_address: Optional[str] = None,
             fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
+
+        connector_type = get_connector_type(connector)
 
         request_payload = {
             "network": network,
@@ -493,10 +503,12 @@ class GatewayHttpClient:
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
+        if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is not None:
+            request_payload["poolAddress"] = pool_address
 
         return await self.api_request(
             "get",
-            f"{connector}/quote-swap",
+            f"{self._transform_connector_route(connector)}/quote-swap",
             request_payload,
             fail_silently=fail_silently
         )
@@ -539,16 +551,16 @@ class GatewayHttpClient:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request("post", f"{connector}/trade", request_payload)
 
-    async def amm_estimate_gas(
+    async def estimate_gas(
             self,
             chain: str,
             network: str,
-            connector: str,
+            gas_limit: Optional[int] = None,
     ) -> Dict[str, Any]:
-        return await self.api_request("post", f"{connector}/estimateGas", {
+        return await self.api_request("post", f"{chain}/estimate-gas", {
             "chain": chain,
             "network": network,
-            "connector": connector,
+            "gasLimit": gas_limit
         })
 
     async def clmm_pool_info(

@@ -23,6 +23,8 @@ class DEXPriceConfig(BaseClientModel):
         prompt_on_new=True, prompt=lambda mi: "Trading pair in which the bot will place orders"))
     is_buy: bool = Field(True, client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Buying or selling the base asset? (True for buy, False for sell)"))
+    pool_address: str = Field("", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Pool address (needed for AMM and CLMM connectors)"))
     amount: Decimal = Field(Decimal("0.01"), client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Amount of base asset to buy or sell"))
 
@@ -51,13 +53,17 @@ class DEXPrice(ScriptStrategyBase):
     async def async_task(self):
         # fetch price using GatewaySwap instead of direct HTTP call
         side = "buy" if self.config.is_buy else "sell"
-        msg = f"Getting quote to {side} {self.config.amount} in {self.base} for {self.quote}"
+        msg = (f"Getting quote on {self.config.connector} "
+               f"({self.config.chain}/{self.config.network}) "
+               f"to {side} {self.config.amount} {self.base} "
+               f"for {self.quote}")
         try:
             self.log_with_clock(logging.INFO, msg)
             price = await self.connectors[self.exchange].get_quote_price(
                 trading_pair=self.config.trading_pair,
                 is_buy=self.config.is_buy,
                 amount=self.config.amount,
+                pool_address=self.config.pool_address
             )
             self.log_with_clock(logging.INFO, f"Price: {price}")
         except Exception as e:
