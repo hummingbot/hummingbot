@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 import functools
-from sqlalchemy import (
+from sqlalchemy import (, text
     Column,
 )
 
