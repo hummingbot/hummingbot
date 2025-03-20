@@ -4,7 +4,6 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from eth_account.messages import encode_defunct
-from hexbytes import HexBytes
 from lyra_v2_action_signing import SignedAction, TradeModuleData, utils
 from web3 import Web3
 
@@ -12,7 +11,7 @@ from hummingbot.connector.derivative.derive_perpetual import (
     derive_perpetual_constants as CONSTANTS,
     derive_perpetual_web_utils as web_utils,
 )
-from hummingbot.connector.utils import to_0x_hex
+from hummingbot.connector.utils import lyra_updated_sign, to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -113,22 +112,6 @@ class DerivePerpetualAuth(AuthBase):
             ACTION_TYPEHASH=CONSTANTS.ACTION_TYPEHASH,  # from Protocol Constants table in docs.derive_perpetual.xyz
         )
         try:
-            def lyra_updated__to_typed_data_hash(action) -> HexBytes:
-                encoded_typed_data_hash = "".join(["0x1901", action.DOMAIN_SEPARATOR[2:], action._get_action_hash().hex()[2:]])
-                return Web3.keccak(hexstr=encoded_typed_data_hash)
-
-            def lyra_updated_sign(action, signer_private_key: str):
-                signer_wallet = Web3().eth.account.from_key(signer_private_key)
-                try:
-                    hash = lyra_updated__to_typed_data_hash(action)
-                    signature = signer_wallet.unsafe_sign_hash(to_0x_hex(hash))
-                except Exception as ex:
-                    print(f"Error signing action: {ex}")
-                    raise ex
-                # signature = signer_wallet.sign_message((action._to_typed_data_hash()))
-                action.signature = to_0x_hex(signature.signature)
-                return action.signature
-
             # action.sign(self.session_key_wallet.key)
             lyra_updated_sign(action, self.session_key_wallet.key)
         except Exception as e:

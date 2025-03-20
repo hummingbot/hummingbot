@@ -2,6 +2,7 @@ import json
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import MagicMock, patch
 
+import eth_utils
 from web3 import Web3
 
 from hummingbot.connector.exchange.derive.derive_auth import DeriveAuth
@@ -11,7 +12,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.api_key = "testApiKey"
+        self.api_key = "0x1234567890abcdef1234567890abcdef12345678"  # noqa: mock
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         self.sub_id = "45686"  # noqa: mock
         self.auth = DeriveAuth(api_key=self.api_key,
@@ -67,9 +68,12 @@ class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(authenticated_request.data, json.dumps({"key": "value"}))
 
     def test_add_auth_to_params_post(self):
+        address = "0x1234567890abcdef1234567890abcdef12345678"
+        self.assertTrue(eth_utils.is_hex_address(address))
         params = {
             "type": "order",
-            "asset_address": "0xabc",
+            # This needs to be 0x40-long
+            "asset_address": address,
             "sub_id": 1,
             "limit_price": "100",
             "amount": "10",
