@@ -135,7 +135,7 @@ class UtilsTest(unittest.TestCase):
         result = lyra_updated_sign(self.action, self.signer_private_key)
 
         # This is key and must match the expected format
-        self.assertEqual("0x" + "2" * 64, result)
+        self.assertEqual("0x" + "2" * 64, result.signature)
 
         mock_web3.assert_called_once()
         mock_web3_instance.eth.account.from_key.assert_called_once_with(self.signer_private_key)
