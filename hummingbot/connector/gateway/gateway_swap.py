@@ -186,14 +186,13 @@ class GatewaySwap(GatewayBase):
         :param order_id: Internal order id (also called client_order_id)
         :param trading_pair: The market to place order
         :param amount: The order amount (in base token value)
-        :param price: The order price
+        :param price: The order price (TO-DO: add limit_price to Gateway execute-swap schema)
         """
-        pool_id = None
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         try:
-            trading_pair, pool_id = trading_pair.split("_")
+            trading_pair = trading_pair.split("_")
         except Exception:
             pass
         base, quote = trading_pair.split("-")
@@ -203,8 +202,7 @@ class GatewaySwap(GatewayBase):
                                   price=price,
                                   amount=amount)
         try:
-            order_result: Dict[str, Any] = await self._get_gateway_instance().amm_trade(
-                self.chain,
+            order_result: Dict[str, Any] = await self._get_gateway_instance().execute_swap(
                 self.network,
                 self.connector_name,
                 self.address,
@@ -212,13 +210,11 @@ class GatewaySwap(GatewayBase):
                 quote,
                 trade_type,
                 amount,
-                price,
-                pool_id=pool_id,
+                # limit_price=price,
                 **request_args
             )
-            transaction_hash: Optional[str] = order_result.get("txHash")
+            transaction_hash: Optional[str] = order_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
-                # self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=order_id,
