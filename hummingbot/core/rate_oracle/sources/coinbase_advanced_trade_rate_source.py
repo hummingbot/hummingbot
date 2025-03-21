@@ -1,6 +1,8 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict
 
+from pydantic import SecretStr
+
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import DEFAULT_DOMAIN
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
@@ -45,7 +47,7 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
 
     def _ensure_exchanges(self):
         if self._coinbase_exchange is None:
-            self._coinbase_exchange = self._build_coinbase_connector_without_private_keys(domain="com")
+            self._coinbase_exchange = self._build_coinbase_connector(domain="com")
 
     async def _get_coinbase_prices(
             self,
@@ -63,20 +65,20 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         self.logger().debug(f"   {token_price.get('ATOM')} {quote_token} for 1 ATOM")
         return {token: Decimal(1.0) / Decimal(price) for token, price in token_price.items() if Decimal(price) != 0}
 
-    @staticmethod
-    def _build_coinbase_connector_without_private_keys(domain: str = DEFAULT_DOMAIN) -> 'CoinbaseAdvancedTradeExchange':
+    def _build_coinbase_connector(self, domain: str = DEFAULT_DOMAIN) -> 'CoinbaseAdvancedTradeExchange':
         from hummingbot.client.hummingbot_application import HummingbotApplication
+        from hummingbot.client.settings import AllConnectorSettings
         from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
             CoinbaseAdvancedTradeExchange,
         )
 
         app = HummingbotApplication.main_application()
         client_config_map = app.client_config_map
-
+        connector_config = AllConnectorSettings.get_connector_config_keys("coinbase_advanced_trade")
         return CoinbaseAdvancedTradeExchange(
             client_config_map=client_config_map,
-            coinbase_advanced_trade_api_key="",
-            coinbase_advanced_trade_api_secret="",
+            coinbase_advanced_trade_api_key=getattr(connector_config, "coinbase_advanced_trade_api_key", SecretStr("")).get_secret_value(),
+            coinbase_advanced_trade_api_secret=getattr(connector_config, "coinbase_advanced_trade_api_secret", SecretStr("")).get_secret_value(),
             trading_pairs=[],
             trading_required=False,
             domain=domain,

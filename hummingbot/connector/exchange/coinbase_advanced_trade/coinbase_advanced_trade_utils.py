@@ -35,6 +35,7 @@ class CoinbaseAdvancedTradeRESTRequest(EndpointRESTRequest):
 
 class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
     connector: str = "coinbase_advanced_trade"
+    rate_endpoints_require_auth: bool = Field(default=True, const=True, client_data=None)
     coinbase_advanced_trade_api_key: SecretStr = Field(
         default=...,
         json_schema_extra={
