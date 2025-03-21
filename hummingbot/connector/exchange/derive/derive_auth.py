@@ -109,7 +109,7 @@ class DeriveAuth(AuthBase):
             ACTION_TYPEHASH=CONSTANTS.ACTION_TYPEHASH,  # from Protocol Constants table in docs.derive.xyz
         )
         # action.sign(self.session_key_wallet.key)
-        lyra_updated_sign(action, self.session_key_wallet.key)
+        action = lyra_updated_sign(action, self.session_key_wallet.key)
         return action.to_json()
 
     def header_for_authentication(self) -> Dict[str, str]:

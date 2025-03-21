@@ -113,7 +113,7 @@ class DerivePerpetualAuth(AuthBase):
         )
         try:
             # action.sign(self.session_key_wallet.key)
-            lyra_updated_sign(action, self.session_key_wallet.key)
+            action = lyra_updated_sign(action, self.session_key_wallet.key)
         except Exception as e:
             raise Exception(f"Error signing action: {e}")
 

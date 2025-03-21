@@ -7,6 +7,7 @@ from hashlib import md5
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from hexbytes import HexBytes
+from lyra_v2_action_signing import SignedAction
 from web3 import Web3
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -135,7 +136,7 @@ def to_0x_hex(signature: HexBytes | bytes) -> str:
     return hex if (hex := signature.hex()).startswith("0x") else f"0x{hex}"
 
 
-def lyra_updated_sign(action, signer_private_key: str):
+def lyra_updated_sign(action, signer_private_key: str) -> SignedAction:
     def lyra_updated__to_typed_data_hash() -> HexBytes:
         encoded_typed_data_hash = "".join(["0x1901", action.DOMAIN_SEPARATOR[2:], action._get_action_hash().hex()[2:]])
         return Web3.keccak(hexstr=encoded_typed_data_hash)
@@ -149,4 +150,4 @@ def lyra_updated_sign(action, signer_private_key: str):
         raise ex
 
     action.signature = to_0x_hex(signature.signature)
-    return action.signature
+    return action
