@@ -1,120 +1,148 @@
-import asyncio
+import logging
+import os
+from decimal import Decimal
+from typing import Dict
 
-from hummingbot.client.settings import GatewayConnectionSetting
-from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from pydantic import Field
+
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.strategy.script_strategy_base import Decimal, ScriptStrategyBase
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class AmmTradeExample(ScriptStrategyBase):
+class DEXTradeConfig(BaseClientModel):
+    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    connector: str = Field("jupiter", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Connector name (e.g. jupiter, uniswap)"))
+    chain: str = Field("solana", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Chain (e.g. solana, ethereum)"))
+    network: str = Field("mainnet-beta", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Network (e.g. mainnet-beta (solana), base (ethereum))"))
+    trading_pair: str = Field("SOL-USDC", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Trading pair (e.g. SOL-USDC)"))
+    target_price: Decimal = Field(Decimal("142"), client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Target price to trigger trade"))
+    trigger_above: bool = Field(False, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Trigger when price rises above target? (True for above/False for below)"))
+    is_buy: bool = Field(True, client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Buying or selling the base asset? (True for buy, False for sell)"))
+    pool_address: str = Field("", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Pool address (needed for AMM and CLMM connectors)"))
+    amount: Decimal = Field(Decimal("0.01"), client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Order amount (in base token)"))
+
+
+class DEXTrade(ScriptStrategyBase):
     """
-    This example shows how to call the /amm/trade Gateway endpoint to execute a swap transaction
+    This strategy monitors DEX prices and executes a swap when a price threshold is reached.
     """
-    # swap params
-    connector_chain_network = "uniswap_ethereum_goerli"
-    trading_pair = {"WETH-DAI"}
-    side = "SELL"
-    order_amount = Decimal("0.01")
-    slippage_buffer = 0.01
-    markets = {
-        connector_chain_network: trading_pair
-    }
-    on_going_task = False
+
+    @classmethod
+    def init_markets(cls, config: DEXTradeConfig):
+        connector_chain_network = f"{config.connector}_{config.chain}_{config.network}"
+        cls.markets = {connector_chain_network: {config.trading_pair}}
+
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: DEXTradeConfig):
+        super().__init__(connectors)
+        self.config = config
+        self.exchange = f"{config.connector}_{config.chain}_{config.network}"
+        self.base, self.quote = self.config.trading_pair.split("-")
+
+        # State tracking
+        self.trade_executed = False
+        self.trade_in_progress = False
+
+        # Log trade information
+        condition = "rises above" if self.config.trigger_above else "falls below"
+        side = "BUY" if self.config.is_buy else "SELL"
+        self.log_with_clock(logging.INFO, f"Will {side} {self.config.amount} {self.base} for {self.quote} on {self.exchange} when price {condition} {self.config.target_price}")
 
     def on_tick(self):
-        # only execute once
-        if not self.on_going_task:
-            self.on_going_task = True
-            # wrap async task in safe_ensure_future
-            safe_ensure_future(self.async_task())
-
-    # async task since we are using Gateway
-    async def async_task(self):
-        base, quote = list(self.trading_pair)[0].split("-")
-        connector, chain, network = self.connector_chain_network.split("_")
-        if (self.side == "BUY"):
-            trade_type = TradeType.BUY
-        else:
-            trade_type = TradeType.SELL
-
-        # fetch current price
-        self.logger().info(f"POST /amm/price [ connector: {connector}, base: {base}, quote: {quote}, amount: {self.order_amount}, side: {self.side} ]")
-        priceData = await GatewayHttpClient.get_instance().get_price(
-            chain,
-            network,
-            connector,
-            base,
-            quote,
-            self.order_amount,
-            trade_type
-        )
-        self.logger().info(f"Price: {priceData['price']}")
-        self.logger().info(f"Amount: {priceData['amount']}")
-
-        # add slippage buffer to current price
-        if (self.side == "BUY"):
-            price = float(priceData['price']) * (1 + self.slippage_buffer)
-        else:
-            price = float(priceData['price']) * (1 - self.slippage_buffer)
-        self.logger().info(f"Swap Limit Price: {price}")
-
-        # fetch wallet address and print balances
-        gateway_connections_conf = GatewayConnectionSetting.load()
-        if len(gateway_connections_conf) < 1:
-            self.notify("No existing wallet.\n")
+        # Don't check price if trade already executed or in progress
+        if self.trade_executed or self.trade_in_progress:
             return
-        wallet = [w for w in gateway_connections_conf if w["chain"] == chain and w["connector"] == connector and w["network"] == network]
-        address = wallet[0]['wallet_address']
-        await self.get_balance(chain, network, address, base, quote)
 
-        # execute swap
-        self.logger().info(f"POST /amm/trade [ connector: {connector}, base: {base}, quote: {quote}, amount: {self.order_amount}, side: {self.side}, price: {price} ]")
-        tradeData = await GatewayHttpClient.get_instance().amm_trade(
-            chain,
-            network,
-            connector,
-            address,
-            base,
-            quote,
-            trade_type,
-            self.order_amount,
-            Decimal(price)
-        )
+        # Check price on each tick
+        safe_ensure_future(self.check_price_and_trade())
 
-        # poll for swap result and print resulting balances
-        await self.poll_transaction(chain, network, tradeData['txHash'])
-        await self.get_balance(chain, network, address, base, quote)
+    async def check_price_and_trade(self):
+        """Check current price and trigger trade if condition is met"""
+        if self.trade_in_progress or self.trade_executed:
+            return
 
-    # fetch and print balance of base and quote tokens
-    async def get_balance(self, chain, network, address, base, quote):
-        self.logger().info(f"POST /network/balance [ address: {address}, base: {base}, quote: {quote} ]")
-        balanceData = await GatewayHttpClient.get_instance().get_balances(
-            chain,
-            network,
-            address,
-            [base, quote]
-        )
-        self.logger().info(f"Balances for {address}: {balanceData['balances']}")
+        self.trade_in_progress = True
+        current_price = None  # Initialize current_price
 
-    # continuously poll for transaction until confirmed
-    async def poll_transaction(self, chain, network, txHash):
-        pending: bool = True
-        while pending is True:
-            self.logger().info(f"POST /network/poll [ txHash: {txHash} ]")
-            pollData = await GatewayHttpClient.get_instance().get_transaction_status(
-                chain,
-                network,
-                txHash
+        side = "buy" if self.config.is_buy else "sell"
+        msg = (f"Getting quote on {self.config.connector} "
+               f"({self.config.chain}/{self.config.network}) "
+               f"to {side} {self.config.amount} {self.base} "
+               f"for {self.quote}")
+
+        try:
+            self.log_with_clock(logging.INFO, msg)
+            current_price = await self.connectors[self.exchange].get_quote_price(
+                trading_pair=self.config.trading_pair,
+                is_buy=self.config.is_buy,
+                amount=self.config.amount,
+                pool_address=self.config.pool_address
             )
-            transaction_status = pollData.get("txStatus")
-            if transaction_status == 1:
-                self.logger().info(f"Trade with transaction hash {txHash} has been executed successfully.")
-                pending = False
-            elif transaction_status in [-1, 0, 2]:
-                self.logger().info(f"Trade is pending confirmation, Transaction hash: {txHash}")
-                await asyncio.sleep(2)
-            else:
-                self.logger().info(f"Unknown txStatus: {transaction_status}")
-                self.logger().info(f"{pollData}")
-                pending = False
+            self.log_with_clock(logging.INFO, f"Price: {current_price}")
+        except Exception as e:
+            self.log_with_clock(logging.ERROR, f"Error getting quote: {e}")
+            self.trade_in_progress = False
+            return  # Exit if we couldn't get the price
+
+        # Continue with rest of the function only if we have a valid price
+        if current_price is not None:
+            # Check if price condition is met
+            condition_met = False
+            if self.config.trigger_above and current_price > self.config.target_price:
+                condition_met = True
+                self.log_with_clock(logging.INFO, f"Price rose above target: {current_price} > {self.config.target_price}")
+            elif not self.config.trigger_above and current_price < self.config.target_price:
+                condition_met = True
+                self.log_with_clock(logging.INFO, f"Price fell below target: {current_price} < {self.config.target_price}")
+
+            if condition_met:
+                try:
+                    self.log_with_clock(logging.INFO, "Price condition met! Executing trade...")
+
+                    order_id = self.connectors[self.exchange].place_order(
+                        is_buy=self.config.is_buy,
+                        trading_pair=self.config.trading_pair,
+                        amount=self.config.amount,
+                        price=current_price,
+                        pool_address=self.config.pool_address
+                    )
+                    self.log_with_clock(logging.INFO, f"Trade executed with order ID: {order_id}")
+                    self.trade_executed = True
+                except Exception as e:
+                    self.log_with_clock(logging.ERROR, f"Error executing trade: {str(e)}")
+                finally:
+                    if not self.trade_executed:
+                        self.trade_in_progress = False
+
+    def format_status(self) -> str:
+        """Format status message for display in Hummingbot"""
+        if not self.gateway_ready:
+            return "Gateway server is not available. Please start Gateway and restart the strategy."
+
+        if self.trade_executed:
+            return "Trade has been executed successfully!"
+
+        if self.trade_in_progress:
+            return "Currently checking price or executing trade..."
+
+        condition = "rises above" if self.config.trigger_above else "falls below"
+
+        lines = []
+        side = "buy" if self.config.is_buy else "sell"
+        connector_chain_network = f"{self.config.connector}_{self.config.chain}_{self.config.network}"
+        lines.append(f"Monitoring {self.base}-{self.quote} price on {connector_chain_network}")
+        lines.append(f"Will execute {side} trade when price {condition} {self.config.target_price}")
+        lines.append(f"Trade amount: {self.config.amount} {self.base}")
+        lines.append("Checking price on every tick")
+
+        return "\n".join(lines)
