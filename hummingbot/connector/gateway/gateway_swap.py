@@ -191,10 +191,7 @@ class GatewaySwap(GatewayBase):
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
-        try:
-            trading_pair = trading_pair.split("_")
-        except Exception:
-            pass
+
         base, quote = trading_pair.split("-")
         self.start_tracking_order(order_id=order_id,
                                   trading_pair=trading_pair,
@@ -224,9 +221,9 @@ class GatewaySwap(GatewayBase):
                     new_state=OrderState.OPEN,  # Assume that the transaction has been successfully mined.
                     misc_updates={
                         "nonce": order_result.get("nonce", 0),  # Default to 0 if nonce is not present
-                        "gas_price": Decimal(order_result.get("gasPrice")),
-                        "gas_limit": int(order_result.get("gasLimit")),
-                        "gas_cost": Decimal(order_result.get("gasCost")),
+                        "gas_price": Decimal(order_result.get("gasPrice", 0)),
+                        "gas_limit": int(order_result.get("gasLimit", 0)),
+                        "gas_cost": Decimal(order_result.get("fee", 0)),
                         "gas_price_token": self._native_currency,
                         "fee_asset": self._native_currency
                     }

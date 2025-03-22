@@ -333,7 +333,6 @@ class GatewayHttpClient:
 
     async def approve_token(
             self,
-            chain: str,
             network: str,
             address: str,
             token: str,
@@ -381,18 +380,12 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             transaction_hash: str,
-            connector: Optional[str] = None,
-            address: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         request = {
             "network": network,
             "txHash": transaction_hash
         }
-        # if connector:
-        #     request["connector"] = connector
-        # if address:
-        #     request["address"] = address
         return await self.api_request("post", f"{chain}/poll", request, fail_silently=fail_silently)
 
     async def wallet_sign(
