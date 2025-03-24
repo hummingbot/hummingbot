@@ -78,7 +78,13 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> DerivePerpetualAuth:
-        return DerivePerpetualAuth(self.derive_perpetual_api_key, self.derive_perpetual_secret_key, self._sub_id, self._trading_required)
+        return DerivePerpetualAuth(
+            self.derive_perpetual_api_key,
+            self.derive_perpetual_secret_key,
+            self._sub_id,
+            self._trading_required,
+            domain=self.name,
+        )
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:

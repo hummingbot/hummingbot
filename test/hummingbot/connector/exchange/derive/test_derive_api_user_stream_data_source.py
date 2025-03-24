@@ -52,7 +52,8 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
                 api_key=self.api_key,
                 api_secret=self.api_secret_key,
                 sub_id=self.sub_id,
-                trading_required=self.trading_required
+                trading_required=self.trading_required,
+                domain="derive",
             )
             self.time_synchronizer = TimeSynchronizer()
             self.time_synchronizer.add_time_offset_ms_sample(0)

@@ -15,7 +15,7 @@ from hummingbot import root_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.settings import CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
-from hummingbot.connector.utils import get_new_client_order_id, lyra_updated_sign, to_0x_hex
+from hummingbot.connector.utils import get_new_client_order_id, to_0x_hex
 
 
 class UtilsTest(unittest.TestCase):
@@ -62,7 +62,8 @@ class UtilsTest(unittest.TestCase):
 
         expected_id_prefix = f"{host_prefix}B{self.base[0]}{self.base[-1]}{self.quote[0]}{self.quote[-1]}"
         expected_time_text = hex(nonce_mock.return_value)[2:]
-        expected_client_instance_id = md5(f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
+        expected_client_instance_id = md5(
+            f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
 
         expected_full_length_id = f"{expected_id_prefix}{expected_time_text}{expected_client_instance_id}"
         expected_shortened_id = f"{expected_id_prefix}{expected_time_text}{expected_client_instance_id[:5]}"
@@ -119,26 +120,3 @@ class UtilsTest(unittest.TestCase):
         signature = HexBytes("1234")
         result = to_0x_hex(signature)
         self.assertEqual(result, "0x1234")
-
-    @patch("hummingbot.connector.utils.Web3")
-    def test_lyra_updated_sign_happy_path(self, mock_web3: MagicMock):
-        mock_web3_instance = MagicMock()
-        mock_web3.return_value = mock_web3_instance
-        mock_account = MagicMock()
-        mock_web3_instance.eth.account.from_key.return_value = mock_account
-        mock_signature = MagicMock()
-        mock_account.unsafe_sign_hash.return_value = mock_signature
-        mock_signature.signature = HexBytes("0x" + "2" * 64)
-        self.action.DOMAIN_SEPARATOR = "0x" + "3" * 32
-        self.action._get_action_hash.return_value = HexBytes("0x" + "4" * 32)
-
-        result = lyra_updated_sign(self.action, self.signer_private_key)
-
-        # This is key and must match the expected format
-        self.assertEqual("0x" + "2" * 64, result.signature)
-
-        mock_web3.assert_called_once()
-        mock_web3_instance.eth.account.from_key.assert_called_once_with(self.signer_private_key)
-        self.action._get_action_hash.assert_called_once()
-        mock_account.unsafe_sign_hash.assert_called_once()
-        self.assertEqual("0x" + "2" * 64, self.action.signature)
