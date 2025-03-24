@@ -18,8 +18,7 @@ class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
         self.auth = DeriveAuth(api_key=self.api_key,
                                api_secret=self.api_secret,
                                sub_id=self.sub_id,
-                               trading_required=True,
-                               domain="derive")
+                               trading_required=True)
 
     def test_initialization(self):
         self.assertEqual(self.auth._api_key, self.api_key)
@@ -28,7 +27,7 @@ class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(self.auth._trading_required)
         self.assertIsInstance(self.auth._w3, Web3)
 
-    @patch("hummingbot.connector.exchange.derive.derive_auth.utc_now_ms")
+    @patch("hummingbot.connector.exchange.derive.derive_auth.DeriveAuth.utc_now_ms")
     def test_header_for_authentication(self, mock_utc_now):
         mock_utc_now.return_value = 1234567890
         mock_signature = "0x123signature"
@@ -92,7 +91,7 @@ class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
             updated_params = self.auth.add_auth_to_params_post(params, request)
             self.assertIsInstance(updated_params, str)
 
-    @patch("hummingbot.connector.exchange.derive.derive_auth.utc_now_ms")
+    @patch("hummingbot.connector.exchange.derive.derive_auth.DeriveAuth.utc_now_ms")
     def test_get_ws_auth_payload(self, mock_utc_now):
         mock_utc_now.return_value = 1234567890
         mock_signature = "0x123signature"
@@ -107,3 +106,9 @@ class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(payload["wallet"], self.api_key)
         self.assertEqual(payload["timestamp"], "1234567890")
         self.assertEqual(payload["signature"], mock_signature)
+
+    @patch("hummingbot.connector.exchange.derive.derive_auth.DeriveAuth.utc_now_ms")
+    def test_utc_now_ms(self, mock_utc_now):
+        mock_utc_now.return_value = 1234567890
+        timestamp = self.auth.utc_now_ms()
+        self.assertEqual(timestamp, 1234567890)
