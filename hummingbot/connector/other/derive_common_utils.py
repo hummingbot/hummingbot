@@ -8,7 +8,7 @@ from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import Web3
 
-from hummingbot.connector.utils import utc_now_ms
+from hummingbot.connector.exchange.derive.derive_web_utils import utc_now_ms
 
 MAX_INT_256: int = 2 ** 255 - 1
 MIN_INT_256: int = -(2 ** 255)
@@ -16,7 +16,7 @@ MAX_INT_32: int = 2 ** 31 - 1
 
 
 def decimal_to_big_int(value: Decimal) -> int:
-    result_value = int(value * Decimal(10 ** 18))
+    result_value = int(value * Decimal(10**18))
     if result_value < MIN_INT_256 or result_value > MAX_INT_256:
         raise ValueError(f"resulting integer value must be between {MIN_INT_256} and {MAX_INT_256}")
     return result_value
