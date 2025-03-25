@@ -60,3 +60,6 @@ dependencies:
   - xrpl-py>=4,<4.1.0
   - yaml>=0.2.5
   - zlib>=1.2.13
+  - pip:
+      - lyra_v2_action_signing==0.0.3
+      - ptpython
