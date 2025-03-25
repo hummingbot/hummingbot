@@ -350,7 +350,7 @@ class CLMMPositionManager(ScriptStrategyBase):
             # Close position with retry logic
             while retry_count < max_retries and not position_closed:
                 if retry_count > 0:
-                    self.logger().info(f"Retrying position closing (attempt {retry_count+1}/{max_retries})...")
+                    self.logger().info(f"Retrying position closing (attempt {retry_count + 1}/{max_retries})...")
 
                 # Close position
                 self.logger().info(f"Closing position {self.position_address}...")
