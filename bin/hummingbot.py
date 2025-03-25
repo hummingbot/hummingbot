@@ -86,8 +86,8 @@ def main():
     secrets_manager_cls = ETHKeyFileSecretManger
 
     try:
-        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    except Exception:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+    except RuntimeError:
         ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         asyncio.set_event_loop(ev_loop)
 

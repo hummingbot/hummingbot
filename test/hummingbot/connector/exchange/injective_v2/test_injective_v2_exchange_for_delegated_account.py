@@ -85,23 +85,20 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
         self._initialize_timeout_height_patch.start()
         super().setUp()
-        self._original_async_loop = asyncio.get_event_loop()
-        self.async_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.async_loop)
         self._logs_event: Optional[asyncio.Event] = None
         self.exchange._data_source.logger().setLevel(1)
         self.exchange._data_source.logger().addHandler(self)
 
         self.exchange._orders_processing_delta_time = 0.1
-        self.async_tasks.append(self.async_loop.create_task(self.exchange._process_queued_orders()))
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.async_tasks.append(asyncio.create_task(self.exchange._process_queued_orders()))
 
     def tearDown(self) -> None:
         super().tearDown()
         self._initialize_timeout_height_patch.stop()
         self._initialize_timeout_height_sync_task.stop()
-        self.async_loop.stop()
-        self.async_loop.close()
-        asyncio.set_event_loop(self._original_async_loop)
         self._logs_event = None
 
     def handle(self, record):
@@ -823,24 +820,24 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         }
 
     @aioresponses()
-    def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
+    async def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
         self.exchange._data_source._spot_market_and_trading_pair_map = None
         queue_mock = AsyncMock()
         queue_mock.get.side_effect = Exception("Test error")
         self.exchange._data_source._query_executor._spot_markets_responses = queue_mock
 
-        result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs(), timeout=10)
+        result: List[str] = await asyncio.wait_for(self.exchange.all_trading_pairs(), timeout=10)
 
         self.assertEqual(0, len(result))
 
-    def test_batch_order_create(self):
+    async def test_batch_order_create(self):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
         # Configure all symbols response to initialize the trading rules
         self.configure_all_symbols_response(mock_api=None)
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
+        await asyncio.wait_for(self.exchange._update_trading_rules(), timeout=1)
 
         buy_order_to_create = LimitOrder(
             client_order_id="",
@@ -900,7 +897,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             creation_transaction_hash=response["txhash"]
         )
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(2, len(orders))
         self.assertEqual(2, len(self.exchange.in_flight_orders))
@@ -917,13 +914,13 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
         )
 
-    def test_batch_order_create_with_one_market_order(self):
+    async def test_batch_order_create_with_one_market_order(self):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
         # Configure all symbols response to initialize the trading rules
         self.configure_all_symbols_response(mock_api=None)
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
+        await asyncio.wait_for(self.exchange._update_trading_rules(), timeout=1)
 
         order_book = OrderBook()
         self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
@@ -997,7 +994,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             creation_transaction_hash=response["txhash"]
         )
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(2, len(orders))
         self.assertEqual(2, len(self.exchange.in_flight_orders))
@@ -1015,7 +1012,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
     @aioresponses()
-    def test_create_buy_limit_order_successfully(self, mock_api):
+    async def test_create_buy_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1034,7 +1031,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1044,7 +1041,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
-    def test_create_sell_limit_order_successfully(self, mock_api):
+    async def test_create_sell_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1063,7 +1060,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_id = self.place_sell_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1073,7 +1070,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
-    def test_create_buy_market_order_successfully(self, mock_api):
+    async def test_create_buy_market_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1107,7 +1104,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         ).result_price
 
         order_id = self.place_buy_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1118,7 +1115,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(expected_price_for_volume, order.price)
 
     @aioresponses()
-    def test_create_sell_market_order_successfully(self, mock_api):
+    async def test_create_sell_market_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1152,7 +1149,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         ).result_price
 
         order_id = self.place_sell_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1163,7 +1160,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(expected_price_for_volume, order.price)
 
     @aioresponses()
-    def test_create_order_fails_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1182,7 +1179,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
@@ -1202,7 +1199,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
     @aioresponses()
-    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1225,7 +1222,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -1252,7 +1249,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-    def test_batch_order_cancel(self):
+    async def test_batch_order_cancel(self):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -1294,7 +1291,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.exchange.batch_order_cancel(orders_to_cancel=orders_to_cancel)
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=10)
 
         self.assertIn(buy_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
         self.assertIn(sell_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
@@ -1304,18 +1301,18 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(response["txhash"], sell_order_to_cancel.cancel_tx_hash)
 
     @aioresponses()
-    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+    async def test_cancel_order_not_found_in_the_exchange(self, mock_api):
         # This tests does not apply for Injective. The batch orders update message used for cancelations will not
         # detect if the orders exists or not. That will happen when the transaction is executed.
         pass
 
     @aioresponses()
-    def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
+    async def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
         # This tests does not apply for Injective. The batch orders update message used for cancelations will not
         # detect if the orders exists or not. That will happen when the transaction is executed.
         pass
 
-    def test_user_stream_balance_update(self):
+    async def test_user_stream_balance_update(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
@@ -1358,11 +1355,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
@@ -1376,7 +1373,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
 
-    def test_user_stream_update_for_new_order(self):
+    async def test_user_stream_update_for_new_order(self):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1404,11 +1401,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
@@ -1433,7 +1430,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertTrue(self.is_logged("INFO", tracked_order.build_order_created_message()))
 
-    def test_user_stream_update_for_canceled_order(self):
+    async def test_user_stream_update_for_canceled_order(self):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1461,11 +1458,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
@@ -1489,7 +1486,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
     @aioresponses()
-    def test_user_stream_update_for_order_full_fill(self, mock_api):
+    async def test_user_stream_update_for_order_full_fill(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1523,8 +1520,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
         )
         tasks = [
             asyncio.get_event_loop().create_task(
@@ -1536,11 +1533,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             ),
         ]
         try:
-            self.async_run_with_timeout(safe_gather(*tasks))
+            await asyncio.wait_for(safe_gather(*tasks), timeout=1)
         except asyncio.CancelledError:
             pass
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+        await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1573,15 +1570,15 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-    def test_user_stream_logs_errors(self):
+    async def test_user_stream_logs_errors(self):
         # This test does not apply to Injective because it handles private events in its own data source
         pass
 
-    def test_user_stream_raises_cancel_exception(self):
+    async def test_user_stream_raises_cancel_exception(self):
         # This test does not apply to Injective because it handles private events in its own data source
         pass
 
-    def test_lost_order_removed_after_cancel_status_user_event_received(self):
+    async def test_lost_order_removed_after_cancel_status_user_event_received(self):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1597,8 +1594,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+            await asyncio.wait_for(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id), timeout=1)
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1615,11 +1612,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[market],
                     derivative_markets=[],
@@ -1637,7 +1634,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertTrue(order.is_failure)
 
     @aioresponses()
-    def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
+    async def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1651,8 +1648,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+            await asyncio.wait_for(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id), timeout=1)
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1677,8 +1674,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id), timeout=1
         )
         tasks = [
             asyncio.get_event_loop().create_task(
@@ -1690,11 +1687,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             ),
         ]
         try:
-            self.async_run_with_timeout(safe_gather(*tasks))
+            await asyncio.wait_for(safe_gather(*tasks), timeout=1)
         except asyncio.CancelledError:
             pass
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+        await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1714,62 +1711,64 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertTrue(order.is_failure)
 
     @aioresponses()
-    def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
+    async def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
 
         invalid_pair, response = self.all_symbols_including_invalid_pair_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(response)
         self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
 
-        all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
+        all_trading_pairs = await asyncio.wait_for(self.exchange.all_trading_pairs(), timeout=1)
 
         self.assertNotIn(invalid_pair, all_trading_pairs)
 
     @aioresponses()
-    def test_check_network_success(self, mock_api):
+    async def test_check_network_success(self, mock_api):
         response = self.network_status_request_successful_mock_response
         self.exchange._data_source._query_executor._ping_responses.put_nowait(response)
 
-        network_status = self.async_run_with_timeout(coroutine=self.exchange.check_network(), timeout=10)
+        network_status = await asyncio.wait_for(self.exchange.check_network(), timeout=10)
 
         self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
     @aioresponses()
-    def test_check_network_failure(self, mock_api):
+    async def test_check_network_failure(self, mock_api):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = RpcError("Test Error")
         self.exchange._data_source._query_executor._ping_responses = mock_queue
 
-        ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
+        ret = await asyncio.wait_for(self.exchange.check_network(), timeout=1)
 
         self.assertEqual(ret, NetworkStatus.NOT_CONNECTED)
 
     @aioresponses()
-    def test_check_network_raises_cancel_exception(self, mock_api):
+    async def test_check_network_raises_cancel_exception(self, mock_api):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.exchange._data_source._query_executor._ping_responses = mock_queue
 
-        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.exchange.check_network())
+        with self.assertRaises(asyncio.CancelledError):
+            await asyncio.wait_for(self.exchange.check_network(), timeout=1)
 
     @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
+    async def test_get_last_trade_prices(self, mock_api):
         self.configure_all_symbols_response(mock_api=mock_api)
         response = self.latest_prices_request_mock_response
         self.exchange._data_source._query_executor._spot_trades_responses.put_nowait(response)
 
-        latest_prices: Dict[str, float] = self.async_run_with_timeout(
-            self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
+        latest_prices: Dict[str, float] = await asyncio.wait_for(
+            self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair]),
+            timeout=1,
         )
 
         self.assertEqual(1, len(latest_prices))
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 
-    def test_get_fee(self):
+    async def test_get_fee(self):
         self.exchange._data_source._spot_market_and_trading_pair_map = None
         self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
-        self.async_run_with_timeout(self.exchange._update_trading_fees())
+        await asyncio.wait_for(self.exchange._update_trading_fees(), timeout=1)
 
         market = list(self.all_markets_mock_response.values())[0]
         maker_fee_rate = market.maker_fee_rate
@@ -1801,7 +1800,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(taker_fee_rate, taker_fee.percent)
         self.assertEqual(self.quote_asset, maker_fee.percent_token)
 
-    def test_restore_tracking_states_only_registers_open_orders(self):
+    async def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
         orders.append(GatewayInFlightOrder(
             client_order_id=self.client_order_id_prefix + "1",
@@ -1857,11 +1856,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertNotIn(self.client_order_id_prefix + "4", self.exchange.in_flight_orders)
 
     @aioresponses()
-    def test_update_balances(self, mock_api):
+    async def test_update_balances(self, mock_api):
         response = self.balance_request_mock_response_for_base_and_quote
         self._configure_balance_response(response=response, mock_api=mock_api)
 
-        self.async_run_with_timeout(self.exchange._update_balances())
+        await asyncio.wait_for(self.exchange._update_balances(), timeout=1)
 
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
@@ -1874,7 +1873,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         response = self.balance_request_mock_response_only_base
 
         self._configure_balance_response(response=response, mock_api=mock_api)
-        self.async_run_with_timeout(self.exchange._update_balances())
+        await asyncio.wait_for(self.exchange._update_balances(), timeout=1)
 
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
@@ -1884,7 +1883,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(Decimal("10"), available_balances[self.base_asset])
         self.assertEqual(Decimal("15"), total_balances[self.base_asset])
 
-    def test_order_found_in_its_creating_transaction_not_marked_as_failed_during_order_creation_check(self):
+    async def test_order_found_in_its_creating_transaction_not_marked_as_failed_during_order_creation_check(self):
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000.0)
 
@@ -2093,7 +2092,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
 
-        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+        await asyncio.wait_for(self.exchange._check_orders_creation_transactions(), timeout=1)
 
         self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         self.assertEqual(0, len(self.order_failure_logger.event_log))
@@ -2108,7 +2107,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
     @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source.InjectiveDataSource._time")
-    def test_order_in_failed_transaction_marked_as_failed_during_order_creation_check(self, time_mock):
+    async def test_order_in_failed_transaction_marked_as_failed_during_order_creation_check(self, time_mock):
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000.0)
         time_mock.return_value = 1640780000.0
@@ -2161,7 +2160,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
 
-        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+        await asyncio.wait_for(self.exchange._check_orders_creation_transactions(), timeout=1)
 
         self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]

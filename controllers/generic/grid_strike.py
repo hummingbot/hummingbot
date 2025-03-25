@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
-from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel, Field
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType

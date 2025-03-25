@@ -16,6 +16,7 @@ from hummingbot.connector.derivative.bitmart_perpetual.bitmart_perpetual_user_st
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
@@ -64,6 +65,11 @@ class BitmartPerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
 
         self.mock_done_event = asyncio.Event()
         self.resume_test_event = asyncio.Event()

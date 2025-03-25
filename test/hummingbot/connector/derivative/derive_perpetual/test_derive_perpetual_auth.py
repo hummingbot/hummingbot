@@ -12,7 +12,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 class DerivePerpetualAuthTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.api_key = "testApiKey"
+        self.api_key = "0x1234567890abcdef1234567890abcdef12345678"
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         self.sub_id = "45686"  # noqa: mock
         self.auth = DerivePerpetualAuth(api_key=self.api_key,
@@ -33,7 +33,7 @@ class DerivePerpetualAuthTests(TestCase):
         mock_signature = "0x123signature"
 
         mock_account = MagicMock()
-        mock_account.sign_message.return_value.signature.hex.return_value = mock_signature
+        mock_account.sign_message.return_value.signature.to_0x_hex.return_value = mock_signature
         self.auth._w3.eth.account = mock_account
 
         headers = self.auth.header_for_authentication()
@@ -68,9 +68,13 @@ class DerivePerpetualAuthTests(TestCase):
         self.assertEqual(authenticated_request.data, json.dumps({"key": "value"}))
 
     def test_add_auth_to_params_post(self):
+        import eth_utils
+        address = "0x1234567890abcdef1234567890abcdef12345678"
+        self.assertTrue(eth_utils.is_hex_address(address))
         params = {
             "type": "order",
-            "asset_address": "0xabc",
+            # This needs to be 0x40-long
+            "asset_address": address,
             "sub_id": 1,
             "limit_price": "100",
             "amount": "10",
@@ -94,7 +98,7 @@ class DerivePerpetualAuthTests(TestCase):
         mock_signature = "0x123signature"
 
         mock_account = MagicMock()
-        mock_account.sign_message.return_value.signature.hex.return_value = mock_signature
+        mock_account.sign_message.return_value.signature.to_0x_hex.return_value = mock_signature
         self.auth._w3.eth.account = mock_account
 
         payload = self.auth.get_ws_auth_payload()

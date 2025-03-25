@@ -7,7 +7,13 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import AsyncWeb3, Web3
-from web3.middleware import async_geth_poa_middleware
+
+from hummingbot.connector.utils import to_0x_hex
+
+try:
+    from web3.middleware import async_geth_poa_middleware
+except ImportError:
+    from web3.middleware import ExtraDataToPOAMiddleware as async_geth_poa_middleware
 
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -147,8 +153,8 @@ class DexalotClient:
                     signed_txn = self.async_w3.eth.account.sign_transaction(
                         transaction, private_key=self._private_key
                     )
-                    result = await self.async_w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-                    return result.hex()
+                    result = to_0x_hex(await self.async_w3.eth.send_raw_transaction(signed_txn.raw_transaction))
+                    return result
                 except ValueError as e:
                     self._connector.logger().warning(
                         f"{str(e)} "

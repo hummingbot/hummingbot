@@ -482,7 +482,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         datetime_str = str(
             pd.Timestamp.utcfromtimestamp(
                 self.target_funding_info_next_funding_utc_timestamp)
-        ).replace(" ", "T") + "Z"
+        ).replace(" ", "T")  # + "Z"
         return datetime_str
 
     @property
@@ -490,7 +490,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         datetime_str = str(
             pd.Timestamp.utcfromtimestamp(
                 self.target_funding_info_next_funding_utc_timestamp_ws_updated)
-        ).replace(" ", "T") + "Z"
+        ).replace(" ", "T")  # + "Z"
         return datetime_str
 
     @property
@@ -498,7 +498,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         datetime_str = str(
             pd.Timestamp.utcfromtimestamp(
                 self.target_funding_payment_timestamp)
-        ).replace(" ", "T") + "Z"
+        ).replace(" ", "T")  # + "Z"
         return datetime_str
 
     @property

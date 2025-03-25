@@ -33,7 +33,7 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         await super().asyncSetUp()
         self.log_records = []
         self.listening_task = None
-        self.mocking_assistant = NetworkMockingAssistant(event_loop=self.local_event_loop)
+        self.mocking_assistant = NetworkMockingAssistant()
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = AscendExExchange(

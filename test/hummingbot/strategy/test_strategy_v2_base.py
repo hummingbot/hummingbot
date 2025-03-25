@@ -34,7 +34,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.trading_pair: str = "HBOT-USDT"
         self.strategy_config = StrategyV2ConfigBase(markets={self.connector_name: {self.trading_pair}},
                                                     candles_config=[])
-        with patch('asyncio.create_task', return_value=AsyncMock()):
+        with patch('asyncio.create_task', return_value=MagicMock()):
             # Initialize the strategy with mock components
             with patch("hummingbot.strategy.strategy_v2_base.StrategyV2Base.listen_to_executor_actions", return_value=AsyncMock()):
                 with patch('hummingbot.strategy.strategy_v2_base.ExecutorOrchestrator') as MockExecutorOrchestrator:

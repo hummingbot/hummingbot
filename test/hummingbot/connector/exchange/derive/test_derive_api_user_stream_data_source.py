@@ -26,7 +26,6 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.local_event_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -40,7 +39,6 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         super().setUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
-        self.mocking_assistant = NetworkMockingAssistant()
 
         # Mock Web3 account creation
         self.mock_wallet = MagicMock()
@@ -79,6 +77,10 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
             self.data_source.logger().addHandler(self)
             self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()

@@ -4,7 +4,7 @@ from copy import deepcopy
 from decimal import Decimal
 from typing import Dict, List
 
-from pydantic.main import BaseModel
+from pydantic.v1.main import BaseModel
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import PriceType, TradeType

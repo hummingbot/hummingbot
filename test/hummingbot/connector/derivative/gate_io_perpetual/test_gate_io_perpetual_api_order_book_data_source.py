@@ -21,6 +21,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -39,7 +40,6 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         super().setUp()
         self.log_records = []
         self.listening_task = None
-        self.mocking_assistant = NetworkMockingAssistant()
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = GateIoPerpetualDerivative(
@@ -61,10 +61,14 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.resume_test_event = asyncio.Event()
-
         self.connector._set_trading_pair_symbol_map(
             bidict({f"{self.base_asset}_{self.quote_asset}": self.trading_pair}))
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()

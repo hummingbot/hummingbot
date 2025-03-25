@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 import eth_account
 import msgpack
-from eth_account.messages import encode_structured_data
+from eth_account.messages import encode_typed_data
 from eth_utils import keccak, to_hex
 
 from hummingbot.connector.exchange.hyperliquid import hyperliquid_constants as CONSTANTS
@@ -40,7 +40,7 @@ class HyperliquidAuth(AuthBase):
         return keccak(data)
 
     def sign_inner(self, wallet, data):
-        structured_data = encode_structured_data(data)
+        structured_data = encode_typed_data(full_message=data)
         signed = wallet.sign_message(structured_data)
         return {"r": to_hex(signed["r"]), "s": to_hex(signed["s"]), "v": signed["v"]}
 

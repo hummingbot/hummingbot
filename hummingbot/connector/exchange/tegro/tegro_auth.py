@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from eth_account import Account, messages
 
+from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -22,9 +23,7 @@ class TegroAuth(AuthBase):
         Sign the provided data using the API secret key.
         """
         wallet = Account.from_key(self._api_secret)
-        signed_data = wallet.sign_message(data)
-        # Convert signature components to bytes before returning
-        return signed_data.signature.hex()
+        return to_0x_hex(wallet.sign_message(data).signature)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """

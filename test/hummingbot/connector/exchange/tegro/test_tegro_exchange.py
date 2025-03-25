@@ -1901,8 +1901,8 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     @pytest.mark.asyncio
     @patch('web3.Web3')
-    @patch('web3.middleware.geth_poa_middleware')
-    def test_approve_allowance(self, mock_geth_poa_middleware, mock_web3):
+    # @patch('web3.middleware.geth_poa_middleware')
+    def test_approve_allowance(self, mock_web3):
         mock_w3 = mock_web3.return_value
         mock_contract = Mock()
         mock_contract.functions.approve.return_value.estimate_gas.return_value = 21000
@@ -1912,7 +1912,7 @@ class TegroExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         mock_w3.eth.contract.return_value = mock_contract
         mock_w3.eth.get_transaction_count.return_value = 0
         mock_w3.eth.gas_price = 1
-        mock_w3.eth.account.sign_transaction.return_value.rawTransaction = b"signed_tx"
+        mock_w3.eth.account.sign_transaction.return_value.raw_transaction = b"signed_tx"
         mock_w3.eth.send_raw_transaction.return_value = "txn_hash"
         mock_w3.eth.wait_for_transaction_receipt.return_value = {"status": 1}
         request_sent_event = asyncio.Event()

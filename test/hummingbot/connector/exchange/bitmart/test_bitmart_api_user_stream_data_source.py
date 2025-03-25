@@ -33,7 +33,7 @@ class BitmartAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         await super().asyncSetUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
-        self.mocking_assistant = NetworkMockingAssistant(event_loop=self.local_event_loop)
+        self.mocking_assistant = NetworkMockingAssistant()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.time_synchronizer = MagicMock()

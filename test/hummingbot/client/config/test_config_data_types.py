@@ -4,8 +4,8 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Union
 
-from pydantic import Field, SecretStr
-from pydantic.fields import FieldInfo
+from pydantic.v1 import Field, SecretStr
+from pydantic.v1.fields import FieldInfo
 
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData

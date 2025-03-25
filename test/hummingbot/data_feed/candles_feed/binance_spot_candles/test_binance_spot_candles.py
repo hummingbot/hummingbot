@@ -12,7 +12,6 @@ class TestBinanceSpotCandles(TestCandlesBase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"
         cls.interval = "1h"
@@ -22,13 +21,16 @@ class TestBinanceSpotCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = BinanceSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
         self.resume_test_event = asyncio.Event()
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
 
     def get_fetch_candles_data_mock(self):
         return [[1672981200.0, '16823.24000000', '16823.63000000', '16792.12000000', '16810.18000000', '6230.44034000', '104737787.36570630', 162086, '3058.60695000', '51418990.63131130'],

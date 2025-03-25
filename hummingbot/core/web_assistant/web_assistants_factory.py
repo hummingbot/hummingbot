@@ -29,8 +29,9 @@ class WebAssistantsFactory:
         ws_pre_processors: Optional[List[WSPreProcessorBase]] = None,
         ws_post_processors: Optional[List[WSPostProcessorBase]] = None,
         auth: Optional[AuthBase] = None,
+        connections_factory: Optional[ConnectionsFactory] = None,
     ):
-        self._connections_factory = ConnectionsFactory()
+        self._connections_factory = connections_factory or ConnectionsFactory()
         self._rest_pre_processors = rest_pre_processors or []
         self._rest_post_processors = rest_post_processors or []
         self._ws_pre_processors = ws_pre_processors or []
@@ -63,3 +64,18 @@ class WebAssistantsFactory:
             connection, self._ws_pre_processors, self._ws_post_processors, self._auth
         )
         return assistant
+
+    async def close(self) -> None:
+        """
+        Close the underlying connections.
+        """
+        await self._connections_factory.close()
+
+    async def __aenter__(self) -> "WebAssistantsFactory":
+        # If the underlying connections factory is a context manager, enter its context.
+        if hasattr(self._connections_factory, "__aenter__"):
+            await self._connections_factory.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()

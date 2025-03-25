@@ -16,7 +16,7 @@ from eth_keyfile.keyfile import (
     get_default_work_factor_for_kdf,
     keccak,
 )
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot.client.settings import CONF_DIR_PATH
 

@@ -34,7 +34,7 @@ class DexalotAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         await super().asyncSetUp()
         self.log_records = []
         self.listening_task = None
-        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
+        self.mocking_assistant = NetworkMockingAssistant()
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = DexalotExchange(

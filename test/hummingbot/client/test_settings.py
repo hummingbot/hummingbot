@@ -1,6 +1,6 @@
 import unittest
 
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot.client.settings import ConnectorSetting, ConnectorType
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap

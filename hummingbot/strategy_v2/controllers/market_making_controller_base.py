@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-from pydantic import Field, validator
+from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType

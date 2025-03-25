@@ -5,7 +5,7 @@ from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable, Union
 from unittest.mock import MagicMock, patch
 
-from pydantic import Field
+from pydantic.v1 import Field
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData

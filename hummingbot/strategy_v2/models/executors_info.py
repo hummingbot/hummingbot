@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
