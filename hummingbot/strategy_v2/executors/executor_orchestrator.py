@@ -53,7 +53,7 @@ class PositionHeld:
 
     def add_orders_from_executor(self, executor: ExecutorInfo):
         custom_info = executor.custom_info
-        if "held_position_orders" not in custom_info:
+        if "held_position_orders" not in custom_info or len(custom_info["held_position_orders"]) == 0:
             return
 
         for order in custom_info["held_position_orders"]:
