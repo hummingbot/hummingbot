@@ -6,12 +6,11 @@ import secrets
 import textwrap
 from typing import Dict
 
-import coinbase.constants
 import jwt
-from coinbase import jwt_generator
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import BASE_URL, USER_AGENT
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import endpoint_from_url
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -117,14 +116,14 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         :returns: the authenticated request
         """
         endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
-        jwt_uri = jwt_generator.format_jwt_uri(request.method, endpoint)
+        jwt_uri = f"{request.method} {BASE_URL}{endpoint}"
 
         try:
             token = self._build_jwt(jwt_uri)
             headers: Dict = dict(request.headers or {}) | {
                 "content-type": 'application/json',
                 "Authorization": f"Bearer {token}",
-                "User-Agent": coinbase.constants.USER_AGENT,
+                "User-Agent": USER_AGENT,
             }
         except ValueError as e:
             raise e

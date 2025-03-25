@@ -1,7 +1,6 @@
 import asyncio
 import json
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -19,11 +18,9 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant(event_loop=self.local_event_loop)
         self.liquidations_feed = BinancePerpetualLiquidations(trading_pairs=set(), max_retention_seconds=15)
 
         self.log_records = []
@@ -32,6 +29,9 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
         self.liquidations_feed.logger().addHandler(self)
         self.liquidations_feed._trading_pairs_map = self.get_trading_pairs_map()
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
     def handle(self, record):
@@ -41,10 +41,6 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
         return any(
             record.levelname == log_level and record.getMessage() == message for
             record in self.log_records)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def get_liquidations_ws_data_mock_1(self):
         data = {"e": "forceOrder",
