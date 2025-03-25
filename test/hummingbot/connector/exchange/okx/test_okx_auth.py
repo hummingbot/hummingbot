@@ -1,9 +1,9 @@
 import asyncio
 import base64
+import datetime
 import hashlib
 import hmac
 import json
-from datetime import datetime
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock
@@ -43,7 +43,7 @@ class OkxAuthTests(TestCase):
         return signed_message.decode("utf-8")
 
     def _format_timestamp(self, timestamp: int) -> str:
-        return datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
+        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
 
     def test_add_auth_headers_to_get_request_without_params(self):
         request = RESTRequest(

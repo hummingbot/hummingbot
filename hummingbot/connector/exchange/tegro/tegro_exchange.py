@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import eth_account
 from bidict import bidict
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
+
+try:
+    from web3.middleware import geth_poa_middleware
+except ImportError:
+    from web3.middleware import ExtraDataToPOAMiddleware as geth_poa_middleware
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.tegro import tegro_constants as CONSTANTS, tegro_utils, tegro_web_utils as web_utils
@@ -16,7 +20,7 @@ from hummingbot.connector.exchange.tegro.tegro_auth import TegroAuth
 from hummingbot.connector.exchange.tegro.tegro_messages import encode_typed_data
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, to_0x_hex
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -343,7 +347,7 @@ class TegroExchange(ExchangePyBase):
         message_types = {message: data["sign_data"]["types"][message]}
         # encode and sign
         structured_data = encode_typed_data(domain_data, message_types, message_data)
-        return eth_account.Account.from_key(self.secret_key).sign_message(structured_data).signature.hex()
+        return to_0x_hex(eth_account.Account.from_key(self.secret_key).sign_message(structured_data).signature)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         ids = []
@@ -647,7 +651,7 @@ class TegroExchange(ExchangePyBase):
                 # Building, signing, and sending the approval transaction
                 approval_contract = contract.functions.approve(exchange_con_addr, MAX_UINT256).build_transaction(tx_params)
                 signed_tx = w3.eth.account.sign_transaction(approval_contract, self.secret_key)
-                txn_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+                txn_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
                 reciept = w3.eth.wait_for_transaction_receipt(txn_hash)
                 print(f"Approved allowance for token {token} with transaction hash {txn_hash}")
                 receipts.append(reciept)

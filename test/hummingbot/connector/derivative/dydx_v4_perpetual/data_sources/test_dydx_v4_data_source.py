@@ -1,8 +1,8 @@
 import asyncio
 import time
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Awaitable
-from unittest import TestCase
 from unittest.mock import patch
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -12,17 +12,14 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data
 from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivative import DydxV4PerpetualDerivative
 
 
-class DydxPerpetualV4ClientTests(TestCase):
+class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher.fetch_all")
     def setUp(self, _) -> None:
         super().setUp()
-        self._original_async_loop = asyncio.get_event_loop()
-        self.async_loop = asyncio.new_event_loop()
         self.async_tasks = []
-        asyncio.set_event_loop(self.async_loop)
 
         self.secret_phrase = "mirror actor skill push coach wait confirm orchard " \
                              "lunch mobile athlete gossip awake miracle matter " \
@@ -54,10 +51,6 @@ class DydxPerpetualV4ClientTests(TestCase):
             self.exchange
         )
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.async_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     def create_task(self, coroutine: Awaitable) -> asyncio.Task:
         task = self.async_loop.create_task(coroutine)
         self.async_tasks.append(task)
@@ -83,9 +76,9 @@ class DydxPerpetualV4ClientTests(TestCase):
 
     @patch(
         "hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source.DydxPerpetualV4Client.send_tx_sync_mode")
-    def test_cancel_order(self, send_tx_sync_mode_mock):
+    async def test_cancel_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self._order_cancelation_request_successful_mock_response
-        result = self.async_run_with_timeout(self.v4_client.cancel_order(
+        result = await (self.v4_client.cancel_order(
             client_id=11,
             clob_pair_id=15,
             order_flags=CONSTANTS.ORDER_FLAGS_LONG_TERM,
@@ -96,9 +89,9 @@ class DydxPerpetualV4ClientTests(TestCase):
 
     @patch(
         "hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.dydx_v4_data_source.DydxPerpetualV4Client.send_tx_sync_mode")
-    def test_place_order(self, send_tx_sync_mode_mock):
+    async def test_place_order(self, send_tx_sync_mode_mock):
         send_tx_sync_mode_mock.return_value = self.order_creation_request_successful_mock_response
-        result = self.async_run_with_timeout(self.v4_client.place_order(
+        result = await (self.v4_client.place_order(
             market=self.trading_pair,
             type="LIMIT",
             side="BUY",
@@ -110,6 +103,15 @@ class DydxPerpetualV4ClientTests(TestCase):
 
         self.assertIn("txhash", result)
 
-    def test_query_account(self):
-        sequence, acccount_number = self.async_run_with_timeout(self.v4_client.query_account())
+    async def test_query_account(self):
+        sequence, acccount_number = await (self.v4_client.query_account())
         self.assertEqual(acccount_number, 33356)
+
+    def test__init__without_secret(self):
+        with self.assertRaises(ValueError) as e:
+            self.v4_client = DydxPerpetualV4Client(
+                '',
+                self._dydx_v4_chain_address,
+                self.exchange
+            )
+            self.assertEqual(str(e.exception), "Mnemonic words count is not valid (0)")

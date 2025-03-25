@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
