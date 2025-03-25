@@ -105,6 +105,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     if success:
                         self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
                         self._last_listen_key_ping_ts = int(time.time())
+                        self._listen_key_initialized_event.set()
                     else:
                         raise Exception(f"Error occurred renewing listen key {self._current_listen_key}")
             except Exception as e:
@@ -118,7 +119,8 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Creates an instance of WSAssistant connected to the exchange
         """
-        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        if self._manage_listen_key_task is None:
+            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
         await self._listen_key_initialized_event.wait()
 
         ws: WSAssistant = await self._get_ws_assistant()
