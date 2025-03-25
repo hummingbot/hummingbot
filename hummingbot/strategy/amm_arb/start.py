@@ -19,7 +19,6 @@ def start(self):
     market_1_slippage_buffer = amm_arb_config_map.get("market_1_slippage_buffer").value / Decimal("100")
     market_2_slippage_buffer = amm_arb_config_map.get("market_2_slippage_buffer").value / Decimal("100")
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
-    gateway_transaction_cancel_interval = amm_arb_config_map.get("gateway_transaction_cancel_interval").value
     rate_oracle_enabled = amm_arb_config_map.get("rate_oracle_enabled").value
     quote_conversion_rate = amm_arb_config_map.get("quote_conversion_rate").value
     gas_token = amm_arb_config_map.get("gas_token").value
@@ -62,6 +61,5 @@ def start(self):
                               market_1_slippage_buffer=market_1_slippage_buffer,
                               market_2_slippage_buffer=market_2_slippage_buffer,
                               concurrent_orders_submission=concurrent_orders_submission,
-                              gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
                               rate_source=rate_source,
                               )

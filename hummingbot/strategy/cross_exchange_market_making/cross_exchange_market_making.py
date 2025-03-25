@@ -225,10 +225,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return self._config_map.gas_to_maker_base_conversion_rate
 
     @property
-    def gateway_transaction_cancel_interval(self):
-        return self._config_map.gateway_transaction_cancel_interval
-
-    @property
     def logging_options(self) -> int:
         return self._logging_options
 

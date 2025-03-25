@@ -33,10 +33,6 @@ market_2_slippage_buffer: null
 # If false, the bot will wait for first exchange order filled before submitting the other order
 concurrent_orders_submission: null
 
-
-# After how many seconds should blockchain transactions be cancelled if they are not included in a block?
-gateway_transaction_cancel_interval: 600
-
 # What rate source should be used for quote assets pair - between fixed_rate_source and rate_oracle_source?
 # When true: Uses an oracle (like CoinGecko) to get real-time conversion rates between quote assets
 # When false: Uses the fixed conversion rate specified in quote_conversion_rate

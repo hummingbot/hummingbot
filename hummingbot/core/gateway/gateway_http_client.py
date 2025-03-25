@@ -654,3 +654,48 @@ class GatewayHttpClient:
             request_payload,
             fail_silently=fail_silently,
         )
+
+    async def get_price(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            amount: Decimal,
+            side: TradeType,
+            fail_silently: bool = False,
+            pool_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Fetches price for a given trading pair using quote_swap
+        :param chain: The chain where the trading occurs (e.g., "ethereum", "solana")
+        :param network: The network where the trading occurs (e.g., "mainnet", "testnet")
+        :param connector: The connector/protocol to use (e.g., "uniswap", "jupiter")
+        :param base_asset: The base token symbol
+        :param quote_asset: The quote token symbol
+        :param amount: The amount of token to swap
+        :param side: Trade side (BUY/SELL)
+        :param fail_silently: If True, no exception will be raised on error
+        :param pool_id: Optional pool identifier for specific AMM pools
+        :return: Dictionary containing price information
+        """
+        try:
+            response = await self.quote_swap(
+                chain=chain,
+                network=network,
+                connector=connector,
+                base_asset=base_asset,
+                quote_asset=quote_asset,
+                amount=amount,
+                side=side,
+                pool_address=pool_id
+            )
+            return response
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {
+                "price": None,
+                "error": str(e)
+            }
