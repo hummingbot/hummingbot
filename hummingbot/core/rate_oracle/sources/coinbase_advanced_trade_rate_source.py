@@ -15,9 +15,10 @@ if TYPE_CHECKING:
 
 
 class CoinbaseAdvancedTradeRateSource(RateSourceBase):
-    def __init__(self):
+    def __init__(self, use_auth_for_public_endpoints: bool = False):
         super().__init__()
         self._coinbase_exchange: CoinbaseAdvancedTradeExchange | None = None  # delayed because of circular reference
+        self._use_auth_for_public_endpoints = use_auth_for_public_endpoints
 
     @property
     def name(self) -> str:
@@ -75,10 +76,16 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         app = HummingbotApplication.main_application()
         client_config_map = app.client_config_map
         connector_config = AllConnectorSettings.get_connector_config_keys("coinbase_advanced_trade")
+        api_key = ""
+        api_secret = ""
+        if self._use_auth_for_public_endpoints:
+            api_key = getattr(connector_config, "coinbase_advanced_trade_api_key", SecretStr("")).get_secret_value()
+            api_secret = getattr(connector_config, "coinbase_advanced_trade_api_secret", SecretStr("")).get_secret_value()
+
         return CoinbaseAdvancedTradeExchange(
             client_config_map=client_config_map,
-            coinbase_advanced_trade_api_key=getattr(connector_config, "coinbase_advanced_trade_api_key", SecretStr("")).get_secret_value(),
-            coinbase_advanced_trade_api_secret=getattr(connector_config, "coinbase_advanced_trade_api_secret", SecretStr("")).get_secret_value(),
+            coinbase_advanced_trade_api_key=api_key,
+            coinbase_advanced_trade_api_secret=api_secret,
             trading_pairs=[],
             trading_required=False,
             domain=domain,
