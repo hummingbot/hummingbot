@@ -197,7 +197,7 @@ class MarketDataProvider:
     @staticmethod
     def get_connector_config_map(connector_name: str):
         connector_config = AllConnectorSettings.get_connector_config_keys(connector_name)
-        if getattr(connector_config, "rate_endpoints_require_auth", False):
+        if getattr(connector_config, "use_auth_for_public_endpoints", False):
             api_keys = api_keys_from_connector_config_map(ClientConfigAdapter(connector_config))
         else:
             api_keys = {key: "" for key in connector_config.__fields__.keys() if key != "connector"}

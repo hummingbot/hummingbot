@@ -64,6 +64,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                  client_config_map: "ClientConfigAdapter",
                  coinbase_advanced_trade_api_key: str,
                  coinbase_advanced_trade_api_secret: str,
+                 use_auth_for_public_endpoints: bool = True,
                  trading_pairs: List[str] | None = None,
                  trading_required: bool = True,
                  domain: str = constants.DEFAULT_DOMAIN,
