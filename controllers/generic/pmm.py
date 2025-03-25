@@ -113,6 +113,7 @@ class PMMConfig(ControllerConfigBase):
     max_skew: Decimal = Field(
         default=Decimal("1.0"),
         client_data=ClientFieldData(
+            is_updatable=True,
             prompt_on_new=True,
             prompt=lambda mi: "Enter the maximum skew factor (e.g., 1.0):"))
 
@@ -278,6 +279,8 @@ class PMM(ControllerBase):
             amount = self.market_data_provider.quantize_order_amount(self.config.connector_name,
                                                                      self.config.trading_pair,
                                                                      (amount_quote / price) * skew)
+            if amount == Decimal("0"):
+                self.logger().warning(f"The amount of the level {level_id} is 0. Skipping.")
             executor_config = self.get_executor_config(level_id, price, amount)
             if executor_config is not None:
                 create_actions.append(CreateExecutorAction(
@@ -347,7 +350,7 @@ class PMM(ControllerBase):
         Get the executor config for a given level id.
         """
         trade_type = self.get_trade_type_from_level_id(level_id)
-        level_multiplier = self.get_level_from_level_id(level_id)
+        level_multiplier = self.get_level_from_level_id(level_id) + 1
         return PositionExecutorConfig(
             timestamp=self.market_data_provider.time(),
             level_id=level_id,
