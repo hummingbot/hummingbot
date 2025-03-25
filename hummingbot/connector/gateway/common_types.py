@@ -25,9 +25,9 @@ class ConnectorType(Enum):
 
 
 def get_connector_type(connector_name: str) -> ConnectorType:
-    if "_clmm" in connector_name:
+    if "/clmm" in connector_name:
         return ConnectorType.CLMM
-    elif "_amm" in connector_name:
+    elif "/amm" in connector_name:
         return ConnectorType.AMM
     return ConnectorType.SWAP
 

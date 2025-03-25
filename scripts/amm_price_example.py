@@ -53,8 +53,7 @@ class DEXPrice(ScriptStrategyBase):
     async def async_task(self):
         # fetch price using GatewaySwap instead of direct HTTP call
         side = "buy" if self.config.is_buy else "sell"
-        msg = (f"Getting quote on {self.config.connector} "
-               f"({self.config.chain}/{self.config.network}) "
+        msg = (f"Getting quote on {self.exchange} "
                f"to {side} {self.config.amount} {self.base} "
                f"for {self.quote}")
         try:

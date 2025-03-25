@@ -428,12 +428,6 @@ class GatewayHttpClient:
             "nonce": nonce
         })
 
-    def _transform_connector_route(self, connector: str) -> str:
-        if "_" in connector:
-            main, sub = connector.split("_", 1)
-            return f"{main}/{sub}"
-        return connector
-
     async def quote_swap(
             self,
             network: str,
@@ -465,7 +459,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "get",
-            f"{self._transform_connector_route(connector)}/quote-swap",
+            f"{connector}/quote-swap",
             request_payload,
             fail_silently=fail_silently
         )
@@ -507,7 +501,7 @@ class GatewayHttpClient:
             request_payload["poolAddress"] = pool_address
         return await self.api_request(
             "post",
-            f"{self._transform_connector_route(connector)}/execute-swap",
+            f"{connector}/execute-swap",
             request_payload
         )
 
