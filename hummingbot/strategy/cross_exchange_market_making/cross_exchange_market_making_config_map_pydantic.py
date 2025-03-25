@@ -336,18 +336,6 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             prompt_on_new=True,
         ),
     )
-    gateway_transaction_cancel_interval: int = Field(
-        default= 600,
-        description="Gateway transaction cancellation timeout.",
-        ge=1,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "After what time should blockchain transactions be cancelled if they are not included in a block? "
-                "(this only affects decentralized exchanges) (Enter time in seconds)"
-            ),
-            prompt_on_new=True,
-        ),
-    )
     taker_market: ClientConfigEnum = Field(
         default=...,
         description="The name of the taker exchange connector.",
