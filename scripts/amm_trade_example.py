@@ -126,9 +126,6 @@ class DEXTrade(ScriptStrategyBase):
 
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""
-        if not self.gateway_ready:
-            return "Gateway server is not available. Please start Gateway and restart the strategy."
-
         if self.trade_executed:
             return "Trade has been executed successfully!"
 
