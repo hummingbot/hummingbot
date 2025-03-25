@@ -63,3 +63,4 @@ dependencies:
   - pip:
       - lyra_v2_action_signing==0.0.3
       - ptpython
+      - eip712_structs
