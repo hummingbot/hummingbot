@@ -663,7 +663,7 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         """
         Fetches price for a given trading pair using quote_swap
-        :param chain: The chain where the trading occurs (e.g., "ethereum", "solana")
+        :param chain: Not used since connectors are wedded to specific chain architectures in Gateway 2.5+
         :param network: The network where the trading occurs (e.g., "mainnet", "testnet")
         :param connector: The connector/protocol to use (e.g., "uniswap", "jupiter")
         :param base_asset: The base token symbol
@@ -676,7 +676,6 @@ class GatewayHttpClient:
         """
         try:
             response = await self.quote_swap(
-                chain=chain,
                 network=network,
                 connector=connector,
                 base_asset=base_asset,

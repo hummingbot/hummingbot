@@ -73,12 +73,11 @@ class GatewaySwap(GatewayBase):
             trading_pair: str,
             is_buy: bool,
             amount: Decimal,
-            ignore_shim: bool = False
     ) -> Decimal:
         """
         Retreives the price required for an order of a given amount. For AMM DEX connectors, this equals the quote price.
         """
-        return await self.get_quote_price(trading_pair, is_buy, amount, ignore_shim=ignore_shim)
+        return await self.get_quote_price(trading_pair, is_buy, amount)
 
     def parse_price_response(
         self,
