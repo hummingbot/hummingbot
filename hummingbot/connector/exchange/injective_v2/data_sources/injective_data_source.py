@@ -26,6 +26,7 @@ from hummingbot.connector.exchange.injective_v2.injective_market import (
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
@@ -1246,7 +1247,7 @@ class InjectiveDataSource(ABC):
                     chain_quantity=Decimal(str(trade_update["quantity"]))
                 )
                 price = market_info.price_from_special_chain_format(chain_price=Decimal(str(trade_update["price"])))
-                order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
+                order_hash = to_0x_hex(base64.b64decode(trade_update["orderHash"]))
                 client_order_id = trade_update.get("cid", "")
                 trade_id = trade_update["tradeId"]
                 message_content = {
@@ -1309,7 +1310,7 @@ class InjectiveDataSource(ABC):
                 )
                 price = market_info.price_from_special_chain_format(
                     chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"])))
-                order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
+                order_hash = to_0x_hex(base64.b64decode(trade_update["orderHash"]))
                 client_order_id = trade_update.get("cid", "")
                 trade_id = trade_update["tradeId"]
 
@@ -1363,7 +1364,7 @@ class InjectiveDataSource(ABC):
     ):
         for order_update in order_updates:
             try:
-                exchange_order_id = "0x" + base64.b64decode(order_update["orderHash"]).hex()
+                exchange_order_id = to_0x_hex(base64.b64decode(order_update["orderHash"]))
                 client_order_id = order_update.get("cid", "")
                 trading_pair = await self.trading_pair_for_market(market_id=order_update["order"]["marketId"])
 
