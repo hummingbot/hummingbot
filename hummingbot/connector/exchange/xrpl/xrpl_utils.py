@@ -5,7 +5,7 @@ from decimal import Decimal
 from random import randrange
 from typing import Any, Dict, Final, List, Optional, cast
 
-from pydantic import BaseModel, Field, SecretStr, validator
+from pydantic.v1 import BaseModel, Field, SecretStr, validator
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException

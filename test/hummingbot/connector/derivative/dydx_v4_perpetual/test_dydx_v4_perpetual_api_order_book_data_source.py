@@ -20,6 +20,7 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivat
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
@@ -65,6 +66,9 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
@@ -481,7 +485,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_input_queue
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(local_event_loop=self.local_event_loop, output=mock_output_queue)
+            self.data_source.listen_for_order_book_snapshots(asyncio.get_running_loop(), output=mock_output_queue)
         )
         await self.resume_test_event.wait()
 
@@ -523,7 +527,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestC
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_input_queue
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(local_event_loop=self.local_event_loop, output=output_queue)
+            self.data_source.listen_for_order_book_snapshots(asyncio.get_running_loop(), output=output_queue)
         )
         await self.resume_test_event.wait()
 
