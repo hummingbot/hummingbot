@@ -418,26 +418,30 @@ class StrategyV2Base(ScriptStrategyBase):
                 controller_performance_info.append("\nPositions Held Summary:")
                 controller_performance_info.append("-" * 120)
                 controller_performance_info.append(
-                    f"{'Connector':<15} {'Trading Pair':<12} | "
+                    f"{'Connector':<20} | "
+                    f"{'Trading Pair':<12} | "
                     f"{'Volume':<12} | "
                     f"{'Units':<10} | "
                     f"{'Value (USD)':<16} | "
                     f"{'BEP':<16} | "
+                    f"{'Realized PNL':<12} | "
                     f"{'Unreal. PNL':<12} | "
                     f"{'Fees':<10}"
                 )
-                controller_performance_info.append("-" * 120)
+                controller_performance_info.append("-" * 140)
                 for pos in performance_report.positions_summary:
                     controller_performance_info.append(
-                        f"{pos.connector_name:<15} {pos.trading_pair:<12} | "
+                        f"{pos.connector_name:<20} | "
+                        f"{pos.trading_pair:<12} | "
                         f"${pos.volume_traded_quote:>11.2f} | "
                         f"{pos.amount:>10.4f} | "
-                        f"${pos.amount * pos.breakeven_price:>16.2f} | "
+                        f"${pos.amount * pos.breakeven_price:<16.2f} | "
                         f"{pos.breakeven_price:>16.6f} | "
+                        f"${pos.realized_pnl_quote:>+11.2f} | "
                         f"${pos.unrealized_pnl_quote:>+11.2f} | "
                         f"${pos.cum_fees_quote:>9.2f}"
                     )
-                controller_performance_info.append("-" * 120)
+                controller_performance_info.append("-" * 140)
 
             # Append close type counts
             if performance_report.close_type_counts:
