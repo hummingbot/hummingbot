@@ -15,10 +15,12 @@ class DerivePerpetualAuthTests(TestCase):
         self.api_key = "0x1234567890abcdef1234567890abcdef12345678"
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         self.sub_id = "45686"  # noqa: mock
+        self.domain = "derive_perpetual_testnet"  # noqa: mock
         self.auth = DerivePerpetualAuth(api_key=self.api_key,
                                         api_secret=self.api_secret,
                                         sub_id=self.sub_id,
-                                        trading_required=True)
+                                        trading_required=True,
+                                        domain=self.domain)
 
     def test_initialization(self):
         self.assertEqual(self.auth._api_key, self.api_key)
