@@ -1,14 +1,11 @@
-from typing import Optional, Union
+from typing import Optional, Union, TypeVar
 
 from pydantic.v1 import BaseModel
 
-from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
-from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
-from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
-from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
-from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
-from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
+from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 
+
+ExecutorConfigType = TypeVar("ExecutorConfigType", bound=ExecutorConfigBase)
 
 class ExecutorAction(BaseModel):
     """
@@ -21,8 +18,7 @@ class CreateExecutorAction(ExecutorAction):
     """
     Action to create an executor.
     """
-    executor_config: Union[PositionExecutorConfig, DCAExecutorConfig, XEMMExecutorConfig, ArbitrageExecutorConfig, TWAPExecutorConfig, GridExecutorConfig]
-
+    executor_config: ExecutorConfigType
 
 class StopExecutorAction(ExecutorAction):
     """
