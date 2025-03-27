@@ -1,11 +1,11 @@
-from typing import Optional, Union, TypeVar
+from typing import Optional, TypeVar
 
 from pydantic.v1 import BaseModel
 
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 
-
 ExecutorConfigType = TypeVar("ExecutorConfigType", bound=ExecutorConfigBase)
+
 
 class ExecutorAction(BaseModel):
     """
@@ -19,6 +19,7 @@ class CreateExecutorAction(ExecutorAction):
     Action to create an executor.
     """
     executor_config: ExecutorConfigType
+
 
 class StopExecutorAction(ExecutorAction):
     """
