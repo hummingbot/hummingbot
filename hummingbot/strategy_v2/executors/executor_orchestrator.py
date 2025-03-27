@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Dict, List
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType, PositionAction
+from hummingbot.core.data_type.common import PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position import Position
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -81,7 +81,8 @@ class PositionHeld:
     def get_position_summary(self, mid_price: Decimal):
         # Calculate buy and sell breakeven prices
         buy_breakeven_price = self.buy_amount_quote / self.buy_amount_base if self.buy_amount_base > 0 else Decimal("0")
-        sell_breakeven_price = self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal("0")
+        sell_breakeven_price = self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal(
+            "0")
 
         # Calculate matched volume (minimum of buy and sell base amounts)
         matched_amount_base = min(self.buy_amount_base, self.sell_amount_base)
