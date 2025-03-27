@@ -28,8 +28,8 @@ class OrderExecutorConfig(ExecutorConfigBase):
     amount: Decimal
     position_action: PositionAction = PositionAction.OPEN
     price: Optional[Decimal] = None  # Required for LIMIT and LIMIT_MAKER
-    execution_strategy: ExecutionStrategy
     chaser_config: Optional[LimitChaserConfig] = None  # Required for LIMIT_CHASER
+    execution_strategy: ExecutionStrategy
     leverage: int = 1
     level_id: Optional[str] = None
 

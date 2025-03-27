@@ -7,7 +7,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy_v2.executors.order_executor.data_types import (
@@ -17,7 +17,7 @@ from hummingbot.strategy_v2.executors.order_executor.data_types import (
 )
 from hummingbot.strategy_v2.executors.order_executor.order_executor import OrderExecutor
 from hummingbot.strategy_v2.models.base import RunnableStatus
-from hummingbot.strategy_v2.models.executors import TrackedOrder
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
@@ -145,7 +145,23 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertIsNone(executor._order)
         self.assertEqual(executor._current_retries, 1)
 
-    def test_process_order_completed_event(self):
+    @patch.object(OrderExecutor, "get_in_flight_order")
+    def test_process_order_completed_event(self, in_flight_order_mock):
+        # Create the order that will be returned by get_in_flight_order
+        order = InFlightOrder(
+            client_order_id="OID-COMPLETE",
+            exchange_order_id="EOID4",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.COMPLETED
+        )
+        in_flight_order_mock.return_value = order
+
+        # Setup executor
         config = OrderExecutorConfig(
             id="test",
             timestamp=123,
@@ -158,42 +174,27 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         executor = self.get_order_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
+        executor._order = TrackedOrder("OID-COMPLETE")
 
-        # Simulate an order
-        order_id = "OID-COMPLETE"
-        order = InFlightOrder(
-            client_order_id=order_id,
-            trading_pair=config.trading_pair,
-            order_type=OrderType.MARKET,
-            trade_type=config.side,
-            price=Decimal("100"),
-            amount=Decimal("1"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.COMPLETED
-        )
-        tracked_order = TrackedOrder(order_id)
-        tracked_order.order = order
-        executor._order = tracked_order
-
-        # Trigger the order completed event
+        # Create and process the completed event
         from hummingbot.core.event.events import BuyOrderCompletedEvent
         completed_event = BuyOrderCompletedEvent(
-            order_id=order_id,
+            timestamp=1234567890,
+            order_id="OID-COMPLETE",
             base_asset="ETH",
             quote_asset="USDT",
-            base_asset_amount=Decimal("1"),
-            quote_asset_amount=Decimal("100"),
-            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+            base_asset_amount=config.amount,
+            quote_asset_amount=config.amount * config.price,
             order_type=OrderType.MARKET,
-            exchange_order_id="EOID1",
-            trading_pair=config.trading_pair,
-            timestamp=1640001112.223
+            exchange_order_id="EOID4"
         )
-        executor.process_order_completed_event(1, self.strategy.connectors["binance"], completed_event)
+        market = MagicMock()
+        executor.process_order_completed_event("102", market, completed_event)
 
         # Assertions
-        self.assertEqual(executor._status, RunnableStatus.SHUTTING_DOWN)
-        self.assertEqual(executor.close_type, "POSITION_HOLD")
+        self.assertEqual(executor._order.order, order)
+        self.assertEqual(executor._status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
         self.assertEqual(len(executor._held_position_orders), 1)
 
     def test_get_custom_info(self):
@@ -271,3 +272,99 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertIn("Price: 100", status_lines[0])
         self.assertIn("Execution Strategy: ExecutionStrategy.MARKET", status_lines[0])
         self.assertIn("Retries: 0/10", status_lines[0])
+
+    async def test_pnl_metrics_zero(self):
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.RUNNING
+
+        self.assertEqual(executor.net_pnl_pct, Decimal("0"))
+        self.assertEqual(executor.net_pnl_quote, Decimal("0"))
+        self.assertEqual(executor.cum_fees_quote, Decimal("0"))
+
+    @patch.object(OrderExecutor, 'get_trading_rules')
+    @patch.object(OrderExecutor, 'adjust_order_candidates')
+    async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
+        # Mock trading rules
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
+                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        # Mock order candidate
+        order_candidate = OrderCandidate(
+            trading_pair="ETH-USDT",
+            is_maker=True,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100")
+        )
+        # Test for sufficient balance
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        await executor.validate_sufficient_balance()
+        self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+
+        # Test for insufficient balance
+        order_candidate.amount = Decimal("0")
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        await executor.validate_sufficient_balance()
+        self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+
+    @patch.object(OrderExecutor, 'get_trading_rules')
+    @patch.object(OrderExecutor, 'adjust_order_candidates')
+    async def test_validate_sufficient_balance_perpetual(self, mock_adjust_order_candidates, mock_get_trading_rules):
+        # Mock trading rules
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
+                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        # Mock order candidate
+        order_candidate = OrderCandidate(
+            trading_pair="ETH-USDT",
+            is_maker=True,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100")
+        )
+        # Test for sufficient balance
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        await executor.validate_sufficient_balance()
+        self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+
+        # Test for insufficient balance
+        order_candidate.amount = Decimal("0")
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        await executor.validate_sufficient_balance()
+        self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
