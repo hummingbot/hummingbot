@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, Set
 
-from hummingbot.core.data_type.common import PriceType, TradeType, PositionMode
+from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
@@ -42,20 +42,19 @@ class BasicOrderExample(ControllerBase):
             self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
         if len(self.active_executors()) == 0 and self.market_data_provider.time() - self.last_timestamp > 60:
             config = OrderExecutorConfig(
-                    timestamp=self.market_data_provider.time(),
-                    connector_name=self.config.connector_name,
-                    trading_pair=self.config.trading_pair,
-                    side=self.config.side,
-                    amount=self.config.amount_quote / mid_price,
-                    execution_strategy=ExecutionStrategy.MARKET,
-                    price=mid_price,
-                )
+                timestamp=self.market_data_provider.time(),
+                connector_name=self.config.connector_name,
+                trading_pair=self.config.trading_pair,
+                side=self.config.side,
+                amount=self.config.amount_quote / mid_price,
+                execution_strategy=ExecutionStrategy.MARKET,
+                price=mid_price,
+            )
             self.last_timestamp = self.market_data_provider.time()
             return [CreateExecutorAction(
                 controller_id=self.config.id,
                 executor_config=config)]
         return []
-
 
     async def update_processed_data(self):
         pass
