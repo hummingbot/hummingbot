@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, Set
 
-from hummingbot.core.data_type.common import PriceType, TradeType, PositionMode, PositionAction
+from hummingbot.core.data_type.common import PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
@@ -55,15 +55,15 @@ class BasicOrderOpenClose(ControllerBase):
         if len(self.active_executors()) == 0:
             if not self.open_order_placed:
                 config = OrderExecutorConfig(
-                        timestamp=self.market_data_provider.time(),
-                        connector_name=self.config.connector_name,
-                        trading_pair=self.config.trading_pair,
-                        side=self.config.side,
-                        amount=self.config.amount_quote / mid_price,
-                        execution_strategy=ExecutionStrategy.MARKET,
-                        position_action=PositionAction.OPEN,
-                        price=mid_price,
-                    )
+                    timestamp=self.market_data_provider.time(),
+                    connector_name=self.config.connector_name,
+                    trading_pair=self.config.trading_pair,
+                    side=self.config.side,
+                    amount=self.config.amount_quote / mid_price,
+                    execution_strategy=ExecutionStrategy.MARKET,
+                    position_action=PositionAction.OPEN,
+                    price=mid_price,
+                )
                 self.open_order_placed = True
                 self.last_timestamp = self.market_data_provider.time()
                 return [CreateExecutorAction(
@@ -73,7 +73,7 @@ class BasicOrderOpenClose(ControllerBase):
                 if self.market_data_provider.time() - self.last_timestamp > self.config.close_order_delay and not self.closed_order_placed:
                     current_position = self.get_position(self.config.connector_name, self.config.trading_pair)
                     if current_position is None:
-                        self.logger().info(f"The original position is not found, can close the position")
+                        self.logger().info("The original position is not found, can close the position")
                     else:
                         amount = current_position.amount / 2 if self.config.close_partial_position else current_position.amount
                         config = OrderExecutorConfig(
@@ -91,7 +91,6 @@ class BasicOrderOpenClose(ControllerBase):
                             controller_id=self.config.id,
                             executor_config=config)]
         return []
-
 
     async def update_processed_data(self):
         pass
