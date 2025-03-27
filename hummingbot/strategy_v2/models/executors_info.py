@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, List, Optional, Union, TypeVar
+from typing import Dict, List, Optional, TypeVar
 
 from pydantic.v1 import BaseModel
 
@@ -9,6 +9,7 @@ from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
 
 ExecutorConfigType = TypeVar("ExecutorConfigType", bound=ExecutorConfigBase)
+
 
 class ExecutorInfo(BaseModel):
     id: str
