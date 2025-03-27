@@ -119,8 +119,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Creates an instance of WSAssistant connected to the exchange
         """
-        if self._manage_listen_key_task is None:
-            self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
         await self._listen_key_initialized_event.wait()
 
         ws: WSAssistant = await self._get_ws_assistant()
