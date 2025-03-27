@@ -202,7 +202,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
     def test_store_all_positions(self, markets_recorder_mock):
         markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
         markets_recorder_mock.store_position = MagicMock(return_value=None)
-        position_held = PositionHeld("binance", "SOL-USDT")
+        position_held = PositionHeld("binance", "SOL-USDT", side=TradeType.BUY)
         executor_info = ExecutorInfo(
             id="123", timestamp=1234, type="position_executor",
             status=RunnableStatus.TERMINATED, config=PositionExecutorConfig(
@@ -224,7 +224,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(len(self.orchestrator.positions_held["main"]), 0)
 
     def test_get_positions_report(self):
-        position_held = PositionHeld("binance", "SOL-USDT")
+        position_held = PositionHeld("binance", "SOL-USDT", side=TradeType.BUY)
         executor_info = ExecutorInfo(
             id="123", timestamp=1234, type="position_executor",
             status=RunnableStatus.TERMINATED, config=PositionExecutorConfig(
@@ -244,7 +244,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         }
         report = self.orchestrator.get_positions_report()
         self.assertEqual(len(report), 1)
-        self.assertEqual(report["main"][0].amount, Decimal(-10))
+        self.assertEqual(report["main"][0].amount, Decimal(10))
 
     @patch.object(MarketsRecorder, "get_instance")
     def test_store_all_executors(self, markets_recorder_mock):
