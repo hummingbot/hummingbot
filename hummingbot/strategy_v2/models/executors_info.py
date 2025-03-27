@@ -53,18 +53,6 @@ class ExecutorInfo(BaseModel):
         return base_dict
 
 
-class ExecutorHandlerInfo(BaseModel):
-    controller_id: str
-    timestamp: float
-    status: RunnableStatus
-    active_position_executors: list[ExecutorInfo]
-    closed_position_executors: list[ExecutorInfo]
-    active_dca_executors: list[ExecutorInfo]
-    closed_dca_executors: list[ExecutorInfo]
-    active_arbitrage_executors: list[ExecutorInfo]
-    closed_arbitrage_executors: list[ExecutorInfo]
-
-
 class PerformanceReport(BaseModel):
     realized_pnl_quote: Decimal = Decimal("0")
     unrealized_pnl_quote: Decimal = Decimal("0")
