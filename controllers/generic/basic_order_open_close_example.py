@@ -18,7 +18,8 @@ class BasicOrderOpenCloseExampleConfig(ControllerConfigBase):
     leverage = 50
     close_order_delay = 10
     open_short_to_close_long = False
-    amount_quote = Decimal("10")
+    close_partial_position = True
+    amount_quote = Decimal("15")
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.connector_name not in markets:
@@ -43,6 +44,11 @@ class BasicOrderOpenClose(ControllerBase):
             if executor.is_active
         ]
 
+    def get_position(self, connector_name, trading_pair):
+        for position in self.positions_held:
+            if position.connector_name == connector_name and position.trading_pair == trading_pair:
+                return position
+
     def determine_executor_actions(self) -> list[ExecutorAction]:
         mid_price = self.market_data_provider.get_price_by_type(
             self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
@@ -65,22 +71,25 @@ class BasicOrderOpenClose(ControllerBase):
                     executor_config=config)]
             else:
                 if self.market_data_provider.time() - self.last_timestamp > self.config.close_order_delay and not self.closed_order_placed:
-                    config = OrderExecutorConfig(
-                        timestamp=self.market_data_provider.time(),
-                        connector_name=self.config.connector_name,
-                        trading_pair=self.config.trading_pair,
-                        side=self.close_side,
-                        amount=self.config.amount_quote / mid_price,
-                        execution_strategy=ExecutionStrategy.MARKET,
-                        position_action=PositionAction.OPEN if self.config.open_short_to_close_long else PositionAction.CLOSE,
-                        price=mid_price,
-                    )
-                    self.last_timestamp = self.market_data_provider.time()
-                    self.closed_order_placed = True
-                    return [CreateExecutorAction(
-                        controller_id=self.config.id,
-                        executor_config=config)]
-
+                    current_position = self.get_position(self.config.connector_name, self.config.trading_pair)
+                    if current_position is None:
+                        self.logger().info(f"The original position is not found, can close the position")
+                    else:
+                        amount = current_position.amount / 2 if self.config.close_partial_position else current_position.amount
+                        config = OrderExecutorConfig(
+                            timestamp=self.market_data_provider.time(),
+                            connector_name=self.config.connector_name,
+                            trading_pair=self.config.trading_pair,
+                            side=self.close_side,
+                            amount=amount,
+                            execution_strategy=ExecutionStrategy.MARKET,
+                            position_action=PositionAction.OPEN if self.config.open_short_to_close_long else PositionAction.CLOSE,
+                            price=mid_price,
+                        )
+                        self.closed_order_placed = True
+                        return [CreateExecutorAction(
+                            controller_id=self.config.id,
+                            executor_config=config)]
         return []
 
 
