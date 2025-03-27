@@ -416,32 +416,36 @@ class StrategyV2Base(ScriptStrategyBase):
             # Add position summary if available
             if hasattr(performance_report, "positions_summary") and performance_report.positions_summary:
                 controller_performance_info.append("\nPositions Held Summary:")
-                controller_performance_info.append("-" * 120)
+                controller_performance_info.append("-" * 170)
                 controller_performance_info.append(
                     f"{'Connector':<20} | "
                     f"{'Trading Pair':<12} | "
+                    f"{'Side':<4} | "
                     f"{'Volume':<12} | "
                     f"{'Units':<10} | "
-                    f"{'Value (USD)':<16} | "
+                    f"{'Value (USD)':<12} | "
                     f"{'BEP':<16} | "
                     f"{'Realized PNL':<12} | "
                     f"{'Unreal. PNL':<12} | "
-                    f"{'Fees':<10}"
+                    f"{'Fees':<10} | "
+                    f"{'Global PNL':<12}"
                 )
-                controller_performance_info.append("-" * 140)
+                controller_performance_info.append("-" * 170)
                 for pos in performance_report.positions_summary:
                     controller_performance_info.append(
                         f"{pos.connector_name:<20} | "
                         f"{pos.trading_pair:<12} | "
+                        f"{pos.side.name:<4} | "
                         f"${pos.volume_traded_quote:>11.2f} | "
                         f"{pos.amount:>10.4f} | "
-                        f"${pos.amount * pos.breakeven_price:<16.2f} | "
+                        f"${pos.amount * pos.breakeven_price:<11.2f} | "
                         f"{pos.breakeven_price:>16.6f} | "
                         f"${pos.realized_pnl_quote:>+11.2f} | "
                         f"${pos.unrealized_pnl_quote:>+11.2f} | "
-                        f"${pos.cum_fees_quote:>9.2f}"
+                        f"${pos.cum_fees_quote:>9.2f} | "
+                        f"${pos.global_pnl_quote:>10.2f}"
                     )
-                controller_performance_info.append("-" * 140)
+                controller_performance_info.append("-" * 170)
 
             # Append close type counts
             if performance_report.close_type_counts:
