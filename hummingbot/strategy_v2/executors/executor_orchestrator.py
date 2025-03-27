@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Dict, List
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.common import PositionMode, PriceType, TradeType, PositionAction
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position import Position
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -91,7 +91,7 @@ class PositionHeld:
 
         # Calculate net position amount and direction
         net_amount_base = self.buy_amount_base - self.sell_amount_base
-        is_net_long = net_amount_base > 0
+        is_net_long = net_amount_base >= 0
 
         # Calculate unrealized PnL for the remaining unmatched volume
         unrealized_pnl_quote = Decimal("0")
@@ -211,6 +211,7 @@ class ExecutorOrchestrator:
                     controller_id=controller_id,
                     connector_name=position_summary.connector_name,
                     trading_pair=position_summary.trading_pair,
+                    side=position_summary.side.name,
                     timestamp=int(self.strategy.current_timestamp * 1e3),
                     volume_traded_quote=position_summary.volume_traded_quote,
                     amount=position_summary.amount,
@@ -381,40 +382,40 @@ class ExecutorOrchestrator:
                     is_perpetual = "_perpetual" in executor_info.connector_name
                     # Get the position mode from the market
                     position_mode = None
+                    position_side = None
                     if is_perpetual:
                         market = self.strategy.connectors[executor_info.connector_name]
                         if hasattr(market, 'position_mode'):
                             position_mode = market.position_mode
-                    # Find existing position for this trading pair
-                    existing_position = next(
-                        (position for position in positions if
-                         position.trading_pair == executor_info.trading_pair and
-                         position.connector_name == executor_info.connector_name), None
-                    )
-                    if existing_position:
-                        if is_perpetual and position_mode == PositionMode.HEDGE:
-                            # In HEDGE mode, we need separate positions for BUY and SELL
-                            if existing_position.side != executor_info.side:
-                                # Create a new position for the opposite side
-                                position = PositionHeld(
-                                    executor_info.connector_name,
-                                    executor_info.trading_pair,
-                                    executor_info.side
-                                )
-                                position.add_orders_from_executor(executor_info)
-                                positions.append(position)
-                            else:
-                                # Add orders to existing position of the same side
-                                existing_position.add_orders_from_executor(executor_info)
+                        if hasattr(executor_info.config, "position_action") and position_mode == PositionMode.HEDGE:
+                            opposite_side = TradeType.BUY if executor_info.config.side == TradeType.SELL else TradeType.SELL
+                            position_side = opposite_side if executor_info.config.position_action == PositionAction.CLOSE else executor_info.config.side
                         else:
-                            # For ONEWAY mode or non-perpetual markets, add to existing position
-                            existing_position.add_orders_from_executor(executor_info)
+                            position_side = executor_info.config.side
+
+                    if position_side:
+                        # Find existing position for this trading pair
+                        existing_position = next(
+                            (position for position in positions if
+                             position.trading_pair == executor_info.trading_pair and
+                             position.connector_name == executor_info.connector_name and
+                             position.side == position_side), None
+                        )
+                    else:
+                        # Find existing position for this trading pair
+                        existing_position = next(
+                            (position for position in positions if
+                             position.trading_pair == executor_info.trading_pair and
+                             position.connector_name == executor_info.connector_name), None
+                        )
+                    if existing_position:
+                        existing_position.add_orders_from_executor(executor_info)
                     else:
                         # Create new position
                         position = PositionHeld(
                             executor_info.connector_name,
                             executor_info.trading_pair,
-                            executor_info.side
+                            executor_info.config.side
                         )
                         position.add_orders_from_executor(executor_info)
                         positions.append(position)
@@ -428,11 +429,10 @@ class ExecutorOrchestrator:
             position_summary = position.get_position_summary(mid_price)
 
             # Update report with position data
-            report.realized_pnl_quote += position_summary.realized_pnl_quote
+            report.realized_pnl_quote += position_summary.realized_pnl_quote - position_summary.cum_fees_quote
             report.volume_traded += position_summary.volume_traded_quote
             report.inventory_imbalance += position_summary.amount  # This is the net position amount
-            report.unrealized_pnl_quote += position_summary.unrealized_pnl_quote - position_summary.cum_fees_quote
-
+            report.unrealized_pnl_quote += position_summary.unrealized_pnl_quote
             # Store position summary in report for controller access
             if not hasattr(report, "positions_summary"):
                 report.positions_summary = []
