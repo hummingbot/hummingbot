@@ -17,6 +17,7 @@ class Position(HummingbotBase):
     id = Column(Text, primary_key=True, nullable=False)
     controller_id = Column(Text, nullable=False)
     connector_name = Column(Text, nullable=False)
+    side = Column(Text, nullable=False)
     trading_pair = Column(Text, nullable=False)
     timestamp = Column(BigInteger, nullable=False)
     volume_traded_quote = Column(SqliteDecimal(6), nullable=False)
