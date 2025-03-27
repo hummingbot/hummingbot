@@ -7,6 +7,7 @@ import base58
 from pydantic.v1 import BaseModel, validator
 
 from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.core.data_type.common import TradeType
 
 
 class ExecutorConfigBase(BaseModel):
@@ -41,11 +42,17 @@ class PositionSummary(BaseModel):
     connector_name: str
     trading_pair: str
     volume_traded_quote: Decimal
+    side: TradeType
     amount: Decimal
     breakeven_price: Decimal
     unrealized_pnl_quote: Decimal
+    realized_pnl_quote: Decimal
     cum_fees_quote: Decimal
 
     @property
     def amount_quote(self) -> Decimal:
         return self.amount * self.breakeven_price
+
+    @property
+    def global_pnl_quote(self) -> Decimal:
+        return self.unrealized_pnl_quote + self.realized_pnl_quote - self.cum_fees_quote
