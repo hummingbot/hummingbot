@@ -114,7 +114,7 @@ class PositionHeld:
             connector_name=self.connector_name,
             trading_pair=self.trading_pair,
             volume_traded_quote=self.volume_traded_quote,
-            amount=net_amount_base,
+            amount=abs(net_amount_base),
             side=TradeType.BUY if is_net_long else TradeType.SELL,
             breakeven_price=breakeven_price,
             unrealized_pnl_quote=unrealized_pnl_quote,
