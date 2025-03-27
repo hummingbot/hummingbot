@@ -94,7 +94,7 @@ class OrderExecutor(ExecutorBase):
             return
 
         current_price = self.current_market_price
-        threshold = self.config.chaser_config.refresh_thresholdx
+        threshold = self.config.chaser_config.refresh_threshold
 
         if self.config.side == TradeType.BUY:
             if current_price - self._order.order.price > (current_price * threshold):
@@ -121,8 +121,7 @@ class OrderExecutor(ExecutorBase):
             elif self._order.is_filled:
                 self.close_type = CloseType.POSITION_HOLD
                 self._held_position_orders.append(self._order.order.to_json())
-                if len(self._partial_filled_orders) > 0:
-                    self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
+                self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
                 self.stop()
         else:
             if len(self._partial_filled_orders) > 0:
