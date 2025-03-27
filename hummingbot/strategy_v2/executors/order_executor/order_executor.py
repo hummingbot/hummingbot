@@ -285,13 +285,11 @@ class OrderExecutor(ExecutorBase):
         :param scale: The scale for formatting.
         :return: A list of formatted status lines.
         """
-        lines = []
-        if self.is_trading:
-            lines.extend([f"""
+        lines = [f"""
 | Trading Pair: {self.config.trading_pair} | Exchange: {self.config.connector_name} | Action: {self.config.position_action}
 | Amount: {self.config.amount} | Price: {self._order.order.price if self._order and self._order.order else 'N/A'}
 | Execution Strategy: {self.config.execution_strategy} | Retries: {self._current_retries}/{self._max_retries}
-"""])
+"""]
         return lines
 
     async def validate_sufficient_balance(self):
