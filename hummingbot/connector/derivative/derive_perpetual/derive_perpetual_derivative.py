@@ -1,12 +1,13 @@
 import asyncio
 import hashlib
 import time
+from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
-from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.constants import SECOND, s_decimal_NaN
 from hummingbot.connector.derivative.derive_perpetual import (
     derive_perpetual_constants as CONSTANTS,
     derive_perpetual_web_utils as web_utils,
@@ -48,6 +49,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             client_config_map: "ClientConfigAdapter",
             derive_perpetual_api_secret: str = None,
             sub_id: int = None,
+            account_type: str = None,
             derive_perpetual_api_key: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
@@ -59,6 +61,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
+        self._account_type = account_type
         self._position_mode = None
         self._last_trade_history_timestamp = None
         self._last_trades_poll_timestamp = 1.0
@@ -320,11 +323,59 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
+            self._update_rate_limits(),
             self._update_trade_history(),
             self._update_order_status(),
             self._update_balances(),
             self._update_positions(),
         )
+
+        # === loops and sync related methods === #
+    async def _rate_limits_polling_loop(self):
+        """
+        Updates the rate limits.
+        """
+        try:
+            await self._update_rate_limits()
+        except NotImplementedError:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().info(
+                "Unexpected error while Updating rate limits."
+            )
+
+    async def _update_rate_limits(self):
+        self._initialize_rate_limits_from_exchange_info()
+
+    def _initialize_rate_limits_from_exchange_info(self):
+        # Update rate limits
+        for r_limit_id in CONSTANTS.ENDPOINTS["limits"]["non_matching"]:
+            limit_id = None
+            rate_limits_copy = deepcopy(self._throttler._rate_limits)
+
+            if self._account_type == CONSTANTS.MARKET_MAKER_ACCOUNTS_TYPE:
+                limit_id = r_limit_id
+                interval = SECOND
+                limit = CONSTANTS.TRADER_NON_MATCHING
+            else:
+                limit_id = r_limit_id
+                interval = SECOND
+                limit = CONSTANTS.MARKET_MAKER_NON_MATCHING
+
+            if limit_id is not None and interval is not None:
+                for r_l in rate_limits_copy:
+                    if r_l.limit_id == limit_id:
+                        rate_limits_copy.remove(r_l)
+                rate_limits_copy.append(
+                    RateLimit(
+                        limit_id=limit_id,
+                        limit=limit,
+                        time_interval=interval,
+                    )
+                )
+            self._throttler.set_rate_limits(rate_limits_copy)
 
     async def _update_order_status(self):
         await self._update_orders()
