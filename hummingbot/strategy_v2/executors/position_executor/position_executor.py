@@ -328,6 +328,8 @@ class PositionExecutor(ExecutorBase):
                     self._held_position_orders.append(self._open_order.order.to_json())
                 if self._close_order and self._close_order.is_filled:
                     self._held_position_orders.append(self._close_order.order.to_json())
+                if len(self._held_position_orders) == 0:
+                    self.close_type = CloseType.EARLY_STOP
                 self.stop()
             elif self.open_and_close_volume_match():
                 self.stop()
