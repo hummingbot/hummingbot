@@ -81,9 +81,8 @@ class OrderExecutor(ExecutorBase):
         """
         if not self._order:
             self.place_open_order()
-        else:
-            if self.config.execution_strategy == ExecutionStrategy.LIMIT_CHASER:
-                self.control_limit_chaser()
+        elif self.config.execution_strategy == ExecutionStrategy.LIMIT_CHASER:
+            self.control_limit_chaser()
 
     def control_limit_chaser(self):
         """
@@ -124,10 +123,9 @@ class OrderExecutor(ExecutorBase):
                 self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
                 self.stop()
         else:
-            if len(self._partial_filled_orders) > 0:
-                self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
-                self.close_type = CloseType.POSITION_HOLD
-                self.stop()
+            self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
+            self.close_type = CloseType.POSITION_HOLD
+            self.stop()
         await self._sleep(5.0)
 
     def evaluate_max_retries(self):

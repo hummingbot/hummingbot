@@ -368,3 +368,307 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.validate_sufficient_balance()
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+
+    @patch.object(OrderExecutor, '_sleep')
+    async def test_control_shutdown_process_with_open_order(self, mock_sleep):
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        # Create an open order
+        order = InFlightOrder(
+            client_order_id="OID-OPEN",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN
+        )
+        executor._order = TrackedOrder("OID-OPEN")
+        executor._order.order = order
+
+        await executor.control_shutdown_process()
+        mock_sleep.assert_called_once_with(5.0)
+        self.strategy.cancel.assert_called_once_with(
+            connector_name=config.connector_name,
+            trading_pair=config.trading_pair,
+            order_id="OID-OPEN"
+        )
+
+    @patch.object(OrderExecutor, '_sleep')
+    async def test_control_shutdown_process_with_filled_order(self, mock_sleep):
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        # Create a filled order
+        order = InFlightOrder(
+            client_order_id="OID-FILLED",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        executor._order = TrackedOrder("OID-FILLED")
+        executor._order.order = order
+
+        await executor.control_shutdown_process()
+        mock_sleep.assert_called_once_with(5.0)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(len(executor._held_position_orders), 1)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+
+    @patch.object(OrderExecutor, '_sleep')
+    async def test_control_shutdown_process_with_partial_filled_orders(self, mock_sleep):
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        # Create a partially filled order
+        order = InFlightOrder(
+            client_order_id="OID-PARTIAL",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.PARTIALLY_FILLED
+        )
+        tracked_order = TrackedOrder("OID-PARTIAL")
+        tracked_order.order = order
+        executor._partial_filled_orders = [tracked_order]
+
+        await executor.control_shutdown_process()
+        mock_sleep.assert_called_once_with(5.0)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(len(executor._held_position_orders), 1)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+
+    @patch.object(OrderExecutor, '_sleep')
+    async def test_control_shutdown_process_with_no_orders(self, mock_sleep):
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        await executor.control_shutdown_process()
+        mock_sleep.assert_called_once_with(5.0)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_order_price_market_order(self, mock_current_market_price):
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_order_price()
+        self.assertTrue(price.is_nan())
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_order_price_limit_chaser_buy(self, mock_current_market_price):
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT_CHASER,
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_order_price()
+        # For buy orders: current_price * (1 - distance)
+        expected_price = Decimal("120") * (Decimal("1") - Decimal("0.01"))
+        self.assertEqual(price, expected_price)
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_order_price_limit_chaser_sell(self, mock_current_market_price):
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.SELL,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT_CHASER,
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_order_price()
+        # For sell orders: current_price * (1 + distance)
+        expected_price = Decimal("120") * (Decimal("1") + Decimal("0.01"))
+        self.assertEqual(price, expected_price)
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_order_price_limit_maker_buy(self, mock_current_market_price):
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT_MAKER
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_order_price()
+        # For buy orders: min(config_price, current_price)
+        self.assertEqual(price, Decimal("100"))
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_order_price_limit_maker_sell(self, mock_current_market_price):
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.SELL,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT_MAKER
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_order_price()
+        # For sell orders: max(config_price, current_price)
+        self.assertEqual(price, Decimal("120"))
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    def test_get_order_price_limit(self, mock_current_market_price):
+        mock_current_market_price.return_value = Decimal("120")
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT
+        )
+        executor = self.get_order_executor_from_config(config)
+        price = executor.get_order_price()
+        # For limit orders: use config price
+        self.assertEqual(price, Decimal("100"))
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, 'place_open_order')
+    @patch.object(OrderExecutor, 'cancel_order')
+    async def test_limit_chaser_order_refresh(self, mock_cancel_order, mock_place_open_order, mock_current_market_price):
+        # Setup initial configuration
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT_CHASER,
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.RUNNING
+
+        # Create an open order
+        order = InFlightOrder(
+            client_order_id="OID-CHASER",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT_MAKER,
+            trade_type=config.side,
+            price=Decimal("118.8"),  # 120 * (1 - 0.01)
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN
+        )
+        executor._order = TrackedOrder("OID-CHASER")
+        executor._order.order = order
+
+        # Initial price setup
+        mock_current_market_price.return_value = Decimal("120")
+
+        # First control task call - should not refresh as price hasn't moved enough
+        await executor.control_task()
+        mock_cancel_order.assert_not_called()
+        mock_place_open_order.assert_not_called()
+
+        # Update price to trigger refresh threshold (price moved up by 2.5%)
+        mock_current_market_price.return_value = Decimal("125")  # 120 * 1.025
+
+        # Second control task call - should refresh as price moved beyond threshold
+        await executor.control_task()
+        mock_cancel_order.assert_called_once()
+        mock_place_open_order.assert_called_once()
+
+        # Verify the new order price calculation
+        new_price = executor.get_order_price()
+        expected_price = Decimal("123") * (Decimal("1") - Decimal("0.01"))  # 121.77
+        self.assertEqual(new_price, expected_price)
+
+        # Reset mocks for next test
+        mock_cancel_order.reset_mock()
+        mock_place_open_order.reset_mock()
+
+        # Update price to not trigger refresh threshold (price moved up by 1.5%)
+        mock_current_market_price.return_value = Decimal("121.8")  # 120 * 1.015
+
+        # Third control task call - should not refresh as price hasn't moved enough
+        await executor.control_task()
+        mock_cancel_order.assert_not_called()
+        mock_place_open_order.assert_not_called()
