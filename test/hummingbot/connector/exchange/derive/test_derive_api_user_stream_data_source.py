@@ -32,7 +32,7 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.api_key = "someKey"  # noqa: mock
         cls.sub_id = 45686
-        cls.domain = "derive_perpetual_testnet"
+        cls.domain = "derive"
         cls.trading_required = False
         cls.api_secret_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"  # noqa: mock
 
@@ -66,6 +66,9 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
                 derive_api_key=self.api_key,
                 derive_api_secret=self.api_secret_key,
                 sub_id=self.sub_id,
+                account_type="trader",
+                trading_required=self.trading_required,
+                domain=self.domain,
                 trading_pairs=[]
             )
             self.connector._web_assistants_factory._auth = self.auth
