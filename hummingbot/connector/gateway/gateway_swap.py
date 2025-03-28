@@ -2,7 +2,6 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
 from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -39,12 +38,6 @@ class GatewaySwap(GatewayBase):
 
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
-
-        # Add connector type check
-        connector_type = get_connector_type(self.connector_name)
-        if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is None:
-            self.logger().error(f"Pool address required for {connector_type.value} connector")
-            return None
 
         # Pull the price from gateway.
         try:
