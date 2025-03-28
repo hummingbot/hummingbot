@@ -607,68 +607,68 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # For limit orders: use config price
         self.assertEqual(price, Decimal("100"))
 
-    # @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
-    # @patch.object(OrderExecutor, 'place_open_order')
-    # @patch.object(OrderExecutor, 'cancel_order')
-    # async def test_limit_chaser_order_refresh(self, mock_cancel_order, mock_place_open_order, mock_current_market_price):
-    #     # Setup initial configuration
-    #     config = OrderExecutorConfig(
-    #         id="test",
-    #         timestamp=123,
-    #         side=TradeType.BUY,
-    #         connector_name="binance",
-    #         trading_pair="ETH-USDT",
-    #         amount=Decimal("1"),
-    #         price=Decimal("100"),
-    #         execution_strategy=ExecutionStrategy.LIMIT_CHASER,
-    #         chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
-    #     )
-    #     executor = self.get_order_executor_from_config(config)
-    #     executor._status = RunnableStatus.RUNNING
-    #
-    #     # Create an open order
-    #     order = InFlightOrder(
-    #         client_order_id="OID-CHASER",
-    #         trading_pair=config.trading_pair,
-    #         order_type=OrderType.LIMIT_MAKER,
-    #         trade_type=config.side,
-    #         price=Decimal("118.8"),  # 120 * (1 - 0.01)
-    #         amount=Decimal("1"),
-    #         creation_timestamp=1640001112.223,
-    #         initial_state=OrderState.OPEN
-    #     )
-    #     executor._order = TrackedOrder("OID-CHASER")
-    #     executor._order.order = order
-    #
-    #     # Initial price setup
-    #     mock_current_market_price.return_value = Decimal("120")
-    #
-    #     # First control task call - should not refresh as price hasn't moved enough
-    #     await executor.control_task()
-    #     mock_cancel_order.assert_not_called()
-    #     mock_place_open_order.assert_not_called()
-    #
-    #     # Update price to trigger refresh threshold (price moved up by 2.5%)
-    #     mock_current_market_price.return_value = Decimal("125")  # 120 * 1.025
-    #
-    #     # Second control task call - should refresh as price moved beyond threshold
-    #     await executor.control_task()
-    #     mock_cancel_order.assert_called_once()
-    #     mock_place_open_order.assert_called_once()
-    #
-    #     # Verify the new order price calculation
-    #     new_price = executor.get_order_price()
-    #     expected_price = Decimal("123") * (Decimal("1") - Decimal("0.01"))  # 121.77
-    #     self.assertEqual(new_price, expected_price)
-    #
-    #     # Reset mocks for next test
-    #     mock_cancel_order.reset_mock()
-    #     mock_place_open_order.reset_mock()
-    #
-    #     # Update price to not trigger refresh threshold (price moved up by 1.5%)
-    #     mock_current_market_price.return_value = Decimal("121.8")  # 120 * 1.015
-    #
-    #     # Third control task call - should not refresh as price hasn't moved enough
-    #     await executor.control_task()
-    #     mock_cancel_order.assert_not_called()
-    #     mock_place_open_order.assert_not_called()
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, 'place_open_order')
+    @patch.object(OrderExecutor, 'cancel_order')
+    async def test_limit_chaser_order_refresh(self, mock_cancel_order, mock_place_open_order, mock_current_market_price):
+        # Setup initial configuration
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT_CHASER,
+            chaser_config=LimitChaserConfig(distance=Decimal("0.01"), refresh_threshold=Decimal("0.02"))
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.RUNNING
+
+        # Create an open order
+        order = InFlightOrder(
+            client_order_id="OID-CHASER",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT_MAKER,
+            trade_type=config.side,
+            price=Decimal("118.8"),  # 120 * (1 - 0.01)
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN
+        )
+        executor._order = TrackedOrder("OID-CHASER")
+        executor._order.order = order
+
+        # Initial price setup
+        mock_current_market_price.return_value = Decimal("120")
+
+        # First control task call - should not refresh as price hasn't moved enough
+        await executor.control_task()
+        mock_cancel_order.assert_not_called()
+        mock_place_open_order.assert_not_called()
+
+        # Update price to trigger refresh threshold (price moved up by 2.5%)
+        mock_current_market_price.return_value = Decimal("123")  # 120 * 1.025
+
+        # Second control task call - should refresh as price moved beyond threshold
+        await executor.control_task()
+        mock_cancel_order.assert_called_once()
+        mock_place_open_order.assert_called_once()
+
+        # Verify the new order price calculation
+        new_price = executor.get_order_price()
+        expected_price = Decimal("123") * (Decimal("1") - Decimal("0.01"))  # 121.77
+        self.assertEqual(new_price, expected_price)
+
+        # Reset mocks for next test
+        mock_cancel_order.reset_mock()
+        mock_place_open_order.reset_mock()
+
+        # Update price to not trigger refresh threshold (price moved up by 1.5%)
+        mock_current_market_price.return_value = Decimal("120")  # 120 * 1.015
+
+        # Third control task call - should not refresh as price hasn't moved enough
+        await executor.control_task()
+        mock_cancel_order.assert_not_called()
+        mock_place_open_order.assert_not_called()
