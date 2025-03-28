@@ -202,7 +202,7 @@ RATE_LIMITS = [
         limit_id=ACCOUNTS_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=MINUTE,
-        linked_limits=[LinkedLimitWeightPair(ORDERS_IP)],
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=CREATE_ORDER_URL,

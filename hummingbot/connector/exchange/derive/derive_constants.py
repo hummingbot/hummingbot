@@ -115,7 +115,8 @@ ENDPOINTS = {
             MY_TRADES_PATH_URL,
             ALL_ORDERS_PATH_URL,
             OPEN_ORDERS_PATH_URL,
-            WS_CONNECTIONS_RATE_LIMIT],
+            WS_CONNECTIONS_RATE_LIMIT,
+            ORDER_STATUS_PAATH_URL]
     },
 }
 
@@ -177,7 +178,7 @@ RATE_LIMITS = [
         limit_id=ACCOUNTS_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=MINUTE,
-        linked_limits=[LinkedLimitWeightPair(ORDERS_IP)],
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=CREATE_ORDER_URL,
