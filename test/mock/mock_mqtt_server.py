@@ -95,6 +95,9 @@ class FakeMQTTTransport:
     def start(self):
         self._connected = True
 
+    def connect(self):
+        self._connected = True
+
     def stop(self):
         self._connected = False
 

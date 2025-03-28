@@ -1,8 +1,6 @@
-import asyncio
 import json
-import unittest
 from decimal import Decimal
-from typing import Awaitable
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 
 from aioresponses import aioresponses
 
@@ -11,20 +9,15 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.binance_us_rate_source import BinanceUSRateSource
 
 
-class BinanceUSRateSourceTest(unittest.TestCase):
+class BinanceUSRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.binance_us_pair = f"{cls.target_token}USD"
         cls.us_trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote="USD")
         cls.binance_ignored_pair = "SOMEPAIR"
         cls.ignored_trading_pair = combine_to_hb_trading_pair(base="SOME", quote="PAIR")
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def setup_binance_us_responses(self, mock_api, expected_rate: Decimal):
         pairs_us_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain="us")
@@ -71,12 +64,12 @@ class BinanceUSRateSourceTest(unittest.TestCase):
         mock_api.get(binance_prices_us_url, body=json.dumps(binance_prices_us_response))
 
     @aioresponses()
-    def test_get_binance_prices(self, mock_api):
+    async def test_get_binance_prices(self, mock_api):
         expected_rate = Decimal("10")
         self.setup_binance_us_responses(mock_api=mock_api, expected_rate=expected_rate)
 
         rate_source = BinanceUSRateSource()
-        prices = self.async_run_with_timeout(rate_source.get_prices())
+        prices = await rate_source.get_prices()
 
         self.assertIn(self.us_trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.us_trading_pair])
