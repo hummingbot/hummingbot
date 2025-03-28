@@ -1,5 +1,5 @@
 import json
-from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 import eth_utils
@@ -9,13 +9,13 @@ from hummingbot.connector.exchange.derive.derive_auth import DeriveAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
-class DeriveAuthTests(IsolatedAsyncioWrapperTestCase):
+class DeriveAuthTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.api_key = "0x1234567890abcdef1234567890abcdef12345678"  # noqa: mock
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         self.sub_id = "45686"  # noqa: mock
-        self.domain = "derive"  # noqa: mock
+        self.domain = "derive_testnet"  # noqa: mock
         self.auth = DeriveAuth(api_key=self.api_key,
                                api_secret=self.api_secret,
                                sub_id=self.sub_id,

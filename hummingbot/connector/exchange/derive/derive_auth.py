@@ -112,7 +112,11 @@ class DeriveAuth(AuthBase):
             DOMAIN_SEPARATOR=domain_seperator,  # from Protocol Constants table in docs.derive.xyz
             ACTION_TYPEHASH=action_typehash,  # from Protocol Constants table in docs.derive.xyz
         )
-        action.sign(self.session_key_wallet.key)
+        try:
+            action.sign(self.session_key_wallet.key)
+        except Exception as e:
+            raise Exception(f"Error signing action: {e}")
+
         return action.to_json()
 
     def header_for_authentication(self) -> Dict[str, str]:
