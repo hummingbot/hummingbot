@@ -8,7 +8,7 @@ from web3 import Web3
 
 from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS, derive_web_utils as web_utils
 from hummingbot.connector.exchange.derive.derive_web_utils import MAX_INT_32, get_action_nonce
-from hummingbot.connector.helpers.derive_utils.derive_helper import SignedAction, TradeModuleData
+from hummingbot.connector.helpers.derive.derive_helper import SignedAction, TradeModuleData
 from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest

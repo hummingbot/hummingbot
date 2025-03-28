@@ -332,7 +332,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
-            self._update_rate_limits(),
             self._update_trade_history(),
             self._update_order_status(),
             self._update_balances(),
