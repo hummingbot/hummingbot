@@ -170,13 +170,13 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=MINUTE,
         linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
     ),
     RateLimit(
         limit_id=EXCHANGE_CURRENCIES_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
         linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)],
     ),
