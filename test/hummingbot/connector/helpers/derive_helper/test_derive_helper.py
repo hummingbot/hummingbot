@@ -7,7 +7,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils import decimal_to_big_int
-from hummingbot.connector.helpers.derive.derive_helper import SignedAction, TradeModuleData
+from hummingbot.connector.helpers.derive_helper.derive_helper import SignedAction, TradeModuleData
 
 
 @pytest.fixture
