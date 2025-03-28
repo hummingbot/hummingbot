@@ -292,6 +292,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
         )
 
+    async def start_network(self):
+        await super().start_network()
+        self._rate_limits_polling_task = safe_ensure_future(self._rate_limits_polling_loop())
+
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
