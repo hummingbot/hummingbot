@@ -42,7 +42,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             derive_api_key="testkey",
             derive_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
             sub_id="45686",
-            domain="derive",
+            domain="derive_testnet",
             account_type="market_maker",
             trading_required=True,
             trading_pairs=[self.trading_pair],

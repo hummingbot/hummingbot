@@ -41,10 +41,10 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         cls.api_key = "0x79d7511382b5dFd1185F6AF268923D3F9FC31B53"  # noqa: mock
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.sub_id = "45686"  # noqa: mock
-        cls.domain = "derive"  # noqa: mock
+        cls.domain = "derive_testnet"  # noqa: mock
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
-        cls.account_type = "trader"  # noqa: mock
+        cls.account_type = "market_maker"  # noqa: mock
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
 
@@ -419,6 +419,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             client_config_map,
             self.api_secret,  # noqa: mock
             self.sub_id,
+            self.account_type,
             self.api_key,  # noqa: mock
             trading_pairs=[self.trading_pair],
         )
