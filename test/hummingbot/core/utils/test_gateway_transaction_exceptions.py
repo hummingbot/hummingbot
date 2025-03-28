@@ -27,7 +27,6 @@ class CheckTransactionExceptionsTest(unittest.TestCase):
             "gas_limit": 22000,
             "gas_cost": Decimal(90),
             "gas_asset": "ETH",
-            "swaps_count": 2
         }
         self.assertEqual(check_transaction_exceptions(**transaction_args), [])
 
