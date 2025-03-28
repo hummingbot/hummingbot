@@ -18,7 +18,7 @@ class BasicOrderOpenCloseExampleConfig(ControllerConfigBase):
     leverage = 50
     close_order_delay = 10
     open_short_to_close_long = False
-    close_partial_position = True
+    close_partial_position = False
     amount_quote = Decimal("15")
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
