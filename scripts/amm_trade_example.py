@@ -27,8 +27,6 @@ class DEXTradeConfig(BaseClientModel):
         prompt_on_new=True, prompt=lambda mi: "Trigger when price rises above target? (True for above/False for below)"))
     is_buy: bool = Field(True, client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Buying or selling the base asset? (True for buy, False for sell)"))
-    pool_address: str = Field("", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Pool address (needed for AMM and CLMM connectors)"))
     amount: Decimal = Field(Decimal("0.01"), client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Order amount (in base token)"))
 
@@ -86,7 +84,6 @@ class DEXTrade(ScriptStrategyBase):
                 trading_pair=self.config.trading_pair,
                 is_buy=self.config.is_buy,
                 amount=self.config.amount,
-                pool_address=self.config.pool_address
             )
             self.log_with_clock(logging.INFO, f"Price: {current_price}")
         except Exception as e:
@@ -114,7 +111,6 @@ class DEXTrade(ScriptStrategyBase):
                         trading_pair=self.config.trading_pair,
                         amount=self.config.amount,
                         price=current_price,
-                        pool_address=self.config.pool_address
                     )
                     self.log_with_clock(logging.INFO, f"Trade executed with order ID: {order_id}")
                     self.trade_executed = True
