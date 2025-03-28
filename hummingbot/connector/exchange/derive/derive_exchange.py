@@ -216,9 +216,12 @@ class DeriveExchange(ExchangePyBase):
         )
         return trade_base_fee
 
+    async def start_network(self):
+        await super().start_network()
+        self._rate_limits_polling_task = safe_ensure_future(self._rate_limits_polling_loop())
+
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
-            self._update_rate_limits(),
             self._update_trade_history(),
             self._update_order_status(),
             self._update_balances(),
@@ -453,7 +456,7 @@ class DeriveExchange(ExchangePyBase):
 
             self._order_tracker.process_trade_update(trade_update)
 
-    # === loops and sync related methods === #
+        # === loops and sync related methods === #
     async def _rate_limits_polling_loop(self):
         """
         Updates the rate limits.
