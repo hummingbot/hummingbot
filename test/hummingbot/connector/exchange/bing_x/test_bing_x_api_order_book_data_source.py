@@ -39,7 +39,6 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         super().setUp()
         self.log_records = []
         self.async_task = None
-        self.mocking_assistant = NetworkMockingAssistant()
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BingXExchange(
@@ -64,9 +63,17 @@ class TestBingXAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.ob_data_source.logger().setLevel(1)
         self.ob_data_source.logger().addHandler(self)
 
-        self.resume_test_event = asyncio.Event()
-
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
+
+        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self.time_synchronnizer = TimeSynchronizer()
+        self.time_synchronnizer.add_time_offset_ms_sample(1000)
+
+        self.resume_test_event = asyncio.Event()
 
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
