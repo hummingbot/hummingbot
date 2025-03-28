@@ -8,6 +8,7 @@ from lyra_v2_action_signing import SignedAction, TradeModuleData, utils
 from web3 import Web3
 
 from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS, derive_web_utils as web_utils
+from hummingbot.connector.utils import lyra_updated_sign, to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -55,9 +56,9 @@ class DeriveAuth(AuthBase):
     def get_ws_auth_payload(self) -> List[Dict[str, Any]]:
         payload = {}
         timestamp = str(self.utc_now_ms())
-        signature = self._w3.eth.account.sign_message(
+        signature = to_0x_hex(self._w3.eth.account.sign_message(
             encode_defunct(text=timestamp), private_key=self._api_secret
-        ).signature.hex()
+        ).signature)
         """
         This method is intended to configure a websocket request to be authenticated. Dexalot does not use this
         functionality
@@ -107,14 +108,15 @@ class DeriveAuth(AuthBase):
             DOMAIN_SEPARATOR=CONSTANTS.DOMAIN_SEPARATOR,  # from Protocol Constants table in docs.derive.xyz
             ACTION_TYPEHASH=CONSTANTS.ACTION_TYPEHASH,  # from Protocol Constants table in docs.derive.xyz
         )
-        action.sign(self.session_key_wallet.key)
+        # action.sign(self.session_key_wallet.key)
+        action = lyra_updated_sign(action, self.session_key_wallet.key)
         return action.to_json()
 
     def header_for_authentication(self) -> Dict[str, str]:
         timestamp = str(self.utc_now_ms())
-        signature = self._w3.eth.account.sign_message(
+        signature = to_0x_hex(self._w3.eth.account.sign_message(
             encode_defunct(text=timestamp), private_key=self._api_secret
-        ).signature.hex()
+        ).signature)
         payload = {}
 
         payload["accept"] = 'application/json'
