@@ -25,7 +25,7 @@ from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class TestURCreator(OMSConnectorURLCreatorBase):
+class MockedURCreator(OMSConnectorURLCreatorBase):
     def get_rest_url(self, path_url: str) -> str:
         return "https://some.url"
 
@@ -33,7 +33,7 @@ class TestURCreator(OMSConnectorURLCreatorBase):
         return "wss://some.url"
 
 
-class TestExchange(OMSExchange):
+class MockedExchange(OMSExchange):
     @property
     def name(self) -> str:
         return "test_exchange"
@@ -63,7 +63,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.url_provider = TestURCreator()
+        cls.url_provider = MockedURCreator()
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
@@ -72,7 +72,7 @@ class OMSConnectorAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector = TestExchange(
+        connector = MockedExchange(
             client_config_map, self.api_key, self.secret, self.user_id, trading_pairs=[self.trading_pair]
         )
         self.auth = OMSConnectorAuth(api_key=self.api_key, secret_key=self.secret, user_id=self.user_id)

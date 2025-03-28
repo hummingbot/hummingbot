@@ -201,16 +201,20 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_klines))
 
-        self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+        # Gather the expected subscription (some exchanges use time() which will be different)
+        expected_kline_subscription = self.data_feed.ws_subscription_payload()
+        with patch.object(self.data_feed, "ws_subscription_payload") as mocked_payload:
+            mocked_payload.return_value = expected_kline_subscription
+            self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-        await asyncio.sleep(0.1)
+            await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+            await asyncio.sleep(0.1)
+            mocked_payload.assert_called_once()
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
         self.assertEqual(1, len(sent_subscription_messages))
-        expected_kline_subscription = self.data_feed.ws_subscription_payload()
         # this is because I couldn't find a way to mock the nonce
         if "id" in expected_kline_subscription:
             del expected_kline_subscription["id"]
