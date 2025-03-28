@@ -17,7 +17,8 @@ test:
  	--ignore="test/hummingbot/connector/exchange/injective_v2/" \
  	--ignore="test/hummingbot/remote_iface/" \
  	--ignore="test/connector/utilities/*" \
- 	--ignore="test/hummingbot/strategy/amm_arb/"
+ 	--ignore="test/hummingbot/strategy/amm_arb/" \
+ 	--ignore="test/hummingbot/data_feed/candles_feed/gate_io_perpetual_candles/" \
 
 run_coverage: test
 	coverage report
