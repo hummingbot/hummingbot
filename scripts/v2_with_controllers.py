@@ -3,7 +3,7 @@ import time
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
-from pydantic import Field
+from pydantic.v1 import Field
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase

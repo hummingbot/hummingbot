@@ -6,6 +6,8 @@ from hummingbot.notifier.notifier_base import NotifierBase
 
 
 class TestNotifierBase(IsolatedAsyncioWrapperTestCase):
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
 
     @patch.object(NotifierBase, "_send_message", new_callable=AsyncMock)
     async def test_notifier_base(self, send_message_mock):
@@ -19,10 +21,12 @@ class TestNotifierBase(IsolatedAsyncioWrapperTestCase):
 
         # test start
         notifier_base.start()
+        await asyncio.sleep(0.001)
         self.assertTrue(notifier_base._send_message_task)
 
         # test stop
         notifier_base.stop()
+        await asyncio.sleep(0.001)
         self.assertFalse(notifier_base._send_message_task)
 
         # test send_message_from_queue
