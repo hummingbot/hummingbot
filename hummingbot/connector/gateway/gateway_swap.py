@@ -35,7 +35,6 @@ class GatewaySwap(GatewayBase):
         :param amount: The amount required (in base token unit)
         :return: The quote price.
         """
-
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
 
@@ -265,7 +264,3 @@ class GatewaySwap(GatewayBase):
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         return Decimal("1e-15")
-
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        base, quote = trading_pair.split("_")[0].split("-")
-        return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
