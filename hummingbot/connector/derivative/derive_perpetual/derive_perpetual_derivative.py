@@ -366,11 +366,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             if self._account_type == CONSTANTS.MARKET_MAKER_ACCOUNTS_TYPE:
                 limit_id = r_limit_id
                 interval = SECOND
-                limit = CONSTANTS.TRADER_NON_MATCHING
+                limit = CONSTANTS.MARKET_MAKER_NON_MATCHING
             else:
                 limit_id = r_limit_id
                 interval = SECOND
-                limit = CONSTANTS.MARKET_MAKER_NON_MATCHING
+                limit = CONSTANTS.TRADER_NON_MATCHING
 
             if limit_id is not None and interval is not None:
                 for r_l in rate_limits_copy:
