@@ -9,6 +9,7 @@ from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
+from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy_v2.models.executors import CloseType
@@ -116,6 +117,7 @@ class PMMConfig(ControllerConfigBase):
             is_updatable=True,
             prompt_on_new=True,
             prompt=lambda mi: "Enter the maximum skew factor (e.g., 1.0):"))
+    global_take_profit: Decimal = Decimal("0.02")
 
     @validator("take_profit", pre=True, always=True)
     def validate_target(cls, v):
@@ -240,6 +242,21 @@ class PMM(ControllerBase):
         Create actions proposal based on the current state of the controller.
         """
         create_actions = []
+        if self.processed_data["current_base_pct"] > self.config.target_base_pct and self.processed_data["unrealized_pnl_pct"] > self.config.global_take_profit:
+            # Create a global take profit executor
+            create_actions.append(CreateExecutorAction(
+                controller_id=self.config.id,
+                executor_config=OrderExecutorConfig(
+                    timestamp=self.market_data_provider.time(),
+                    connector_name=self.config.connector_name,
+                    trading_pair=self.config.trading_pair,
+                    side=TradeType.SELL,
+                    amount=self.processed_data["position_amount"],
+                    execution_strategy=ExecutionStrategy.MARKET,
+                    price=self.processed_data["reference_price"],
+                )
+            ))
+            return create_actions
         levels_to_execute = self.get_levels_to_execute()
         # Pre-calculate all spreads and amounts for buy and sell sides
         buy_spreads, buy_amounts_quote = self.config.get_spreads_and_amounts_in_quote(TradeType.BUY)
@@ -340,10 +357,20 @@ class PMM(ControllerBase):
                               (position.trading_pair == self.config.trading_pair) &
                               (position.connector_name == self.config.connector_name)), None)
         target_position = self.config.total_amount_quote * self.config.target_base_pct
-        current_base_pct = position_held.amount_quote / self.config.total_amount_quote if position_held is not None else Decimal(0)
-        deviation = (target_position - position_held.amount_quote) / target_position if position_held is not None else Decimal(1)
+        if position_held is not None:
+            position_amount = position_held.amount
+            current_base_pct = position_held.amount_quote / self.config.total_amount_quote
+            deviation = (target_position - position_held.amount_quote) / target_position
+            unrealized_pnl_pct = position_held.unrealized_pnl_quote / position_held.amount_quote if position_held.amount_quote != 0 else Decimal("0")
+        else:
+            position_amount = 0
+            current_base_pct = 0
+            deviation = 1
+            unrealized_pnl_pct = 0
+
         self.processed_data = {"reference_price": Decimal(reference_price), "spread_multiplier": Decimal("1"),
-                               "deviation": deviation, "current_base_pct": current_base_pct}
+                               "deviation": deviation, "current_base_pct": current_base_pct,
+                               "unrealized_pnl_pct": unrealized_pnl_pct, "position_amount": position_amount}
 
     def get_executor_config(self, level_id: str, price: Decimal, amount: Decimal):
         """
