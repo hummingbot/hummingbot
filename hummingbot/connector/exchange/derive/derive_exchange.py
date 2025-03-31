@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tupl
 
 from bidict import bidict
 
-from hummingbot.connector.constants import SECOND, s_decimal_NaN
+from hummingbot.connector.constants import SECOND, TWELVE_HOURS, s_decimal_NaN
 from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS, derive_web_utils as web_utils
 from hummingbot.connector.exchange.derive.derive_api_order_book_data_source import DeriveAPIOrderBookDataSource
 from hummingbot.connector.exchange.derive.derive_api_user_stream_data_source import DeriveAPIUserStreamDataSource
@@ -463,6 +463,7 @@ class DeriveExchange(ExchangePyBase):
         """
         try:
             await self._update_rate_limits()
+            await self._sleep(TWELVE_HOURS)
         except NotImplementedError:
             raise
         except asyncio.CancelledError:
@@ -473,9 +474,9 @@ class DeriveExchange(ExchangePyBase):
             )
 
     async def _update_rate_limits(self):
-        self._initialize_rate_limits_from_exchange_info()
+        await self._initialize_rate_limits()
 
-    def _initialize_rate_limits_from_exchange_info(self):
+    async def _initialize_rate_limits(self):
         # Update rate limits
         for r_limit_id in CONSTANTS.ENDPOINTS["limits"]["non_matching"]:
             limit_id = None
