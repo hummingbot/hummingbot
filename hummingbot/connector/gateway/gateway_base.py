@@ -236,6 +236,16 @@ class GatewayBase(ConnectorBase):
         for t in tokens.get("tokens", []):
             self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
 
+    def get_taker_order_type(self):
+        return OrderType.LIMIT
+
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        return Decimal("1e-15")
+
+    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
+        base, quote = trading_pair.split("-")
+        return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
+
     async def get_chain_info(self):
         """
         Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
