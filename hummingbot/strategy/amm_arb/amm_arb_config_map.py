@@ -81,12 +81,6 @@ amm_arb_config_map = {
         prompt_on_new=True,
         validator=market_2_validator,
         on_validated=market_2_on_validated),
-    "pool_id": ConfigVar(
-        key="pool_id",
-        prompt="Specify a pool to swap with on the AMM connector >>> ",
-        prompt_on_new=False,
-        type_str="str",
-        default=""),
     "order_amount": ConfigVar(
         key="order_amount",
         prompt=order_amount_prompt,
@@ -150,7 +144,7 @@ amm_arb_config_map = {
     "gas_price": ConfigVar(
         key="gas_price",
         prompt="What is the gas price, expressed in the quote asset? >>> ",
-        default=Decimal("3500"),
+        default=Decimal("2000"),
         validator=lambda v: validate_decimal(v),
         prompt_on_new=False,
         type_str="decimal"),
