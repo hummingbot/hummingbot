@@ -45,12 +45,6 @@ rate_oracle_enabled: true
 # Set this value based on the expected conversion rate between your quote assets
 quote_conversion_rate: 1
 
-# Specify a pool to swap with on the AMM connector
-# This ID is appended to the trading pair name for AMM connectors to identify specific liquidity pools
-# For example, if trading WETH-USDC with pool_id "3", the full market would be "WETH-USDC_3"
-# Leave as null to use the default pool
-pool_id: null
-
 # What is the symbol of the token used to pay gas?
 # Specifies which token is used for transaction fees on the blockchain
 # Default is ETH for Ethereum-based networks, but could be different for other chains

@@ -659,7 +659,7 @@ class GatewayHttpClient:
             amount: Decimal,
             side: TradeType,
             fail_silently: bool = False,
-            pool_id: Optional[str] = None
+            pool_address: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Fetches price for a given trading pair using quote_swap
@@ -671,7 +671,7 @@ class GatewayHttpClient:
         :param amount: The amount of token to swap
         :param side: Trade side (BUY/SELL)
         :param fail_silently: If True, no exception will be raised on error
-        :param pool_id: Optional pool identifier for specific AMM pools
+        :param pool_address: Optional pool identifier for specific pools
         :return: Dictionary containing price information
         """
         try:
@@ -682,7 +682,7 @@ class GatewayHttpClient:
                 quote_asset=quote_asset,
                 amount=amount,
                 side=side,
-                pool_address=pool_id
+                pool_address=pool_address
             )
             return response
         except Exception as e:
