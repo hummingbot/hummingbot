@@ -27,7 +27,7 @@ from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
 
 
-class PositionHeld:
+class PositionHold:
     def __init__(self, connector_name: str, trading_pair: str, side: TradeType):
         self.connector_name = connector_name
         self.trading_pair = trading_pair
@@ -336,7 +336,7 @@ class ExecutorOrchestrator:
             report[controller_id] = [executor.executor_info for executor in executors_list if executor]
         return report
 
-    def get_positions_report(self) -> Dict[str, List[PositionHeld]]:
+    def get_positions_report(self) -> Dict[str, List[PositionHold]]:
         """
         Generate a report of all positions held.
         """
@@ -413,7 +413,7 @@ class ExecutorOrchestrator:
                         existing_position.add_orders_from_executor(executor_info)
                     else:
                         # Create new position
-                        position = PositionHeld(
+                        position = PositionHold(
                             executor_info.connector_name,
                             executor_info.trading_pair,
                             executor_info.config.side
