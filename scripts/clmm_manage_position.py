@@ -4,7 +4,7 @@ import time
 from decimal import Decimal
 from typing import Dict
 
-from pydantic import Field
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.settings import GatewayConnectionSetting
