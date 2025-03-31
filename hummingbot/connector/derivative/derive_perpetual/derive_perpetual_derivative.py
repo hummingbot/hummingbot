@@ -355,9 +355,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             )
 
     async def _update_rate_limits(self):
-        self._initialize_rate_limits_from_exchange_info()
+        await self._initialize_rate_limits()
 
-    def _initialize_rate_limits_from_exchange_info(self):
+    async def _initialize_rate_limits(self):
         # Update rate limits
         for r_limit_id in CONSTANTS.ENDPOINTS["limits"]["non_matching"]:
             limit_id = None
