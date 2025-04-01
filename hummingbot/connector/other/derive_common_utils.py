@@ -1,25 +1,11 @@
-import random
 from dataclasses import dataclass
 from decimal import Decimal
 
-from eth_abi import encode
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
+from eth_abi.abi import encode
 from hexbytes import HexBytes
-from web3 import Web3
+from web3 import Account, Web3
 
-from hummingbot.connector.exchange.derive.derive_web_utils import utc_now_ms
-
-MAX_INT_256: int = 2 ** 255 - 1
-MIN_INT_256: int = -(2 ** 255)
-MAX_INT_32: int = 2 ** 31 - 1
-
-
-def decimal_to_big_int(value: Decimal) -> int:
-    result_value = int(value * Decimal(10**18))
-    if result_value < MIN_INT_256 or result_value > MAX_INT_256:
-        raise ValueError(f"resulting integer value must be between {MIN_INT_256} and {MAX_INT_256}")
-    return result_value
+from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils import decimal_to_big_int
 
 
 @dataclass
@@ -91,7 +77,7 @@ class SignedAction:
     """
 
     def sign(self, signer_private_key: str):
-        signer_wallet: LocalAccount = Web3().eth.account.from_key(signer_private_key)
+        signer_wallet = Web3().eth.account.from_key(signer_private_key)
         signature: Account = signer_wallet.unsafe_sign_hash(self._to_typed_data_hash())
         self.signature = signature.signature.hex()
         return self.signature
@@ -163,16 +149,3 @@ class SignedAction:
                 ],
             )
         )
-
-
-def get_action_nonce(nonce_iter: int = 0) -> int:
-    """
-    Used to generate a unique nonce to prevent replay attacks on-chain.
-
-    Uses the current UTC timestamp in milliseconds and a random number up to 3 digits.
-
-    :param nonce_iter: allows to enter a specific number between 0 and 999 unless. If None is passed a random number is chosen
-    """
-    if nonce_iter is None:
-        nonce_iter = random.randint(0, 999)
-    return int(str(utc_now_ms()) + str(nonce_iter))
