@@ -140,8 +140,4 @@ class AdjustedMidPrice(ScriptStrategyBase):
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
-
-        warning_lines.extend(self.balance_warning(self.get_market_trading_pair_tuples()))
-        if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
         return "\n".join(lines)

@@ -42,7 +42,11 @@ class ArbitrageExecutor(ExecutorBase):
         stable_coins_condition = "USD" in first_token and "USD" in second_token
         return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
 
-    def __init__(self, strategy: ScriptStrategyBase, config: ArbitrageExecutorConfig, update_interval: float = 1.0):
+    def __init__(self,
+                 strategy: ScriptStrategyBase,
+                 config: ArbitrageExecutorConfig,
+                 update_interval: float = 1.0,
+                 max_retries: int = 3):
         if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
                                        pair2=config.selling_market.trading_pair):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
@@ -54,7 +58,7 @@ class ArbitrageExecutor(ExecutorBase):
         self.selling_market = config.selling_market
         self.min_profitability = config.min_profitability
         self.order_amount = config.order_amount
-        self.max_retries = config.max_retries
+        self.max_retries = max_retries
 
         # Order tracking
         self._buy_order: TrackedOrder = TrackedOrder()

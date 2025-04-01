@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from abc import ABC
 from collections import deque
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -191,8 +192,10 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))
         self.assertEqual(resp.shape[1], 10)
 
+    @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase._time")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_subscriptions_subscribes_to_klines(self, ws_connect_mock):
+    async def test_listen_for_subscriptions_subscribes_to_klines(self, ws_connect_mock, mock_time: AsyncMock):
+        mock_time.return_value = time.time()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_klines = self._success_subscription_mock()

@@ -7,8 +7,6 @@ from hashlib import md5
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from hexbytes import HexBytes
-from lyra_v2_action_signing import SignedAction
-from web3 import Web3
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -134,26 +132,3 @@ def to_0x_hex(signature: HexBytes | bytes) -> str:
         return signature.to_0x_hex()
 
     return hex if (hex := signature.hex()).startswith("0x") else f"0x{hex}"
-
-
-def lyra_updated_sign(action: SignedAction, signer_private_key: str) -> SignedAction:
-    def lyra_updated__to_typed_data_hash() -> HexBytes:
-        encoded_typed_data_hash = "".join(
-            [
-                "0x1901",
-                action.DOMAIN_SEPARATOR[2:],
-                to_0x_hex(action._get_action_hash())[2:],  # Explicitly ensure 0x, then remove it
-            ]
-        )
-        return Web3.keccak(hexstr=encoded_typed_data_hash)
-
-    signer_wallet = Web3().eth.account.from_key(signer_private_key)
-    try:
-        _hash = lyra_updated__to_typed_data_hash()
-        signature = signer_wallet.unsafe_sign_hash(to_0x_hex(_hash))
-    except Exception as ex:
-        print(f"Error signing action: {ex}")
-        raise ex
-
-    action.signature = to_0x_hex(signature.signature)
-    return action

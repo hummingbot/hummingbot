@@ -117,6 +117,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     else:
                         self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
                         self._last_listen_key_ping_ts = int(time.time())
+                        self._listen_key_initialized_event.set()
                 else:
                     await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
         finally:

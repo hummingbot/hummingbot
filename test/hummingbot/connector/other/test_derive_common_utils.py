@@ -1,368 +1,137 @@
-import json
-from dataclasses import dataclass
-from decimal import Decimal, getcontext
-from unittest.mock import patch
+from decimal import Decimal
 
 import pytest
-from eth_abi import encode
-from eth_abi.exceptions import ValueOutOfBounds
+from eth_abi.abi import decode
+from eth_account import Account
 from hexbytes import HexBytes
 from web3 import Web3
 
-from hummingbot.connector.other.derive_common_utils import MAX_INT_256, MIN_INT_256, SignedAction, decimal_to_big_int
-
-
-@dataclass
-class ModuleData:
-    pass
-
-
-@dataclass
-class TradeModuleData(ModuleData):
-    asset_address: str
-    sub_id: int
-    limit_price: Decimal
-    amount: Decimal
-    max_fee: Decimal
-    recipient_id: int
-    is_bid: bool
-
-    def to_abi_encoded(self):
-        return encode(
-            ["address", "uint", "int", "int", "uint", "uint", "bool"],
-            [
-                Web3.to_checksum_address(self.asset_address),
-                self.sub_id,
-                decimal_to_big_int(self.limit_price),
-                decimal_to_big_int(self.amount),
-                decimal_to_big_int(self.max_fee),
-                self.recipient_id,
-                self.is_bid,
-            ],
-        )
-
-    def to_json(self):
-        return {
-            "limit_price": str(self.limit_price),
-            "amount": str(self.amount),
-            "max_fee": str(self.max_fee),
-        }
-
-
-@pytest.mark.parametrize(
-    "input_decimal,expected_int",
-    [
-        (Decimal("1"), 10 ** 18),  # happy path: positive integer
-        (Decimal("-1"), -(10 ** 18)),  # happy path: negative integer
-        (Decimal("1.2345"), 1234500000000000000),  # happy path: positive float
-        (Decimal("-1.2345"), -1234500000000000000),  # happy path: negative float
-        (Decimal("0"), 0),  # edge case: zero
-        (Decimal("0.000000000000000001"), 1),  # edge case: smallest positive value
-        (Decimal("-0.000000000000000001"), -1),  # edge case: smallest negative value
-    ],
-    ids=[
-        "positive_integer",
-        "negative_integer",
-        "positive_float",
-        "negative_float",
-        "zero",
-        "smallest_positive",
-        "smallest_negative",
-    ],
-)
-def test_decimal_to_big_int_happy_path(input_decimal, expected_int):
-    actual_int = decimal_to_big_int(input_decimal)
-
-    assert actual_int == expected_int
-
-
-@pytest.mark.parametrize(
-    "input_decimal",
-    [
-        (Decimal(MIN_INT_256 / Decimal(10 ** 18))),  # edge case: min value
-        (Decimal(MAX_INT_256 / Decimal(10 ** 18))),  # edge case: max value
-        (Decimal((MIN_INT_256 + 1) / Decimal(10 ** 18))),  # edge case: min value + 1
-        (Decimal((MAX_INT_256 - 1) / Decimal(10 ** 18))),  # edge case: max value - 1
-    ],
-    ids=["min_value", "max_value", "min_value_plus_one", "max_value_minus_one"],
-)
-def test_decimal_to_big_int_edge_cases(input_decimal):
-    actual_int = decimal_to_big_int(input_decimal)
-
-    assert actual_int == int(input_decimal * Decimal(10 ** 18))
-
-
-def test_decimal_to_big_int_error_cases():
-    getcontext().prec = 80  # Set precision for Decimal operations
-    with pytest.raises(ValueError) as e:
-        decimal_to_big_int(Decimal(MIN_INT_256 - 1) / Decimal(10 ** 18))
-    with pytest.raises(ValueError) as e:
-        decimal_to_big_int(Decimal(MAX_INT_256 + 1) / Decimal(10 ** 18))
-    assert f"resulting integer value must be between {MIN_INT_256} and {MAX_INT_256}" in str(e.value)
-
-
-@pytest.mark.parametrize(
-    "asset_address, sub_id, limit_price, amount, max_fee, recipient_id, is_bid, expected_json",
-    [
-        (
-            "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
-            1,
-            Decimal("100.50"),
-            Decimal("1.2345"),
-            Decimal("0.01"),
-            2,
-            True,
-            '{"limit_price": "100.50", "amount": "1.2345", "max_fee": "0.01"}',
-        ),  # happy path
-        (
-            "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
-            0,
-            Decimal("0"),
-            Decimal("0"),
-            Decimal("0"),
-            0,
-            False,
-            '{"limit_price": "0", "amount": "0", "max_fee": "0"}',
-        ),  # edge case: zero values
-        (
-            "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
-            -1,
-            Decimal("-1.5"),
-            Decimal("-0.0001"),
-            Decimal("-0.000000000000000001"),
-            -2,
-            True,
-            '{"limit_price": "-1.5", "amount": "-0.0001", "max_fee": "-1E-18"}',
-        ),  # edge case: negative values
-    ],
-    ids=["happy_path", "zero_values", "negative_values"],
-)
-def test_trade_module_data_to_json(
-        asset_address, sub_id, limit_price, amount, max_fee, recipient_id, is_bid, expected_json
-):
-    trade_data = TradeModuleData(
-        asset_address=asset_address,
-        sub_id=sub_id,
-        limit_price=limit_price,
-        amount=amount,
-        max_fee=max_fee,
-        recipient_id=recipient_id,
-        is_bid=is_bid,
-    )
-    json_output = trade_data.to_json()
-
-    assert json.loads(expected_json) == json_output
-
-
-@pytest.mark.parametrize(
-    "asset_address, sub_id, limit_price, amount, max_fee, recipient_id, is_bid",
-    [
-        (
-            "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
-            1,
-            Decimal("100.50"),
-            Decimal("1.2345"),
-            Decimal("0.01"),
-            2,
-            True,
-        ),  # happy path
-        (
-            "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
-            0,
-            Decimal("0"),
-            Decimal("0"),
-            Decimal("0"),
-            0,
-            False,
-        ),  # edge case: zero values
-    ],
-    ids=["happy_path", "zero_values"],
-)
-def test_trade_module_data_to_abi_encoded(
-        asset_address, sub_id, limit_price, amount, max_fee, recipient_id, is_bid
-):
-    trade_data = TradeModuleData(
-        asset_address=asset_address,
-        sub_id=sub_id,
-        limit_price=limit_price,
-        amount=amount,
-        max_fee=max_fee,
-        recipient_id=recipient_id,
-        is_bid=is_bid,
-    )
-    encoded_data = trade_data.to_abi_encoded()
-
-    assert isinstance(encoded_data, bytes)
-
-
-@pytest.mark.parametrize(
-    "asset_address, sub_id, limit_price, amount, max_fee, recipient_id, is_bid",
-    [
-        (
-            "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
-            -1,
-            Decimal("-1.5"),
-            Decimal("-0.0001"),
-            Decimal("-0.000000000000000001"),
-            -2,
-            True,
-        ),  # edge case: negative values
-    ],
-    ids=["negative_values"],
-)
-def test_trade_module_data_to_abi_encoded_raises(
-        asset_address, sub_id, limit_price, amount, max_fee, recipient_id, is_bid
-):
-    trade_data = TradeModuleData(
-        asset_address=asset_address,
-        sub_id=sub_id,
-        limit_price=limit_price,
-        amount=amount,
-        max_fee=max_fee,
-        recipient_id=recipient_id,
-        is_bid=is_bid,
-    )
-    with pytest.raises(ValueOutOfBounds):
-        trade_data.to_abi_encoded()
+from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils import decimal_to_big_int
+from hummingbot.connector.other.derive_common_utils import SignedAction, TradeModuleData
 
 
 @pytest.fixture
-def signed_action():
-    module_data = TradeModuleData(
-        asset_address="0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
+def trade_module_data():
+    return TradeModuleData(
+        asset_address=Web3.to_checksum_address("0x742d35Cc6634C0532925a3b844Bc454e4438f44e"),  # noqa: mock
         sub_id=1,
-        limit_price=Decimal("100"),
-        amount=Decimal("1"),
-        max_fee=Decimal("0.01"),
-        recipient_id=1,
+        limit_price=Decimal("100.5"),
+        amount=Decimal("10"),
+        max_fee=Decimal("0.1"),
+        recipient_id=12345,
         is_bid=True,
     )
+
+
+@pytest.fixture
+def signed_action(trade_module_data):
     return SignedAction(
         subaccount_id=1,
-        owner="0x5369676e6174757265",  # noqa: mock
-        signer="0x5369676e6174757265",  # noqa: mock
-        signature_expiry_sec=1695836058,
+        owner=Web3.to_checksum_address("0x3F5CE5FBFe3E9af3971dD833D26BA9b5C936F0bE"),  # noqa: mock
+        signer=Web3().eth.account.from_key("0x4c0883a69102937d6231471b5dbb6204fe512961708279ca6f297d6b50ab8148").address,  # noqa: mock
+        signature_expiry_sec=1700000000,
         nonce=1695836058725001,
-        module_address="0xModuleAddress",
-        module_data=module_data,
-        DOMAIN_SEPARATOR="0x42",  # Dummy value for testing
-        ACTION_TYPEHASH="0x43",  # Dummy value for testing
+        module_address=Web3.to_checksum_address("0x53d284357ec70cE289D6D64134DfAc8E511c8a3D"),  # noqa: mock
+        DOMAIN_SEPARATOR="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: mock
+        ACTION_TYPEHASH="0x4d7a9f27c403ff9c0f19bce61d76d82f9aa29f8d6d4b0c5474607d9770d1af17",  # noqa: mock
+        module_data=trade_module_data,
     )
 
 
-@patch("eth_account.signers.local.LocalAccount.unsafe_sign_hash")
-def _test_sign(mock_sign_hash, signed_action):
-    mock_sign_hash.return_value.signature = HexBytes("0x5369676e6174757265")  # noqa: mock
+def test_trade_module_encoding(trade_module_data):
+    encoded_data = trade_module_data.to_abi_encoded()
+    decoded_data = decode(
+        [
+            "address",
+            "uint256",
+            "int256",
+            "int256",
+            "uint256",
+            "uint256",
+            "bool"
+        ],
+        encoded_data
+    )
 
-    signature = signed_action.sign("0x5369676e61747572655369676e617475675369676e61747572655369676e6174")  # noqa: mock
-
-    assert signature == "0x5369676e6174757265"  # noqa: mock
-
-
-@pytest.mark.parametrize(
-    "domain_separator, action_typehash, expected_typed_data_hash",
-    [
-        (
-            "0x42",
-            "0x43",
-            HexBytes("0x5369676e6174757265"),  # noqa: mock
-        ),  # Happy path
-    ],
-    ids=["happy_path"],
-)
-@patch("web3.Web3.keccak")
-def _test__to_typed_data_hash(mock_keccak, signed_action, domain_separator, action_typehash, expected_typed_data_hash):
-    signed_action.DOMAIN_SEPARATOR = domain_separator
-    signed_action.ACTION_TYPEHASH = action_typehash
-    mock_keccak.return_value = expected_typed_data_hash
-
-    typed_data_hash = signed_action._to_typed_data_hash()
-
-    assert typed_data_hash == expected_typed_data_hash
-
-
-@patch("web3.Web3.keccak")
-def _test__get_action_hash(mock_keccak, signed_action):
-    mock_keccak.return_value = HexBytes("0xActionHash")
-
-    action_hash = signed_action._get_action_hash()
-
-    assert action_hash == HexBytes("0x416374696f6e48617368")  # noqa: mock
+    assert Web3.to_checksum_address(decoded_data[
+        0
+    ]) == trade_module_data.asset_address
+    assert decoded_data[
+        1
+    ] == trade_module_data.sub_id
+    assert decoded_data[
+        2
+    ] == decimal_to_big_int(trade_module_data.limit_price)
+    assert decoded_data[
+        3
+    ] == decimal_to_big_int(trade_module_data.amount)
+    assert decoded_data[
+        4
+    ] == decimal_to_big_int(trade_module_data.max_fee)
+    assert decoded_data[
+        5
+    ] == trade_module_data.recipient_id
+    assert decoded_data[
+        6
+    ] == trade_module_data.is_bid
 
 
-def _test_to_json(signed_action):
-    signed_action.signature = "0xSignature"
-
-    json_output = signed_action.to_json()
-
-    expected_json = {
-        "subaccount_id": 1,
-        "nonce": 1695836058725001,
-        "signer": "0xSigner",
-        "signature_expiry_sec": 1695836058,
-        "signature": "0xSignature",
+def test_trade_module_json(trade_module_data):
+    json_data = trade_module_data.to_json()
+    assert json_data == {
+        "limit_price": "100.5",
+        "amount": "10",
+        "max_fee": "0.1",
     }
-    assert json_output == expected_json
 
 
-@pytest.mark.parametrize(
-    "signature, signer, expected_exception",
-    [
-        ("0xValidSignature", "0xSigner", None),  # Happy path
-        ("0xInvalidSignature", "0xSigner", ValueError),  # Invalid signature
-    ],
-    ids=["valid_signature", "invalid_signature"],
-)
-@patch("eth_account.Account._recover_hash")
-def _test_validate_signature(mock_recover_hash, signed_action, signature, signer, expected_exception):
+def test_signed_action_to_json(signed_action):
+    json_data = signed_action.to_json()
+    assert json_data[
+        "subaccount_id"
+    ] == signed_action.subaccount_id
+    assert json_data[
+        "nonce"
+    ] == signed_action.nonce
+    assert json_data[
+        "signer"
+    ] == signed_action.signer
+    assert json_data[
+        "signature_expiry_sec"
+    ] == signed_action.signature_expiry_sec
+
+
+def test_signed_action_sign_and_validate(signed_action):
+    private_key = "0x4c0883a69102937d6231471b5dbb6204fe512961708279ca6f297d6b50ab8148"  # noqa: mock
+
+    # Generate signature
+    signature = signed_action.sign(private_key)
+
+    # Convert signature to hex if it's in bytes
+    if isinstance(signature, bytes):
+        signature = signature.hex()
+
+    if not signature.startswith("0x"):
+        signature = f"0x{signature}"
+
+    # Assertions
+    assert isinstance(signature, str)
+    assert signature.startswith("0x"), f"Signature format is incorrect: {signature}"
+
+    # Attach signature to the object
     signed_action.signature = signature
-    signed_action.signer = signer
-    mock_recover_hash.return_value = signer if signature == "0xValidSignature" else "0xOtherSigner"
 
-    if expected_exception:
-        with pytest.raises(expected_exception) as e:
-            signed_action.validate_signature()
-        assert "Invalid signature. Recovered signer does not match expected signer." in str(e.value)
-    else:
-        signed_action.validate_signature()
+    # Compute hash and recover the signer
+    data_hash = signed_action._to_typed_data_hash()
+    recovered_signer = Account._recover_hash(data_hash, signature=HexBytes(signature))
 
+    # Debugging: Print hashes & addresses
+    print(f"Data hash: {data_hash.hex()}")
+    print(f"Expected signer: {signed_action.signer.lower()}")
+    print(f"Recovered signer: {recovered_signer.lower()}")
 
-@pytest.mark.parametrize(
-    "domain_separator, expected_exception",
-    [
-        ("0x42", None),  # Happy path
-        ("0xInvalidHex", ValueError),  # Invalid hex string
-        (
-            "0x42424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424243",  # noqa: mock
-            # noqa: mock
-            ValueError,
-        ),  # Invalid hex string length
-    ],
-    ids=["happy_path", "invalid_hex", "invalid_length"],
-)
-def _test_domain_separator_property(signed_action, domain_separator, expected_exception):
-    signed_action.DOMAIN_SEPARATOR = domain_separator
+    # Validate signature
+    assert recovered_signer.lower() == signed_action.signer.lower()
 
-    if expected_exception:
-        with pytest.raises(expected_exception):
-            signed_action.domain_separator
-    else:
-        assert signed_action.domain_separator == bytes.fromhex(domain_separator[2:])
-
-
-@pytest.mark.parametrize(
-    "action_typehash, expected_exception",
-    [
-        ("0x43", None),  # Happy path
-        ("0xInvalidHex", ValueError),  # Invalid hex string
-    ],
-    ids=["happy_path", "invalid_hex"],
-)
-def test_action_typehash_property(signed_action, action_typehash, expected_exception):
-    signed_action.ACTION_TYPEHASH = action_typehash
-
-    if expected_exception:
-        with pytest.raises(expected_exception):
-            signed_action.action_typehash
-    else:
-        assert signed_action.action_typehash == bytes.fromhex(action_typehash[2:])
+    # Run validate_signature() to ensure it works
+    signed_action.validate_signature()

@@ -217,7 +217,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: The trade pnl percentage.
         """
-        if self.open_filled_amount != Decimal("0") and self.close_type != CloseType.FAILED:
+        if self.open_filled_amount != Decimal("0") and self.close_type not in [CloseType.FAILED, CloseType.POSITION_HOLD]:
             if self.config.side == TradeType.BUY:
                 return (self.close_price - self.entry_price) / self.entry_price
             else:
@@ -257,8 +257,7 @@ class PositionExecutor(ExecutorBase):
 
         :return: The net pnl percentage.
         """
-        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote != Decimal(
-            "0") else Decimal("0")
+        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote != Decimal("0") else Decimal("0")
 
     @property
     def end_time(self) -> Optional[float]:
@@ -305,7 +304,7 @@ class PositionExecutor(ExecutorBase):
             await self.control_shutdown_process()
         self.evaluate_max_retries()
 
-    def open_orders_completed(self):
+    def all_orders_completed(self):
         """
         This method is responsible for checking if the open orders are completed.
 
@@ -313,7 +312,8 @@ class PositionExecutor(ExecutorBase):
         """
         open_order_condition = not self._open_order or self._open_order.is_done
         take_profit_condition = not self._take_profit_limit_order or self._take_profit_limit_order.is_done
-        return open_order_condition and take_profit_condition
+        close_order_condition = not self._close_order or self._close_order.is_done
+        return open_order_condition and take_profit_condition and close_order_condition
 
     async def control_shutdown_process(self):
         """
@@ -322,14 +322,22 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         self.close_timestamp = self._strategy.current_timestamp
-        open_orders_completed = self.open_orders_completed()
-        order_execution_completed = self.open_and_close_volume_match()
-        if open_orders_completed and order_execution_completed:
-            self.stop()
+        if self.all_orders_completed():
+            if self.close_type == CloseType.POSITION_HOLD:
+                if self._open_order and self._open_order.is_filled:
+                    self._held_position_orders.append(self._open_order.order.to_json())
+                if self._close_order and self._close_order.is_filled:
+                    self._held_position_orders.append(self._close_order.order.to_json())
+                if len(self._held_position_orders) == 0:
+                    self.close_type = CloseType.EARLY_STOP
+                self.stop()
+            elif self.open_and_close_volume_match():
+                self.stop()
+            else:
+                await self.control_close_order()
+                self._current_retries += 1
         else:
-            await self.control_close_order()
             self.cancel_open_orders()
-            self._current_retries += 1
         await self._sleep(5.0)
 
     def open_and_close_volume_match(self):
@@ -471,7 +479,7 @@ class PositionExecutor(ExecutorBase):
         :return: None
         """
         self.cancel_open_orders()
-        if self.amount_to_close >= self.trading_rules.min_order_size:
+        if self.amount_to_close >= self.trading_rules.min_order_size and close_type != CloseType.POSITION_HOLD:
             order_id = self.place_order(
                 connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
@@ -603,14 +611,8 @@ class PositionExecutor(ExecutorBase):
 
         :return: None
         """
-        if keep_position:
-            self.close_type = CloseType.POSITION_HOLD
-            self.cancel_open_orders()
-            if self._open_order and self._open_order.is_filled:
-                self._held_position_orders.append(self._open_order.order.to_json())
-            self.stop()
-        else:
-            self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
+        self._status = RunnableStatus.SHUTTING_DOWN
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         """
@@ -698,6 +700,7 @@ class PositionExecutor(ExecutorBase):
             "current_retries": self._current_retries,
             "max_retries": self._max_retries,
             "close_price": self.close_price,
+            "open_order_last_update": self._open_order.last_update_timestamp if self._open_order else None,
             "order_ids": [order.order_id for order in [self._open_order, self._close_order, self._take_profit_limit_order] if order],
             "held_position_orders": self._held_position_orders,
         }

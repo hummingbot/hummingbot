@@ -34,6 +34,7 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.api_key = "someKey"  # noqa: mock
         cls.sub_id = 37799
+        cls.domain = "derive_perpetual_testnet"
         cls.trading_required = False
         cls.api_secret_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"  # noqa: mock
 
@@ -54,7 +55,8 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
                 api_key=self.api_key,
                 api_secret=self.api_secret_key,
                 sub_id=self.sub_id,
-                trading_required=self.trading_required
+                trading_required=self.trading_required,
+                domain=self.domain
             )
             self.time_synchronizer = TimeSynchronizer()
             self.time_synchronizer.add_time_offset_ms_sample(0)

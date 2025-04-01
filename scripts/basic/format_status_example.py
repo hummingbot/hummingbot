@@ -27,10 +27,6 @@ class FormatStatusExample(ScriptStrategyBase):
         lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
         market_status_df = self.get_market_status_df_with_depth()
         lines.extend(["", "  Market Status Data Frame:"] + ["    " + line for line in market_status_df.to_string(index=False).split("\n")])
-
-        warning_lines.extend(self.balance_warning(self.get_market_trading_pair_tuples()))
-        if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
         return "\n".join(lines)
 
     def get_market_status_df_with_depth(self):
