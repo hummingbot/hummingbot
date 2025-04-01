@@ -48,6 +48,15 @@ class DeriveConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+    account_type: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Derive Account Type (trader/market_maker)",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
 
 
 KEYS = DeriveConfigMap.construct()
@@ -86,6 +95,15 @@ class DeriveTestnetConfigMap(BaseConnectorConfigMap):
             is_connect_key=True,
             prompt_on_new=True,
         ),
+    )
+    account_type: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Derive Account Type (trader/market_maker)",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
     )
 
     class Config:
