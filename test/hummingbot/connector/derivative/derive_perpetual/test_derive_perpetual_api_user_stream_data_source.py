@@ -28,13 +28,13 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.local_event_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.api_key = "someKey"  # noqa: mock
         cls.sub_id = 37799
+        cls.domain = "derive_perpetual_testnet"
         cls.trading_required = False
         cls.api_secret_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"  # noqa: mock
 
@@ -42,7 +42,6 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         super().setUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
-        self.mocking_assistant = NetworkMockingAssistant()
 
         # Mock Web3 account creation
         self.mock_wallet = MagicMock()
@@ -56,7 +55,8 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
                 api_key=self.api_key,
                 api_secret=self.api_secret_key,
                 sub_id=self.sub_id,
-                trading_required=self.trading_required
+                trading_required=self.trading_required,
+                domain=self.domain
             )
             self.time_synchronizer = TimeSynchronizer()
             self.time_synchronizer.add_time_offset_ms_sample(0)
@@ -81,6 +81,10 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
 
             self.data_source.logger().addHandler(self)
             self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()

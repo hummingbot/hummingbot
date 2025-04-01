@@ -36,7 +36,8 @@ class CoinCapRateSourceTest(IsolatedAsyncioWrapperTestCase):
         self.rate_source = CoinCapRateSource(assets_map={}, api_key="")
         self.rate_source._coin_cap_data_feed.logger().setLevel(1)
         self.rate_source._coin_cap_data_feed.logger().addHandler(self)
-        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
+        self.mocking_assistant = NetworkMockingAssistant()
+        await self.mocking_assistant.async_init()
         self.rate_source._coin_cap_data_feed._get_api_factory()
         self._web_socket_mock = self.mocking_assistant.configure_web_assistants_factory(
             web_assistants_factory=self.rate_source._coin_cap_data_feed._api_factory

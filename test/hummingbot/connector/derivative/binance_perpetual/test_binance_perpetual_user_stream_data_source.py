@@ -19,6 +19,7 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_st
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
 class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
@@ -40,6 +41,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
+        await ConnectionsFactory().close()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)

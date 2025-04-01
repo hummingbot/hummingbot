@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Set
 
 import pandas as pd
 import yaml
-from pydantic import Field, validator
+from pydantic.v1 import Field, validator
 
 from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
@@ -366,10 +366,22 @@ class StrategyV2Base(ScriptStrategyBase):
         return df
 
     def format_status(self) -> str:
-        original_info = super().format_status()
+        if not self.ready_to_trade:
+            return "Market connectors are not ready."
+        lines = []
+        warning_lines = []
+        warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
+
+        balance_df = self.get_balance_df()
+        lines.extend(["", "  Balances:"] + ["    " + line for line in balance_df.to_string(index=False).split("\n")])
+
+        try:
+            df = self.active_orders_df()
+            lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
+        except ValueError:
+            lines.extend(["", "  No active maker orders."])
         columns_to_show = ["type", "side", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote",
                            "filled_amount_quote", "is_trading", "close_type", "age"]
-        extra_info = []
 
         # Initialize global performance metrics
         global_realized_pnl_quote = Decimal(0)
@@ -379,17 +391,17 @@ class StrategyV2Base(ScriptStrategyBase):
 
         # Process each controller
         for controller_id, controller in self.controllers.items():
-            extra_info.append(f"\n\nController: {controller_id}")
+            lines.append(f"\n\nController: {controller_id}")
             # Append controller market data metrics
-            extra_info.extend(controller.to_format_status())
+            lines.extend(controller.to_format_status())
             # executors_list = self.get_executors_by_controller(controller_id)
             # if len(executors_list) == 0:
-            #     extra_info.append("No executors found.")
+            #     lines.append("No executors found.")
             # else:
             #     # In memory executors info
             #     executors_df = self.executors_info_to_df(executors_list)
             #     executors_df["age"] = self.current_timestamp - executors_df["timestamp"]
-            #     extra_info.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
+            #     lines.extend([format_df_for_printout(executors_df[columns_to_show], table_format="psql")])
 
             # Generate performance report for each controller
             performance_report = self.executor_orchestrator.generate_performance_report(controller_id)
@@ -404,35 +416,43 @@ class StrategyV2Base(ScriptStrategyBase):
             # Add position summary if available
             if hasattr(performance_report, "positions_summary") and performance_report.positions_summary:
                 controller_performance_info.append("\nPositions Held Summary:")
-                controller_performance_info.append("-" * 120)
+                controller_performance_info.append("-" * 170)
                 controller_performance_info.append(
-                    f"{'Connector':<15} {'Trading Pair':<12} | "
+                    f"{'Connector':<20} | "
+                    f"{'Trading Pair':<12} | "
+                    f"{'Side':<4} | "
                     f"{'Volume':<12} | "
                     f"{'Units':<10} | "
-                    f"{'Value (USD)':<16} | "
+                    f"{'Value (USD)':<12} | "
                     f"{'BEP':<16} | "
+                    f"{'Realized PNL':<12} | "
                     f"{'Unreal. PNL':<12} | "
-                    f"{'Fees':<10}"
+                    f"{'Fees':<10} | "
+                    f"{'Global PNL':<12}"
                 )
-                controller_performance_info.append("-" * 120)
+                controller_performance_info.append("-" * 170)
                 for pos in performance_report.positions_summary:
                     controller_performance_info.append(
-                        f"{pos.connector_name:<15} {pos.trading_pair:<12} | "
+                        f"{pos.connector_name:<20} | "
+                        f"{pos.trading_pair:<12} | "
+                        f"{pos.side.name:<4} | "
                         f"${pos.volume_traded_quote:>11.2f} | "
                         f"{pos.amount:>10.4f} | "
-                        f"${pos.amount * pos.breakeven_price:>16.2f} | "
+                        f"${pos.amount * pos.breakeven_price:<11.2f} | "
                         f"{pos.breakeven_price:>16.6f} | "
+                        f"${pos.realized_pnl_quote:>+11.2f} | "
                         f"${pos.unrealized_pnl_quote:>+11.2f} | "
-                        f"${pos.cum_fees_quote:>9.2f}"
+                        f"${pos.cum_fees_quote:>9.2f} | "
+                        f"${pos.global_pnl_quote:>10.2f}"
                     )
-                controller_performance_info.append("-" * 120)
+                controller_performance_info.append("-" * 170)
 
             # Append close type counts
             if performance_report.close_type_counts:
                 controller_performance_info.append("Close Types Count:")
                 for close_type, count in performance_report.close_type_counts.items():
                     controller_performance_info.append(f"  {close_type}: {count}")
-            extra_info.extend(controller_performance_info)
+            lines.extend(controller_performance_info)
 
             # Aggregate global metrics and close type counts
             global_realized_pnl_quote += performance_report.realized_pnl_quote
@@ -443,10 +463,10 @@ class StrategyV2Base(ScriptStrategyBase):
 
         main_executors_list = self.get_executors_by_controller("main")
         if len(main_executors_list) > 0:
-            extra_info.append("\n\nMain Controller Executors:")
+            lines.append("\n\nMain Controller Executors:")
             main_executors_df = self.executors_info_to_df(main_executors_list)
             main_executors_df["age"] = self.current_timestamp - main_executors_df["timestamp"]
-            extra_info.extend([format_df_for_printout(main_executors_df[columns_to_show], table_format="psql")])
+            lines.extend([format_df_for_printout(main_executors_df[columns_to_show], table_format="psql")])
             main_performance_report = self.executor_orchestrator.generate_performance_report("main")
             # Aggregate global metrics and close type counts
             global_realized_pnl_quote += main_performance_report.realized_pnl_quote
@@ -470,8 +490,7 @@ class StrategyV2Base(ScriptStrategyBase):
             for close_type, count in global_close_type_counts.items():
                 global_performance_summary.append(f"  {close_type}: {count}")
 
-        extra_info.extend(global_performance_summary)
+        lines.extend(global_performance_summary)
 
         # Combine original and extra information
-        format_status = f"{original_info}\n\n" + "\n".join(extra_info)
-        return format_status
+        return "\n".join(lines)
