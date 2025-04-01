@@ -317,6 +317,8 @@ class GridExecutor(ExecutorBase):
                     if level.active_close_order and level.active_close_order.order:
                         self._held_position_orders.append(level.active_close_order.order.to_json())
                     level.reset_level()
+                if len(self._held_position_orders) == 0:
+                    self.close_type = CloseType.EARLY_STOP
                 self.levels_by_state = {}
                 self.stop()
             else:

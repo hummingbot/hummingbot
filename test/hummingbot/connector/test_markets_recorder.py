@@ -456,9 +456,9 @@ class MarketsRecorderTests(TestCase):
         )
 
         position = Position(id="123", timestamp=123, controller_id="test_controller", connector_name="binance",
-                            trading_pair="ETH-USDT", amount=Decimal("1"), breakeven_price=Decimal("1000"),
+                            trading_pair="ETH-USDT", side=TradeType.BUY.name, amount=Decimal("1"), breakeven_price=Decimal("1000"),
                             unrealized_pnl_quote=Decimal("0"), cum_fees_quote=Decimal("0"),
-                            volume_traded_quote=Decimal("10"), filled_orders=[], )
+                            volume_traded_quote=Decimal("10"))
         recorder.store_position(position)
         with self.manager.get_new_session() as session:
             query = session.query(Position)
