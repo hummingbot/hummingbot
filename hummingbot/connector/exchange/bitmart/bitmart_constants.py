@@ -21,13 +21,13 @@ PRIVATE_ORDER_PROGRESS_CHANNEL_NAME = "spot/user/order"
 # REST API ENDPOINTS
 CHECK_NETWORK_PATH_URL = "system/service"
 GET_TRADING_RULES_PATH_URL = "spot/v1/symbols/details"
-GET_LAST_TRADING_PRICES_PATH_URL = "spot/v1/ticker"
-GET_ORDER_BOOK_PATH_URL = "spot/v1/symbols/book"
-CREATE_ORDER_PATH_URL = "spot/v1/submit_order"
-CANCEL_ORDER_PATH_URL = "spot/v2/cancel_order"
+GET_LAST_TRADING_PRICES_PATH_URL = "spot/quotation/v3/ticker"
+GET_ORDER_BOOK_PATH_URL = "spot/quotation/v3/books"
+CREATE_ORDER_PATH_URL = "spot/v2/submit_order"
+CANCEL_ORDER_PATH_URL = "spot/v3/cancel_order"
 GET_ACCOUNT_SUMMARY_PATH_URL = "spot/v1/wallet"
-GET_ORDER_DETAIL_PATH_URL = "spot/v2/order_detail"
-GET_TRADE_DETAIL_PATH_URL = "spot/v1/trades"
+GET_ORDER_DETAIL_PATH_URL = "spot/v4/query/order"
+GET_TRADE_DETAIL_PATH_URL = "spot/v4/query/order-trades"
 SERVER_TIME_PATH = "system/time"
 
 # WS API ENDPOINTS
@@ -51,12 +51,10 @@ RATE_LIMITS = [
 ]
 
 ORDER_STATE = {
-    "1": OrderState.FAILED,
-    "2": OrderState.OPEN,
-    "3": OrderState.FAILED,
-    "4": OrderState.OPEN,
-    "5": OrderState.PARTIALLY_FILLED,
-    "6": OrderState.FILLED,
-    "7": OrderState.PENDING_CANCEL,
-    "8": OrderState.CANCELED,
+    "failed": OrderState.FAILED,
+    "new": OrderState.OPEN,
+    "partially_filled": OrderState.PARTIALLY_FILLED,
+    "filled": OrderState.FILLED,
+    "partially_canceled": OrderState.CANCELED,
+    "canceled": OrderState.CANCELED
 }

@@ -7,7 +7,13 @@ from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import AsyncWeb3, Web3
-from web3.middleware import async_geth_poa_middleware
+
+from hummingbot.connector.utils import to_0x_hex
+
+try:
+    from web3.middleware import async_geth_poa_middleware
+except ImportError:
+    from web3.middleware import ExtraDataToPOAMiddleware as async_geth_poa_middleware
 
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -24,21 +30,26 @@ class DexalotClient:
             self,
             dexalot_api_secret: str,
             connector,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            trading_required: bool = True,
     ):
         self._private_key = dexalot_api_secret
         self._connector = connector
         self._domain = domain
+        self._trading_required = trading_required
         self.last_nonce = 0
         self.transaction_lock = Lock()
         self.balance_evm_params = {}
 
         self.provider = CONSTANTS.DEXALOT_SUBNET_RPC_URL if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_SUBNET_RPC_URL
-        self.account: LocalAccount = Account.from_key(dexalot_api_secret)
-        self._w3 = Web3(Web3.HTTPProvider(self.provider))
+        # Note: The or trading_capability here is required because an instance is created by calling
+        # "connect" command which does not require trading (trading_capability=False)
+        self.account: LocalAccount = Account.from_key(dexalot_api_secret) if self.trading_required \
+            or self.trading_capability else None  # See the above comment for details
         self.async_w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(self.provider))
+        self.async_w3.eth.default_account = self.account.address if self.account else None
+        self._w3 = Web3(Web3.HTTPProvider(self.provider))
         self.async_w3.middleware_onion.inject(async_geth_poa_middleware, layer=0)
-        self.async_w3.eth.default_account = self.account.address
         self.async_w3.strict_bytes_type_checking = False
         TRADEPAIRS_ADDRESS = CONSTANTS.DEXALOT_TRADEPAIRS_ADDRESS if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_TRADEPAIRS_ADDRESS
         PORTFOLIOSUB_ADDRESS = CONSTANTS.DEXALOT_PORTFOLIOSUB_ADDRESS if self._domain == "dexalot" else CONSTANTS.TESTNET_DEXALOT_PORTFOLIOSUB_ADDRESS
@@ -48,6 +59,14 @@ class DexalotClient:
 
         self.portfolio_sub_manager = self.async_w3.eth.contract(address=PORTFOLIOSUB_ADDRESS,
                                                                 abi=DEXALOT_PORTFOLIOSUB_ABI)
+
+    @property
+    def trading_required(self):
+        return self._trading_required
+
+    @property
+    def trading_capability(self) -> bool:
+        return self._private_key not in (None, "")
 
     async def _get_token_info(self):
         token_raw_info_list = await self._connector._api_get(
@@ -134,8 +153,8 @@ class DexalotClient:
                     signed_txn = self.async_w3.eth.account.sign_transaction(
                         transaction, private_key=self._private_key
                     )
-                    result = await self.async_w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-                    return result.hex()
+                    result = to_0x_hex(await self.async_w3.eth.send_raw_transaction(signed_txn.raw_transaction))
+                    return result
                 except ValueError as e:
                     self._connector.logger().warning(
                         f"{str(e)} "

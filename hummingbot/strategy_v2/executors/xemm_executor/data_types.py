@@ -5,7 +5,7 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair, ExecutorC
 
 
 class XEMMExecutorConfig(ExecutorConfigBase):
-    type = "xemm_executor"
+    type: str = "xemm_executor"
     buying_market: ConnectorPair
     selling_market: ConnectorPair
     maker_side: TradeType

@@ -10,17 +10,14 @@
 .PHONY: build
 
 test:
-	coverage run -m nose \
- 	--exclude-dir="test/mock" \
- 	--exclude-dir="test/hummingbot/connector/gateway/amm" \
- 	--exclude-dir="test/hummingbot/connector/exchange/coinbase_advance_trade" \
- 	--exclude-dir="test/hummingbot/connector/exchange/ndax" \
- 	--exclude-dir="test/hummingbot/connector/exchange/foxbit" \
- 	--exclude-dir="test/hummingbot/connector/derivative/dydx_v4_perpetual" \
- 	--exclude-dir="test/hummingbot/connector/gateway/clob_spot/data_sources/dexalot" \
- 	--exclude-dir="test/hummingbot/strategy/amm_arb" \
- 	--exclude-dir="test/hummingbot/core/gateway" \
- 	--exclude-dir="test/hummingbot/strategy/amm_v3_lp"
+	coverage run -m pytest \
+ 	--ignore="test/mock" \
+ 	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual/" \
+ 	--ignore="test/hummingbot/connector/derivative/injective_v2_perpetual/" \
+ 	--ignore="test/hummingbot/connector/exchange/injective_v2/" \
+ 	--ignore="test/hummingbot/remote_iface/" \
+ 	--ignore="test/connector/utilities/*" \
+ 	--ignore="test/hummingbot/strategy/amm_arb/" \
 
 run_coverage: test
 	coverage report

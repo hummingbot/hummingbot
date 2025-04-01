@@ -384,8 +384,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
-                price=Decimal(f"{i+1}"),
-                amount=Decimal(f"{10 * (i+1)}"),
+                price=Decimal(f"{i + 1}"),
+                amount=Decimal(f"{10 * (i + 1)}"),
                 creation_timestamp=1640001112.0,
                 initial_state="OPEN"
             )
@@ -399,44 +399,31 @@ class StrategyBaseUnitTests(unittest.TestCase):
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
     def test_notify_hb_app(self, cli_class_mock, main_application_function_mock):
-        messages = []
         cli_logs = []
 
         cli_instance = cli_class_mock.return_value
         cli_instance.log.side_effect = lambda message: cli_logs.append(message)
 
-        notifier_mock = unittest.mock.MagicMock()
-        notifier_mock.add_msg_to_queue.side_effect = lambda message: messages.append(message)
-
         hummingbot_application = HummingbotApplication()
-        hummingbot_application.notifiers.append(notifier_mock)
         main_application_function_mock.return_value = hummingbot_application
 
         self.strategy.notify_hb_app("Test message")
 
         self.assertIn("Test message", cli_logs)
-        self.assertIn("Test message", messages)
 
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
     @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
     def test_notify_hb_app_with_timestamp(self, cli_class_mock, main_application_function_mock):
-        messages = []
         cli_logs = []
 
         cli_instance = cli_class_mock.return_value
         cli_instance.log.side_effect = lambda message: cli_logs.append(message)
 
-        notifier_mock = unittest.mock.MagicMock()
-        notifier_mock.add_msg_to_queue.side_effect = lambda message: messages.append(message)
-
         hummingbot_application = HummingbotApplication()
-        hummingbot_application.notifiers.append(notifier_mock)
         main_application_function_mock.return_value = hummingbot_application
 
         time_of_tick = datetime(year=2021, month=6, day=17, hour=0, minute=0, second=0, microsecond=0)
 
         self.strategy.tick(time_of_tick.timestamp())
         self.strategy.notify_hb_app_with_timestamp("Test message")
-
         self.assertIn("(2021-06-17 00:00:00) Test message", cli_logs)
-        self.assertIn("(2021-06-17 00:00:00) Test message", messages)

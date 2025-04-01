@@ -15,6 +15,7 @@ class CloseType(Enum):
     INSUFFICIENT_BALANCE = 7
     FAILED = 8
     COMPLETED = 9
+    POSITION_HOLD = 10
 
 
 class TrackedOrder:
@@ -53,9 +54,9 @@ class TrackedOrder:
             return None
 
     @property
-    def last_update_time(self):
+    def last_update_timestamp(self):
         if self.order:
-            return self.order.last_update_time
+            return self.order.last_update_timestamp
         else:
             return None
 

@@ -1,6 +1,6 @@
 from typing import Callable
 
-from pydantic.json import pydantic_encoder
+from pydantic.v1.json import pydantic_encoder
 
 from hummingbot.client.config.config_var import ConfigVar
 

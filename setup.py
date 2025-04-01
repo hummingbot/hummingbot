@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20241227"
+    version = "20250303"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -82,8 +82,6 @@ def main():
         "injective-py",
         "mypy-extensions",
         "msgpack",
-        "nose",
-        "nose-exclude",
         "numpy==1.26.4",
         "pandas",
         "pip",
@@ -95,7 +93,6 @@ def main():
         "pyjwt",
         "pyperclip",
         "python-dateutil",
-        "python-telegram-bot==12.8",
         "pyOpenSSL",
         "requests",
         "rsa",

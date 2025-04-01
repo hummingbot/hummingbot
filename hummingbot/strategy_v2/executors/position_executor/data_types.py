@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -15,10 +15,10 @@ class TrailingStop(BaseModel):
 
 
 class TripleBarrierConfig(BaseModel):
-    stop_loss: Optional[Decimal]
-    take_profit: Optional[Decimal]
-    time_limit: Optional[int]
-    trailing_stop: Optional[TrailingStop]
+    stop_loss: Optional[Decimal] = None
+    take_profit: Optional[Decimal] = None
+    time_limit: Optional[int] = None
+    trailing_stop: Optional[TrailingStop] = None
     open_order_type: OrderType = OrderType.LIMIT
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
@@ -45,7 +45,7 @@ class TripleBarrierConfig(BaseModel):
 
 
 class PositionExecutorConfig(ExecutorConfigBase):
-    type = "position_executor"
+    type: str = "position_executor"
     trading_pair: str
     connector_name: str
     side: TradeType
