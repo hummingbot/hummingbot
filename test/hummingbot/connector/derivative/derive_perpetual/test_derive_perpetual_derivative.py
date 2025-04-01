@@ -153,7 +153,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     async def test_initialize_rate_limits_non_market_maker(self):
         throttler_mock, expected_limit = await self._run_initialize_rate_limits_with_mocked_throttler(
             account_type="trader",
-            expected_limit=CONSTANTS.MARKET_MAKER_NON_MATCHING
+            expected_limit=CONSTANTS.TRADER_MATCHING
         )
 
         throttler_mock.set_rate_limits.assert_called()  # Adjusted to check if it was called, not just once
