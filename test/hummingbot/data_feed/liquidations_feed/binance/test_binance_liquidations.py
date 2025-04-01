@@ -1,7 +1,6 @@
 import asyncio
 import json
-import unittest
-from typing import Awaitable
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -12,18 +11,16 @@ from hummingbot.data_feed.liquidations_feed.binance import BinancePerpetualLiqui
 from hummingbot.data_feed.liquidations_feed.liquidations_base import LiquidationSide
 
 
-class TestBinanceLiquidations(unittest.TestCase):
+class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.liquidations_feed = BinancePerpetualLiquidations(trading_pairs=set(), max_retention_seconds=15)
 
         self.log_records = []
@@ -32,6 +29,9 @@ class TestBinanceLiquidations(unittest.TestCase):
         self.liquidations_feed.logger().addHandler(self)
         self.liquidations_feed._trading_pairs_map = self.get_trading_pairs_map()
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
     def handle(self, record):
@@ -41,10 +41,6 @@ class TestBinanceLiquidations(unittest.TestCase):
         return any(
             record.levelname == log_level and record.getMessage() == message for
             record in self.log_records)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def get_liquidations_ws_data_mock_1(self):
         data = {"e": "forceOrder",
@@ -174,7 +170,7 @@ class TestBinanceLiquidations(unittest.TestCase):
         self.assertTrue(self.liquidations_feed.liquidations_df().empty)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_subscribes_to_all_liquidations(self, ws_connect_mock):
+    async def test_listen_for_subscriptions_subscribes_to_all_liquidations(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_liquidations = {
@@ -186,9 +182,9 @@ class TestBinanceLiquidations(unittest.TestCase):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_liquidations))
 
-        self.listening_task = self.ev_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
@@ -208,51 +204,48 @@ class TestBinanceLiquidations(unittest.TestCase):
 
     @patch("hummingbot.data_feed.liquidations_feed.binance.BinancePerpetualLiquidations._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
+    async def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
+            await self.liquidations_feed.listen_for_subscriptions()
 
     @patch("hummingbot.data_feed.liquidations_feed.binance.BinancePerpetualLiquidations._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
+    async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(
             asyncio.CancelledError())
 
-        self.listening_task = self.ev_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self.is_logged(
                 "ERROR",
                 "Unexpected error occurred when listening to public liquidations. Retrying in 1 seconds..."))
 
-    def test_subscribe_channels_raises_cancel_exception(self):
+    async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.liquidations_feed._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.liquidations_feed._subscribe_channels(mock_ws)
 
-    def test_subscribe_channels_raises_exception_and_logs_error(self):
+    async def test_subscribe_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(self.liquidations_feed._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
+            await self.liquidations_feed._subscribe_channels(mock_ws)
 
         self.assertTrue(
             self.is_logged("ERROR", "Unexpected error occurred subscribing to public liquidations...")
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock):
+    async def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -263,9 +256,9 @@ class TestBinanceLiquidations(unittest.TestCase):
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_liquidations_ws_data_mock_2()))
 
-        self.listening_task = self.ev_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
+        self.listening_task = self.local_event_loop.create_task(self.liquidations_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         all_liquidations_df = self.liquidations_feed.liquidations_df()
         ctsi_liquidations_df = self.liquidations_feed.liquidations_df("CTSI-USDT")
@@ -282,12 +275,12 @@ class TestBinanceLiquidations(unittest.TestCase):
         self.assertEqual(len(all_liquidations_df), 0)
 
     @aioresponses()
-    def test_get_exchange_info(self, mock_api: aioresponses):
+    async def test_get_exchange_info(self, mock_api: aioresponses):
         url = f"{CONSTANTS.REST_URL}{CONSTANTS.EXCHANGE_INFO}"
 
         mock_api.get(url=url, body=json.dumps(self.get_exchange_info()))
 
-        self.async_run_with_timeout(self.liquidations_feed._fetch_and_map_trading_pairs())
+        await self.liquidations_feed._fetch_and_map_trading_pairs()
 
         self.assertIn("BTCUSDT", self.liquidations_feed._trading_pairs_map)
         self.assertIn("ETHUSDT", self.liquidations_feed._trading_pairs_map)

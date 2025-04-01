@@ -1,8 +1,8 @@
 import base64
+import datetime
 import hashlib
 import hmac
 from collections import OrderedDict
-from datetime import datetime
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
@@ -61,7 +61,9 @@ class OkxAuth(AuthBase):
         return signature
 
     def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
-        timestamp = datetime.utcfromtimestamp(self.time_provider.time()).isoformat(timespec="milliseconds") + "Z"
+        # timestamp = datetime.utcfromtimestamp(self.time_provider.time()).isoformat(timespec="milliseconds") + "Z"
+        timestamp = datetime.datetime.fromtimestamp(self.time_provider.time(), datetime.UTC).isoformat(timespec="milliseconds")
+        timestamp = timestamp.replace("+00:00", "Z")
 
         path_url = f"/api{request.url.split('/api')[-1]}"
         if request.params:

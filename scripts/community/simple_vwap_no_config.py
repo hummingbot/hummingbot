@@ -137,7 +137,6 @@ class VWAPExample(ScriptStrategyBase):
     def did_fill_order(self, event: OrderFilledEvent):
         """
          Listens to fill order event to log it and notify the Hummingbot application.
-         If you set up Telegram bot, you will get notification there as well.
          """
         if event.trading_pair == self.vwap["trading_pair"] and event.trade_type == self.vwap["trade_type"]:
             self.vwap["volume_remaining"] -= event.amount
@@ -180,8 +179,4 @@ class VWAPExample(ScriptStrategyBase):
         lines.extend(["", "VWAP Stats:"] + ["   " + key + ": " + str(round(value, 4))
                                             for key, value in self.vwap.items()
                                             if type(value) in [int, float, Decimal]])
-
-        warning_lines.extend(self.balance_warning(self.get_market_trading_pair_tuples()))
-        if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
         return "\n".join(lines)
