@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import List
 
 import pandas_ta as ta  # noqa: F401
-from pydantic import Field
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import TradeType
