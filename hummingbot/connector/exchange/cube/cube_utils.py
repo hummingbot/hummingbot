@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic import Field, SecretStr, validator
+from pydantic.v1 import Field, SecretStr, validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import validate_int, validate_with_regex
