@@ -96,7 +96,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     def test_get_related_limits(self):
-        self.assertEqual(20, len(self.throttler._rate_limits))
+        self.assertEqual(21, len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
