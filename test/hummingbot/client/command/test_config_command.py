@@ -5,7 +5,7 @@ from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable, Union
 from unittest.mock import MagicMock, patch
 
-from pydantic import Field
+from pydantic.v1 import Field
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
@@ -67,7 +67,6 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | fetch_pairs_from_all_exchanges    | False                |\n"
                            "    | kill_switch_mode                  | kill_switch_disabled |\n"
                            "    | autofill_import                   | disabled             |\n"
-                           "    | telegram_mode                     | telegram_disabled    |\n"
                            "    | mqtt_bridge                       |                      |\n"
                            "    | ∟ mqtt_host                       | localhost            |\n"
                            "    | ∟ mqtt_port                       | 1883                 |\n"

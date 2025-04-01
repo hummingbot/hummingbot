@@ -14,10 +14,9 @@ from eth_keyfile.keyfile import (
     encode_hex_no_prefix,
     encrypt_aes_ctr,
     get_default_work_factor_for_kdf,
-    int_to_big_endian,
     keccak,
 )
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot.client.settings import CONF_DIR_PATH
 
@@ -132,7 +131,7 @@ def _create_v3_keyfile_json(message_to_encrypt, password, kdf="pbkdf2", work_fac
         'crypto': {
             'cipher': 'aes-128-ctr',
             'cipherparams': {
-                'iv': encode_hex_no_prefix(int_to_big_endian(iv)),
+                'iv': encode_hex_no_prefix(iv.to_bytes((iv.bit_length() + 7) // 8 or 1, "big")),
             },
             'ciphertext': encode_hex_no_prefix(ciphertext),
             'kdf': kdf,

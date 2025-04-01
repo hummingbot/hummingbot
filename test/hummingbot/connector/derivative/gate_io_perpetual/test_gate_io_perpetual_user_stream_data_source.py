@@ -1,7 +1,7 @@
 import asyncio
 import json
-import unittest
-from typing import Awaitable, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
@@ -17,16 +17,16 @@ from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_user_st
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
+class TestGateIoPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -39,7 +39,6 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
         super().setUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
-        self.mocking_assistant = NetworkMockingAssistant()
 
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.mock_time_provider = MagicMock()
@@ -71,6 +70,11 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
 
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
+
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         super().tearDown()
@@ -82,15 +86,11 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
         "hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_user_stream_data_source.GateIoPerpetualAPIUserStreamDataSource"
         "._time")
-    def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, time_mock, ws_connect_mock):
+    async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, time_mock, ws_connect_mock):
         time_mock.return_value = 1000
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -134,9 +134,9 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
@@ -174,7 +174,7 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
     @patch(
         "hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_user_stream_data_source.GateIoPerpetualAPIUserStreamDataSource"
         "._time")
-    def test_listen_for_user_stream_skips_subscribe_unsubscribe_messages(self, time_mock, ws_connect_mock):
+    async def test_listen_for_user_stream_skips_subscribe_unsubscribe_messages(self, time_mock, ws_connect_mock):
         time_mock.return_value = 1000
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -206,14 +206,14 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(output_queue.empty())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_ws):
+    async def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_ws):
         mock_pong = {
             "time": 1545404023,
             "channel": CONSTANTS.PONG_CHANNEL_NAME,
@@ -226,23 +226,23 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_user_stream(msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    def test_listen_for_user_stream_connection_failed(self, sleep_mock, mock_ws):
+    async def test_listen_for_user_stream_connection_failed(self, sleep_mock, mock_ws):
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = asyncio.CancelledError  # to finish the task execution
 
         msg_queue = asyncio.Queue()
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+            await self.data_source.listen_for_user_stream(msg_queue)
         except asyncio.CancelledError:
             pass
 
@@ -252,14 +252,14 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    def test_listen_for_user_stream_iter_message_throws_exception(self, sleep_mock, mock_ws):
+    async def test_listen_for_user_stream_iter_message_throws_exception(self, sleep_mock, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.receive.side_effect = Exception("TEST ERROR")
         sleep_mock.side_effect = asyncio.CancelledError  # to finish the task execution
 
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+            await self.data_source.listen_for_user_stream(msg_queue)
         except asyncio.CancelledError:
             pass
 

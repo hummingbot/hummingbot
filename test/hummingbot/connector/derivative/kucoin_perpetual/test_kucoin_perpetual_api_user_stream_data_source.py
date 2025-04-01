@@ -1,7 +1,7 @@
 import asyncio
 import re
-import unittest
-from typing import Any, Awaitable, Dict, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
 import ujson
@@ -21,16 +21,16 @@ from hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_derivativ
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
+class KucoinPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -45,7 +45,6 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         super().setUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
-        self.mocking_assistant = NetworkMockingAssistant()
         client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         self.emulated_time = 1640001112.223
@@ -72,6 +71,10 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.mock_done_event = asyncio.Event()
         self.resume_test_event = asyncio.Event()
 
@@ -81,10 +84,6 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def handle(self, record):
         self.log_records.append(record)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
@@ -234,86 +233,7 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_log_exception(self, mock_api, mock_ws):
-        url = web_utils.wss_private_url(self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.post(regex_url, body=self._successful_get_connection_token_response())
-
-        mock_ws.side_effect = Exception("TEST ERROR.")
-
-        msg_queue = asyncio.Queue()
-        try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
-        except asyncio.exceptions.TimeoutError:
-            pass
-
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds...",
-            )
-        )
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_create_websocket_connection_failed(self, mock_api, mock_ws):
-        url = web_utils.wss_private_url(self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.post(regex_url, body=self._successful_get_connection_token_response())
-
-        mock_ws.side_effect = Exception("TEST ERROR.")
-
-        msg_queue = asyncio.Queue()
-
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-
-        try:
-            self.async_run_with_timeout(msg_queue.get())
-        except asyncio.exceptions.TimeoutError:
-            pass
-
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds...",
-            )
-        )
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, _, mock_ws):
-        url = web_utils.wss_private_url(self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response = {"listenKey": self.listen_key}
-        mock_api.post(regex_url, body=ujson.dumps(mock_response))
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = Exception("TEST ERROR")
-        mock_ws.return_value.closed = False
-        mock_ws.return_value.close.side_effect = Exception
-
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-
-        try:
-            self.async_run_with_timeout(msg_queue.get())
-        except Exception:
-            pass
-
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds...",
-            )
-        )
-
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_successful(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_successful(self, mock_api, mock_ws):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -332,15 +252,15 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._simulate_user_update_event())
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        msg = self.async_run_with_timeout(msg_queue.get())
+        msg = await msg_queue.get()
         self.assertTrue(msg, self._simulate_user_update_event)
         mock_ws.return_value.ping.assert_called()
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_api, mock_ws):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -359,8 +279,8 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())

@@ -2,9 +2,9 @@
 Unit tests for test_check_transaction_exceptions
 """
 
-from decimal import Decimal
-from typing import Dict, Any
 import unittest.mock
+from decimal import Decimal
+from typing import Any, Dict
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import check_transaction_exceptions
@@ -34,16 +34,16 @@ class CheckTransactionExceptionsTest(unittest.TestCase):
         # ETH balance less than gas_cost
         invalid_transaction_1 = transaction_args.copy()
         invalid_transaction_1["balances"] = {"ETH": Decimal(10)}
-        self.assertRegexpMatches(
+        self.assertRegex(
             check_transaction_exceptions(**invalid_transaction_1)[0], r"^Insufficient ETH balance to cover gas"
         )
 
         # Gas limit set too low, gas_limit is less than 21000
         invalid_transaction_2 = transaction_args.copy()
         invalid_transaction_2["gas_limit"] = 10000
-        self.assertRegexpMatches(check_transaction_exceptions(**invalid_transaction_2)[0], r"^Gas limit")
+        self.assertRegex(check_transaction_exceptions(**invalid_transaction_2)[0], r"^Gas limit")
 
         # Insufficient token allowance, allowance of quote less than amount
         invalid_transaction_3 = transaction_args.copy()
         invalid_transaction_3["allowances"] = {"WBTC": Decimal(500)}
-        self.assertRegexpMatches(check_transaction_exceptions(**invalid_transaction_3)[0], r"^Insufficient")
+        self.assertRegex(check_transaction_exceptions(**invalid_transaction_3)[0], r"^Insufficient")
