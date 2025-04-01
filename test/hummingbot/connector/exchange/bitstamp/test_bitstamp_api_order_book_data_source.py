@@ -34,7 +34,7 @@ class BitstampApiOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         await super().asyncSetUp()
         self.log_records = []
         self.listening_task = None
-        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
+        self.mocking_assistant = NetworkMockingAssistant()
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
 

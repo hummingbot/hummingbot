@@ -1,7 +1,7 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot.connector.exchange.bitstamp.bitstamp_utils import DEFAULT_FEES, BitstampConfigMap
 

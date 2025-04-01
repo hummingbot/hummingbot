@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from pydantic import Field, SecretStr
+from pydantic.v1 import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -48,6 +48,15 @@ class DerivePerpetualConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+    account_type: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Derive Account Type (trader/market_maker)",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
+    )
 
 
 KEYS = DerivePerpetualConfigMap.construct()
@@ -86,6 +95,15 @@ class DerivePerpetualTestnetConfigMap(BaseConnectorConfigMap):
             is_connect_key=True,
             prompt_on_new=True,
         ),
+    )
+    account_type: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter your Derive Account Type (trader/market_maker)",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        )
     )
 
     class Config:

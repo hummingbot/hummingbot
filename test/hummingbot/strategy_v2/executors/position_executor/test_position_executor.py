@@ -743,4 +743,4 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor = self.get_position_executor_running_from_config(position_config)
         position_executor.early_stop(keep_position=True)
         self.assertEqual(position_executor.close_type, CloseType.POSITION_HOLD)
-        self.assertEqual(position_executor.status, RunnableStatus.TERMINATED)
+        self.assertEqual(position_executor.status, RunnableStatus.SHUTTING_DOWN)
