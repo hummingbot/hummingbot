@@ -652,15 +652,37 @@ def load_connector_config_map_from_file(yml_path: Path) -> ClientConfigAdapter:
     return config_map
 
 
-def load_client_config_map_from_file() -> ClientConfigAdapter:
-    yml_path = CLIENT_CONFIG_PATH
+class MostRecentConfigLoadCache:
+    _instance: Optional["MostRecentConfigLoadCache"] = None
+
+    @classmethod
+    def _get_instance(cls) -> "MostRecentConfigLoadCache":
+        if cls._instance is None:
+            cls._instance = MostRecentConfigLoadCache()
+        return cls._instance
+
+    @classmethod
+    def get_client_config_map(cls) -> Optional[ClientConfigAdapter]:
+        return cls._get_instance().client_config_map
+
+    @classmethod
+    def set_client_config_map(cls, config_map: ClientConfigAdapter):
+        cls._get_instance().client_config_map = config_map
+
+    def __init__(self):
+        self.client_config_map = None
+
+
+def load_client_config_map_from_file(yml_path: str = CLIENT_CONFIG_PATH) -> ClientConfigAdapter:
     if yml_path.exists():
         config_data = read_yml_file(yml_path)
     else:
         config_data = {}
     client_config = ClientConfigMap(**config_data)
     config_map = ClientConfigAdapter(client_config)
+    # TODO: only save to yml if it changed.
     save_to_yml(yml_path, config_map)
+    MostRecentConfigLoadCache.set_client_config_map(config_map)
     return config_map
 
 
