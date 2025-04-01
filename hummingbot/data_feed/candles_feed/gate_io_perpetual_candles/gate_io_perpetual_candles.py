@@ -1,5 +1,4 @@
 import logging
-import time
 from typing import List, Optional
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -121,7 +120,7 @@ class GateioPerpetualCandles(CandlesBase):
 
     def ws_subscription_payload(self):
         return {
-            "time": int(time.time()),
+            "time": int(self._time()),
             "channel": CONSTANTS.WS_CANDLES_ENDPOINT,
             "event": "subscribe",
             "payload": [self.interval, self._ex_trading_pair]
