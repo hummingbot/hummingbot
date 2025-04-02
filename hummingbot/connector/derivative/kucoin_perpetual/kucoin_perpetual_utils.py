@@ -32,7 +32,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class KucoinPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="kucoin_perpetual", client_data=None)
+    connector: str = "kucoin_perpetual"
     kucoin_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

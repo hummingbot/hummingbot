@@ -16,7 +16,7 @@ DEFAULT_FEES = TradeFeeSchema(
 
 
 class GateIOConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="gate_io", client_data=None)
+    connector: str = "gate_io"
     gate_io_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

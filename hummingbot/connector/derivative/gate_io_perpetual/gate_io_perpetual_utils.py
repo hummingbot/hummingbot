@@ -16,7 +16,7 @@ DEFAULT_FEES = TradeFeeSchema(
 
 
 class GateIOPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="gate_io_perpetual", client_data=None)
+    connector: str = "gate_io_perpetual"
     gate_io_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

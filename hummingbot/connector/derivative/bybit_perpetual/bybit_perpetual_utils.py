@@ -63,7 +63,7 @@ def get_next_funding_timestamp(current_timestamp: float) -> float:
 
 
 class BybitPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bybit_perpetual", client_data=None)
+    connector: str = "bybit_perpetual"
     bybit_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -99,7 +99,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {
 
 
 class BybitPerpetualTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bybit_perpetual_testnet", client_data=None)
+    connector: str = "bybit_perpetual_testnet"
     bybit_perpetual_testnet_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

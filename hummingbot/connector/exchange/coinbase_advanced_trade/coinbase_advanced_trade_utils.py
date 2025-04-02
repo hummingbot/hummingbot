@@ -35,7 +35,7 @@ class CoinbaseAdvancedTradeRESTRequest(EndpointRESTRequest):
 
 
 class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="coinbase_advanced_trade", const=True, client_data=None)
+    connector: str = "coinbase_advanced_trade"
     coinbase_advanced_trade_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

@@ -20,7 +20,7 @@ BROKER_ID = "x-3QreWesy"
 
 
 class BitmartPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bitmart_perpetual", client_data=None)
+    connector: str = "bitmart_perpetual"
     bitmart_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

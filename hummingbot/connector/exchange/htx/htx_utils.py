@@ -30,7 +30,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class HtxConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="htx", client_data=None)
+    connector: str = "htx"
     htx_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

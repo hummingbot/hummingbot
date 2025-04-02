@@ -302,7 +302,7 @@ async def _wait_for_final_transaction_outcome(
 
 
 class XRPLConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="xrpl", const=True, client_data=None)
+    connector: str = "xrpl"
     xrpl_secret_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

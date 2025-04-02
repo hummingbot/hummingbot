@@ -21,7 +21,7 @@ def clamp(value, minvalue, maxvalue):
 
 
 class DydxV4PerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="dydx_v4_perpetual", client_data=None)
+    connector: str = "dydx_v4_perpetual"
     dydx_v4_perpetual_secret_phrase: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

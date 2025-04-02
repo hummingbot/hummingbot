@@ -29,7 +29,7 @@ def is_pair_information_valid(pair_info: Dict[str, Any]) -> bool:
 
 
 class KuCoinConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="kucoin", client_data=None)
+    connector: str = "kucoin"
     kucoin_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -69,7 +69,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"kucoin_hft": DEFAULT_FEES}
 
 
 class KuCoinHFTConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="kucoin_hft", client_data=None)
+    connector: str = "kucoin_hft"
     kucoin_hft_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

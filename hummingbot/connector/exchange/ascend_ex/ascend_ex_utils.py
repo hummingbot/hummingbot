@@ -34,7 +34,7 @@ def get_ms_timestamp() -> int:
 
 
 class AscendExConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="ascend_ex", client_data=None)
+    connector: str = "ascend_ex"
     ascend_ex_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

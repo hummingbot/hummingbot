@@ -27,7 +27,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class DexalotConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="dexalot", const=True, client_data=None)
+    connector: str = "dexalot"
     dexalot_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -58,7 +58,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"dexalot_testnet": [0, 0.025]}
 
 
 class DexalotTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="dexalot_testnet", const=True, client_data=None)
+    connector: str = "dexalot_testnet"
     dexalot_testnet_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

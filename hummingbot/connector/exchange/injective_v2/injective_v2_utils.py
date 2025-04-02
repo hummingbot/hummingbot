@@ -403,7 +403,7 @@ ACCOUNT_MODES = {
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
     # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
-    connector: str = Field(default="injective_v2", const=True, client_data=None)
+    connector: str = "injective_v2"
     receive_connector_configuration: bool = Field(
         default=True, const=True,
         client_data=ClientFieldData(),
