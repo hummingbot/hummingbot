@@ -2,7 +2,8 @@ from datetime import datetime, time
 from decimal import Decimal
 from typing import Dict, Optional, Union
 
-from pydantic.v1 import Field, root_validator, validator
+from pydantic import ConfigDict, field_validator, model_validator
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.config.config_validators import (
@@ -18,8 +19,7 @@ from hummingbot.connector.utils import split_hb_trading_pair
 
 
 class InfiniteModel(BaseClientModel):
-    class Config:
-        title = "infinite"
+    model_config = ConfigDict(title="infinite")
 
 
 class FromDateToDateModel(BaseClientModel):
@@ -39,11 +39,10 @@ class FromDateToDateModel(BaseClientModel):
             prompt_on_new=True,
         ),
     )
+    model_config = ConfigDict(title="from_date_to_date")
 
-    class Config:
-        title = "from_date_to_date"
-
-    @validator("start_datetime", "end_datetime", pre=True)
+    @field_validator("start_datetime", "end_datetime", mode="before")
+    @classmethod
     def validate_execution_time(cls, v: Union[str, datetime]) -> Optional[str]:
         if not isinstance(v, str):
             v = v.strftime("%Y-%m-%d %H:%M:%S")
@@ -70,11 +69,10 @@ class DailyBetweenTimesModel(BaseClientModel):
             prompt_on_new=True,
         ),
     )
+    model_config = ConfigDict(title="daily_between_times")
 
-    class Config:
-        title = "daily_between_times"
-
-    @validator("start_time", "end_time", pre=True)
+    @field_validator("start_time", "end_time", mode="before")
+    @classmethod
     def validate_execution_time(cls, v: Union[str, datetime]) -> Optional[str]:
         if not isinstance(v, str):
             v = v.strftime("%H:%M:%S")
@@ -85,15 +83,14 @@ class DailyBetweenTimesModel(BaseClientModel):
 
 
 EXECUTION_TIMEFRAME_MODELS = {
-    InfiniteModel.Config.title: InfiniteModel,
-    FromDateToDateModel.Config.title: FromDateToDateModel,
-    DailyBetweenTimesModel.Config.title: DailyBetweenTimesModel,
+    InfiniteModel.model_config["title"]: InfiniteModel,
+    FromDateToDateModel.model_config["title"]: FromDateToDateModel,
+    DailyBetweenTimesModel.model_config["title"]: DailyBetweenTimesModel,
 }
 
 
 class SingleOrderLevelModel(BaseClientModel):
-    class Config:
-        title = "single_order_level"
+    model_config = ConfigDict(title="single_order_level")
 
 
 class MultiOrderLevelModel(BaseClientModel):
@@ -115,18 +112,18 @@ class MultiOrderLevelModel(BaseClientModel):
             prompt_on_new=True,
         ),
     )
+    model_config = ConfigDict(title="multi_order_level")
 
-    class Config:
-        title = "multi_order_level"
-
-    @validator("order_levels", pre=True)
+    @field_validator("order_levels", mode="before")
+    @classmethod
     def validate_int_zero_or_above(cls, v: str):
         ret = validate_int(v, min_value=2)
         if ret is not None:
             raise ValueError(ret)
         return v
 
-    @validator("level_distances", pre=True)
+    @field_validator("level_distances", mode="before")
+    @classmethod
     def validate_decimal_zero_or_above(cls, v: str):
         ret = validate_decimal(v, min_value=Decimal("0"), inclusive=True)
         if ret is not None:
@@ -135,8 +132,8 @@ class MultiOrderLevelModel(BaseClientModel):
 
 
 ORDER_LEVEL_MODELS = {
-    SingleOrderLevelModel.Config.title: SingleOrderLevelModel,
-    MultiOrderLevelModel.Config.title: MultiOrderLevelModel,
+    SingleOrderLevelModel.model_config["title"]: SingleOrderLevelModel,
+    MultiOrderLevelModel.model_config["title"]: MultiOrderLevelModel,
 }
 
 
@@ -153,11 +150,10 @@ class TrackHangingOrdersModel(BaseClientModel):
             ),
         )
     )
+    model_config = ConfigDict(title="track_hanging_orders")
 
-    class Config:
-        title = "track_hanging_orders"
-
-    @validator("hanging_orders_cancel_pct", pre=True)
+    @field_validator("hanging_orders_cancel_pct", mode="before")
+    @classmethod
     def validate_pct_exclusive(cls, v: str):
         ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("100"), inclusive=False)
         if ret is not None:
@@ -166,13 +162,12 @@ class TrackHangingOrdersModel(BaseClientModel):
 
 
 class IgnoreHangingOrdersModel(BaseClientModel):
-    class Config:
-        title = "ignore_hanging_orders"
+    model_config = ConfigDict(title="ignore_hanging_orders")
 
 
 HANGING_ORDER_MODELS = {
-    TrackHangingOrdersModel.Config.title: TrackHangingOrdersModel,
-    IgnoreHangingOrdersModel.Config.title: IgnoreHangingOrdersModel,
+    TrackHangingOrdersModel.model_config["title"]: TrackHangingOrdersModel,
+    IgnoreHangingOrdersModel.model_config["title"]: IgnoreHangingOrdersModel,
 }
 
 
@@ -346,9 +341,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             ),
         )
     )
-
-    class Config:
-        title = "avellaneda_market_making"
+    model_config = ConfigDict(title="avellaneda_market_making")
 
     # === prompts ===
 
@@ -360,7 +353,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
 
     # === specific validations ===
 
-    @validator("execution_timeframe_mode", pre=True)
+    @field_validator("execution_timeframe_mode", mode="before")
+    @classmethod
     def validate_execution_timeframe(
         cls, v: Union[str, InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel]
     ):
@@ -374,7 +368,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             sub_model = EXECUTION_TIMEFRAME_MODELS[v].construct()
         return sub_model
 
-    @validator("order_refresh_tolerance_pct", pre=True)
+    @field_validator("order_refresh_tolerance_pct", mode="before")
+    @classmethod
     def validate_order_refresh_tolerance_pct(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("-10"), max_value=Decimal("10"), inclusive=True)
@@ -382,7 +377,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("volatility_buffer_size", "trading_intensity_buffer_size", pre=True)
+    @field_validator("volatility_buffer_size", "trading_intensity_buffer_size", mode="before")
+    @classmethod
     def validate_buffer_size(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_int(v, 1, 10_000)
@@ -390,7 +386,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("order_levels_mode", pre=True)
+    @field_validator("order_levels_mode", mode="before")
+    @classmethod
     def validate_order_levels_mode(cls, v: Union[str, SingleOrderLevelModel, MultiOrderLevelModel]):
         if isinstance(v, (SingleOrderLevelModel, MultiOrderLevelModel, Dict)):
             sub_model = v
@@ -402,7 +399,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             sub_model = ORDER_LEVEL_MODELS[v].construct()
         return sub_model
 
-    @validator("hanging_orders_mode", pre=True)
+    @field_validator("hanging_orders_mode", mode="before")
+    @classmethod
     def validate_hanging_orders_mode(cls, v: Union[str, IgnoreHangingOrdersModel, TrackHangingOrdersModel]):
         if isinstance(v, (TrackHangingOrdersModel, IgnoreHangingOrdersModel, Dict)):
             sub_model = v
@@ -416,12 +414,12 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
 
     # === generic validations ===
 
-    @validator(
+    @field_validator(
         "order_optimization_enabled",
         "add_transaction_costs",
         "should_wait_order_cancel_confirmation",
-        pre=True,
-    )
+        mode="before")
+    @classmethod
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
@@ -430,7 +428,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
                 raise ValueError(ret)
         return v
 
-    @validator("order_amount_shape_factor", pre=True)
+    @field_validator("order_amount_shape_factor", mode="before")
+    @classmethod
     def validate_decimal_from_zero_to_one(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("1"), inclusive=True)
@@ -438,14 +437,14 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator(
+    @field_validator(
         "order_amount",
         "risk_factor",
         "order_refresh_time",
         "max_order_age",
         "filled_order_delay",
-        pre=True,
-    )
+        mode="before")
+    @classmethod
     def validate_decimal_above_zero(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), inclusive=False)
@@ -453,7 +452,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("min_spread", pre=True)
+    @field_validator("min_spread", mode="before")
+    @classmethod
     def validate_decimal_zero_or_above(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), inclusive=True)
@@ -461,7 +461,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("inventory_target_base_pct", pre=True)
+    @field_validator("inventory_target_base_pct", mode="before")
+    @classmethod
     def validate_pct_inclusive(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_decimal(v, min_value=Decimal("0"), max_value=Decimal("100"), inclusive=True)
@@ -471,11 +472,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
 
     # === post-validations ===
 
-    @root_validator(skip_on_failure=True)
-    def post_validations(cls, values: Dict):
-        cls.exchange_post_validation(values)
-        return values
-
-    @classmethod
-    def exchange_post_validation(cls, values: Dict):
-        required_exchanges.add(values["exchange"])
+    @model_validator(mode="after")
+    def post_validations(self):
+        required_exchanges.add(self.exchange)
+        return self

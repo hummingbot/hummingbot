@@ -7,7 +7,8 @@ from typing import Callable, Dict, List, Optional, Set
 
 import pandas as pd
 import yaml
-from pydantic.v1 import Field, validator
+from pydantic import field_validator
+from pydantic.v1 import Field
 
 from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
@@ -65,7 +66,7 @@ class StrategyV2ConfigBase(BaseClientModel):
             prompt_on_new=True,
             prompt=lambda mi: "Enter controller configurations (comma-separated file paths), leave it empty if none: "
         ))
-    config_update_interval: int = Field(
+    config_update_interval: Optional[int] = Field(
         default=60,
         gt=0,
         client_data=ClientFieldData(
@@ -74,7 +75,8 @@ class StrategyV2ConfigBase(BaseClientModel):
         )
     )
 
-    @validator("controllers_config", pre=True, always=True)
+    @field_validator("controllers_config", mode="before")
+    @classmethod
     def parse_controllers_config(cls, v):
         # Parse string input into a list of file pathsq
         if isinstance(v, str):
@@ -113,7 +115,8 @@ class StrategyV2ConfigBase(BaseClientModel):
 
         return loaded_configs
 
-    @validator('markets', pre=True)
+    @field_validator('markets', mode="before")
+    @classmethod
     def parse_markets(cls, v) -> Dict[str, Set[str]]:
         if isinstance(v, str):
             return cls.parse_markets_str(v)
@@ -135,7 +138,8 @@ class StrategyV2ConfigBase(BaseClientModel):
                 markets_dict[exchange_name] = set(trading_pairs.split(','))
         return markets_dict
 
-    @validator('candles_config', pre=True)
+    @field_validator('candles_config', mode="before")
+    @classmethod
     def parse_candles_config(cls, v) -> List[CandlesConfig]:
         if isinstance(v, str):
             return cls.parse_candles_config_str(v)
