@@ -1,7 +1,7 @@
 import asyncio
 import re
-import unittest
-from typing import Awaitable, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import dateutil.parser as dp
@@ -20,16 +20,16 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_derivat
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
+class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
 
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
@@ -66,6 +66,9 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
@@ -84,12 +87,8 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.resume_test_event.set()
         raise exception
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
+    async def test_get_last_trade_prices(self, mock_api):
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -126,13 +125,13 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
-        result = self.async_run_with_timeout(self.data_source.get_last_traded_prices([self.trading_pair]))
+        result = await self.data_source.get_last_traded_prices([self.trading_pair])
 
         self.assertEqual(1, len(result))
         self.assertEqual(float("101"), result[self.trading_pair])
 
     @aioresponses()
-    def test_get_snapshot_raise_io_error(self, mock_api):
+    async def test_get_snapshot_raise_io_error(self, mock_api):
         url = web_utils.public_rest_url(CONSTANTS.PATH_SNAPSHOT + "/" + self.trading_pair)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -142,14 +141,14 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 IOError,
                 f"Error executing request GET {url}. " f"HTTP status is 400. Error: {{}}",
         ):
-            self.async_run_with_timeout(self.data_source._order_book_snapshot(self.trading_pair))
+            await self.data_source._order_book_snapshot(self.trading_pair)
 
     @aioresponses()
     @patch(
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source."
         "DydxV4PerpetualAPIOrderBookDataSource._time"
     )
-    def test_get_snapshot_successful(self, mock_api, mock_time):
+    async def test_get_snapshot_successful(self, mock_api, mock_time):
         mock_time.return_value = 1640780000
 
         url = web_utils.public_rest_url(CONSTANTS.PATH_SNAPSHOT + "/" + self.trading_pair)
@@ -161,7 +160,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
-        result = self.async_run_with_timeout(self.data_source._order_book_snapshot(self.trading_pair))
+        result = await self.data_source._order_book_snapshot(self.trading_pair)
 
         self.assertEqual(mock_response["asks"][0]["size"], str(result.asks[0].amount))
         self.assertEqual(mock_response["asks"][0]["price"], str(result.asks[0].price))
@@ -177,7 +176,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source"
         ".DydxV4PerpetualAPIOrderBookDataSource._time"
     )
-    def test_get_snapshot_raises_error(self, mock_api, mock_time):
+    async def test_get_snapshot_raises_error(self, mock_api, mock_time):
         mock_time.return_value = 1640780000
 
         url = web_utils.public_rest_url(CONSTANTS.PATH_SNAPSHOT + "/" + self.trading_pair)
@@ -186,10 +185,10 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_api.get(regex_url, status=400)
 
         with self.assertRaisesRegex(IOError, f"Error executing request GET {url}. HTTP status is 400. "):
-            self.async_run_with_timeout(self.data_source._order_book_snapshot(self.trading_pair))
+            await self.data_source._order_book_snapshot(self.trading_pair)
 
     @aioresponses()
-    def test_get_new_order_book(self, mock_api):
+    async def test_get_new_order_book(self, mock_api):
         url = web_utils.public_rest_url(CONSTANTS.PATH_SNAPSHOT + "/" + self.trading_pair)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -199,7 +198,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
-        result = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
+        result = await self.data_source.get_new_order_book(self.trading_pair)
         self.assertIsInstance(result, OrderBook)
         self.assertEqual(1, len(list(result.bid_entries())))
         self.assertEqual(1, len(list(result.ask_entries())))
@@ -213,26 +212,26 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source."
         "DydxV4PerpetualAPIOrderBookDataSource._sleep"
     )
-    def test_listen_for_subscriptions_raises_cancelled_exception(self, _, ws_connect_mock):
+    async def test_listen_for_subscriptions_raises_cancelled_exception(self, _, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
+            await self.data_source.listen_for_subscriptions()
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source."
         "DydxV4PerpetualAPIOrderBookDataSource._sleep"
     )
-    def test_listen_for_subscriptions_raises_logs_exception(self, mock_sleep, ws_connect_mock):
-        mock_sleep.side_effect = lambda: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
+    async def test_listen_for_subscriptions_raises_logs_exception(self, mock_sleep, ws_connect_mock):
+        mock_sleep.side_effect = lambda: (self.local_event_loop.run_until_complete(asyncio.sleep(0.5)))
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = lambda *_: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR")
         )
-        self.async_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
-        self.async_run_with_timeout(self.resume_test_event.wait(), 1.0)
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self._is_logged(
@@ -246,8 +245,8 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source."
         "DydxV4PerpetualAPIOrderBookDataSource._sleep"
     )
-    def test_listen_for_subscriptions_successful(self, mock_sleep, ws_connect_mock):
-        mock_sleep.side_effect = lambda: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
+    async def test_listen_for_subscriptions_successful(self, mock_sleep, ws_connect_mock):
+        mock_sleep.side_effect = lambda: (self.local_event_loop.run_until_complete(asyncio.sleep(0.5)))
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         mock_response = {
@@ -263,9 +262,9 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             ws_connect_mock.return_value, message=ujson.dumps(mock_response)
         )
 
-        self.async_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(1, self.data_source._message_queue[self.data_source._diff_messages_queue_key].qsize())
 
@@ -273,11 +272,11 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(message, mock_response)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_subscribe_channels_successful(self, ws_connect_mock):
+    async def test_subscribe_channels_successful(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        ws = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
-        self.async_run_with_timeout(self.data_source._subscribe_channels(ws))
+        ws = await self.data_source._connected_websocket_assistant()
+        await self.data_source._subscribe_channels(ws)
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
@@ -297,25 +296,25 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(self._is_logged("INFO", "Subscribed to public orderbook and trade channels..."))
 
-    def test_subscribe_channels_canceled(self):
+    async def test_subscribe_channels_canceled(self):
         ws = MagicMock()
         ws.send.side_effect = asyncio.CancelledError()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source._subscribe_channels(ws))
+            await self.data_source._subscribe_channels(ws)
 
-    def test_subscribe_channels_error(self):
+    async def test_subscribe_channels_error(self):
         ws = MagicMock()
         ws.send.side_effect = Exception()
 
         with self.assertRaises(Exception):
-            self.async_run_with_timeout(self.data_source._subscribe_channels(ws))
+            await self.data_source._subscribe_channels(ws)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
         )
 
-    def test_listen_for_trades_logs_exception(self):
+    async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
             "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
             "id": self.trading_pair,
@@ -339,16 +338,14 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, msg_queue))
-
         try:
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
-    def test_listen_for_trades_successful(self):
+    async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
         trade_event = {
             "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
@@ -368,9 +365,9 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, msg_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         timestamp = dp.parse(trade_event["contents"]["trades"][0]["createdAt"]).timestamp()
         trade_id = timestamp * 1e3
@@ -379,7 +376,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(trade_id, msg.trade_id)
         self.assertEqual(timestamp, msg.timestamp)
 
-    def test_listen_for_order_book_diffs_logs_exception(self):
+    async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
             "type": CONSTANTS.WS_TYPE_CHANNEL_DATA,
             "id": self.trading_pair,
@@ -395,12 +392,8 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
-        )
-
         try:
-            self.async_run_with_timeout(self.listening_task)
+            await self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
         except asyncio.CancelledError:
             pass
 
@@ -412,7 +405,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source."
         "DydxV4PerpetualAPIOrderBookDataSource._time"
     )
-    def test_listen_for_order_book_diffs_successful(self, mock_time):
+    async def test_listen_for_order_book_diffs_successful(self, mock_time):
         mock_time.return_value = 1640780000
 
         mock_queue = AsyncMock()
@@ -429,11 +422,11 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
         )
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
@@ -461,7 +454,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source"
         ".DydxV4PerpetualAPIOrderBookDataSource._time"
     )
-    def test_listen_for_order_book_snapshots_log_exception(self, mock_time, mock_sleep):
+    async def test_listen_for_order_book_snapshots_log_exception(self, mock_time, mock_sleep):
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 1
 
         mock_time.return_value = 1640780000
@@ -491,10 +484,10 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_input_queue.get.side_effect = [incomplete_resp]
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_input_queue
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=mock_output_queue)
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(asyncio.get_running_loop(), output=mock_output_queue)
         )
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public order book snapshots from exchange")
@@ -508,7 +501,7 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source"
         ".DydxV4PerpetualAPIOrderBookDataSource._time"
     )
-    def test_listen_for_order_book_snapshots_successful(self, mock_time, mock_sleep):
+    async def test_listen_for_order_book_snapshots_successful(self, mock_time, mock_sleep):
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 1
 
         mock_time.return_value = 1640780000
@@ -533,12 +526,12 @@ class DydxV4PerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_input_queue.get.side_effect = [resp, Exception]
         self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_input_queue
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=output_queue)
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(asyncio.get_running_loop(), output=output_queue)
         )
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
-        msg: OrderBookMessage = self.async_run_with_timeout(output_queue.get())
+        msg: OrderBookMessage = await output_queue.get()
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(-1, msg.trade_id)

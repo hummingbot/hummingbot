@@ -4,10 +4,9 @@ from decimal import Decimal
 from enum import Enum
 from os import DirEntry, scandir
 from os.path import exists, join, realpath
-from types import ModuleType
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Union, cast
 
-from pydantic import SecretStr
+from pydantic.v1 import SecretStr
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -16,7 +15,6 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
     from hummingbot.connector.connector_base import ConnectorBase
-    from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
 
 
 # Global variables
@@ -64,6 +62,8 @@ class ConnectorType(Enum):
     """
 
     AMM = "AMM"
+    SWAP = "SWAP"
+    CLMM = "CLMM"
     CLOB_SPOT = "CLOB_SPOT"
     CLOB_PERP = "CLOB_PERP"
     Connector = "connector"
@@ -320,26 +320,6 @@ class ConnectorSetting(NamedTuple):
         connector = connector_class(**kwargs)
 
         return connector
-
-    def _load_clob_api_data_source(
-        self,
-        trading_pairs: List[str],
-        trading_required: bool,
-        client_config_map: "ClientConfigAdapter",
-        connector_spec: Dict[str, str],
-    ) -> "CLOBAPIDataSourceBase":
-        module_name = self.get_api_data_source_module_name()
-        parent_package = f"hummingbot.connector.gateway.{self._get_module_package()}.data_sources"
-        module_package = self.name.rsplit(sep="_", maxsplit=2)[0]
-        module_path = f"{parent_package}.{module_package}.{module_name}"
-        module: ModuleType = importlib.import_module(module_path)
-        api_data_source_class = getattr(module, self.get_api_data_source_class_name())
-        instance = api_data_source_class(
-            trading_pairs=trading_pairs,
-            connector_spec=connector_spec,
-            client_config_map=client_config_map,
-        )
-        return instance
 
     def _get_module_package(self) -> str:
         return self.type.name.lower()

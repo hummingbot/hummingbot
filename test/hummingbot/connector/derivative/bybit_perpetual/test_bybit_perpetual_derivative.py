@@ -5,7 +5,7 @@ from copy import deepcopy
 from decimal import Decimal
 from itertools import chain, product
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 from aioresponses import aioresponses
@@ -40,7 +40,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
     @property
     def all_symbols_url(self):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
-        params = {"category": "linear"}
+        params = {"category": "linear", "limit": 1000}
         encoded_params = urlencode(params)
         url = f"{url}?{encoded_params}"
         return url
@@ -61,7 +61,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
     @property
     def trading_rules_url(self):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
-        params = {"category": "linear"}
+        params = {"category": "linear", "limit": 1000}
         encoded_params = urlencode(params)
         url = f"{url}?{encoded_params}"
         return url
@@ -396,6 +396,33 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         }
         return mock_response
 
+    @staticmethod
+    def available_balance_request_mock_response_for_base(available_balance: float):
+        mock_response = {
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "availableWithdrawal": str(available_balance)
+            },
+            "retExtInfo": {},
+            "time": 1739503317282
+        }
+        return mock_response
+
+    def _configure_available_balance_response(self,
+                                              mock_api: aioresponses,
+                                              coin_name: str,
+                                              available_balance: float) -> str:
+        mock_url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL
+        )
+        params = {"coinName": coin_name}
+        encoded_params = urlencode(params)
+        url = f"{mock_url}?{encoded_params}"
+
+        # Mock the API response to trigger a failure
+        mock_api.get(url, payload=self.available_balance_request_mock_response_for_base(available_balance))
+
     def _configure_balance_response(
             self,
             response: Dict[str, Any],
@@ -501,95 +528,13 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
 
     @property
     def balance_event_websocket_update(self):
-        mock_response = {
-            "id": "592324d2bce751-ad38-48eb-8f42-4671d1fb4d4e",
-            "topic": "wallet",
-            "creationTime": 1700034722104,
-            "data": [
-                {
-                    "accountIMRate": "0",
-                    "accountMMRate": "0",
-                    "totalEquity": "10262.91335023",
-                    "totalWalletBalance": "9684.46297164",
-                    "totalMarginBalance": "9684.46297164",
-                    "totalAvailableBalance": "9556.6056555",
-                    "totalPerpUPL": "0",
-                    "totalInitialMargin": "0",
-                    "totalMaintenanceMargin": "0",
-                    "coin": [
-                        {
-                            "coin": self.base_asset,
-                            "equity": "0.00102964",
-                            "usdValue": "36.70759517",
-                            "walletBalance": "0.00102964",
-                            "availableToWithdraw": "0.00102964",
-                            "availableToBorrow": "",
-                            "borrowAmount": "0",
-                            "accruedInterest": "0",
-                            "totalOrderIM": "",
-                            "totalPositionIM": "",
-                            "totalPositionMM": "",
-                            "unrealisedPnl": "0",
-                            "cumRealisedPnl": "-0.00000973",
-                            "bonus": "0",
-                            "collateralSwitch": True,
-                            "marginCollateral": True,
-                            "locked": "0",
-                            "spotHedgingQty": "0.01592413"
-                        }
-                    ],
-                    "accountLTV": "0",
-                    "accountType": "UNIFIED"
-                }
-            ]
-        }
-        return mock_response
+        # Implement once bybit returns again something related to available balance
+        return {}
 
     @property
     def non_linear_balance_event_websocket_update(self):
-        mock_response = {
-            "id": "592324d2bce751-ad38-48eb-8f42-4671d1fb4d4e",
-            "topic": "wallet",
-            "creationTime": 1700034722104,
-            "data": [
-                {
-                    "accountIMRate": "0",
-                    "accountMMRate": "0",
-                    "totalEquity": "10262.91335023",
-                    "totalWalletBalance": "9684.46297164",
-                    "totalMarginBalance": "9684.46297164",
-                    "totalAvailableBalance": "9556.6056555",
-                    "totalPerpUPL": "0",
-                    "totalInitialMargin": "0",
-                    "totalMaintenanceMargin": "0",
-                    "coin": [
-                        {
-                            "coin": self.base_asset,
-                            "equity": "15",
-                            "usdValue": "36.70759517",
-                            "walletBalance": "0.00102964",
-                            "availableToWithdraw": "10",
-                            "availableToBorrow": "",
-                            "borrowAmount": "0",
-                            "accruedInterest": "0",
-                            "totalOrderIM": "",
-                            "totalPositionIM": "",
-                            "totalPositionMM": "",
-                            "unrealisedPnl": "0",
-                            "cumRealisedPnl": "-0.00000973",
-                            "bonus": "0",
-                            "collateralSwitch": True,
-                            "marginCollateral": True,
-                            "locked": "0",
-                            "spotHedgingQty": "0.01592413"
-                        }
-                    ],
-                    "accountLTV": "0",
-                    "accountType": "UNIFIED"
-                }
-            ]
-        }
-        return mock_response
+        # Implement once bybit returns again something related to available balance
+        return {}
 
     @property
     def expected_latest_price(self):
@@ -722,6 +667,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             trading_pair=self.trading_pair,
             min_order_size=Decimal(str(trading_rules_resp["lotSizeFilter"]["minOrderQty"])),
             max_order_size=Decimal(str(trading_rules_resp["lotSizeFilter"]["maxOrderQty"])),
+            min_notional_size=Decimal(str(trading_rules_resp["lotSizeFilter"]["minNotionalValue"])),
             min_price_increment=Decimal(str(trading_rules_resp["priceFilter"]["tickSize"])),
             min_base_amount_increment=Decimal(str(trading_rules_resp["lotSizeFilter"]["qtyStep"])),
         )
@@ -872,19 +818,47 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
+            self, order: InFlightOrder, mock_api: aioresponses, ret_code: int = 110001,
+            ret_msg: str = "Order does not exist",
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
-        raise NotImplementedError
+        mock_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
+                                                       trading_pair=order.trading_pair)
+        response = {
+            "retCode": ret_code,
+            "retMsg": ret_msg,
+            "result": {},
+            "retExtInfo": {},
+            "time": 1740090023701
+        }
+        mock_api.post(mock_url, body=json.dumps(response), callback=callback)
+        return mock_url
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
+            self, order: InFlightOrder, mock_api: aioresponses, ret_code: int = 110001,
+            ret_msg: str = "Order does not exist",
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        # Implement the expected not found response when enabling
-        # test_lost_order_removed_if_not_found_during_order_status_update
-        raise NotImplementedError
+        mock_url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
+                                                       trading_pair=order.trading_pair)
+        params = {
+            "category": "linear",
+            "symbol": self.exchange_trading_pair,
+            "orderLinkId": order.client_order_id,
+            "orderId": order.exchange_order_id
+        }
+        encoded_params = urlencode(params)
+        url = f"{mock_url}?{encoded_params}"
+        response = {
+            "retCode": ret_code,
+            "retMsg": ret_msg,
+            "result": {},
+            "retExtInfo": {},
+            "time": 1740090023701
+        }
+        mock_api.get(url, body=json.dumps(response), callback=callback)
+        return url
 
     def configure_completely_filled_order_status_response(
         self,
@@ -1289,31 +1263,78 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         )
 
     def test_user_stream_balance_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
-            bybit_perpetual_api_key=self.api_key,
-            bybit_perpetual_secret_key=self.api_secret,
-            trading_pairs=[self.non_linear_trading_pair],
-        )
-        non_linear_connector._set_current_timestamp(1640780000)
-
-        balance_event = self.non_linear_balance_event_websocket_update
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
-        self.exchange._user_stream_tracker._user_stream = mock_queue
-
-        try:
-            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
-        except asyncio.CancelledError:
-            pass
-
-        self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
-        self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
+        # Implement once bybit returns again something related to available balance
+        return True
 
     @aioresponses()
-    def test_update_balances_raises_error_when_failure(self, mock_api):
+    def test_update_balances(self, mock_api):
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        mock_api.side_effect = [
+            self._configure_available_balance_response(mock_api, self.base_asset, 10),
+            self._configure_available_balance_response(mock_api, self.quote_asset, 2000)
+        ]
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("10"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+        response = self.balance_request_mock_response_only_base
+
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        self._configure_available_balance_response(mock_api, self.base_asset, 10.0)
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertNotIn(self.quote_asset, available_balances)
+        self.assertNotIn(self.quote_asset, total_balances)
+        self.assertEqual(Decimal("10"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
+
+    @aioresponses()
+    def test_fetch_available_balance_failure(self, mock_api):
+        mock_url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL
+        )
+        params = {"coinName": self.base_asset}
+        encoded_params = urlencode(params)
+        url = f"{mock_url}?{encoded_params}"
+
+        # Mock the API response to trigger a failure
+        mock_api.get(url, payload={
+            "retCode": "ERROR_CODE",  # Not CONSTANTS.RET_CODE_OK, to simulate failure
+            "retMsg": "Mocked error message",
+            "result": {}
+        })
+
+        # Format the ret_code for expected error message
+        formatted_ret_code = self.exchange._format_ret_code_for_print("ERROR_CODE")
+
+        # Check for IOError with expected message and catch it to trigger breakpoints
+        with self.assertRaises(IOError) as context:
+            asyncio.get_event_loop().run_until_complete(self.exchange._fetch_available_balance(self.base_asset))
+
+        # Verify the error message is as expected
+        self.assertIn(f"{formatted_ret_code} - Mocked error message", str(context.exception))
+
+    @aioresponses()
+    def test_fetch_available_balance_success(self, mock_api):
+        self._configure_available_balance_response(mock_api, self.base_asset, 0.00646114)
+
+        # Format the ret_code for expected error message
+        coro = self.exchange._fetch_available_balance(self.base_asset)
+        available_balance = self.async_run_with_timeout(coro)
+        self.assertEqual(available_balance, Decimal("0.00646114"))
+
+    @aioresponses()
+    def test_update_balances_raises_error_when_unified_wallet_resp_failure(self, mock_api):
         mock_url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL
         )
@@ -1527,8 +1548,8 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         )
 
     def test_time_synchronizer_related_reqeust_error_detection(self):
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
-        exception = IOError(f"{error_code_str} - Failed to cancel order for timestamp reason.")
+        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_INVALID_TIME)
+        exception = IOError(f"{error_code_str} - The request time exceeds the time window range.")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_ORDER_NOT_EXISTS)
@@ -1581,18 +1602,6 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             pass
 
         self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
-
-    @aioresponses()
-    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
-        pass
-
-    @aioresponses()
-    def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during status update (check _is_order_not_found_during_status_update_error)
-        pass
 
     @staticmethod
     def _order_cancelation_request_successful_mock_response(order: InFlightOrder) -> Any:
@@ -1740,12 +1749,14 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                 trading_pair=self.trading_pair,
                 min_order_size=Decimal(str(0.01)),
                 min_price_increment=Decimal(str(0.0001)),
+                min_notional_size=Decimal("5"),
                 min_base_amount_increment=Decimal(str(0.000001)),
             ),
             self.non_linear_trading_pair: TradingRule(  # non-linear
                 trading_pair=self.non_linear_trading_pair,
                 min_order_size=Decimal(str(0.01)),
                 min_price_increment=Decimal(str(0.0001)),
+                min_notional_size=Decimal("5"),
                 min_base_amount_increment=Decimal(str(0.000001)),
             ),
         }

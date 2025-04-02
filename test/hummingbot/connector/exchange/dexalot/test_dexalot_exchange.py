@@ -15,6 +15,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.dexalot import dexalot_constants as CONSTANTS, dexalot_web_utils as web_utils
 from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
+from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -22,7 +23,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import OrderBookTradeEvent
 
 
 class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -39,18 +39,15 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     def setUp(self) -> None:
         super().setUp()
-
-        self._original_async_loop = asyncio.get_event_loop()
-        self.async_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.async_loop)
         self.exchange._orders_processing_delta_time = 0.1
-        self.async_tasks.append(self.async_loop.create_task(self.exchange._process_queued_orders()))
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.async_tasks.append(asyncio.create_task(self.exchange._process_queued_orders()))
 
     def tearDown(self) -> None:
         super().tearDown()
-        self.async_loop.stop()
-        self.async_loop.close()
-        asyncio.set_event_loop(self._original_async_loop)
 
     @property
     def all_symbols_url(self):
@@ -567,7 +564,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             'type': 'executionEvent'}
 
     @aioresponses()
-    def test_update_balances(self, mock_api):
+    async def test_update_balances(self, mock_api):
         response = self.balance_request_mock_response_for_base_and_quote
         request_sent_event = asyncio.Event()
         self._configure_balance_response(_response=response, callback=lambda *args, **kwargs: request_sent_event.set())
@@ -577,7 +574,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         resp = self.orders_request_mock_response_for_base_and_quote
         mock_api.get(regex_url, body=json.dumps(resp))
 
-        self.async_run_with_timeout(self.exchange._update_balances())
+        await (self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
@@ -597,7 +594,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         request_sent_event = asyncio.Event()
         self._configure_balance_response(_response=response, callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.async_run_with_timeout(self.exchange._update_balances())
+        await (self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
@@ -608,7 +605,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertEqual(Decimal("10"), total_balances[self.base_asset])
 
     @aioresponses()
-    def test_update_order_status_when_canceled(self, mock_api):
+    async def test_update_order_status_when_canceled(self, mock_api):
         self._simulate_trading_rules_initialized()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -627,7 +624,9 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             order=order,
             mock_api=mock_api)
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        await (self.exchange._update_order_status())
+        await asyncio.sleep(0.1)
+
         cancel_event = self.order_cancelled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
@@ -638,7 +637,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
     @aioresponses()
-    def test_create_buy_limit_order_successfully(self, mock_api):
+    async def test_create_buy_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -648,13 +647,13 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
-    def test_create_sell_limit_order_successfully(self, mock_api):
+    async def test_create_sell_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -664,13 +663,13 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
         order_id = self.place_sell_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
-    def test_create_buy_market_order_successfully(self, mock_api):
+    async def test_create_buy_market_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -693,13 +692,13 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             order_type=OrderType.MARKET,
             price=Decimal("10_000"),
         )
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
-    def test_create_sell_market_order_successfully(self, mock_api):
+    async def test_create_sell_market_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -723,12 +722,12 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             price=Decimal("10_000"),
         )
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
-    def test_create_order_fails_and_raises_failure_event(self):
+    async def test_create_order_fails_and_raises_failure_event(self):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -738,11 +737,12 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
+        await asyncio.sleep(0.1)
 
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -758,7 +758,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
     @aioresponses()
-    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -772,12 +772,13 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
+        await asyncio.sleep(0.1)
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -801,7 +802,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
     @aioresponses()
-    def test_cancel_order_successfully(self, mock_api):
+    async def test_cancel_order_successfully(self, mock_api):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -823,12 +824,13 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
         self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
+        await asyncio.sleep(0.1)
         self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(order.is_pending_cancel_confirmation)
 
     @aioresponses()
-    def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
+    async def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -850,9 +852,9 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
         self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (request_sent_event.wait())
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
             any(
                 log.msg.startswith("Failed to cancel orders")
@@ -861,7 +863,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
 
     @aioresponses()
-    def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
+    async def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -879,7 +881,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
+            await (
                 self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -889,8 +891,8 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.async_run_with_timeout(self.exchange._cancel_lost_orders())
-        self.async_run_with_timeout(request_sent_event.wait())
+        await (self.exchange._cancel_lost_orders())
+        await (request_sent_event.wait())
 
         if url:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -900,7 +902,7 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 request_call=cancel_request)
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
     @aioresponses()
     def test_cancel_order_not_found_in_the_exchange(self, mock_api):
@@ -1020,18 +1022,29 @@ class DexalotExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     def latest_prices_url(self):
         pass
 
-    @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
-        order_book = OrderBook()
-        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
-        order_book.apply_trade(
-            OrderBookTradeEvent(self.trading_pair, 1499865549, TradeType.BUY, Decimal(5.1), Decimal(10), '123')
-        )
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_get_last_trade_prices(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        latest_prices: Dict[str, float] = self.async_run_with_timeout(
+        result_subscribe = {'data': [
+            {'pair': 'EURC/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '1.0973', 'high': '1.1042',
+             'open': '1.104082', 'close': '1.0985', 'volume': '202943.428252', 'quote_volume': '223745.305841618516',
+             'change': '-0.0051'},
+            {'pair': 'AVAX/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '9', 'high': '11',
+             'open': '0.56628', 'close': '5.1', 'volume': '124062.5422952677657237',
+             'quote_volume': '70336.660027130678322247184899', 'change': '-0.0007'},
+            {'pair': 'WBTC/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '60736.084907', 'high': '62315',
+             'open': '61466.985162', 'close': '61985.1', 'volume': '28.4564045',
+             'quote_volume': '1753078.71879646658951', 'change': '0.0084'}], 'type': 'marketSnapShot'}
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe))
+
+        latest_prices: Dict[str, float] = await (
             self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
         )
-
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
         self.assertEqual(1, len(latest_prices))
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 

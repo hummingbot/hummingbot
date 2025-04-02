@@ -1,7 +1,7 @@
 import asyncio
 import json
-import unittest
-from typing import Awaitable, List
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -10,31 +10,24 @@ from hummingbot.connector.exchange.htx.htx_api_user_stream_data_source import Ht
 from hummingbot.connector.exchange.htx.htx_auth import HtxAuth
 from hummingbot.connector.exchange.htx.htx_web_utils import build_api_factory
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
+class HtxAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}".lower()
-        for task in asyncio.all_tasks(loop=cls.ev_loop):
-            task.cancel()
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        for task in asyncio.all_tasks(loop=cls.ev_loop):
-            task.cancel()
-
-    def setUp(self) -> None:
-        super().setUp()
-
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
         self.log_records = []
         self.async_tasks: List[asyncio.Task] = []
         self.mock_time_provider = MagicMock()
@@ -72,45 +65,41 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_authenticate_client_raises_cancelled(self, ws_connect_mock):
+    async def test_authenticate_client_raises_cancelled(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = asyncio.CancelledError
 
         # Initialise WSAssistant and assume connected to websocket server
-        ws = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        ws = await self.data_source._connected_websocket_assistant()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source._authenticate_client(ws))
+            await self.data_source._authenticate_client(ws)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_authenticate_client_logs_exception(self, ws_connect_mock):
+    async def test_authenticate_client_logs_exception(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         # Initialise WSAssistant and assume connected to websocket server
-        ws = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        ws = await self.data_source._connected_websocket_assistant()
 
         ws_connect_mock.return_value.send_json.side_effect = Exception("TEST ERROR")
 
         with self.assertRaisesRegex(Exception, "TEST ERROR"):
-            self.async_run_with_timeout(self.data_source._authenticate_client(ws))
+            await self.data_source._authenticate_client(ws)
 
         self._is_logged("ERROR", "Error occurred authenticating websocket connection... Error: TEST ERROR")
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_authenticate_client_failed(self, ws_connect_mock):
+    async def test_authenticate_client_failed(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         # Initialise WSAssistant and assume connected to websocket server
-        ws = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        ws = await self.data_source._connected_websocket_assistant()
 
         error_auth_response = {"action": "req", "code": 0, "TEST_ERROR": "ERROR WITH AUTHENTICATION"}
 
@@ -119,14 +108,14 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "User Stream Authentication Fail!"):
-            self.async_run_with_timeout(self.data_source._authenticate_client(ws))
+            await self.data_source._authenticate_client(ws)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_authenticate_client_successful(self, ws_connect_mock):
+    async def test_authenticate_client_successful(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         # Initialise WSAssistant and assume connected to websocket server
-        ws = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        ws = await self.data_source._connected_websocket_assistant()
 
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
 
@@ -134,28 +123,27 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
             ws_connect_mock.return_value, message=json.dumps(successful_auth_response)
         )
 
-        result = self.async_run_with_timeout(self.data_source._authenticate_client(ws))
+        result = await self.data_source._authenticate_client(ws)
 
         self.assertIsNone(result)
         self._is_logged("INFO", "Successfully authenticated to user...")
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_subscribe_channels_raises_cancelled(self, ws_connect_mock):
+    async def test_subscribe_channels_raises_cancelled(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = asyncio.CancelledError
 
         # Initialise WSAssistant and assume connected to websocket server
-        ws = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        ws = await self.data_source._connected_websocket_assistant()
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(
-                self.data_source._subscribe_channels(websocket_assistant=ws))
+            await self.data_source._subscribe_channels(websocket_assistant=ws)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_subscribe_channels_successful(self, ws_connect_mock):
+    async def test_subscribe_channels_successful(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         # Initialise WSAssistant and assume connected to websocket server
-        ws = self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
+        ws = await self.data_source._connected_websocket_assistant()
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
         successful_sub_trades_response = {"action": "sub", "code": 200, "ch": "trade.clearing#*", "data": {}}
         successful_sub_order_response = {"action": "sub", "code": 200, "ch": "orders#*", "data": {}}
@@ -173,8 +161,7 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
             ws_connect_mock.return_value, message=json.dumps(successful_sub_account_response)
         )
 
-        result = self.async_run_with_timeout(
-            self.data_source._subscribe_channels(websocket_assistant=ws))
+        result = await self.data_source._subscribe_channels(websocket_assistant=ws)
 
         self.assertIsNone(result)
 
@@ -190,19 +177,19 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.htx.htx_api_user_stream_data_source.HtxAPIUserStreamDataSource._sleep")
-    def test_listen_for_user_stream_raises_cancelled_error(self, _, ws_connect_mock):
+    async def test_listen_for_user_stream_raises_cancelled_error(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         msg_queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+            await self.data_source.listen_for_user_stream(msg_queue)
 
         self.assertEqual(0, msg_queue.qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.htx.htx_api_user_stream_data_source.HtxAPIUserStreamDataSource._sleep")
-    def test_listen_for_user_stream_logs_exception(self, _, ws_connect_mock):
+    async def test_listen_for_user_stream_logs_exception(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
@@ -229,17 +216,17 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
 
         self.async_tasks.append(
-            self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+            self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
         self._is_logged("ERROR", "Unexpected error with Htx WebSocket connection. Retrying after 30 seconds...")
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.htx.htx_api_user_stream_data_source.HtxAPIUserStreamDataSource._sleep")
-    def test_listen_for_user_stream_handle_ping(self, _, ws_connect_mock):
+    async def test_listen_for_user_stream_handle_ping(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
@@ -268,10 +255,10 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
 
         self.async_tasks.append(
-            self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+            self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
         sent_json = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
@@ -280,7 +267,7 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.htx.htx_api_user_stream_data_source.HtxAPIUserStreamDataSource._sleep")
-    def test_listen_for_user_stream_enqueues_updates(self, _, ws_connect_mock):
+    async def test_listen_for_user_stream_enqueues_updates(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         successful_auth_response = {"action": "req", "code": 200, "ch": "auth", "data": {}}
@@ -349,9 +336,9 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
 
         self.async_tasks.append(
-            self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+            self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(2, msg_queue.qsize())

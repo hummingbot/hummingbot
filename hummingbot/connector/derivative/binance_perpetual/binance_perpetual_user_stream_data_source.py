@@ -105,6 +105,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     if success:
                         self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
                         self._last_listen_key_ping_ts = int(time.time())
+                        self._listen_key_initialized_event.set()
                     else:
                         raise Exception(f"Error occurred renewing listen key {self._current_listen_key}")
             except Exception as e:

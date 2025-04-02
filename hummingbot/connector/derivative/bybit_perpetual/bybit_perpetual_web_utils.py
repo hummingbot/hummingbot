@@ -159,6 +159,12 @@ def _build_private_general_rate_limits() -> List[RateLimit]:
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
                            LinkedLimitWeightPair(CONSTANTS.NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID)],
         ),
+        RateLimit(
+            limit_id=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL[CONSTANTS.LINEAR_MARKET],
+            limit=50,
+            time_interval=1,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
+        ),
     ]
     return rate_limits
 
@@ -196,7 +202,7 @@ def _build_public_rate_limits():
             limit=CONSTANTS.GET_RATE,
             time_interval=1,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
-        )
+        ),
     ]
     return public_rate_limits
 
@@ -410,7 +416,7 @@ def _build_private_pair_specific_linear_rate_limits(trading_pair: str) -> List[R
             time_interval=60,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID),
                            LinkedLimitWeightPair(pair_specific_linear_private_bucket_120_a_limit_id)],
-        ),
+        )
     ]
 
     return rate_limits
