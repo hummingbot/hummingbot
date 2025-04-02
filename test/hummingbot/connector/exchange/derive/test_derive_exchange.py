@@ -6,8 +6,9 @@ import re
 # from copy import deepcopy
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
@@ -21,6 +22,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 
 # from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
@@ -41,10 +43,97 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         cls.api_key = "0x79d7511382b5dFd1185F6AF268923D3F9FC31B53"  # noqa: mock
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.sub_id = "45686"  # noqa: mock
+        cls.domain = "derive_testnet"  # noqa: mock
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
+        cls.account_type = "market_maker"  # noqa: mock
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
+
+        cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+
+    def test_get_related_limits(self):
+        self.assertEqual(19, len(self.throttler._rate_limits))
+
+        rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
+        self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
+        self.assertEqual(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4], rate_limit.limit_id)
+
+        rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][3])
+        self.assertIsNotNone(rate_limit, "Rate limit for TEST_PATH_URL is None.")  # Ensure rate_limit is not None
+        self.assertEqual(CONSTANTS.ENDPOINTS["limits"]["non_matching"][3], rate_limit.limit_id)
+        self.assertEqual(1, len(related_limits))
+
+    async def _run_rate_limits_polling_loop_with_mocked_logger(self, exception=None):
+        with patch.object(self.exchange, "_update_rate_limits", AsyncMock(side_effect=exception)):
+            with patch.object(self.exchange.logger(), "info") as mock_logger_info:
+                await self.exchange._rate_limits_polling_loop()
+                return mock_logger_info
+
+    async def _run_update_rate_limits_with_mocked_initialize(self):
+        with patch.object(self.exchange, "_initialize_rate_limits", AsyncMock()) as mock_initialize_rate_limits:
+            await self.exchange._update_rate_limits()
+            return mock_initialize_rate_limits
+
+    async def _run_initialize_rate_limits_with_mocked_throttler(self, account_type, expected_limit):
+        throttler_mock = MagicMock()
+        self.exchange._throttler = throttler_mock
+        self.exchange._account_type = account_type
+
+        with patch("hummingbot.connector.exchange.derive.derive_exchange.deepcopy", return_value=[]):
+            await self.exchange._initialize_rate_limits()
+
+        return throttler_mock, expected_limit
+
+    @pytest.mark.asyncio
+    async def test_rate_limits_polling_loop_logs_error_on_exception(self):
+        mock_logger_info = await self._run_rate_limits_polling_loop_with_mocked_logger(exception=Exception("Test Exception"))
+        mock_logger_info.assert_called_with("Unexpected error while Updating rate limits.")
+
+    @pytest.mark.asyncio
+    async def test_update_rate_limits_calls_initialize_rate_limits(self):
+        mock_initialize_rate_limits = await self._run_update_rate_limits_with_mocked_initialize()
+        mock_initialize_rate_limits.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_initialize_rate_limits_updates_throttler(self):
+        throttler_mock, expected_limit = await self._run_initialize_rate_limits_with_mocked_throttler(
+            account_type=CONSTANTS.MARKET_MAKER_ACCOUNTS_TYPE,
+            expected_limit=CONSTANTS.TRADER_NON_MATCHING
+        )
+
+        throttler_mock.set_rate_limits.assert_called()  # Adjusted to check if it was called, not just once
+        updated_rate_limits = throttler_mock.set_rate_limits.call_args_list[-1][0][0]  # Get the last call's arguments
+        self.assertTrue(any(r_l.limit == expected_limit for r_l in updated_rate_limits))
+
+    @pytest.mark.asyncio
+    async def test_initialize_rate_limits_non_market_maker(self):
+        throttler_mock, expected_limit = await self._run_initialize_rate_limits_with_mocked_throttler(
+            account_type="trader",
+            expected_limit=CONSTANTS.MARKET_MAKER_NON_MATCHING
+        )
+
+        throttler_mock.set_rate_limits.assert_called()  # Adjusted to check if it was called, not just once
+        updated_rate_limits = throttler_mock.set_rate_limits.call_args_list[-1][0][0]  # Get the last call's arguments
+        self.assertTrue(any(r_l.limit == expected_limit for r_l in updated_rate_limits))
+
+    @pytest.mark.asyncio
+    async def test_start_network_starts_rate_limits_polling_loop(self):
+        with patch("hummingbot.connector.exchange.derive.derive_exchange.safe_ensure_future") as mock_safe_ensure_future:
+            await self.exchange.start_network()
+            # Adjusted to check if the coroutine object of `_rate_limits_polling_loop` was passed
+            mock_safe_ensure_future.assert_called()
+            self.assertTrue(
+                any(
+                    asyncio.iscoroutine(call_args[0][0])
+                    and call_args[0][0].cr_code is self.exchange._rate_limits_polling_loop.__code__
+                    for call_args in mock_safe_ensure_future.call_args_list
+                )
+            )
 
     @property
     def all_symbols_url(self):
@@ -417,6 +506,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             client_config_map,
             self.api_secret,  # noqa: mock
             self.sub_id,
+            self.account_type,
             self.api_key,  # noqa: mock
             trading_pairs=[self.trading_pair],
         )
