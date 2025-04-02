@@ -101,7 +101,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         self.assertEqual(expected, prompt)
 
     def test_execution_time_prompts(self):
-        self.config_map.execution_timeframe_mode = FromDateToDateModel.Config.title
+        self.config_map.execution_timeframe_mode = FromDateToDateModel.model_config["title"]
         model = self.config_map.execution_timeframe_mode
         prompt = self.async_run_with_timeout(model.get_client_prompt("start_datetime"))
         expected = "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)"
@@ -110,7 +110,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         expected = "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(expected, prompt)
 
-        self.config_map.execution_timeframe_mode = DailyBetweenTimesModel.Config.title
+        self.config_map.execution_timeframe_mode = DailyBetweenTimesModel.model_config["title"]
         model = self.config_map.execution_timeframe_mode
         prompt = self.async_run_with_timeout(model.get_client_prompt("start_time"))
         expected = "Please enter the start time (HH:MM:SS)"
