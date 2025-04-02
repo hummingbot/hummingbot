@@ -19,7 +19,7 @@ class VWAPConfig(BaseClientModel):
     Configuration parameters for the VWAP strategy.
     """
 
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    script_file_name: str = os.path.basename(__file__)
     connector_name: str = Field("binance_paper_trade", client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Exchange where the bot will place orders"))
     trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(

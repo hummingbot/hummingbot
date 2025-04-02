@@ -3,8 +3,6 @@ import time
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
-from pydantic.v1 import Field
-
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
@@ -17,7 +15,7 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 
 class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     markets: Dict[str, Set[str]] = {}
     time_to_cash_out: Optional[int] = None

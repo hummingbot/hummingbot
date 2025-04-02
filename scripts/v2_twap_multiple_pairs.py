@@ -16,7 +16,7 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 
 class TWAPMultiplePairsConfig(StrategyV2ConfigBase):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     controllers_config: List[str] = []
     markets: Dict[str, Set[str]] = {}
