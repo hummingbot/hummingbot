@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict, Tuple, Union
 
-from pydantic.v1 import BaseModel, Field, root_validator, validator
+from pydantic import ConfigDict, field_validator, model_validator
+from pydantic.v1 import Field, validator
 
 import hummingbot.client.settings as settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
@@ -23,8 +24,7 @@ class ConversionRateModel(BaseClientModel, ABC):
 
 
 class OracleConversionRateMode(ConversionRateModel):
-    class Config:
-        title = "rate_oracle_conversion_rate"
+    model_config = ConfigDict(title="rate_oracle_conversion_rate")
 
     def get_conversion_rates(
         self, market_pair: MakerTakerMarketPair
@@ -109,9 +109,7 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
             prompt_on_new=True,
         ),
     )
-
-    class Config:
-        title = "fixed_conversion_rate"
+    model_config = ConfigDict(title="fixed_conversion_rate")
 
     def get_conversion_rates(
         self, market_pair: MakerTakerMarketPair
@@ -143,19 +141,10 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
 
         return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, gas_rate
 
-    @validator(
-        "taker_to_maker_base_conversion_rate",
-        "taker_to_maker_quote_conversion_rate",
-        "gas_to_maker_base_conversion_rate",
-        pre=True,
-    )
-    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
-        return super().validate_decimal(v=v, field=field)
-
 
 CONVERSION_RATE_MODELS = {
-    OracleConversionRateMode.Config.title: OracleConversionRateMode,
-    TakerToMakerConversionRateMode.Config.title: TakerToMakerConversionRateMode,
+    OracleConversionRateMode.model_config["title"]: OracleConversionRateMode,
+    TakerToMakerConversionRateMode.model_config["title"]: TakerToMakerConversionRateMode,
 }
 
 
@@ -190,9 +179,7 @@ class PassiveOrderRefreshMode(OrderRefreshMode):
             prompt_on_new=True,
         ),
     )
-
-    class Config:
-        title = "passive_order_refresh"
+    model_config = ConfigDict(title="passive_order_refresh")
 
     def get_cancel_order_threshold(self) -> Decimal:
         return self.cancel_order_threshold / Decimal("100")
@@ -200,18 +187,9 @@ class PassiveOrderRefreshMode(OrderRefreshMode):
     def get_expiration_seconds(self) -> Decimal:
         return self.limit_order_min_expiration
 
-    @validator(
-        "cancel_order_threshold",
-        "limit_order_min_expiration",
-        pre=True,
-    )
-    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
-        return super().validate_decimal(v=v, field=field)
-
 
 class ActiveOrderRefreshMode(OrderRefreshMode):
-    class Config:
-        title = "active_order_refresh"
+    model_config = ConfigDict(title="active_order_refresh")
 
     def get_cancel_order_threshold(self) -> Decimal:
         return Decimal('nan')
@@ -221,8 +199,8 @@ class ActiveOrderRefreshMode(OrderRefreshMode):
 
 
 ORDER_REFRESH_MODELS = {
-    PassiveOrderRefreshMode.Config.title: PassiveOrderRefreshMode,
-    ActiveOrderRefreshMode.Config.title: ActiveOrderRefreshMode,
+    PassiveOrderRefreshMode.model_config["title"]: PassiveOrderRefreshMode,
+    ActiveOrderRefreshMode.model_config["title"]: ActiveOrderRefreshMode,
 }
 
 
@@ -390,7 +368,8 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         return f"What is the amount of {base_asset} per order?"
 
     # === specific validations ===
-    @validator("order_refresh_mode", pre=True)
+    @field_validator("order_refresh_mode", mode="before")
+    @classmethod
     def validate_order_refresh_mode(cls, v: Union[str, ActiveOrderRefreshMode, PassiveOrderRefreshMode]):
         if isinstance(v, (ActiveOrderRefreshMode, PassiveOrderRefreshMode, Dict)):
             sub_model = v
@@ -402,7 +381,8 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             sub_model = ORDER_REFRESH_MODELS[v].construct()
         return sub_model
 
-    @validator("conversion_rate_mode", pre=True)
+    @field_validator("conversion_rate_mode", mode="before")
+    @classmethod
     def validate_conversion_rate_mode(cls, v: Union[str, OracleConversionRateMode, TakerToMakerConversionRateMode]):
         if isinstance(v, (OracleConversionRateMode, TakerToMakerConversionRateMode, Dict)):
             sub_model = v
@@ -416,10 +396,10 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
 
     # === generic validations ===
 
-    @validator(
+    @field_validator(
         "adjust_order_enabled",
-        pre=True,
-    )
+        mode="before")
+    @classmethod
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
@@ -428,6 +408,8 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
                 raise ValueError(ret)
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator(
         "min_profitability",
         "order_amount",
@@ -445,28 +427,16 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
 
     # === post-validations ===
 
-    @root_validator()
-    def post_validations(cls, values: Dict):
-        cls.exchange_post_validation(values)
-        cls.update_oracle_settings(values)
-        return values
+    @model_validator(mode="after")
+    def post_validations(self):
+        # Add the maker and taker markets to the required exchanges
+        settings.required_exchanges.add(self["maker_market"])
+        settings.required_exchanges.add(self["taker_market"])
 
-    @classmethod
-    def exchange_post_validation(cls, values: Dict):
-        if "maker_market" in values.keys():
-            settings.required_exchanges.add(values["maker_market"])
-        if "taker_market" in values.keys():
-            settings.required_exchanges.add(values["taker_market"])
-
-    @classmethod
-    def update_oracle_settings(cls, values: str):
-        if not ("use_oracle_conversion_rate" in values.keys() and
-                "maker_market_trading_pair" in values.keys() and
-                "taker_market_trading_pair" in values.keys()):
-            return
-        use_oracle = values["use_oracle_conversion_rate"]
-        first_base, first_quote = values["maker_market_trading_pair"].split("-")
-        second_base, second_quote = values["taker_market_trading_pair"].split("-")
+        # if the conversion rate mode is oracle, we need to set the oracle pairs
+        use_oracle = self.use_oracle_conversion_rate
+        first_base, first_quote = self.maker_market_trading_pair.split("-")
+        second_base, second_quote = self.taker_market_trading_pair.split("-")
         if use_oracle and (first_base != second_base or first_quote != second_quote):
             settings.required_rate_oracle = True
             settings.rate_oracle_pairs = []
@@ -477,12 +447,11 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         else:
             settings.required_rate_oracle = False
             settings.rate_oracle_pairs = []
+        return self
 
-    @validator(
-        "maker_market",
-        "taker_market",
-        pre=True
-    )
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
+    @field_validator("maker_market", "taker_market", mode="before")
     def validate_exchange(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         if field.name == "maker_market":

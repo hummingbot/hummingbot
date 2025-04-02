@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Literal, Union
 
+from pydantic import ConfigDict, field_validator
 from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
@@ -35,9 +36,7 @@ class EmptyMarketConfigMap(BaseClientModel):
     connector: Union[None, ExchangeEnum] = None
     markets: Union[None, List[str]] = None
     offsets: Union[None, List[Decimal]] = None
-
-    class Config:
-        title = "n"
+    model_config = ConfigDict(title="n")
 
 
 class MarketConfigMap(BaseClientModel):
@@ -70,6 +69,8 @@ class MarketConfigMap(BaseClientModel):
         ),
     )
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("offsets", pre=True)
     def validate_offsets(cls, offsets: Union[str, List[Decimal]], values: Dict):
         """checks and ensure offsets are of decimal type"""
@@ -85,6 +86,8 @@ class MarketConfigMap(BaseClientModel):
             return offsets[: len(markets)]
         return offsets + ["0"] * (len(markets) - len(offsets))
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("markets", pre=True)
     def validate_markets(cls, markets: Union[str, List[str]], values: Dict):
         """checks and ensure offsets are of decimal type"""
@@ -108,9 +111,7 @@ class MarketConfigMap(BaseClientModel):
             f"Enter the token trading pair you would like to hedge/monitor on comma seperated"
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
-
-    class Config:
-        title = "y"
+    model_config = ConfigDict(title="y")
 
 
 market_config_map = Union[EmptyMarketConfigMap, MarketConfigMap]
@@ -213,7 +214,8 @@ class HedgeConfigMap(BaseStrategyConfigMap):
     connector_3: market_config_map = get_field(3)
     connector_4: market_config_map = get_field(4)
 
-    @validator("connector_0", "connector_1", "connector_2", "connector_3", "connector_4", pre=True)
+    @field_validator("connector_0", "connector_1", "connector_2", "connector_3", "connector_4", mode="before")
+    @classmethod
     def construct_connector(cls, v: Union[str, bool, EmptyMarketConfigMap, MarketConfigMap, Dict]):
         if isinstance(v, (EmptyMarketConfigMap, MarketConfigMap, Dict)):
             return v
@@ -223,6 +225,8 @@ class HedgeConfigMap(BaseStrategyConfigMap):
             return MarketConfigMap.construct()
         return EmptyMarketConfigMap.construct()
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("hedge_offsets", pre=True)
     def validate_offsets(cls, offsets: Union[str, List[Decimal]], values: Dict):
         """checks and ensure offsets are of decimal type"""
@@ -236,6 +240,8 @@ class HedgeConfigMap(BaseStrategyConfigMap):
             return offsets[: len(markets)]
         return offsets + ["0"] * (len(markets) - len(offsets))
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("hedge_markets", pre=True)
     def validate_markets(cls, markets: Union[str, List[str]], values: Dict):
         """checks and ensure offsets are of decimal type"""
