@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, TypeVar
 
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -27,6 +27,7 @@ class ExecutorInfo(BaseModel):
     is_trading: bool
     custom_info: Dict  # TODO: Define the custom info type for each executor
     controller_id: Optional[str] = None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @property
     def is_done(self):

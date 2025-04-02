@@ -6,6 +6,7 @@ import inspect
 from decimal import Decimal
 from typing import TYPE_CHECKING, Callable, Dict, List, Set
 
+from pydantic import field_validator
 from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
@@ -60,13 +61,16 @@ class ControllerConfigBase(BaseClientModel):
         )
     )
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('id', pre=True, always=True)
     def set_id(cls, v):
         if v is None or v.strip() == "":
             return generate_unique_id()
         return v
 
-    @validator('candles_config', pre=True)
+    @field_validator('candles_config', mode="before")
+    @classmethod
     def parse_candles_config(cls, v) -> List[CandlesConfig]:
         if isinstance(v, str):
             return cls.parse_candles_config_str(v)
@@ -163,10 +167,8 @@ class ControllerBase(RunnableBase):
         Update the controller configuration. With the variables that in the client_data have the is_updatable flag set
         to True. This will be only available for those variables that don't interrupt the bot operation.
         """
-        for field in self.config.__fields__.values():
-            client_data = field.field_info.extra.get("client_data")
-            if client_data and client_data.is_updatable:
-                setattr(self.config, field.name, getattr(new_config, field.name))
+        for field in self.config.model_fields.values():
+            setattr(self.config, field.name, getattr(new_config, field.name))
 
     async def control_task(self):
         if self.market_data_provider.ready and self.executors_update_event.is_set():

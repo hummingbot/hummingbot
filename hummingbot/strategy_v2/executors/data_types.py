@@ -2,9 +2,10 @@ import hashlib
 import random
 import time
 from decimal import Decimal
+from typing import Any, Dict
 
 import base58
-from pydantic.v1 import BaseModel, validator
+from pydantic import BaseModel, model_validator
 
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.data_type.common import TradeType
@@ -16,16 +17,17 @@ class ExecutorConfigBase(BaseModel):
     timestamp: float
     controller_id: str = "main"
 
-    @validator('id', pre=True, always=True)
-    def set_id(cls, v, values):
-        if v is None:
+    @model_validator(mode="before")
+    @classmethod
+    def set_id(cls, values: Dict[str, Any]):
+        if "id" not in values:
             # Use timestamp from values if available, else current time
             timestamp = values.get('timestamp', time.time())
             unique_component = random.randint(0, 99999)
             raw_id = f"{timestamp}-{unique_component}"
             hashed_id = hashlib.sha256(raw_id.encode()).digest()  # Get bytes
-            return base58.b58encode(hashed_id).decode()  # Base58 encode
-        return v
+            values["id"] = base58.b58encode(hashed_id).decode()  # Base58 encode
+        return values
 
 
 class ConnectorPair(BaseModel):

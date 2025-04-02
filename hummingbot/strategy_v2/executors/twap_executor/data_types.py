@@ -28,6 +28,8 @@ class TWAPExecutorConfig(ExecutorConfigBase):
     limit_order_buffer: Optional[Decimal] = None
     order_resubmission_time: Optional[int] = None
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('limit_order_buffer', pre=True, always=True)
     def validate_limit_order_buffer(cls, v, values):
         if v is None and values["mode"] == TWAPMode.MAKER:
