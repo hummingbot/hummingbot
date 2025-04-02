@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Set, Tuple, Union
 
+from pydantic import field_validator
 from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import ClientFieldData
@@ -106,6 +107,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
             prompt_on_new=True))
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("trailing_stop", pre=True, always=True)
     def parse_trailing_stop(cls, v):
         if isinstance(v, str):
@@ -115,6 +118,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("time_limit", "stop_loss", "take_profit", pre=True, always=True)
     def validate_target(cls, v):
         if isinstance(v, str):
@@ -123,6 +128,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return Decimal(v)
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
@@ -152,6 +159,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
     def parse_spreads(cls, v):
         if v is None:
@@ -162,6 +171,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return [float(x.strip()) for x in v.split(',')]
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('buy_amounts_pct', 'sell_amounts_pct', pre=True, always=True)
     def parse_and_validate_amounts(cls, v, values, field):
         if v is None or v == "":
@@ -174,7 +185,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
                 f"The number of {field.name} must match the number of {field.name.replace('amounts_pct', 'spreads')}.")
         return v
 
-    @validator('position_mode', pre=True, allow_reuse=True)
+    @field_validator('position_mode', mode="before")
+    @classmethod
     def validate_position_mode(cls, v) -> PositionMode:
         if isinstance(v, str):
             if v.upper() in PositionMode.__members__:

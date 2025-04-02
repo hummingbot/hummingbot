@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Union
 
 import pandas as pd
-from pydantic.v1 import BaseModel, validator
+from pydantic import BaseModel, ConfigDict, validator
 
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
@@ -15,10 +15,10 @@ class ExecutorSimulation(BaseModel):
     config: Union[PositionExecutorConfig, DCAExecutorConfig]
     executor_simulation: pd.DataFrame
     close_type: CloseType
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed = True  # Allow arbitrary types
-
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('executor_simulation', pre=True, always=True)
     def validate_dataframe(cls, v):
         if not isinstance(v, pd.DataFrame):

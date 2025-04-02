@@ -1,8 +1,8 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Dict, Optional
 
-from pydantic.v1 import BaseModel, validator
+from pydantic import BaseModel, model_validator
 
 from hummingbot.core.data_type.common import PositionAction, TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -33,12 +33,13 @@ class OrderExecutorConfig(ExecutorConfigBase):
     leverage: int = 1
     level_id: Optional[str] = None
 
-    @validator('execution_strategy')
-    def validate_execution_strategy(cls, v: ExecutionStrategy, values: dict) -> ExecutionStrategy:
-        if v in [ExecutionStrategy.LIMIT, ExecutionStrategy.LIMIT_MAKER]:
+    @model_validator(mode="after")
+    def validate_execution_strategy(self, values: Dict):
+        execution_strategy = values.get("execution_strategy")
+        if execution_strategy in [ExecutionStrategy.LIMIT, ExecutionStrategy.LIMIT_MAKER]:
             if values.get('price') is None:
                 raise ValueError("Price is required for LIMIT and LIMIT_MAKER execution strategies")
-        elif v == ExecutionStrategy.LIMIT_CHASER:
+        elif execution_strategy == ExecutionStrategy.LIMIT_CHASER:
             if values.get('chaser_config') is None:
                 raise ValueError("Chaser config is required for LIMIT_CHASER execution strategy")
-        return v
+        return self
