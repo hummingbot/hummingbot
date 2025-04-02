@@ -1,7 +1,8 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic.v1 import Field, SecretStr
+from pydantic import ConfigDict, SecretStr
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -77,9 +78,7 @@ class OkxPerpetualConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-
-    class Config:
-        title = "okx_perpetual"
+    model_config = ConfigDict(title="okx_perpetual")
 
 
 KEYS = OkxPerpetualConfigMap.construct()

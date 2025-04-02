@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from pydantic.v1 import Field, SecretStr
+from pydantic import ConfigDict, SecretStr
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.derivative.gate_io_perpetual import gate_io_perpetual_constants as CONSTANTS
@@ -43,9 +44,7 @@ class GateIOPerpetualConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-
-    class Config:
-        title = "gate_io_perpetual"
+    model_config = ConfigDict(title="gate_io_perpetual")
 
 
 KEYS = GateIOPerpetualConfigMap.construct()

@@ -1,7 +1,8 @@
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from pydantic.v1 import Field, SecretStr, validator
+from pydantic import ConfigDict, SecretStr, field_validator
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -100,7 +101,8 @@ class TegroConfigMap(BaseConnectorConfigMap):
         )
     )
 
-    @validator("chain_name", pre=True)
+    @field_validator("chain_name", mode="before")
+    @classmethod
     def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
@@ -108,9 +110,7 @@ class TegroConfigMap(BaseConnectorConfigMap):
             if ret is not None:
                 raise ValueError(ret)
         return v
-
-    class Config:
-        title = "tegro"
+    model_config = ConfigDict(title="tegro")
 
 
 KEYS = TegroConfigMap.construct()
@@ -146,7 +146,8 @@ class TegroTestnetConfigMap(BaseConnectorConfigMap):
         )
     )
 
-    @validator("chain_name", pre=True)
+    @field_validator("chain_name", mode="before")
+    @classmethod
     def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
@@ -154,9 +155,7 @@ class TegroTestnetConfigMap(BaseConnectorConfigMap):
             if ret is not None:
                 raise ValueError(ret)
         return v
-
-    class Config:
-        title = "tegro_testnet"
+    model_config = ConfigDict(title="tegro_testnet")
 
 
 OTHER_DOMAINS = ["tegro_testnet"]

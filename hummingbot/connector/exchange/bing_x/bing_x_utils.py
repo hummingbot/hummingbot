@@ -4,7 +4,8 @@ import json
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic.v1 import Field, SecretStr
+from pydantic import ConfigDict, SecretStr
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -57,9 +58,7 @@ class BingXConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-
-    class Config:
-        title = "bing_x"
+    model_config = ConfigDict(title="bing_x")
 
 
 KEYS = BingXConfigMap.construct()

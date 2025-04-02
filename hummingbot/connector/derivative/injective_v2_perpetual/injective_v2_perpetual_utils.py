@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import Dict, Union
 
+from pydantic import ConfigDict, field_validator
 from pydantic.v1 import Field
-from pydantic.v1.class_validators import validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
@@ -52,11 +52,10 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
+    model_config = ConfigDict(title="injective_v2_perpetual")
 
-    class Config:
-        title = "injective_v2_perpetual"
-
-    @validator("network", pre=True)
+    @field_validator("network", mode="before")
+    @classmethod
     def validate_network(cls, v: Union[(str, Dict) + tuple(NETWORK_MODES.values())]):
         if isinstance(v, tuple(NETWORK_MODES.values()) + (Dict,)):
             sub_model = v
@@ -68,7 +67,8 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             sub_model = NETWORK_MODES[v].construct()
         return sub_model
 
-    @validator("account_type", pre=True)
+    @field_validator("account_type", mode="before")
+    @classmethod
     def validate_account_type(cls, v: Union[(str, Dict) + tuple(ACCOUNT_MODES.values())]):
         if isinstance(v, tuple(ACCOUNT_MODES.values()) + (Dict,)):
             sub_model = v
@@ -80,7 +80,8 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             sub_model = ACCOUNT_MODES[v].construct()
         return sub_model
 
-    @validator("fee_calculator", pre=True)
+    @field_validator("fee_calculator", mode="before")
+    @classmethod
     def validate_fee_calculator(cls, v: Union[(str, Dict) + tuple(FEE_CALCULATOR_MODES.values())]):
         if isinstance(v, tuple(FEE_CALCULATOR_MODES.values()) + (Dict,)):
             sub_model = v
@@ -101,4 +102,4 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         )
 
 
-KEYS = InjectiveConfigMap.construct()
+KEYS = InjectiveConfigMap.model_construct()

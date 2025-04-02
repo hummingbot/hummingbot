@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import Optional
 
-from pydantic.v1 import Field, SecretStr
-from pydantic.v1.class_validators import validator
+from pydantic import ConfigDict, SecretStr, field_validator
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -60,7 +60,8 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
         )
     )
 
-    @validator("use_vault", pre=True)
+    @field_validator("use_vault", mode="before")
+    @classmethod
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
@@ -107,11 +108,10 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+    model_config = ConfigDict(title="hyperliquid_perpetual")
 
-    class Config:
-        title = "hyperliquid_perpetual"
-
-    @validator("use_vault", pre=True)
+    @field_validator("use_vault", mode="before")
+    @classmethod
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):

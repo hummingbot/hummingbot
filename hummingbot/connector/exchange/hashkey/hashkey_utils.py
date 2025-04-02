@@ -1,7 +1,8 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic.v1 import Field, SecretStr
+from pydantic import ConfigDict, SecretStr
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -43,9 +44,7 @@ class HashkeyGlobalConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-
-    class Config:
-        title = "hashkey"
+    model_config = ConfigDict(title="hashkey")
 
 
 KEYS = HashkeyGlobalConfigMap.construct()
@@ -82,9 +81,7 @@ class HashkeyGlobalTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-
-    class Config:
-        title = "hashkey_global_testnet"
+    model_config = ConfigDict(title="hashkey_global_testnet")
 
 
 OTHER_DOMAINS_KEYS = {

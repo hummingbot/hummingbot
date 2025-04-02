@@ -5,7 +5,8 @@ from decimal import Decimal
 from random import randrange
 from typing import Any, Dict, Final, List, Optional, cast
 
-from pydantic.v1 import BaseModel, Field, SecretStr, validator
+from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
+from pydantic.v1 import Field
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
@@ -140,7 +141,7 @@ class XRPLMarket(BaseModel):
     trading_pair_symbol: Optional[str] = None
 
     def __repr__(self):
-        return str(self.dict())
+        return str(self.model_dump())
 
     def get_token_symbol(self, code: str, issuer: str) -> Optional[str]:
         if self.trading_pair_symbol is None:
@@ -312,7 +313,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         ),
     )
 
-    wss_node_url = Field(
+    wss_node_url: str = Field(
         default="wss://xrplcluster.com/",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your XRPL Websocket Node URL",
@@ -322,7 +323,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         ),
     )
 
-    wss_second_node_url = Field(
+    wss_second_node_url: str = Field(
         default="wss://s1.ripple.com/",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your second XRPL Websocket Node URL",
@@ -332,7 +333,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         ),
     )
 
-    wss_third_node_url = Field(
+    wss_third_node_url: str = Field(
         default="wss://s2.ripple.com/",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your third XRPL Websocket Node URL",
@@ -355,11 +356,10 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             prompt=lambda mi: "Enter custom markets: ", is_connect_key=True, prompt_on_new=False
         ),
     )
+    model_config = ConfigDict(title="xrpl")
 
-    class Config:
-        title = "xrpl"
-
-    @validator("xrpl_secret_key", pre=True)
+    @field_validator("xrpl_secret_key", mode="before")
+    @classmethod
     def validate_xrpl_secret_key(cls, v: str):
         pattern = r"^s[A-HJ-NP-Za-km-z1-9]*$"
         error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
@@ -368,7 +368,8 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("wss_node_url", pre=True)
+    @field_validator("wss_node_url", mode="before")
+    @classmethod
     def validate_wss_node_url(cls, v: str):
         pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
@@ -377,7 +378,8 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("wss_second_node_url", pre=True)
+    @field_validator("wss_second_node_url", mode="before")
+    @classmethod
     def validate_wss_second_node_url(cls, v: str):
         pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
@@ -386,7 +388,8 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("wss_third_node_url", pre=True)
+    @field_validator("wss_third_node_url", mode="before")
+    @classmethod
     def validate_wss_third_node_url(cls, v: str):
         pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."

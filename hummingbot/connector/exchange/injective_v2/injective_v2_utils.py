@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
-from pydantic.v1 import Field, SecretStr
-from pydantic.v1.class_validators import validator
+from pydantic import ConfigDict, SecretStr, field_validator
+from pydantic.v1 import Field
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer
 from pyinjective.core.broadcaster import (
@@ -61,9 +61,7 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
         const=True,
         client_data=ClientFieldData(),
     )
-
-    class Config:
-        title = "simulated_transaction_fee_calculator"
+    model_config = ConfigDict(title="simulated_transaction_fee_calculator")
 
     def create_calculator(
             self,
@@ -86,9 +84,7 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
         const=True,
         client_data=ClientFieldData(),
     )
-
-    class Config:
-        title = "message_based_transaction_fee_calculator"
+    model_config = ConfigDict(title="message_based_transaction_fee_calculator")
 
     def create_calculator(
             self,
@@ -105,8 +101,8 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
 
 
 FEE_CALCULATOR_MODES = {
-    InjectiveSimulatedTransactionFeeCalculatorMode.Config.title: InjectiveSimulatedTransactionFeeCalculatorMode,
-    InjectiveMessageBasedTransactionFeeCalculatorMode.Config.title: InjectiveMessageBasedTransactionFeeCalculatorMode,
+    InjectiveSimulatedTransactionFeeCalculatorMode.model_config["title"]: InjectiveSimulatedTransactionFeeCalculatorMode,
+    InjectiveMessageBasedTransactionFeeCalculatorMode.model_config["title"]: InjectiveMessageBasedTransactionFeeCalculatorMode,
 }
 
 
@@ -121,9 +117,7 @@ class InjectiveNetworkMode(BaseClientModel, ABC):
 
 
 class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
-
-    class Config:
-        title = "mainnet_network"
+    model_config = ConfigDict(title="mainnet_network")
 
     def network(self) -> Network:
         return Network.mainnet()
@@ -143,11 +137,10 @@ class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
             prompt_on_new=True
         ),
     )
+    model_config = ConfigDict(title="testnet_network")
 
-    class Config:
-        title = "testnet_network"
-
-    @validator("testnet_node", pre=True)
+    @field_validator("testnet_node", mode="before")
+    @classmethod
     def validate_node(cls, v: str):
         if v not in TESTNET_NODES:
             raise ValueError(f"{v} is not a valid node ({TESTNET_NODES})")
@@ -227,9 +220,7 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
             prompt_on_new=True
         ),
     )
-
-    class Config:
-        title = "custom_network"
+    model_config = ConfigDict(title="custom_network")
 
     def network(self) -> Network:
         return Network.custom(
@@ -252,9 +243,9 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
 
 
 NETWORK_MODES = {
-    InjectiveMainnetNetworkMode.Config.title: InjectiveMainnetNetworkMode,
-    InjectiveTestnetNetworkMode.Config.title: InjectiveTestnetNetworkMode,
-    InjectiveCustomNetworkMode.Config.title: InjectiveCustomNetworkMode,
+    InjectiveMainnetNetworkMode.model_config["title"]: InjectiveMainnetNetworkMode,
+    InjectiveTestnetNetworkMode.model_config["title"]: InjectiveTestnetNetworkMode,
+    InjectiveCustomNetworkMode.model_config["title"]: InjectiveCustomNetworkMode,
 }
 
 # Captures a 12 or 24-word BIP39 seed phrase
@@ -306,7 +297,8 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
         ),
     )
 
-    @validator("private_key", pre=True)
+    @field_validator("private_key", mode="before")
+    @classmethod
     def validate_network(cls, v: str):
         # Both seed phrase and hex private keys supported
         if isinstance(v, str):
@@ -315,9 +307,7 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
                 private_key = PrivateKey.from_mnemonic(v)
                 return private_key.to_hex()
         return v
-
-    class Config:
-        title = "delegate_account"
+    model_config = ConfigDict(title="delegate_account")
 
     def create_data_source(
             self,
@@ -367,9 +357,7 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
         const=True,
         client_data=None
     )
-
-    class Config:
-        title = "vault_account"
+    model_config = ConfigDict(title="vault_account")
 
     def create_data_source(
             self,
@@ -391,9 +379,7 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
 
 
 class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
-
-    class Config:
-        title = "read_only_account"
+    model_config = ConfigDict(title="read_only_account")
 
     def create_data_source(
             self,
@@ -409,9 +395,9 @@ class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
 
 
 ACCOUNT_MODES = {
-    InjectiveDelegatedAccountMode.Config.title: InjectiveDelegatedAccountMode,
-    InjectiveVaultAccountMode.Config.title: InjectiveVaultAccountMode,
-    InjectiveReadOnlyAccountMode.Config.title: InjectiveReadOnlyAccountMode,
+    InjectiveDelegatedAccountMode.model_config["title"]: InjectiveDelegatedAccountMode,
+    InjectiveVaultAccountMode.model_config["title"]: InjectiveVaultAccountMode,
+    InjectiveReadOnlyAccountMode.model_config["title"]: InjectiveReadOnlyAccountMode,
 }
 
 
@@ -443,11 +429,10 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
+    model_config = ConfigDict(title="injective_v2")
 
-    class Config:
-        title = "injective_v2"
-
-    @validator("network", pre=True)
+    @field_validator("network", mode="before")
+    @classmethod
     def validate_network(cls, v: Union[(str, Dict) + tuple(NETWORK_MODES.values())]):
         if isinstance(v, tuple(NETWORK_MODES.values()) + (Dict,)):
             sub_model = v
@@ -459,7 +444,8 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             sub_model = NETWORK_MODES[v].construct()
         return sub_model
 
-    @validator("account_type", pre=True)
+    @field_validator("account_type", mode="before")
+    @classmethod
     def validate_account_type(cls, v: Union[(str, Dict) + tuple(ACCOUNT_MODES.values())]):
         if isinstance(v, tuple(ACCOUNT_MODES.values()) + (Dict,)):
             sub_model = v
@@ -471,7 +457,8 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             sub_model = ACCOUNT_MODES[v].construct()
         return sub_model
 
-    @validator("fee_calculator", pre=True)
+    @field_validator("fee_calculator", mode="before")
+    @classmethod
     def validate_fee_calculator(cls, v: Union[(str, Dict) + tuple(FEE_CALCULATOR_MODES.values())]):
         if isinstance(v, tuple(FEE_CALCULATOR_MODES.values()) + (Dict,)):
             sub_model = v
