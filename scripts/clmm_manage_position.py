@@ -16,23 +16,23 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class CLMMPositionManagerConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("meteora", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "CLMM Connector (e.g. meteora, raydium-clmm)"))
+    connector: str = Field("meteora/clmm", client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "CLMM Connector (e.g. meteora/clmm, raydium/clmm)"))
     chain: str = Field("solana", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Chain (e.g. solana)"))
+        prompt_on_new=False, prompt=lambda mi: "Chain (e.g. solana)"))
     network: str = Field("mainnet-beta", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Network (e.g. mainnet-beta)"))
+        prompt_on_new=False, prompt=lambda mi: "Network (e.g. mainnet-beta)"))
     pool_address: str = Field("9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Pool address"))
-    target_price: Decimal = Field(Decimal("13.0"), client_data=ClientFieldData(
+        prompt_on_new=True, prompt=lambda mi: "Pool address (e.g. TRUMP-USDC Meteora pool)"))
+    target_price: Decimal = Field(Decimal("10.0"), client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Target price to trigger position opening"))
     trigger_above: bool = Field(False, client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Trigger when price rises above target? (True for above/False for below)"))
     position_width_pct: Decimal = Field(Decimal("10.0"), client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Position width in percentage (e.g. 5.0 for ±5% around target price)"))
-    base_token_amount: Decimal = Field(Decimal("0.2"), client_data=ClientFieldData(
+    base_token_amount: Decimal = Field(Decimal("0.1"), client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Base token amount to add to position (0 for quote only)"))
-    quote_token_amount: Decimal = Field(Decimal("3.0"), client_data=ClientFieldData(
+    quote_token_amount: Decimal = Field(Decimal("1.0"), client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Quote token amount to add to position (0 for base only)"))
     out_of_range_pct: Decimal = Field(Decimal("1.0"), client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Percentage outside range that triggers closing (e.g. 1.0 for 1%)"))
@@ -425,7 +425,6 @@ class CLMMPositionManager(ScriptStrategyBase):
                     chain=self.config.chain,
                     network=self.config.network,
                     transaction_hash=tx_hash,
-                    connector=self.config.connector
                 )
 
                 transaction_status = poll_data.get("txStatus")

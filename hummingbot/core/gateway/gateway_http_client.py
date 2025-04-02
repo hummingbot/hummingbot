@@ -567,7 +567,7 @@ class GatewayHttpClient:
         }
         return await self.api_request(
             "get",
-            f"{connector}/clmm/position-info",
+            f"{connector}/position-info",
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -615,7 +615,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "post",
-            f"{connector}/clmm/open-position",
+            f"{connector}/open-position",
             request_payload,
             fail_silently=fail_silently,
         )
@@ -644,7 +644,7 @@ class GatewayHttpClient:
         }
         return await self.api_request(
             "post",
-            f"{connector}/clmm/close-position",
+            f"{connector}/close-position",
             request_payload,
             fail_silently=fail_silently,
         )
