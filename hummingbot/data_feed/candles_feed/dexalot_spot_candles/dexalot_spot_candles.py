@@ -116,18 +116,17 @@ class DexalotSpotCandles(CandlesBase):
         trading_pair = self.get_exchange_trading_pair(self._trading_pair)
 
         payload = {
-            "data": trading_pair,
             "pair": trading_pair,
             "chart": interval,
-            "type": "chartsubscribe"
+            "type": "chart-v2-subscribe"
         }
         return payload
 
     def _parse_websocket_message(self, data):
         candles_row_dict: Dict[str, Any] = {}
-        if data is not None and data.get("type") == 'chartSnapShot':
+        if data is not None and data.get("type") == 'liveCandle':
             candle = data.get("data")[-1]
-            timestamp = datetime.strptime(candle["date"], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
+            timestamp = datetime.strptime(candle["date"], '%Y-%m-%dT%H:%M:%SZ').timestamp()
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(timestamp)
             candles_row_dict["open"] = candle["open"]
             candles_row_dict["low"] = candle["low"]
