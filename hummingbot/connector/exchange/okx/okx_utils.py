@@ -18,7 +18,7 @@ EXAMPLE_PAIR = "BTC-USDT"
 
 
 class OKXConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="okx", const=True, client_data=None)
+    connector: str = "okx"
     okx_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

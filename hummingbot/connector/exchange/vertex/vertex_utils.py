@@ -146,7 +146,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class VertexConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="vertex", const=True, client_data=None)
+    connector: str = "vertex"
     vertex_arbitrum_private_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -172,7 +172,7 @@ KEYS = VertexConfigMap.construct()
 
 
 class VertexTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="vertex_testnet", client_data=None)
+    connector: str = "vertex_testnet"
     vertex_testnet_arbitrum_private_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

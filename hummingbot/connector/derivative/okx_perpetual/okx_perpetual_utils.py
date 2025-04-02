@@ -50,7 +50,7 @@ def get_next_funding_timestamp(current_timestamp: float) -> float:
 
 
 class OkxPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="okx_perpetual", client_data=None)
+    connector: str = "okx_perpetual"
     okx_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

@@ -21,7 +21,7 @@ BROKER_ID = "HBOT"
 
 
 class DerivePerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="derive_perpetual", client_data=None)
+    connector: str = "derive_perpetual"
     derive_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -69,7 +69,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"derive_perpetual_testnet": [0, 0.025]}
 
 
 class DerivePerpetualTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="derive_perpetual_testnet", client_data=None)
+    connector: str = "derive_perpetual_testnet"
     derive_perpetual_testnet_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

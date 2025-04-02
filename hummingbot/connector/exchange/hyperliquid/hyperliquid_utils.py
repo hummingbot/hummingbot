@@ -31,7 +31,7 @@ def validate_bool(value: str) -> Optional[str]:
 
 
 class HyperliquidConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hyperliquid", client_data=None)
+    connector: str = "hyperliquid"
     hyperliquid_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -80,7 +80,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"hyperliquid_testnet": [0, 0.025]}
 
 
 class HyperliquidTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hyperliquid_testnet", client_data=None)
+    connector: str = "hyperliquid_testnet"
     hyperliquid_testnet_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

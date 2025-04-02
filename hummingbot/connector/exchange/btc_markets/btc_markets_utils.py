@@ -27,7 +27,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BtcMarketsConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="btc_markets", const=True, client_data=None)
+    connector: str = "btc_markets"
     btc_markets_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

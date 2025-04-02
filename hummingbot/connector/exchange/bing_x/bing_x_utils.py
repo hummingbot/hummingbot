@@ -39,7 +39,7 @@ def decompress_ws_message(message):
 
 
 class BingXConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bing_x", client_data=None)
+    connector: str = "bing_x"
     bingx_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

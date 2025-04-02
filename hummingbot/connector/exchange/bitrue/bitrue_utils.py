@@ -27,7 +27,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BitrueConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bitrue", const=True, client_data=None)
+    connector: str = "bitrue"
     bitrue_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

@@ -28,7 +28,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class MexcConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="mexc", const=True, client_data=None)
+    connector: str = "mexc"
     mexc_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

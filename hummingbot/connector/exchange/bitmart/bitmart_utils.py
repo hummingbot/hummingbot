@@ -48,7 +48,7 @@ def compress_ws_message(message):
 
 
 class BitmartConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bitmart", client_data=None)
+    connector: str = "bitmart"
     bitmart_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

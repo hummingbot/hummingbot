@@ -72,7 +72,7 @@ def decimal_val_or_none(string_value: str,
 
 
 class TegroConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="tegro", const=True, client_data=None)
+    connector: str = "tegro"
     tegro_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -113,11 +113,11 @@ class TegroConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="tegro")
 
 
-KEYS = TegroConfigMap.construct()
+KEYS = TegroConfigMap.model_construct()
 
 
 class TegroTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="tegro_testnet", const=True, client_data=None)
+    connector: str = "tegro_testnet"
     tegro_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

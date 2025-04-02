@@ -165,7 +165,7 @@ def build_rate_limits_by_tier(tier: KrakenAPITier = KrakenAPITier.STARTER) -> Li
 
 
 class KrakenConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="kraken", client_data=None)
+    connector: str = "kraken"
     kraken_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

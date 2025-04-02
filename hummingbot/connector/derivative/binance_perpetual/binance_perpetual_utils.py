@@ -20,7 +20,7 @@ BROKER_ID = "x-3QreWesy"
 
 
 class BinancePerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="binance_perpetual", client_data=None)
+    connector: str = "binance_perpetual"
     binance_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -50,7 +50,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"binance_perpetual_testnet": [0.02, 0.04]}
 
 
 class BinancePerpetualTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="binance_perpetual_testnet", client_data=None)
+    connector: str = "binance_perpetual_testnet"
     binance_perpetual_testnet_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

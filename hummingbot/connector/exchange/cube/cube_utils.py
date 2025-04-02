@@ -61,7 +61,7 @@ def raw_units_to_number(raw_units: trade_pb2.RawUnits):
 
 
 class CubeConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="cube", const=True, client_data=None)
+    connector: str = "cube"
     cube_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

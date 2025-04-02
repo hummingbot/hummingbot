@@ -29,7 +29,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bitget_perpetual", client_data=None)
+    connector: str = "bitget_perpetual"
     bitget_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

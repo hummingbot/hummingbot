@@ -52,7 +52,7 @@ def is_exchange_information_valid(rule: Dict[str, Any]) -> bool:
 
 
 class HashkeyPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hashkey_perpetual", client_data=None)
+    connector: str = "hashkey_perpetual"
     hashkey_perpetual_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -82,7 +82,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"hashkey_perpetual_testnet": [0.02, 0.04]}
 
 
 class HashkeyPerpetualTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hashkey_perpetual_testnet", client_data=None)
+    connector: str = "hashkey_perpetual_testnet"
     hashkey_perpetual_testnet_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

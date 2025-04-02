@@ -25,7 +25,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BybitConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bybit", const=True, client_data=None)
+    connector: str = "bybit"
     bybit_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -56,7 +56,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"bybit_testnet": DEFAULT_FEES}
 
 
 class BybitTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bybit_testnet", const=True, client_data=None)
+    connector: str = "bybit_testnet"
     bybit_testnet_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
