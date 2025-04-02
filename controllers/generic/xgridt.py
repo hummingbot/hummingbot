@@ -4,7 +4,8 @@ from typing import Dict, List, Optional, Set
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel
+from pydantic.v1 import Field
 from scipy.signal import find_peaks
 
 from hummingbot.client.config.config_data_types import ClientFieldData
