@@ -2,7 +2,8 @@ import time
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic.v1 import Field, SecretStr
+from pydantic import ConfigDict, SecretStr
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -61,9 +62,7 @@ class AscendExConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-
-    class Config:
-        title = "ascend_ex"
+    model_config = ConfigDict(title="ascend_ex")
 
 
 KEYS = AscendExConfigMap.construct()

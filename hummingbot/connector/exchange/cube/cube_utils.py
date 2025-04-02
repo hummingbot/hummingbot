@@ -1,7 +1,8 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic.v1 import Field, SecretStr, validator
+from pydantic import ConfigDict, SecretStr, field_validator
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.client.config.config_validators import validate_int, validate_with_regex
@@ -88,7 +89,7 @@ class CubeConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    domain = Field(
+    domain: str = Field(
         default="live",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Cube environment (live or staging)",
@@ -97,11 +98,10 @@ class CubeConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
+    model_config = ConfigDict(title="cube")
 
-    class Config:
-        title = "cube"
-
-    @validator("cube_api_key", pre=True)
+    @field_validator("cube_api_key", mode="before")
+    @classmethod
     def validate_cube_api_key(cls, v: str):
         pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
         error_message = "Invalid API key. API key should be a UUID string."
@@ -110,7 +110,8 @@ class CubeConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("cube_api_secret", pre=True)
+    @field_validator("cube_api_secret", mode="before")
+    @classmethod
     def validate_cube_api_secret(cls, v: str):
         pattern = r'^[a-zA-Z0-9]{64}$'
         error_message = "Invalid secret key. Secret key should be a 64-character alphanumeric string."
@@ -119,14 +120,16 @@ class CubeConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("cube_subaccount_id", pre=True)
+    @field_validator("cube_subaccount_id", mode="before")
+    @classmethod
     def validate_cube_subaccount_id(cls, v: str):
         ret = validate_int(v, min_value=0, inclusive=False)
         if ret is not None:
             raise ValueError(ret)
         return v
 
-    @validator("domain", pre=True)
+    @field_validator("domain", mode="before")
+    @classmethod
     def validate_domain(cls, v: str):
         if v not in [DEFAULT_DOMAIN, TESTNET_DOMAIN]:
             raise ValueError(f"Domain must be either {DEFAULT_DOMAIN} or {TESTNET_DOMAIN}")

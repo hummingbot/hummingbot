@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from pydantic.v1 import Field, SecretStr
-from pydantic.v1.class_validators import validator
+from pydantic import ConfigDict, SecretStr, field_validator
+from pydantic.v1 import Field
 
 import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
@@ -192,11 +192,10 @@ class KrakenConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
+    model_config = ConfigDict(title="kraken")
 
-    class Config:
-        title = "kraken"
-
-    @validator("kraken_api_tier", pre=True)
+    @field_validator("kraken_api_tier", mode="before")
+    @classmethod
     def _api_tier_validator(cls, value: str) -> Optional[str]:
         """
         Determines if input value is a valid API tier
