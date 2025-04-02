@@ -14,7 +14,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class SimpleXEMMConfig(BaseClientModel):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    script_file_name: str = os.path.basename(__file__)
     maker_exchange: str = Field("kucoin_paper_trade", client_data=ClientFieldData(
         prompt_on_new=True, prompt=lambda mi: "Maker exchange where the bot will place maker orders"))
     maker_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
