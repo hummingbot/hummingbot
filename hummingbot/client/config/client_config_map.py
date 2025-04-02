@@ -1086,8 +1086,14 @@ class ClientConfigMap(BaseClientModel):
     @model_validator(mode="after")
     def post_validations(self):
         for key in self.model_fields.keys():
-            if isinstance(getattr(self, key), FieldInfo):
-                setattr(self, key, getattr(self, key).default)
+            value = getattr(self, key)
+            if isinstance(value, FieldInfo):
+                setattr(self, key, value.default)
+            elif isinstance(value, BaseClientModel):
+                for inner_key in value.model_fields.keys():
+                    inner_value = getattr(value, inner_key)
+                    if isinstance(inner_value, FieldInfo):
+                        setattr(value, inner_key, inner_value.default)
         rate_source_mode: RateSourceModeBase = self.rate_oracle_source
         RateOracle.get_instance().source = rate_source_mode.build_rate_source()
         RateOracle.get_instance().quote_token = self.global_token.global_token_name
