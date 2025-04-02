@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
 import yaml
+from pydantic.v1.fields import FieldInfo
 
 from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel
@@ -119,7 +120,7 @@ class CreateCommand:
                                  if
                                  inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
                                  (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
-            config_map = ClientConfigAdapter(config_class.construct())
+            config_map = ClientConfigAdapter(config_class.model_construct())
 
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
@@ -149,8 +150,8 @@ class CreateCommand:
             return await self.save_config(name, config_instance, config_dir_path)  # Recursive call
 
         config_path = config_dir_path / file_name
-        field_order = list(config_instance.__fields__.keys())
-        config_json_str = config_instance.json()
+        field_order = list(config_instance.model_fields.keys())
+        config_json_str = config_instance.model_dump_json()
         config_data = json.loads(config_json_str)
         ordered_config_data = OrderedDict((field, config_data.get(field)) for field in field_order)
 
@@ -222,6 +223,10 @@ class CreateCommand:
                 await self.prompt_a_config(config_map, key)
                 if self.app.to_stop_config:
                     break
+            elif isinstance(getattr(config_map, key), FieldInfo):
+                # If the config is a FieldInfo and the other checks passed we use the default value
+                default_value = getattr(config_map, key).default
+                setattr(config_map, key, default_value)
 
     async def prompt_for_configuration_legacy(
         self,  # type: HummingbotApplication
