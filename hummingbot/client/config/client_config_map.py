@@ -4,9 +4,11 @@ import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar, Union
 
-from pydantic.v1 import BaseModel, Field, SecretStr, root_validator, validator
+from pydantic import BaseModel, ConfigDict, SecretStr, field_validator, model_validator
+from pydantic.v1 import Field
+from pydantic.v1.fields import FieldInfo
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
@@ -29,9 +31,6 @@ from hummingbot.core.utils.kill_switch import ActiveKillSwitch, KillSwitch, Pass
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
-PMM_SCRIPT_ENABLED_KEY = "pmm_script_enabled"
-PMM_SCRIPT_FILE_PATH_KEY = "pmm_script_file_path"
 
 
 def generate_client_id() -> str:
@@ -135,9 +134,7 @@ class MQTTBridgeConfigMap(BaseClientModel):
             ),
         ),
     )
-
-    class Config:
-        title = "mqtt_bridge"
+    model_config = ConfigDict(title="mqtt_bridge")
 
 
 class MarketDataCollectionConfigMap(BaseClientModel):
@@ -167,9 +164,7 @@ class MarketDataCollectionConfigMap(BaseClientModel):
             ),
         ),
     )
-
-    class Config:
-        title = "market_data_collection"
+    model_config = ConfigDict(title="market_data_collection")
 
 
 class ColorConfigMap(BaseClientModel):
@@ -264,7 +259,7 @@ class ColorConfigMap(BaseClientModel):
         ),
     )
 
-    @validator(
+    @field_validator(
         "top_pane",
         "bottom_pane",
         "output_pane",
@@ -280,8 +275,8 @@ class ColorConfigMap(BaseClientModel):
         "gold_label",
         "silver_label",
         "bronze_label",
-        pre=True,
-    )
+        mode="before")
+    @classmethod
     def validate_color(cls, v: str):
         if not re.search(r'^#(?:[0-9a-fA-F]{2}){3}$', v):
             raise ValueError("Invalid color code")
@@ -291,10 +286,10 @@ class ColorConfigMap(BaseClientModel):
 class PaperTradeConfigMap(BaseClientModel):
     paper_trade_exchanges: List = Field(
         default=[
-            BinanceConfigMap.Config.title,
-            KuCoinConfigMap.Config.title,
-            KrakenConfigMap.Config.title,
-            GateIOConfigMap.Config.title,
+            BinanceConfigMap.model_config["title"],
+            KuCoinConfigMap.model_config["title"],
+            KrakenConfigMap.model_config["title"],
+            GateIOConfigMap.model_config["title"],
         ],
     )
     paper_trade_account_balance: Dict[str, float] = Field(
@@ -316,7 +311,8 @@ class PaperTradeConfigMap(BaseClientModel):
         ),
     )
 
-    @validator("paper_trade_account_balance", pre=True)
+    @field_validator("paper_trade_account_balance", mode="before")
+    @classmethod
     def validate_paper_trade_account_balance(cls, v: Union[str, Dict[str, float]]):
         if isinstance(v, str):
             v = json.loads(v)
@@ -331,9 +327,7 @@ class KillSwitchMode(BaseClientModel, ABC):
 
 class KillSwitchEnabledMode(KillSwitchMode):
     kill_switch_rate: Decimal = Field(
-        default=...,
-        ge=Decimal(-100),
-        le=Decimal(100),
+        default=Decimal("10"),
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "At what profit/loss rate would you like the bot to stop?"
@@ -341,23 +335,15 @@ class KillSwitchEnabledMode(KillSwitchMode):
             ),
         ),
     )
-
-    class Config:
-        title = "kill_switch_enabled"
+    model_config = ConfigDict(title="kill_switch_enabled")
 
     def get_kill_switch(self, hb: "HummingbotApplication") -> ActiveKillSwitch:
         kill_switch = ActiveKillSwitch(kill_switch_rate=self.kill_switch_rate, hummingbot_application=hb)
         return kill_switch
 
-    @validator("kill_switch_rate", pre=True)
-    def validate_decimal(cls, v: str, field: Field):
-        """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
-
 
 class KillSwitchDisabledMode(KillSwitchMode):
-    class Config:
-        title = "kill_switch_disabled"
+    model_config = ConfigDict(title="kill_switch_disabled")
 
     def get_kill_switch(self, hb: "HummingbotApplication") -> PassThroughKillSwitch:
         kill_switch = PassThroughKillSwitch()
@@ -365,8 +351,8 @@ class KillSwitchDisabledMode(KillSwitchMode):
 
 
 KILL_SWITCH_MODES = {
-    KillSwitchEnabledMode.Config.title: KillSwitchEnabledMode,
-    KillSwitchDisabledMode.Config.title: KillSwitchDisabledMode,
+    KillSwitchEnabledMode.model_config["title"]: KillSwitchEnabledMode,
+    KillSwitchDisabledMode.model_config["title"]: KillSwitchDisabledMode,
 }
 
 
@@ -392,9 +378,7 @@ class DBSqliteMode(DBMode):
             ),
         ),
     )
-
-    class Config:
-        title = "sqlite_db_engine"
+    model_config = ConfigDict(title="sqlite_db_engine")
 
     def get_url(self, db_path: str) -> str:
         return f"{self.db_engine}:///{db_path}"
@@ -439,22 +423,21 @@ class DBOtherMode(DBMode):
             prompt=lambda cm: "Please enter your the name of your DB",
         ),
     )
-
-    class Config:
-        title = "other_db_engine"
+    model_config = ConfigDict(title="other_db_engine")
 
     def get_url(self, db_path: str) -> str:
         return f"{self.db_engine}://{self.db_username}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
-    @validator("db_engine")
+    @field_validator("db_engine")
+    @classmethod
     def validate_db_engine(cls, v: str):
         assert v != "sqlite"
         return v
 
 
 DB_MODES = {
-    DBSqliteMode.Config.title: DBSqliteMode,
-    DBOtherMode.Config.title: DBOtherMode,
+    DBSqliteMode.model_config["title"]: DBSqliteMode,
+    DBOtherMode.model_config["title"]: DBOtherMode,
 }
 
 
@@ -471,9 +454,7 @@ class GatewayConfigMap(BaseClientModel):
             prompt=lambda cm: "Please enter your Gateway API port",
         ),
     )
-
-    class Config:
-        title = "gateway"
+    model_config = ConfigDict(title="gateway")
 
 
 class GlobalTokenConfigMap(BaseClientModel):
@@ -491,24 +472,19 @@ class GlobalTokenConfigMap(BaseClientModel):
                 cm: "What is your default display token symbol? (e.g. $,€)",
         ),
     )
+    model_config = ConfigDict(title="global_token")
 
-    class Config:
-        title = "global_token"
-
-    @validator("global_token_name")
+    @field_validator("global_token_name")
+    @classmethod
     def validate_global_token_name(cls, v: str) -> str:
         return v.upper()
 
     # === post-validations ===
 
-    @root_validator()
-    def post_validations(cls, values: Dict):
-        cls.global_token_on_validated(values)
-        return values
-
-    @classmethod
-    def global_token_on_validated(cls, values: Dict):
-        RateOracle.get_instance().quote_token = values["global_token_name"]
+    @model_validator(mode="after")
+    def post_validations(self):
+        RateOracle.get_instance().quote_token = self.global_token_name
+        return self
 
 
 class CommandsTimeoutConfigMap(BaseClientModel):
@@ -531,18 +507,7 @@ class CommandsTimeoutConfigMap(BaseClientModel):
             ),
         ),
     )
-
-    class Config:
-        title = "commands_timeout"
-
-    @validator(
-        "create_command_timeout",
-        "other_commands_timeout",
-        pre=True,
-    )
-    def validate_decimals(cls, v: str, field: Field):
-        """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
+    model_config = ConfigDict(title="commands_timeout")
 
 
 class AnonymizedMetricsMode(BaseClientModel, ABC):
@@ -558,8 +523,7 @@ class AnonymizedMetricsMode(BaseClientModel, ABC):
 
 
 class AnonymizedMetricsDisabledMode(AnonymizedMetricsMode):
-    class Config:
-        title = "anonymized_metrics_disabled"
+    model_config = ConfigDict(title="anonymized_metrics_disabled")
 
     def get_collector(
             self,
@@ -579,9 +543,7 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
             prompt=lambda cm: "How often do you want to send the anonymized metrics (Enter 5 for 5 minutes)?",
         ),
     )
-
-    class Config:
-        title = "anonymized_metrics_enabled"
+    model_config = ConfigDict(title="anonymized_metrics_enabled")
 
     def get_collector(
             self,
@@ -599,15 +561,10 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
         )
         return instance
 
-    @validator("anonymized_metrics_interval_min", pre=True)
-    def validate_decimal(cls, v: str, field: Field):
-        """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
-
 
 METRICS_MODES = {
-    AnonymizedMetricsDisabledMode.Config.title: AnonymizedMetricsDisabledMode,
-    AnonymizedMetricsEnabledMode.Config.title: AnonymizedMetricsEnabledMode,
+    AnonymizedMetricsDisabledMode.model_config["title"]: AnonymizedMetricsDisabledMode,
+    AnonymizedMetricsEnabledMode.model_config["title"]: AnonymizedMetricsEnabledMode,
 }
 
 
@@ -619,7 +576,7 @@ class RateSourceModeBase(BaseClientModel, ABC):
 
 class ExchangeRateSourceModeBase(RateSourceModeBase):
     def build_rate_source(self) -> RateSourceBase:
-        return RATE_ORACLE_SOURCES[self.Config.title]()
+        return RATE_ORACLE_SOURCES[self.model_config["title"]]()
 
 
 class AscendExRateSourceMode(ExchangeRateSourceModeBase):
@@ -628,9 +585,7 @@ class AscendExRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "ascend_ex"
+    model_config = ConfigDict(title="ascend_ex")
 
 
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
@@ -639,9 +594,7 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "binance"
+    model_config = ConfigDict(title="binance")
 
 
 class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
@@ -650,9 +603,7 @@ class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "binance_us"
+    model_config = ConfigDict(title="binance_us")
 
 
 class CubeRateSourceMode(ExchangeRateSourceModeBase):
@@ -661,9 +612,7 @@ class CubeRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "cube"
+    model_config = ConfigDict(title="cube")
 
 
 class CoinGeckoRateSourceMode(RateSourceModeBase):
@@ -683,26 +632,25 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
             prompt_on_new=True,
         )
     )
-
-    class Config:
-        title = "coin_gecko"
+    model_config = ConfigDict(title="coin_gecko")
 
     def build_rate_source(self) -> RateSourceBase:
-        rate_source = RATE_ORACLE_SOURCES[self.Config.title](
+        rate_source = RATE_ORACLE_SOURCES[self.model_config["title"]](
             extra_token_ids=self.extra_tokens
         )
         rate_source.extra_token_ids = self.extra_tokens
         return rate_source
 
-    @validator("extra_tokens", pre=True)
+    @field_validator("extra_tokens", mode="before")
+    @classmethod
     def validate_extra_tokens(cls, value: Union[str, List[str]]):
         extra_tokens = value.split(",") if isinstance(value, str) else value
         return extra_tokens
 
-    @root_validator()
-    def post_validations(cls, values: Dict):
-        RateOracle.get_instance().source.extra_token_ids = values["extra_tokens"]
-        return values
+    @model_validator(mode="after")
+    def post_validations(self):
+        RateOracle.get_instance().source.extra_token_ids = self.extra_tokens
+        return self
 
 
 class CoinCapRateSourceMode(RateSourceModeBase):
@@ -748,9 +696,7 @@ class CoinCapRateSourceMode(RateSourceModeBase):
             prompt_on_new=True,
         ),
     )
-
-    class Config:
-        title = "coin_cap"
+    model_config = ConfigDict(title="coin_cap")
 
     def build_rate_source(self) -> RateSourceBase:
         rate_source = RATE_ORACLE_SOURCES["coin_cap"](
@@ -758,7 +704,8 @@ class CoinCapRateSourceMode(RateSourceModeBase):
         )
         return rate_source
 
-    @validator("assets_map", pre=True)
+    @field_validator("assets_map", mode="before")
+    @classmethod
     def validate_extra_tokens(cls, value: Union[str, Dict[str, str]]):
         if isinstance(value, str):
             value = {key: val for key, val in [v.split(":") for v in value.split(",")]}
@@ -766,23 +713,11 @@ class CoinCapRateSourceMode(RateSourceModeBase):
 
     # === post-validations ===
 
-    @root_validator()
-    def post_validations(cls, values: Dict):
-        cls.rate_oracle_source_on_validated(values)
-        return values
-
-    @classmethod
-    def rate_oracle_source_on_validated(cls, values: Dict):
-        RateOracle.get_instance().source = cls._build_rate_source_cls(
-            assets_map=values["assets_map"], api_key=values["api_key"]
-        )
-
-    @classmethod
-    def _build_rate_source_cls(cls, assets_map: Dict[str, str], api_key: SecretStr) -> RateSourceBase:
-        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
-            assets_map=assets_map, api_key=api_key.get_secret_value()
-        )
-        return rate_source
+    @model_validator(mode="after")
+    def post_validations(self):
+        RateOracle.get_instance().source = RATE_ORACLE_SOURCES["coin_cap"](
+            assets_map=self.assets_map, api_key=self.api_key.get_secret_value())
+        return self
 
 
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
@@ -791,9 +726,7 @@ class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "kucoin"
+    model_config = ConfigDict(title="kucoin")
 
 
 class GateIoRateSourceMode(ExchangeRateSourceModeBase):
@@ -802,9 +735,7 @@ class GateIoRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title: str = "gate_io"
+    model_config = ConfigDict(title="gate_io")
 
 
 class DexalotRateSourceMode(ExchangeRateSourceModeBase):
@@ -813,9 +744,7 @@ class DexalotRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title: str = "dexalot"
+    model_config = ConfigDict(title="dexalot")
 
 
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
@@ -824,9 +753,7 @@ class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title: str = "coinbase_advanced_trade"
+    model_config = ConfigDict(title="coinbase_advanced_trade")
 
 
 class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
@@ -835,9 +762,7 @@ class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "hyperliquid"
+    model_config = ConfigDict(title="hyperliquid")
 
 
 class DeriveRateSourceMode(ExchangeRateSourceModeBase):
@@ -846,9 +771,7 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "derive"
+    model_config = ConfigDict(title="derive")
 
 
 class TegroRateSourceMode(ExchangeRateSourceModeBase):
@@ -857,26 +780,26 @@ class TegroRateSourceMode(ExchangeRateSourceModeBase):
         const=True,
         client_data=None,
     )
-
-    class Config:
-        title = "tegro"
+    model_config = ConfigDict(title="tegro")
 
 
 RATE_SOURCE_MODES = {
-    AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
-    BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
-    BinanceUSRateSourceMode.Config.title: BinanceUSRateSourceMode,
-    CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
-    CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
-    DexalotRateSourceMode.Config.title: DexalotRateSourceMode,
-    KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
-    GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
-    CoinbaseAdvancedTradeRateSourceMode.Config.title: CoinbaseAdvancedTradeRateSourceMode,
-    CubeRateSourceMode.Config.title: CubeRateSourceMode,
-    HyperliquidRateSourceMode.Config.title: HyperliquidRateSourceMode,
-    DeriveRateSourceMode.Config.title: DeriveRateSourceMode,
-    TegroRateSourceMode.Config.title: TegroRateSourceMode,
+    AscendExRateSourceMode.model_config["title"]: AscendExRateSourceMode,
+    BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
+    BinanceUSRateSourceMode.model_config["title"]: BinanceUSRateSourceMode,
+    CoinGeckoRateSourceMode.model_config["title"]: CoinGeckoRateSourceMode,
+    CoinCapRateSourceMode.model_config["title"]: CoinCapRateSourceMode,
+    DexalotRateSourceMode.model_config["title"]: DexalotRateSourceMode,
+    KuCoinRateSourceMode.model_config["title"]: KuCoinRateSourceMode,
+    GateIoRateSourceMode.model_config["title"]: GateIoRateSourceMode,
+    CoinbaseAdvancedTradeRateSourceMode.model_config["title"]: CoinbaseAdvancedTradeRateSourceMode,
+    CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
+    HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
+    DeriveRateSourceMode.model_config["title"]: DeriveRateSourceMode,
+    TegroRateSourceMode.model_config["title"]: TegroRateSourceMode,
 }
+
+RateSourceModeT = TypeVar("RateSourceModeT", bound=RateSourceModeBase)
 
 
 class CommandShortcutModel(BaseModel):
@@ -1009,7 +932,7 @@ class ClientConfigMap(BaseClientModel):
                      "\nDefine abbreviations for often used commands"
                      "\nor batch grouped commands together"),
     )
-    rate_oracle_source: Union[tuple(RATE_SOURCE_MODES.values())] = Field(
+    rate_oracle_source: RateSourceModeT = Field(
         default=BinanceRateSourceMode(),
         description=f"A source for rate oracle, currently {', '.join(RATE_SOURCE_MODES.keys())}",
         client_data=ClientFieldData(
@@ -1066,29 +989,32 @@ class ClientConfigMap(BaseClientModel):
         ),
     )
     market_data_collection: MarketDataCollectionConfigMap = Field(default=MarketDataCollectionConfigMap())
+    model_config = ConfigDict(title="client_config_map")
 
-    class Config:
-        title = "client_config_map"
-
-    @validator("kill_switch_mode", pre=True)
-    def validate_kill_switch_mode(cls, v: Union[(str, Dict) + tuple(KILL_SWITCH_MODES.values())]):
-        if isinstance(v, tuple(KILL_SWITCH_MODES.values()) + (Dict,)):
+    @field_validator("kill_switch_mode", mode="before")
+    @classmethod
+    def validate_kill_switch_mode(cls, v: Any):
+        if isinstance(v, tuple(KILL_SWITCH_MODES.values())):
             sub_model = v
+        elif v == {}:
+            sub_model = KillSwitchDisabledMode()
         elif v not in KILL_SWITCH_MODES:
             raise ValueError(
                 f"Invalid kill switch mode, please choose a value from {list(KILL_SWITCH_MODES.keys())}."
             )
         else:
-            sub_model = KILL_SWITCH_MODES[v].construct()
+            sub_model = KILL_SWITCH_MODES[v].model_construct()
         return sub_model
 
-    @validator("autofill_import", pre=True)
+    @field_validator("autofill_import", mode="before")
+    @classmethod
     def validate_autofill_import(cls, v: Union[str, AutofillImportEnum]):
         if isinstance(v, str) and v not in AutofillImportEnum.__members__:
             raise ValueError(f"The value must be one of {', '.join(list(AutofillImportEnum))}.")
         return v
 
-    @validator("send_error_logs", "fetch_pairs_from_all_exchanges", pre=True)
+    @field_validator("send_error_logs", "fetch_pairs_from_all_exchanges", mode="before")
+    @classmethod
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
@@ -1097,7 +1023,8 @@ class ClientConfigMap(BaseClientModel):
                 raise ValueError(ret)
         return v
 
-    @validator("db_mode", pre=True)
+    @field_validator("db_mode", mode="before")
+    @classmethod
     def validate_db_mode(cls, v: Union[(str, Dict) + tuple(DB_MODES.values())]):
         if isinstance(v, tuple(DB_MODES.values()) + (Dict,)):
             sub_model = v
@@ -1109,7 +1036,8 @@ class ClientConfigMap(BaseClientModel):
             sub_model = DB_MODES[v].construct()
         return sub_model
 
-    @validator("anonymized_metrics_mode", pre=True)
+    @field_validator("anonymized_metrics_mode", mode="before")
+    @classmethod
     def validate_anonymized_metrics_mode(cls, v: Union[(str, Dict) + tuple(METRICS_MODES.values())]):
         if isinstance(v, tuple(METRICS_MODES.values()) + (Dict,)):
             sub_model = v
@@ -1121,35 +1049,31 @@ class ClientConfigMap(BaseClientModel):
             sub_model = METRICS_MODES[v].construct()
         return sub_model
 
-    @validator("rate_oracle_source", pre=True)
-    def validate_rate_oracle_source(cls, v: Union[(str, Dict) + tuple(RATE_SOURCE_MODES.values())]):
-        if isinstance(v, tuple(RATE_SOURCE_MODES.values()) + (Dict,)):
+    @field_validator("rate_oracle_source", mode="before")
+    @classmethod
+    def validate_rate_oracle_source(cls, v: Any):
+        if isinstance(v, tuple(RATE_SOURCE_MODES.values())):
             sub_model = v
+        elif isinstance(v, dict):
+            sub_model = RATE_SOURCE_MODES[v["name"]].model_construct()
         elif v not in RATE_SOURCE_MODES:
             raise ValueError(
                 f"Invalid rate source, please choose a value from {list(RATE_SOURCE_MODES.keys())}."
             )
         else:
-            sub_model = RATE_SOURCE_MODES[v].construct()
+            raise ValueError("Invalid rate source.")
         return sub_model
 
-    @validator("tables_format", pre=True)
+    @field_validator("tables_format", mode="before")
+    @classmethod
     def validate_tables_format(cls, v: str):
         """Used for client-friendly error output."""
         if v not in tabulate_formats:
             raise ValueError("Invalid table format.")
         return v
 
-    @validator(
-        "manual_gas_price",
-        "rate_limits_share_pct",
-        pre=True,
-    )
-    def validate_decimals(cls, v: str, field: Field):
-        """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
-
-    @validator("tick_size", pre=True)
+    @field_validator("tick_size", mode="before")
+    @classmethod
     def validate_tick_size(cls, v: float):
         """Used for client-friendly error output."""
         ret = validate_float(v, min_value=0.1)
@@ -1159,13 +1083,12 @@ class ClientConfigMap(BaseClientModel):
 
     # === post-validations ===
 
-    @root_validator()
-    def post_validations(cls, values: Dict):
-        cls.rate_oracle_source_on_validated(values)
-        return values
-
-    @classmethod
-    def rate_oracle_source_on_validated(cls, values: Dict):
-        rate_source_mode: RateSourceModeBase = values["rate_oracle_source"]
+    @model_validator(mode="after")
+    def post_validations(self):
+        for key in self.model_fields.keys():
+            if isinstance(getattr(self, key), FieldInfo):
+                setattr(self, key, getattr(self, key).default)
+        rate_source_mode: RateSourceModeBase = self.rate_oracle_source
         RateOracle.get_instance().source = rate_source_mode.build_rate_source()
-        RateOracle.get_instance().quote_token = values["global_token"].global_token_name
+        RateOracle.get_instance().quote_token = self.global_token.global_token_name
+        return self

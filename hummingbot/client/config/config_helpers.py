@@ -14,7 +14,8 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, 
 
 import ruamel.yaml
 import yaml
-from pydantic.v1 import SecretStr, ValidationError
+from pydantic import SecretStr
+from pydantic.v1 import ValidationError
 from pydantic.v1.fields import FieldInfo
 from pydantic.v1.main import ModelMetaclass, validate_model
 from yaml import SafeDumper
@@ -89,18 +90,14 @@ class ClientConfigAdapter:
         return self._hb_config
 
     @property
-    def fetch_pairs_from_all_exchanges(self) -> bool:
-        return ClientConfigMap.fetch_pairs_from_all_exchanges
-
-    @property
     def title(self) -> str:
-        return self._hb_config.Config.title
+        return self._hb_config.model_config["title"]
 
     def is_required(self, attr: str) -> bool:
         return self._hb_config.is_required(attr)
 
     def keys(self) -> Generator[str, None, None]:
-        return self._hb_config.__fields__.keys()
+        return self._hb_config.model_fields.keys()
 
     def config_paths(self) -> Generator[str, None, None]:
         return (traversal_item.config_path for traversal_item in self.traverse())
@@ -112,13 +109,12 @@ class ClientConfigAdapter:
         'MISSING_AND_REQUIRED'.
         """
         depth = 0
-        for attr, field in self._hb_config.__fields__.items():
-            field_info = field.field_info
-            type_ = field.type_
+        for attr, field_info in self._hb_config.model_fields.items():
+            type_ = field_info.annotation
             if hasattr(self, attr):
                 value = getattr(self, attr)
                 printable_value = self._get_printable_value(attr, value, secure)
-                client_field_data = field_info.extra.get("client_data")
+                client_field_data = field_info.default.extra.get("client_data")
             else:
                 value = None
                 printable_value = "&cMISSING_AND_REQUIRED"
@@ -157,13 +153,20 @@ class ClientConfigAdapter:
         return secure
 
     def get_client_data(self, attr_name: str) -> Optional[ClientFieldData]:
-        return self._hb_config.__fields__[attr_name].field_info.extra.get("client_data")
+        default = self._hb_config.model_fields[attr_name].default
+        if isinstance(default, FieldInfo):
+            return default.extra.get("client_data")
+        return None
 
     def get_description(self, attr_name: str) -> str:
-        return self._hb_config.__fields__[attr_name].field_info.description
+        return self._hb_config.model_fields[attr_name].description
 
     def get_default(self, attr_name: str) -> Any:
-        default = self._hb_config.__fields__[attr_name].field_info.default
+        default = self._hb_config.model_fields[attr_name].default
+        if isinstance(default, FieldInfo):
+            default = default.default
+        else:
+            return None
         if isinstance(default, type(Ellipsis)):
             default = None
         return default
@@ -176,13 +179,13 @@ class ClientConfigAdapter:
         elif isinstance(default, (List, Tuple)):
             default_str = ",".join(default)
         elif isinstance(default, BaseClientModel):
-            default_str = default.Config.title
+            default_str = default.model_config["title"]
         else:
             default_str = str(default)
         return default_str
 
     def get_type(self, attr_name: str) -> Type:
-        return self._hb_config.__fields__[attr_name].type_
+        return self._hb_config.model_fields[attr_name].annotation
 
     def generate_yml_output_str_with_comments(self) -> str:
         fragments_with_comments = [self._generate_title()]
@@ -244,14 +247,14 @@ class ClientConfigAdapter:
 
     @contextlib.contextmanager
     def _disable_validation(self):
-        self._hb_config.Config.validate_assignment = False
+        self._hb_config.model_config["validate_assignment"] = False
         yield
-        self._hb_config.Config.validate_assignment = True
+        self._hb_config.model_config["validate_assignment"] = True
 
     def _get_printable_value(self, attr: str, value: Any, secure: bool) -> str:
         if isinstance(value, ClientConfigAdapter):
             if self._is_union(self.get_type(attr)):  # it is a union of modes
-                printable_value = value.hb_config.Config.title
+                printable_value = value.hb_config.model_config["title"]
             else:  # it is a collection of settings stored in a submodule
                 printable_value = ""
         elif isinstance(value, SecretStr) and not secure:
@@ -267,10 +270,12 @@ class ClientConfigAdapter:
 
     def _dict_in_conf_order(self) -> Dict[str, Any]:
         conf_dict = {}
-        for attr in self._hb_config.__fields__.keys():
+        for attr in self._hb_config.model_fields.keys():
             value = getattr(self, attr)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
+            elif isinstance(value, FieldInfo):
+                value = value.default
             conf_dict[attr] = value
         self._encrypt_secrets(conf_dict)
         return conf_dict
@@ -278,7 +283,7 @@ class ClientConfigAdapter:
     def _encrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
         for attr, value in conf_dict.items():
-            attr_type = self._hb_config.__fields__[attr].type_
+            attr_type = self._hb_config.model_fields[attr].annotation
             if attr_type == SecretStr:
                 clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
                 conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, clear_text_value)
@@ -286,7 +291,7 @@ class ClientConfigAdapter:
     def _decrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
         for attr, value in conf_dict.items():
-            attr_type = self._hb_config.__fields__[attr].type_
+            attr_type = self._hb_config.model_fields[attr].annotation
             if attr_type == SecretStr:
                 decrypted_value = Security.secrets_manager.decrypt_secret_value(attr, value.get_secret_value())
                 conf_dict[attr] = SecretStr(decrypted_value)
@@ -307,7 +312,7 @@ class ClientConfigAdapter:
                 setattr(config, traversal_item.attr, decrypted_value)
 
     def _generate_title(self) -> str:
-        title = f"{self._hb_config.Config.title}"
+        title = f"{self._hb_config.model_config['title']}"
         title = self._adorn_title(title)
         return title
 
@@ -663,9 +668,8 @@ async def load_strategy_config_map_from_file(yml_path: Path) -> Union[ClientConf
 def load_connector_config_map_from_file(yml_path: Path) -> ClientConfigAdapter:
     config_data = read_yml_file(yml_path)
     connector_name = connector_name_from_file(yml_path)
-    hb_config = get_connector_hb_config(connector_name)
+    hb_config = get_connector_hb_config(connector_name).model_validate(config_data)
     config_map = ClientConfigAdapter(hb_config)
-    _load_yml_data_into_map(config_data, config_map)
     return config_map
 
 
@@ -675,15 +679,9 @@ def load_client_config_map_from_file() -> ClientConfigAdapter:
         config_data = read_yml_file(yml_path)
     else:
         config_data = {}
-    client_config = ClientConfigMap()
+    client_config = ClientConfigMap(**config_data)
     config_map = ClientConfigAdapter(client_config)
-    config_validation_errors = _load_yml_data_into_map(config_data, config_map)
-
-    if len(config_validation_errors) > 0:
-        all_errors = "\n".join(config_validation_errors)
-        raise ConfigValidationError(f"There are errors in the client global configuration (\n{all_errors})")
     save_to_yml(yml_path, config_map)
-
     return config_map
 
 
@@ -693,13 +691,8 @@ def load_ssl_config_map_from_file() -> ClientConfigAdapter:
         config_data = read_yml_file(yml_path)
     else:
         config_data = {}
-    ssl_config = SSLConfigMap()
+    ssl_config = SSLConfigMap(**config_data)
     config_map = ClientConfigAdapter(ssl_config)
-    config_validation_errors = _load_yml_data_into_map(config_data, config_map)
-
-    if len(config_validation_errors) > 0:
-        all_errors = "\n".join(config_validation_errors)
-        raise ConfigValidationError(f"There are errors in the ssl certs configuration (\n{all_errors})")
 
     if yml_path.exists():
         save_to_yml(yml_path, config_map)

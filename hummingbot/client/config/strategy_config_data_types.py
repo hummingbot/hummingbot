@@ -1,5 +1,6 @@
 from typing import Dict
 
+from pydantic import field_validator
 from pydantic.v1 import Field, validator
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
@@ -20,7 +21,8 @@ class BaseStrategyConfigMap(BaseClientModel):
         ),
     )
 
-    @validator("strategy", pre=True)
+    @field_validator("strategy", mode="before")
+    @classmethod
     def validate_strategy(cls, v: str):
         ret = validate_strategy(v)
         if ret is not None:
@@ -59,7 +61,8 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
 
-    @validator("exchange", pre=True)
+    @field_validator("exchange", mode="before")
+    @classmethod
     def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_exchange(v)
@@ -75,6 +78,8 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
 
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("market", pre=True)
     def validate_exchange_trading_pair(cls, v: str, values: Dict):
         exchange = values.get("exchange")
@@ -141,6 +146,8 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
             f" {exchange}{f' (e.g. {example})' if example else ''}"
         )
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator(
         "maker_market",
         "taker_market",
@@ -163,6 +170,8 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
 
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator(
         "maker_market_trading_pair",
         "taker_market_trading_pair",

@@ -2,12 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
-from pydantic.v1 import BaseModel, Extra, Field, validator
-from pydantic.v1.schema import default_ref_template
+from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic.v1 import Field
 
-from hummingbot.client.config.config_methods import strategy_config_schema_encoder
 from hummingbot.client.config.config_validators import validate_connector, validate_decimal
 
 
@@ -26,32 +25,20 @@ class ClientFieldData:
 
 
 class BaseClientModel(BaseModel):
-    class Config:
-        validate_assignment = True
-        title = None
-        smart_union = True
-        extra = Extra.forbid
-        json_encoders = {
-            datetime: lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S"),
-        }
-
-    @classmethod
-    def schema_json(
-        cls, *, by_alias: bool = True, ref_template: str = default_ref_template, **dumps_kwargs: Any
-    ) -> str:
-        # todo: make it ignore `client_data` all together
-        return cls.__config__.json_dumps(
-            cls.schema(by_alias=by_alias, ref_template=ref_template),
-            default=strategy_config_schema_encoder,
-            **dumps_kwargs
-        )
+    model_config = ConfigDict(validate_assignment=True, title=None, extra="forbid", json_encoders={
+        datetime: lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S"),
+    })
 
     @classmethod
     def _clear_schema_cache(cls):
         cls.__schema_cache__ = {}
 
     def is_required(self, attr: str) -> bool:
-        return self.__fields__[attr].required
+        default = self.model_fields[attr].default
+        if self.model_fields[attr].annotation._name != "Optional" and (default == {} or default.default == Ellipsis):
+            return True
+        else:
+            return False
 
     def validate_decimal(v: str, field: Field):
         """Used for client-friendly error output."""
@@ -70,13 +57,15 @@ class BaseClientModel(BaseModel):
 class BaseConnectorConfigMap(BaseClientModel):
     connector: str = Field(
         default=...,
+        description="What is your connector?",
         client_data=ClientFieldData(
             prompt=lambda mi: "What is your connector?",
             prompt_on_new=True,
         ),
     )
 
-    @validator("connector", pre=True)
+    @field_validator("connector", mode="before")
+    @classmethod
     def validate_connector(cls, v: str):
         ret = validate_connector(v)
         if ret is not None:
