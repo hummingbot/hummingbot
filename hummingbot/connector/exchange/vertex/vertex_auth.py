@@ -7,6 +7,7 @@ from eip712_structs import make_domain
 from eth_utils import big_endian_to_int
 
 import hummingbot.connector.exchange.vertex.vertex_constants as CONSTANTS
+from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
@@ -73,7 +74,7 @@ class VertexAuth(AuthBase):
         s = big_endian_to_int(signature[32:64])
 
         final_sig = r.to_bytes(32, "big") + s.to_bytes(32, "big") + v.to_bytes(1, "big")
-        return f"0x{final_sig.hex()}", digest
+        return to_0x_hex(final_sig), digest
 
     def generate_digest(self, signable_bytes: bytearray) -> str:
         """
@@ -83,7 +84,7 @@ class VertexAuth(AuthBase):
 
         :return: a string hex of the keccak_256 of the signable_bytes of the payload
         """
-        return f"0x{keccak_hash(signable_bytes).hex()}"
+        return to_0x_hex(keccak_hash(signable_bytes))
 
     def _time(self):
         return time.time()

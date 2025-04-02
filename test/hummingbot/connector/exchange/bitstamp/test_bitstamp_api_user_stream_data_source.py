@@ -1,8 +1,8 @@
 import asyncio
 import json
 import re
-from typing import Awaitable, Optional
-from unittest import TestCase
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -16,22 +16,21 @@ from hummingbot.connector.exchange.bitstamp.bitstamp_exchange import BitstampExc
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
-class BitstampUserStreamDataSourceTests(TestCase):
+class BitstampUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = ""
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
@@ -86,10 +85,6 @@ class BitstampUserStreamDataSourceTests(TestCase):
         self.resume_test_event.set()
         return value
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     def _authentication_response(self, user_id: int) -> str:
         message = {
             "token": "some-token",
@@ -112,16 +107,14 @@ class BitstampUserStreamDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
-    def test_listening_process_authenticates_and_subscribes_to_events(self, mock_ws, mock_api):
+    async def test_listening_process_authenticates_and_subscribes_to_events(self, mock_ws, mock_api):
         user_id = 1
         url = web_utils.private_rest_url(CONSTANTS.WEBSOCKET_TOKEN_URL, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=self._authentication_response(user_id))
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source._subscribe_channels(mock_ws))
-        self.ev_loop.run_until_complete(self.listening_task)
+        await self.data_source._subscribe_channels(mock_ws)
 
         self.assertTrue(
             self._is_logged("INFO", "Subscribed to private account and orders channels...")
@@ -129,7 +122,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
-    def test_subscribe_channels_raises_cancel_exception(self, mock_ws, mock_api):
+    async def test_subscribe_channels_raises_cancel_exception(self, mock_ws, mock_api):
         user_id = 1
         url = web_utils.private_rest_url(CONSTANTS.WEBSOCKET_TOKEN_URL, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -139,13 +132,11 @@ class BitstampUserStreamDataSourceTests(TestCase):
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_channels(mock_ws))
-            self.ev_loop.run_until_complete(self.listening_task)
+            await self.data_source._subscribe_channels(mock_ws)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
-    def test_subscribe_channels_raises_exception_and_logs_error(self, mock_ws, mock_api):
+    async def test_subscribe_channels_raises_exception_and_logs_error(self, mock_ws, mock_api):
         user_id = 1
         url = web_utils.private_rest_url(CONSTANTS.WEBSOCKET_TOKEN_URL, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -155,9 +146,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
         mock_ws.send.side_effect = ConnectionError("Test Error")
 
         with self.assertRaises(ConnectionError, msg="Test Error"):
-            self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_channels(mock_ws))
-            self.ev_loop.run_until_complete(self.listening_task)
+            await self.data_source._subscribe_channels(mock_ws)
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading...")
@@ -165,7 +154,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
-    def test_listen_for_user_stream_logs_subscribed_message(self, mock_ws, mock_api):
+    async def test_listen_for_user_stream_logs_subscribed_message(self, mock_ws, mock_api):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -185,11 +174,11 @@ class BitstampUserStreamDataSourceTests(TestCase):
             message=json.dumps(message_event_subscription_success))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_user_stream(msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=mock_ws.return_value)
@@ -200,7 +189,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
-    def test_listen_for_user_stream_does_queue_valid_payload(self, mock_ws, mock_api):
+    async def test_listen_for_user_stream_does_queue_valid_payload(self, mock_ws, mock_api):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -230,11 +219,11 @@ class BitstampUserStreamDataSourceTests(TestCase):
             message=json.dumps(valid_message))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_user_stream(msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=mock_ws.return_value)
@@ -244,7 +233,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
-    def test_listen_for_user_stream_does_not_queue_invalid_payload(self, mock_ws, mock_api):
+    async def test_listen_for_user_stream_does_not_queue_invalid_payload(self, mock_ws, mock_api):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -263,11 +252,11 @@ class BitstampUserStreamDataSourceTests(TestCase):
             message=json.dumps(message_with_unknown_event_type))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_user_stream(msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=mock_ws.return_value)
@@ -276,7 +265,7 @@ class BitstampUserStreamDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
-    def test_listen_for_user_stream_reconnects_on_request(self, mock_ws, mock_api):
+    async def test_listen_for_user_stream_reconnects_on_request(self, mock_ws, mock_api):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -296,11 +285,11 @@ class BitstampUserStreamDataSourceTests(TestCase):
             message=json.dumps(reconnect_event))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source.listen_for_user_stream(msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
         self.assertTrue(self._is_logged("WARNING", "The websocket connection was closed (Received request to reconnect. Reconnecting...)"))

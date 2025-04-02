@@ -1,9 +1,9 @@
 import asyncio
 import base64
+import datetime
 import hashlib
 import hmac
 import re
-from datetime import datetime
 from typing import Awaitable, Optional
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
@@ -36,11 +36,11 @@ class OkxPerpetualAuthTests(TestCase):
 
     @staticmethod
     def _get_timestamp():
-        return datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
+        return datetime.datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'
 
     @staticmethod
     def _format_timestamp(timestamp: int) -> str:
-        return datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
+        return datetime.datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + 'Z'
 
     @staticmethod
     def _sign(message: str, key: str) -> str:
@@ -125,12 +125,14 @@ class OkxPerpetualAuthTests(TestCase):
 
     def test_get_timestamp(self):
         timestamp = self.auth._get_timestamp()
-        self.assertEqual(24, len(timestamp))
-        self.assertEqual("Z", timestamp[-1])
+        # Valid timestamp 2025-02-12T22:11:59.448+00:00
+        self.assertEqual(29, len(timestamp))
+        self.assertNotEqual("Z", timestamp[-1])
         self.assertEqual("T", timestamp[10])
         self.assertEqual(":", timestamp[13])
         self.assertEqual(":", timestamp[16])
         self.assertEqual(".", timestamp[19])
+        self.assertEqual(":", timestamp[26])
 
     def test_ws_authenticate(self):
         mock_request = MagicMock(spec=WSRequest)

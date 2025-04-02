@@ -1,7 +1,7 @@
 """
 Functions for generating keys and certificates
 """
-from datetime import datetime, timedelta
+import datetime
 from os import listdir
 from os.path import join
 from typing import TYPE_CHECKING
@@ -69,8 +69,8 @@ def generate_public_key(private_key, filepath):
     cert_issuer = subject
 
     # Set certification validity duration
-    current_datetime = datetime.utcnow()
-    expiration_datetime = current_datetime + timedelta(days=VALIDITY_DURATION)
+    current_datetime = datetime.datetime.now(datetime.UTC)
+    expiration_datetime = current_datetime + datetime.timedelta(days=VALIDITY_DURATION)
 
     # Create certification
     builder = (
@@ -129,8 +129,8 @@ def sign_csr(csr, ca_public_key, ca_private_key, filepath):
     Sign CSR with CA public & private keys & generate a verified public key
     """
 
-    current_datetime = datetime.utcnow()
-    expiration_datetime = current_datetime + timedelta(days=VALIDITY_DURATION)
+    current_datetime = datetime.datetime.now(datetime.UTC)
+    expiration_datetime = current_datetime + datetime.timedelta(days=VALIDITY_DURATION)
 
     try:
         builder = (

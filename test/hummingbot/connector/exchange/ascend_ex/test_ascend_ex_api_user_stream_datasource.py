@@ -1,8 +1,8 @@
 import asyncio
 import json
 import re
-from typing import Awaitable, Optional
-from unittest import TestCase
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
@@ -19,14 +19,13 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
-class AscendExUserStreamTrackerTests(TestCase):
+class AscendExUserStreamTrackerTests(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -35,8 +34,8 @@ class AscendExUserStreamTrackerTests(TestCase):
 
         cls.listen_key = "TEST_LISTEN_KEY"
 
-    def setUp(self) -> None:
-        super().setUp()
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
         self.log_records = []
         self.listening_task: Optional[asyncio.Task] = None
         self.mocking_assistant = NetworkMockingAssistant()
@@ -79,10 +78,6 @@ class AscendExUserStreamTrackerTests(TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     @staticmethod
     def get_listen_key_mock():
         listen_key = {"data": {"accountGroup": 6}}
@@ -90,7 +85,7 @@ class AscendExUserStreamTrackerTests(TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, mock_api, ws_connect_mock):
+    async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, mock_api, ws_connect_mock):
         url = web_utils.public_rest_url(path_url=CONSTANTS.INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -107,9 +102,9 @@ class AscendExUserStreamTrackerTests(TestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value
@@ -123,7 +118,7 @@ class AscendExUserStreamTrackerTests(TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_get_listen_key_successful_with_user_update_event(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_get_listen_key_successful_with_user_update_event(self, mock_api, mock_ws):
         url = web_utils.public_rest_url(path_url=CONSTANTS.INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -161,15 +156,15 @@ class AscendExUserStreamTrackerTests(TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(order_event))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        msg = self.async_run_with_timeout(msg_queue.get())
+        msg = await msg_queue.get()
         self.assertEqual(order_event, msg)
         mock_ws.return_value.ping.assert_called()
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_does_not_queue_ping_payload(self, mock_api, mock_ws):
+    async def test_listen_for_user_stream_does_not_queue_ping_payload(self, mock_api, mock_ws):
         url = web_utils.public_rest_url(path_url=CONSTANTS.INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -182,9 +177,9 @@ class AscendExUserStreamTrackerTests(TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_ping))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
@@ -194,7 +189,7 @@ class AscendExUserStreamTrackerTests(TestCase):
         "hummingbot.connector.exchange.ascend_ex.ascend_ex_api_user_stream_data_source.AscendExAPIUserStreamDataSource"
         "._sleep"
     )
-    def test_listen_for_user_stream_connection_failed(self, mock_api, sleep_mock, mock_ws):
+    async def test_listen_for_user_stream_connection_failed(self, mock_api, sleep_mock, mock_ws):
         url = web_utils.public_rest_url(path_url=CONSTANTS.INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -206,7 +201,7 @@ class AscendExUserStreamTrackerTests(TestCase):
 
         msg_queue = asyncio.Queue()
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+            await self.data_source.listen_for_user_stream(msg_queue)
         except asyncio.CancelledError:
             pass
 
@@ -221,7 +216,7 @@ class AscendExUserStreamTrackerTests(TestCase):
         "hummingbot.connector.exchange.ascend_ex.ascend_ex_api_user_stream_data_source.AscendExAPIUserStreamDataSource"
         "._sleep"
     )
-    def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, sleep_mock, mock_ws):
+    async def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, sleep_mock, mock_ws):
         url = web_utils.public_rest_url(path_url=CONSTANTS.INFO_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -234,7 +229,7 @@ class AscendExUserStreamTrackerTests(TestCase):
         sleep_mock.side_effect = asyncio.CancelledError  # to finish the task execution
 
         try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+            await self.data_source.listen_for_user_stream(msg_queue)
         except asyncio.CancelledError:
             pass
 
