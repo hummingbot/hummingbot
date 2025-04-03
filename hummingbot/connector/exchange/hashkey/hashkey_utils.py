@@ -25,7 +25,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class HashkeyGlobalConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hashkey", const=True, client_data=None)
+    connector: str = "hashkey"
     hashkey_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -62,7 +62,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {
 
 
 class HashkeyGlobalTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="hashkey_global_testnet", const=True, client_data=None)
+    connector: str = "hashkey_global_testnet"
     hashkey_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
