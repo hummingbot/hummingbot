@@ -35,7 +35,9 @@ class BaseClientModel(BaseModel):
 
     def is_required(self, attr: str) -> bool:
         default = self.model_fields[attr].default
-        if self.model_fields[attr].annotation._name != "Optional" and (default == {} or default.default == Ellipsis):
+        if (hasattr(self.model_fields[attr].annotation, "_name") and
+                self.model_fields[attr].annotation._name != "Optional" and
+                (default == {} or default.default == Ellipsis)):
             return True
         else:
             return False
