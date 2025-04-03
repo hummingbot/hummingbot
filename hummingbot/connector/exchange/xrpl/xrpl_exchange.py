@@ -1365,6 +1365,10 @@ class XrplExchange(ExchangePyBase):
 
             return order_update
         else:
+            # TODO: Check if on order creation time, if the order consumed any offers or AMM fully, then it will not create any offer object
+            # In that case, we need to check from the creation_tx_resp or the transaction matching the sequence number that if the offer was created or not
+            # If not, then check balance changes to see if the offer was filled or not
+
             if creation_tx_resp is None:
                 transactions = await self._fetch_account_transactions(int(ledger_index), is_forward=True)
             else:
@@ -1398,7 +1402,6 @@ class XrplExchange(ExchangePyBase):
             if latest_status == "UNKNOWN":
                 current_state = tracked_order.current_state
                 if current_state is OrderState.PENDING_CREATE or current_state is OrderState.PENDING_CANCEL:
-                    # give order at least 120 seconds to be processed
                     if time.time() - tracked_order.last_update_timestamp > CONSTANTS.PENDING_ORDER_STATUS_CHECK_TIMEOUT:
                         new_order_state = OrderState.FAILED
                         self.logger().error(
@@ -1511,8 +1514,7 @@ class XrplExchange(ExchangePyBase):
         xrp_balance = account_info.result.get("account_data", {}).get("Balance", "0")
         total_xrp = drops_to_xrp(xrp_balance)
         total_ledger_objects = len(objects.result.get("account_objects", []))
-        fixed_wallet_reserve = 10
-        available_xrp = total_xrp - fixed_wallet_reserve - total_ledger_objects * 2
+        available_xrp = total_xrp - CONSTANTS.WALLET_RESERVE - total_ledger_objects * CONSTANTS.LEDGER_OBJECT_RESERVE
 
         account_balances = {
             "XRP": Decimal(total_xrp),
