@@ -25,6 +25,10 @@ SNAPSHOT_EVENT_TYPE = "order_book_snapshots"
 # Drop definitions
 ONE_DROP = Decimal("0.000001")
 
+# Ledger Reserve Fee
+WALLET_RESERVE = Decimal("1")
+LEDGER_OBJECT_RESERVE = Decimal("0.2")
+
 # Order States
 ORDER_STATE = {
     "open": OrderState.OPEN,
@@ -59,7 +63,7 @@ FETCH_ORDER_BOOK_RETRY_INTERVAL = 1
 LEDGER_OFFSET = _LEDGER_OFFSET * 2
 
 # Timeout for pending order status check
-PENDING_ORDER_STATUS_CHECK_TIMEOUT = 120
+PENDING_ORDER_STATUS_CHECK_TIMEOUT = 30
 
 # Request Timeout
 REQUEST_TIMEOUT = 60
