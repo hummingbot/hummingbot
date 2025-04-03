@@ -1,8 +1,7 @@
-import asyncio
-import unittest
 from copy import deepcopy
 from decimal import Decimal
-from typing import Awaitable, Dict, Optional
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Dict, Optional
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -25,32 +24,31 @@ class DummyRateSource(RateSourceBase):
         return deepcopy(self._price_dict)
 
 
-class RateOracleTest(unittest.TestCase):
+class RateOracleTest(IsolatedAsyncioWrapperTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.target_token = "COINALPHA"
         cls.global_token = "HBOT"
         cls.trading_pair = combine_to_hb_trading_pair(base=cls.target_token, quote=cls.global_token)
 
     def setUp(self) -> None:
+        super().setUp()
         if RateOracle._shared_instance is not None:
             RateOracle._shared_instance.stop()
         RateOracle._shared_instance = None
 
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+
     def tearDown(self) -> None:
         RateOracle._shared_instance = None
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def test_find_rate_from_source(self):
         expected_rate = Decimal("10")
         rate_oracle = RateOracle(source=DummyRateSource(price_dict={self.trading_pair: expected_rate}))
 
-        rate = self.async_run_with_timeout(rate_oracle.rate_async(self.trading_pair))
+        rate = self.run_async_with_timeout(rate_oracle.rate_async(self.trading_pair))
         self.assertEqual(expected_rate, rate)
 
     def test_rate_oracle_network(self):
@@ -58,12 +56,12 @@ class RateOracleTest(unittest.TestCase):
         rate_oracle = RateOracle(source=DummyRateSource(price_dict={self.trading_pair: expected_rate}))
 
         rate_oracle.start()
-        self.async_run_with_timeout(rate_oracle.get_ready())
+        self.run_async_with_timeout(rate_oracle.get_ready())
         self.assertGreater(len(rate_oracle.prices), 0)
         rate = rate_oracle.get_pair_rate(self.trading_pair)
         self.assertEqual(expected_rate, rate)
 
-        self.async_run_with_timeout(rate_oracle.stop_network())
+        self.run_async_with_timeout(rate_oracle.stop_network())
 
         self.assertIsNone(rate_oracle._fetch_price_task)
 

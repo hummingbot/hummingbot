@@ -67,14 +67,14 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_data: Dict[str, Any] = snapshot_response["data"]
-        snapshot_timestamp: float = int(snapshot_data["timestamp"]) * 1e-3
-        update_id: int = int(snapshot_data["timestamp"])
+        snapshot_timestamp: float = int(snapshot_data["ts"]) * 1e-3
+        update_id: int = int(snapshot_data["ts"])
 
         order_book_message_content = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": [(bid["price"], bid["amount"]) for bid in snapshot_data["buys"]],
-            "asks": [(ask["price"], ask["amount"]) for ask in snapshot_data["sells"]],
+            "bids": [(bid[0], bid[1]) for bid in snapshot_data["bids"]],
+            "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
             OrderBookMessageType.SNAPSHOT,
@@ -186,7 +186,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data: Dict[str, Any] = ws_response.data
             decompressed_data = utils.decompress_ws_message(data)
             try:
-                if type(decompressed_data) == str:
+                if isinstance(decompressed_data, str):
                     json_data = json.loads(decompressed_data)
                 else:
                     json_data = decompressed_data

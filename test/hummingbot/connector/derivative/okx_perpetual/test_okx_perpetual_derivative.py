@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Callable, List, Optional, Tuple
 from unittest.mock import patch
 
@@ -32,7 +33,10 @@ from hummingbot.core.event.events import (
 )
 
 
-class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
+class OkxPerpetualDerivativeTests(
+    AbstractPerpetualDerivativeTests.PerpetualDerivativeTests,
+    IsolatedAsyncioWrapperTestCase,
+):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -251,7 +255,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         min_base_amount_increment = Decimal(str(1))
         mocked_response = self.trading_rules_request_mock_response
         self._simulate_trading_rules_initialized()
-        trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+        trading_rules = self.run_async_with_timeout(self.exchange._format_trading_rules(mocked_response))
 
         self.assertEqual(1, len(trading_rules))
 
@@ -266,7 +270,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     def test_format_trading_rules_exception(self):
         mocked_response = self.trading_rules_request_erroneous_mock_response
         self._simulate_trading_rules_initialized()
-        self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+        self.run_async_with_timeout(self.exchange._format_trading_rules(mocked_response))
 
         self.assertTrue(self._is_logged(
             "ERROR",
@@ -1481,7 +1485,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             self.exchange._funding_fee_poll_notifier.set()
             await request_sent_event.wait()
 
-        self.async_run_with_timeout(run_test())
+        self.run_async_with_timeout(run_test())
 
         self.assertEqual(1, len(self.funding_payment_logger.event_log))
         funding_event: FundingPaymentCompletedEvent = self.funding_payment_logger.event_log[0]
@@ -1540,7 +1544,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_queue_get.side_effect = event_messages
 
         try:
-            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
+            self.run_async_with_timeout(self.exchange._listen_for_funding_info())
         except asyncio.CancelledError:
             pass
 
@@ -1575,7 +1579,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_queue_get.side_effect = event_messages
 
         try:
-            self.async_run_with_timeout(
+            self.run_async_with_timeout(
                 self.exchange._listen_for_funding_info())
         except asyncio.CancelledError:
             pass
@@ -1758,7 +1762,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
             self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
-            self.async_run_with_timeout(request_sent_event.wait())
+            self.run_async_with_timeout(request_sent_event.wait())
 
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
@@ -1804,7 +1808,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
+            self.run_async_with_timeout(
                 self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1814,8 +1818,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.async_run_with_timeout(self.exchange._cancel_lost_orders())
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(self.exchange._cancel_lost_orders())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         if url:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1825,7 +1829,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 request_call=cancel_request)
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
             any(
                 log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
@@ -1852,7 +1856,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
+            self.run_async_with_timeout(
                 self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1862,8 +1866,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.async_run_with_timeout(self.exchange._cancel_lost_orders())
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(self.exchange._cancel_lost_orders())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         if url:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1905,7 +1909,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         if url != "":
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1914,7 +1918,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 order=order,
                 request_call=cancel_request)
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
             any(
                 log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
@@ -1957,7 +1961,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             erroneous_order=order2,
             mock_api=mock_api)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+        cancellation_results = self.run_async_with_timeout(self.exchange.cancel_all(10))
 
         for url in urls:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1992,7 +1996,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                       callback=lambda *args, **kwargs: request_sent_event.set())
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -2010,7 +2014,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             order=order_to_validate_request,
             request_call=order_request)
 
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -2042,7 +2046,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
+            self.run_async_with_timeout(
                 self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -2063,11 +2067,11 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             order.completely_filled_event.set()
             request_sent_event.set()
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.run_async_with_timeout(self.exchange._update_order_status())
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+        self.run_async_with_timeout(order.wait_until_completely_filled())
         self.assertTrue(order.is_done)
         self.assertTrue(order.is_failure)
 
@@ -2106,9 +2110,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.async_run_with_timeout(self.exchange._update_lost_orders_status())
+        self.run_async_with_timeout(self.exchange._update_lost_orders_status())
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         self.assertTrue(order.is_done)
         self.assertTrue(order.is_failure)
@@ -2142,7 +2146,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             order=order,
             mock_api=mock_api)
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.run_async_with_timeout(self.exchange._update_order_status())
 
         for url in (urls if isinstance(urls, list) else [urls]):
             order_status_request = self._all_executed_requests(mock_api, url)[0]
@@ -2185,9 +2189,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         # Since the trade fill update will fail we need to manually set the event
         # to allow the ClientOrderTracker to process the last status update
         order.completely_filled_event.set()
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.run_async_with_timeout(self.exchange._update_order_status())
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+        self.run_async_with_timeout(order.wait_until_completely_filled())
 
         for url in (urls if isinstance(urls, list) else [urls]):
             order_status_request = self._all_executed_requests(mock_api, url)[0]
@@ -2245,7 +2249,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
         self.assertTrue(order.is_open)
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.run_async_with_timeout(self.exchange._update_order_status())
 
         for url in (urls if isinstance(urls, list) else [urls]):
             order_status_request = self._all_executed_requests(mock_api, url)[0]
@@ -2282,7 +2286,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
         self.assertTrue(order.is_open)
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.run_async_with_timeout(self.exchange._update_order_status())
 
         if order_url:
             order_status_request = self._all_executed_requests(mock_api, order_url)[0]
@@ -2331,7 +2335,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             order=order,
             mock_api=mock_api)
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.run_async_with_timeout(self.exchange._update_order_status())
 
         if url:
             order_status_request = self._all_executed_requests(mock_api, url)[0]
@@ -2363,7 +2367,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         leverage = 4
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -2410,7 +2414,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         leverage = 5
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -2458,7 +2462,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -2506,12 +2510,12 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
+        self.run_async_with_timeout(request_sent_event.wait(), timeout=3)
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
@@ -2551,7 +2555,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         leverage = 3
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        self.run_async_with_timeout(request_sent_event.wait())
 
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
@@ -2583,5 +2587,5 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @aioresponses()
     def test_get_last_traded_price(self, mock_api):
         mock_api.get(self.latest_prices_url, body=json.dumps(self.latest_prices_request_mock_response))
-        lastprice_response = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
+        lastprice_response = self.run_async_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
         self.assertEqual(lastprice_response, 9999.9)

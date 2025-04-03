@@ -34,7 +34,7 @@ hummingbot
 │
 ├── model				# data models for managing DB migrations and market data structures
 │
-├── notifier				# connectors to services that sends notifications such as Telegram
+├── notifier				# connectors to services that sends notifications
 │
 ├── pmm_script				# Script Strategies
 │
