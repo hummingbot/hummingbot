@@ -20,7 +20,7 @@ class PMMConfig(ControllerConfigBase):
     This class represents the base configuration for a market making controller.
     """
     controller_type: str = "generic"
-    controller_name = "pmm"
+    controller_name: str = "pmm"
     candles_config: List[CandlesConfig] = []
     connector_name: str = Field(
         default="binance",
