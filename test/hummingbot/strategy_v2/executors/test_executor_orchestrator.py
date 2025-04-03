@@ -13,7 +13,7 @@ from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import Arbit
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
-from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator, PositionHeld
+from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator, PositionHold
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
@@ -202,7 +202,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
     def test_store_all_positions(self, markets_recorder_mock):
         markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
         markets_recorder_mock.store_position = MagicMock(return_value=None)
-        position_held = PositionHeld("binance", "SOL-USDT")
+        position_held = PositionHold("binance", "SOL-USDT", side=TradeType.BUY)
         executor_info = ExecutorInfo(
             id="123", timestamp=1234, type="position_executor",
             status=RunnableStatus.TERMINATED, config=PositionExecutorConfig(
@@ -224,7 +224,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(len(self.orchestrator.positions_held["main"]), 0)
 
     def test_get_positions_report(self):
-        position_held = PositionHeld("binance", "SOL-USDT")
+        position_held = PositionHold("binance", "SOL-USDT", side=TradeType.BUY)
         executor_info = ExecutorInfo(
             id="123", timestamp=1234, type="position_executor",
             status=RunnableStatus.TERMINATED, config=PositionExecutorConfig(
@@ -244,7 +244,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         }
         report = self.orchestrator.get_positions_report()
         self.assertEqual(len(report), 1)
-        self.assertEqual(report["main"][0].amount, Decimal(-10))
+        self.assertEqual(report["main"][0].amount, Decimal(10))
 
     @patch.object(MarketsRecorder, "get_instance")
     def test_store_all_executors(self, markets_recorder_mock):
@@ -258,7 +258,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         position_executor.config = config_mock
         self.orchestrator.active_executors["test"] = [position_executor]
         self.orchestrator.store_all_executors()
-        self.assertEqual(len(self.orchestrator.active_executors["test"]), 0)
+        self.assertEqual(self.orchestrator.active_executors, {})
 
     @patch.object(ExecutorOrchestrator, "store_all_positions")
     def test_stop(self, store_all_positions):

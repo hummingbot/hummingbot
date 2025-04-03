@@ -18,7 +18,6 @@ class TestGateioSpotCandles(TestCandlesBase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"
         cls.interval = "1h"
@@ -28,29 +27,34 @@ class TestGateioSpotCandles(TestCandlesBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = GateioSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
-        self.resume_test_event = asyncio.Event()
         self._time = int(time.time())
         self._interval_in_seconds = 3600
 
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test_event = asyncio.Event()
+
     @aioresponses()
-    def test_fetch_candles_raises_exception(self, mock_api):
+    async def test_fetch_candles_raises_exception(self, mock_api):
         regex_url = re.compile(f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
         start_time = self._time - self._interval_in_seconds * 100000
         end_time = self._time
-        config = HistoricalCandlesConfig(start_time=start_time, end_time=end_time, interval=self.interval, connector_name=self.data_feed.name, trading_pair=self.trading_pair)
-        with self.assertRaises(ValueError, msg="Gate.io REST API does not support fetching more than 10000 candles ago."):
-            self.async_run_with_timeout(self.data_feed.get_historical_candles(config))
+        config = HistoricalCandlesConfig(start_time=start_time, end_time=end_time, interval=self.interval,
+                                         connector_name=self.data_feed.name, trading_pair=self.trading_pair)
+        with self.assertRaises(ValueError,
+                               msg="Gate.io REST API does not support fetching more than 10000 candles ago."):
+            await (self.data_feed.get_historical_candles(config))
 
     @aioresponses()
-    def test_fetch_candles(self, mock_api):
+    async def test_fetch_candles(self, mock_api):
         regex_url = re.compile(f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
@@ -58,14 +62,17 @@ class TestGateioSpotCandles(TestCandlesBase):
         self.start_time = self._time - self._interval_in_seconds * 3
         self.end_time = self._time
 
-        candles = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=self.start_time,
-                                                                           end_time=self.end_time))
+        candles = await (self.data_feed.fetch_candles(start_time=self.start_time,
+                                                      end_time=self.end_time))
         self.assertEqual(len(candles), len(data_mock))
 
     def get_fetch_candles_data_mock(self):
-        return [[self._time - self._interval_in_seconds * 3, '26728.1', '26736.1', '26718.4', '26718.4', '4.856410775', '129807.73747903012', 0, 0, 0],
-                [self._time - self._interval_in_seconds * 2, '26718.4', '26758.1', '26709.2', '26746.2', '24.5891110488', '657338.79714685262', 0, 0, 0],
-                [self._time - self._interval_in_seconds, '26746.2', '26746.2', '26720', '26723.1', '7.5659923741', '202249.7345089816', 0, 0, 0],
+        return [[self._time - self._interval_in_seconds * 3, '26728.1', '26736.1', '26718.4', '26718.4', '4.856410775',
+                 '129807.73747903012', 0, 0, 0],
+                [self._time - self._interval_in_seconds * 2, '26718.4', '26758.1', '26709.2', '26746.2',
+                 '24.5891110488', '657338.79714685262', 0, 0, 0],
+                [self._time - self._interval_in_seconds, '26746.2', '26746.2', '26720', '26723.1', '7.5659923741',
+                 '202249.7345089816', 0, 0, 0],
                 [self._time, '26723.1', '26723.1', '26710.1', '26723.1', '4.5305391649', '121057.96936704352', 0, 0, 0]]
 
     def get_candles_rest_data_mock(self):

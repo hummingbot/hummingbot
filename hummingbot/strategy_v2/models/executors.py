@@ -54,9 +54,9 @@ class TrackedOrder:
             return None
 
     @property
-    def last_update_time(self):
+    def last_update_timestamp(self):
         if self.order:
-            return self.order.last_update_time
+            return self.order.last_update_timestamp
         else:
             return None
 

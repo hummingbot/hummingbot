@@ -1,7 +1,6 @@
 import asyncio
 import json
-from typing import Awaitable
-from unittest import TestCase
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
@@ -11,16 +10,16 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_user_stream_dat
     OkxPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class OkxPerpetualUserStreamDataSourceTests(TestCase):
+class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source loger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -31,7 +30,6 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         super().setUp()
         self.log_records = []
         self.listening_task = None
-        self.mocking_assistant = NetworkMockingAssistant()
 
         self.mock_time_provider = MagicMock()
         self.mock_time_provider.time.return_value = 1000
@@ -49,6 +47,10 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
 
         self.mocking_assistant = NetworkMockingAssistant()
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+        self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
     def tearDown(self) -> None:
@@ -92,12 +94,8 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         self.resume_test_event.set()
         raise exception
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
+    async def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         initial_last_recv_time = self.data_source.last_recv_time
@@ -117,7 +115,7 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         self.listening_task = asyncio.get_event_loop().create_task(
             self.data_source._listen_for_user_stream_on_url("test_url", messages)
         )
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(
             self._is_logged("INFO", "Subscribed to private account and orders channels test_url...")
@@ -153,7 +151,7 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         self.assertGreater(self.data_source.last_recv_time, initial_last_recv_time)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_authentication_failure(self, ws_connect_mock):
+    async def test_listen_for_user_stream_authentication_failure(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -163,7 +161,7 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
             ws_connect_mock.return_value,
             self._authentication_response(False))
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(self._is_logged("ERROR", "Error authenticating the private websocket connection"))
         self.assertTrue(
@@ -174,7 +172,7 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_ws):
+    async def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             mock_ws.return_value, self._authentication_response(True)
@@ -182,25 +180,25 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source._listen_for_user_stream_on_url("test_url", msg_queue)
         )
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_connection_failed(self, mock_ws):
+    async def test_listen_for_user_stream_connection_failed(self, mock_ws):
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR."))
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(
+        self.listening_task = self.local_event_loop.create_task(
             self.data_source._listen_for_user_stream_on_url("test_url", msg_queue)
         )
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        await self.resume_test_event.wait()
 
         self.assertTrue(
             self._is_logged(
@@ -209,11 +207,11 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listening_process_canceled_on_cancel_exception(self, ws_connect_mock):
+    async def test_listening_process_canceled_on_cancel_exception(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
                 self.data_source.listen_for_user_stream(messages))
-            self.async_run_with_timeout(self.listening_task)
+            await self.listening_task

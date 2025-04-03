@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
-from pydantic import Field
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
@@ -109,7 +109,9 @@ class GridStrike(ControllerBase):
                     order_frequency=self.config.order_frequency,
                     activation_bounds=self.config.activation_bounds,
                     triple_barrier_config=self.config.triple_barrier_config,
-                    level_id=None))]
+                    level_id=None,
+                    keep_position=True,
+                ))]
         return []
 
     async def update_processed_data(self):
