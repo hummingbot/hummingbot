@@ -91,7 +91,7 @@ class CreateCommand:
             if not config_class:
                 raise InvalidController(f"No configuration class found in the module {controller_name}.")
 
-            config_class_instance = config_class.construct()
+            config_class_instance = config_class.model_construct()
             config_class_instance.id = config_class_instance.set_id(None)
             config_map = ClientConfigAdapter(config_class_instance)
 
@@ -204,7 +204,7 @@ class CreateCommand:
         self,  # type: HummingbotApplication
     ) -> Optional[str]:
         strategy = None
-        strategy_config = ClientConfigAdapter(BaseStrategyConfigMap.construct())
+        strategy_config = ClientConfigAdapter(BaseStrategyConfigMap.model_construct())
         await self.prompt_for_model_config(strategy_config)
         if not self.app.to_stop_config:
             strategy = strategy_config.strategy
