@@ -107,9 +107,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
             prompt_on_new=True))
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("trailing_stop", pre=True, always=True)
+    @field_validator("trailing_stop", mode="before")
     def parse_trailing_stop(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -118,9 +116,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("time_limit", "stop_loss", "take_profit", pre=True, always=True)
+    @field_validator("time_limit", "stop_loss", "take_profit", mode="before")
     def validate_target(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -128,9 +124,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return Decimal(v)
         return v
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
+    @field_validator('take_profit_order_type', mode="before")
+    @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
             return v
@@ -159,9 +154,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
+    @field_validator('buy_spreads', 'sell_spreads', mode="before")
+    @classmethod
     def parse_spreads(cls, v):
         if v is None:
             return []

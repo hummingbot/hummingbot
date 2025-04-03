@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Callable, Dict, List, Set
 
 from pydantic import field_validator
-from pydantic.v1 import Field, validator
+from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -48,7 +48,7 @@ class ControllerConfigBase(BaseClientModel):
             is_updatable=True,
             prompt_on_new=True,
             prompt=lambda mi: "Enter the total amount in quote asset to use for trading (e.g., 1000):"))
-    manual_kill_switch: bool = Field(default=None, client_data=ClientFieldData(is_updatable=True, prompt_on_new=False))
+    manual_kill_switch: bool = Field(default=False, client_data=ClientFieldData(is_updatable=True, prompt_on_new=False))
     candles_config: List[CandlesConfig] = Field(
         default=[],
         client_data=ClientFieldData(
@@ -61,9 +61,8 @@ class ControllerConfigBase(BaseClientModel):
         )
     )
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator('id', pre=True, always=True)
+    @field_validator('id', mode="before")
+    @classmethod
     def set_id(cls, v):
         if v is None or v.strip() == "":
             return generate_unique_id()
