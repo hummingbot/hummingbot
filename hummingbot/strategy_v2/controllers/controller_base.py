@@ -6,7 +6,7 @@ import inspect
 from decimal import Decimal
 from typing import TYPE_CHECKING, Callable, Dict, List, Set
 
-from pydantic import field_validator
+from pydantic import ConfigDict, field_validator
 from pydantic.v1 import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
@@ -60,6 +60,7 @@ class ControllerConfigBase(BaseClientModel):
             )
         )
     )
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_validator('id', mode="before")
     @classmethod

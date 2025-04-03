@@ -12,7 +12,7 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
 
 
 class MACDBBV1ControllerConfig(DirectionalTradingControllerConfigBase):
-    controller_name = "macd_bb_v1"
+    controller_name: str = "macd_bb_v1"
     candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,

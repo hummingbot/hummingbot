@@ -16,7 +16,7 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import Positi
 
 
 class AILivestreamControllerConfig(DirectionalTradingControllerConfigBase):
-    controller_name = "ai_livestream"
+    controller_name: str = "ai_livestream"
     candles_config: List[CandlesConfig] = []
     long_threshold: float = Field(
         default=0.5,

@@ -12,7 +12,7 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
 
 
 class SmugPlugControllerConfig(DirectionalTradingControllerConfigBase):
-    controller_name = "smugplug"
+    controller_name: str = "smugplug"
     candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None)
