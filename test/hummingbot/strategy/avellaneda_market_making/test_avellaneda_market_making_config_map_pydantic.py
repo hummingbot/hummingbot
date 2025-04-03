@@ -63,7 +63,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         return config_settings
 
     def test_initial_sequential_build(self):
-        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap.construct())
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap.model_construct())
         config_settings = self.get_default_map()
 
         def build_config_map(cm: ClientConfigAdapter, cs: Dict):
