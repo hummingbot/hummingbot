@@ -1033,7 +1033,7 @@ class ClientConfigMap(BaseClientModel):
                 f"Invalid DB mode, please choose a value from {list(DB_MODES.keys())}."
             )
         else:
-            sub_model = DB_MODES[v].construct()
+            sub_model = DB_MODES[v].model_construct()
         return sub_model
 
     @field_validator("anonymized_metrics_mode", mode="before")
@@ -1046,7 +1046,7 @@ class ClientConfigMap(BaseClientModel):
                 f"Invalid metrics mode, please choose a value from {list(METRICS_MODES.keys())}."
             )
         else:
-            sub_model = METRICS_MODES[v].construct()
+            sub_model = METRICS_MODES[v].model_construct()
         return sub_model
 
     @field_validator("rate_oracle_source", mode="before")

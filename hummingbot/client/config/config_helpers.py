@@ -113,8 +113,10 @@ class ClientConfigAdapter:
             type_ = field_info.annotation
             if hasattr(self, attr):
                 value = getattr(self, attr)
+                if isinstance(value, FieldInfo):
+                    value = self.get_default(attr)
                 printable_value = self._get_printable_value(attr, value, secure)
-                client_field_data = field_info.default.extra.get("client_data")
+                client_field_data = self.get_client_data(attr)
             else:
                 value = None
                 printable_value = "&cMISSING_AND_REQUIRED"
@@ -584,7 +586,7 @@ def get_strategy_config_map(
                                          fromlist=[f"hummingbot.strategy.{strategy}"])
             config_map = getattr(strategy_module, cm_key)
         else:
-            hb_config = config_cls.construct()
+            hb_config = config_cls.model_construct()
             config_map = ClientConfigAdapter(hb_config)
     except Exception:
         config_map = defaultdict()
@@ -659,7 +661,7 @@ async def load_strategy_config_map_from_file(yml_path: Path) -> Union[ClientConf
         await load_yml_into_cm_legacy(str(yml_path), str(template_path), config_map)
     else:
         config_data = read_yml_file(yml_path)
-        hb_config = config_cls.construct()
+        hb_config = config_cls.model_construct()
         config_map = ClientConfigAdapter(hb_config)
         _load_yml_data_into_map(config_data, config_map)
     return config_map
