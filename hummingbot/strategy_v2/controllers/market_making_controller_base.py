@@ -2,7 +2,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from pydantic import field_validator
-from pydantic.v1 import Field, validator
+from pydantic.v1 import Field
+from pydantic_core.core_schema import ValidationInfo
 
 from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
@@ -165,18 +166,18 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return [float(x.strip()) for x in v.split(',')]
         return v
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator('buy_amounts_pct', 'sell_amounts_pct', pre=True, always=True)
-    def parse_and_validate_amounts(cls, v, values, field):
+    @field_validator('buy_amounts_pct', 'sell_amounts_pct', mode="before")
+    @classmethod
+    def parse_and_validate_amounts(cls, v, validation_info: ValidationInfo):
+        field_name = validation_info.field_name
         if v is None or v == "":
-            spread_field = field.name.replace('amounts_pct', 'spreads')
-            return [1 for _ in values[spread_field]]
+            spread_field = field_name.replace('amounts_pct', 'spreads')
+            return [1 for _ in validation_info.data[spread_field]]
         if isinstance(v, str):
             return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(values[field.name.replace('amounts_pct', 'spreads')]):
+        elif isinstance(v, list) and len(v) != len(validation_info.data[field_name.replace('amounts_pct', 'spreads')]):
             raise ValueError(
-                f"The number of {field.name} must match the number of {field.name.replace('amounts_pct', 'spreads')}.")
+                f"The number of {field_name} must match the number of {field_name.replace('amounts_pct', 'spreads')}.")
         return v
 
     @field_validator('position_mode', mode="before")
