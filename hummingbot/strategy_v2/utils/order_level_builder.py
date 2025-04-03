@@ -3,8 +3,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel
-from pydantic.class_validators import validator
+from pydantic.v1 import BaseModel
+from pydantic.v1.class_validators import validator
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.position_executor.data_types import TripleBarrierConfig

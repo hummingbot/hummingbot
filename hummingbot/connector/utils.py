@@ -6,6 +6,8 @@ from collections import namedtuple
 from hashlib import md5
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from hexbytes import HexBytes
+
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
@@ -120,3 +122,13 @@ class GZipCompressionWSPostProcessor(WSPostProcessorBase):
         msg: Dict[str, Any] = json.loads(encoded_msg.decode("utf-8"))
 
         return WSResponse(data=msg)
+
+
+def to_0x_hex(signature: HexBytes | bytes) -> str:
+    """
+    Convert a string to a 0x-prefixed hex string.
+    """
+    if hasattr(signature, "to_0x_hex"):
+        return signature.to_0x_hex()
+
+    return hex if (hex := signature.hex()).startswith("0x") else f"0x{hex}"
