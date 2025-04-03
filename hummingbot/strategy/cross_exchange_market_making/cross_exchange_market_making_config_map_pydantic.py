@@ -234,7 +234,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         ),
     )
     order_refresh_mode: Union[ActiveOrderRefreshMode, PassiveOrderRefreshMode] = Field(
-        default=ActiveOrderRefreshMode.construct(),
+        default=ActiveOrderRefreshMode.model_construct(),
         description="Refresh orders by cancellation or by letting them expire.",
         client_data=ClientFieldData(
             prompt=lambda mi: f"Select the order refresh mode ({'/'.join(list(ORDER_REFRESH_MODELS.keys()))})",
@@ -294,7 +294,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         ),
     )
     conversion_rate_mode: Union[OracleConversionRateMode, TakerToMakerConversionRateMode] = Field(
-        default=OracleConversionRateMode.construct(),
+        default=OracleConversionRateMode.model_construct(),
         description="Convert between different trading pairs using fixed conversion rates or using the rate oracle.",
         client_data=ClientFieldData(
             prompt=lambda mi: f"Select the conversion rate mode ({'/'.join(list(CONVERSION_RATE_MODELS.keys()))})",
@@ -378,7 +378,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
                 f"Invalid order refresh mode, please choose value from {list(ORDER_REFRESH_MODELS.keys())}."
             )
         else:
-            sub_model = ORDER_REFRESH_MODELS[v].construct()
+            sub_model = ORDER_REFRESH_MODELS[v].model_construct()
         return sub_model
 
     @field_validator("conversion_rate_mode", mode="before")
@@ -391,7 +391,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
                 f"Invalid conversion rate mode, please choose value from {list(CONVERSION_RATE_MODELS.keys())}."
             )
         else:
-            sub_model = CONVERSION_RATE_MODELS[v].construct()
+            sub_model = CONVERSION_RATE_MODELS[v].model_construct()
         return sub_model
 
     # === generic validations ===
