@@ -1,4 +1,5 @@
 from .balance_command import BalanceCommand
+from .check_arb_command import CheckArbCommand
 from .config_command import ConfigCommand
 from .connect_command import ConnectCommand
 from .create_command import CreateCommand
@@ -20,6 +21,7 @@ from .ticker_command import TickerCommand
 
 __all__ = [
     BalanceCommand,
+    CheckArbCommand,
     ConfigCommand,
     ConnectCommand,
     CreateCommand,

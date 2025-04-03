@@ -171,6 +171,20 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     )
     mqtt_restart_parser.set_defaults(func=hummingbot.mqtt_restart)
 
+    check_arb_parser = subparsers.add_parser(
+        "check_arb",
+        help="Check arbitrage opportunities for markets across multiple exchanges",
+    )
+    check_arb_parser.add_argument(
+        "exchange_1_market_1",
+        help="First exchange and market, in the format exchange:market (e.g., binance:BTC-USDT)"
+    )
+    check_arb_parser.add_argument(
+        "exchange_2_market_2",
+        help="Second exchange and market, in the format exchange:market (e.g., kucoin:BTC-USDT)"
+    )
+    check_arb_parser.set_defaults(func=hummingbot.check_arb)
+
     # add shortcuts so they appear in command help
     shortcuts = hummingbot.client_config_map.command_shortcuts
     for shortcut in shortcuts:
