@@ -162,7 +162,7 @@ class ConfigCommandTest(unittest.TestCase):
             class Config:
                 title = "dummy_model"
 
-        get_strategy_config_map_mock.return_value = ClientConfigAdapter(DummyModel.construct())
+        get_strategy_config_map_mock.return_value = ClientConfigAdapter(DummyModel.model_construct())
 
         self.app.list_configs()
 
@@ -199,7 +199,7 @@ class ConfigCommandTest(unittest.TestCase):
 
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
-        get_strategy_config_map_mock.return_value = ClientConfigAdapter(DummyModel.construct())
+        get_strategy_config_map_mock.return_value = ClientConfigAdapter(DummyModel.model_construct())
         self.app.config(key="some_attr")
 
         notify_mock.assert_not_called()
@@ -236,7 +236,7 @@ class ConfigCommandTest(unittest.TestCase):
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
         self.app.strategy_file_name = f"{strategy_name}.yml"
-        config_map = ClientConfigAdapter(DummyModel.construct())
+        config_map = ClientConfigAdapter(DummyModel.model_construct())
         get_strategy_config_map_mock.return_value = config_map
 
         self.async_run_with_timeout(self.app._config_single_key(key="some_attr", input_value=2))
