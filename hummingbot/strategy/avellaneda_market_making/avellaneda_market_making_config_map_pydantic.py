@@ -307,7 +307,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         ),
     )
     order_levels_mode: Union[SingleOrderLevelModel, MultiOrderLevelModel] = Field(
-        default=SingleOrderLevelModel.construct(),
+        default=SingleOrderLevelModel.model_construct(),
         description="Allows activating multi-order levels.",
         client_data=ClientFieldData(
             prompt=lambda mi: f"Select the order levels mode ({'/'.join(list(ORDER_LEVEL_MODELS.keys()))})",
@@ -365,7 +365,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
                 f"Invalid timeframe, please choose value from {list(EXECUTION_TIMEFRAME_MODELS.keys())}"
             )
         else:
-            sub_model = EXECUTION_TIMEFRAME_MODELS[v].construct()
+            sub_model = EXECUTION_TIMEFRAME_MODELS[v].model_construct()
         return sub_model
 
     @field_validator("order_refresh_tolerance_pct", mode="before")
@@ -396,7 +396,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
                 f"Invalid order levels mode, please choose value from {list(ORDER_LEVEL_MODELS.keys())}."
             )
         else:
-            sub_model = ORDER_LEVEL_MODELS[v].construct()
+            sub_model = ORDER_LEVEL_MODELS[v].model_construct()
         return sub_model
 
     @field_validator("hanging_orders_mode", mode="before")
@@ -409,7 +409,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
                 f"Invalid hanging order mode, please choose value from {list(HANGING_ORDER_MODELS.keys())}."
             )
         else:
-            sub_model = HANGING_ORDER_MODELS[v].construct()
+            sub_model = HANGING_ORDER_MODELS[v].model_construct()
         return sub_model
 
     # === generic validations ===

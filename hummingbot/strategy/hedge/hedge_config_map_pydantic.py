@@ -222,8 +222,8 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         if validate_bool(v):
             raise ValueError("enter a boolean value")
         if v.lower() in (True, "true", "yes", "y"):
-            return MarketConfigMap.construct()
-        return EmptyMarketConfigMap.construct()
+            return MarketConfigMap.model_construct()
+        return EmptyMarketConfigMap.model_construct()
 
     # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
     # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
