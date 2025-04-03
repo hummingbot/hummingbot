@@ -456,7 +456,7 @@ class AllConnectorSettings:
         current_settings = cls.get_connector_settings()[connector]
         current_keys = current_settings.config_keys
         new_keys = (
-            current_keys if current_keys is None else current_keys.__class__.construct()
+            current_keys if current_keys is None else current_keys.__class__.model_construct()
         )
         cls.update_connector_config_keys(new_keys)
 
