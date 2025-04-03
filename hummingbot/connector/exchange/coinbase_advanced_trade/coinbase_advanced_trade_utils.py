@@ -57,4 +57,4 @@ class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="coinbase_advanced_trade")
 
 
-KEYS = CoinbaseAdvancedTradeConfigMap.construct()
+KEYS = CoinbaseAdvancedTradeConfigMap.model_construct()

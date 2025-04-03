@@ -47,7 +47,7 @@ class BybitConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bybit")
 
 
-KEYS = BybitConfigMap.construct()
+KEYS = BybitConfigMap.model_construct()
 
 OTHER_DOMAINS = ["bybit_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bybit_testnet": "bybit_testnet"}
@@ -78,4 +78,4 @@ class BybitTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bybit_testnet")
 
 
-OTHER_DOMAINS_KEYS = {"bybit_testnet": BybitTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"bybit_testnet": BybitTestnetConfigMap.model_construct()}

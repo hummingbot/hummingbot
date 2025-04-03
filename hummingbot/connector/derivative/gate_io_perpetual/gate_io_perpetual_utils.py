@@ -47,4 +47,4 @@ class GateIOPerpetualConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="gate_io_perpetual")
 
 
-KEYS = GateIOPerpetualConfigMap.construct()
+KEYS = GateIOPerpetualConfigMap.model_construct()

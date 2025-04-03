@@ -65,7 +65,7 @@ class AscendExConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="ascend_ex")
 
 
-KEYS = AscendExConfigMap.construct()
+KEYS = AscendExConfigMap.model_construct()
 
 
 def _time():

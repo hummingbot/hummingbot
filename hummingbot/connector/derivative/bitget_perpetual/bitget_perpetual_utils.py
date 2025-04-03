@@ -60,4 +60,4 @@ class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bitget_perpetual")
 
 
-KEYS = BitgetPerpetualConfigMap.construct()
+KEYS = BitgetPerpetualConfigMap.model_construct()

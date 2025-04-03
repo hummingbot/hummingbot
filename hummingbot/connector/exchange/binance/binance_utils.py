@@ -62,7 +62,7 @@ class BinanceConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="binance")
 
 
-KEYS = BinanceConfigMap.construct()
+KEYS = BinanceConfigMap.model_construct()
 
 OTHER_DOMAINS = ["binance_us"]
 OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
@@ -93,4 +93,4 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="binance_us")
 
 
-OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"binance_us": BinanceUSConfigMap.model_construct()}

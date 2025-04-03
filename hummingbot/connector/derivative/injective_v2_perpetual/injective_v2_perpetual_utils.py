@@ -64,7 +64,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
                 f"Invalid network, please choose a value from {list(NETWORK_MODES.keys())}."
             )
         else:
-            sub_model = NETWORK_MODES[v].construct()
+            sub_model = NETWORK_MODES[v].model_construct()
         return sub_model
 
     @field_validator("account_type", mode="before")
@@ -77,7 +77,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
                 f"Invalid account type, please choose a value from {list(ACCOUNT_MODES.keys())}."
             )
         else:
-            sub_model = ACCOUNT_MODES[v].construct()
+            sub_model = ACCOUNT_MODES[v].model_construct()
         return sub_model
 
     @field_validator("fee_calculator", mode="before")
@@ -90,7 +90,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
                 f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}."
             )
         else:
-            sub_model = FEE_CALCULATOR_MODES[v].construct()
+            sub_model = FEE_CALCULATOR_MODES[v].model_construct()
         return sub_model
 
     def create_data_source(self):

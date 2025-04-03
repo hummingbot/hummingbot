@@ -48,4 +48,4 @@ class BitstampConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bitstamp")
 
 
-KEYS = BitstampConfigMap.construct()
+KEYS = BitstampConfigMap.model_construct()

@@ -47,7 +47,7 @@ class HashkeyGlobalConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="hashkey")
 
 
-KEYS = HashkeyGlobalConfigMap.construct()
+KEYS = HashkeyGlobalConfigMap.model_construct()
 
 OTHER_DOMAINS = ["hashkey_global_testnet"]
 OTHER_DOMAINS_PARAMETER = {
@@ -85,5 +85,5 @@ class HashkeyGlobalTestnetConfigMap(BaseConnectorConfigMap):
 
 
 OTHER_DOMAINS_KEYS = {
-    "hashkey_global_testnet": HashkeyGlobalTestnetConfigMap.construct(),
+    "hashkey_global_testnet": HashkeyGlobalTestnetConfigMap.model_construct(),
 }

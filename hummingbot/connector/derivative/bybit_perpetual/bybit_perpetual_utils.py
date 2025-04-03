@@ -85,7 +85,7 @@ class BybitPerpetualConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bybit_perpetual")
 
 
-KEYS = BybitPerpetualConfigMap.construct()
+KEYS = BybitPerpetualConfigMap.model_construct()
 
 OTHER_DOMAINS = ["bybit_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bybit_perpetual_testnet": "bybit_perpetual_testnet"}
@@ -122,5 +122,5 @@ class BybitPerpetualTestnetConfigMap(BaseConnectorConfigMap):
 
 
 OTHER_DOMAINS_KEYS = {
-    "bybit_perpetual_testnet": BybitPerpetualTestnetConfigMap.construct()
+    "bybit_perpetual_testnet": BybitPerpetualTestnetConfigMap.model_construct()
 }

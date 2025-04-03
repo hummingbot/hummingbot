@@ -207,4 +207,4 @@ class KrakenConfigMap(BaseConnectorConfigMap):
             raise ValueError("No such Kraken API Tier.")
 
 
-KEYS = KrakenConfigMap.construct()
+KEYS = KrakenConfigMap.model_construct()

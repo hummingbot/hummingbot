@@ -73,7 +73,7 @@ class HashkeyPerpetualConfigMap(BaseConnectorConfigMap):
     )
 
 
-KEYS = HashkeyPerpetualConfigMap.construct()
+KEYS = HashkeyPerpetualConfigMap.model_construct()
 
 OTHER_DOMAINS = ["hashkey_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"hashkey_perpetual_testnet": "hashkey_perpetual_testnet"}
@@ -104,4 +104,4 @@ class HashkeyPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="hashkey_perpetual")
 
 
-OTHER_DOMAINS_KEYS = {"hashkey_perpetual_testnet": HashkeyPerpetualTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"hashkey_perpetual_testnet": HashkeyPerpetualTestnetConfigMap.model_construct()}

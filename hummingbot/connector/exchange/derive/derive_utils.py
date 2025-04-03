@@ -60,7 +60,7 @@ class DeriveConfigMap(BaseConnectorConfigMap):
     )
 
 
-KEYS = DeriveConfigMap.construct()
+KEYS = DeriveConfigMap.model_construct()
 
 OTHER_DOMAINS = ["derive_testnet"]
 OTHER_DOMAINS_PARAMETER = {"derive_testnet": "derive_testnet"}
@@ -109,4 +109,4 @@ class DeriveTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="derive")
 
 
-OTHER_DOMAINS_KEYS = {"derive_testnet": DeriveTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"derive_testnet": DeriveTestnetConfigMap.model_construct()}

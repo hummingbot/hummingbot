@@ -81,4 +81,4 @@ class OkxPerpetualConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="okx_perpetual")
 
 
-KEYS = OkxPerpetualConfigMap.construct()
+KEYS = OkxPerpetualConfigMap.model_construct()
