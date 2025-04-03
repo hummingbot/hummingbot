@@ -17,7 +17,7 @@ import yaml
 from pydantic import SecretStr
 from pydantic.v1 import ValidationError
 from pydantic.v1.fields import FieldInfo
-from pydantic.v1.main import ModelMetaclass, validate_model
+from pydantic.v1.main import validate_model
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
@@ -196,13 +196,13 @@ class ClientConfigAdapter:
         return yml_str
 
     def validate_model(self) -> List[str]:
-        input_data = self._hb_config.dict()
+        input_data = self._hb_config.model_dump()
         results = validate_model(model=type(self._hb_config), input_data=input_data)  # coerce types
         conf_dict = results[0]
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
         self.decrypt_all_secure_data()
-        input_data = self._hb_config.dict()
+        input_data = self._hb_config.model_dump()
         results = validate_model(model=type(self._hb_config), input_data=input_data)  # validate decrypted values
         conf_dict = results[0]
         errors = results[2]
@@ -637,7 +637,7 @@ def read_yml_file(yml_path: Path) -> Dict[str, Any]:
     return dict(data)
 
 
-def get_strategy_pydantic_config_cls(strategy_name: str) -> Optional[ModelMetaclass]:
+def get_strategy_pydantic_config_cls(strategy_name: str):
     pydantic_cm_class = None
     try:
         pydantic_cm_pkg = f"{strategy_name}_config_map_pydantic"
@@ -672,6 +672,7 @@ def load_connector_config_map_from_file(yml_path: Path) -> ClientConfigAdapter:
     connector_name = connector_name_from_file(yml_path)
     hb_config = get_connector_hb_config(connector_name).model_validate(config_data)
     config_map = ClientConfigAdapter(hb_config)
+    config_map.decrypt_all_secure_data()
     return config_map
 
 
