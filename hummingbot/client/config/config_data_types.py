@@ -71,3 +71,15 @@ class BaseConnectorConfigMap(BaseClientModel):
         if ret is not None:
             raise ValueError(ret)
         return v
+    #
+    # @model_validator(mode="after")
+    # def post_validations(self):
+    #     for key in self.model_fields.keys():
+    #         value = getattr(self, key)
+    #         if isinstance(value, FieldInfo):
+    #             setattr(self, key, value.default)
+    #         elif isinstance(value, BaseClientModel):
+    #             for inner_key in value.model_fields.keys():
+    #                 inner_value = getattr(value, inner_key)
+    #                 if isinstance(inner_value, FieldInfo):
+    #                     setattr(value, inner_key, inner_value.default)
