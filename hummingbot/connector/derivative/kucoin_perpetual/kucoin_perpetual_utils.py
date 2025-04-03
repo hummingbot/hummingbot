@@ -63,4 +63,4 @@ class KucoinPerpetualConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="kucoin_perpetual")
 
 
-KEYS = KucoinPerpetualConfigMap.construct()
+KEYS = KucoinPerpetualConfigMap.model_construct()

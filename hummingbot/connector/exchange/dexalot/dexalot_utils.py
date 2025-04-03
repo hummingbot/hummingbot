@@ -49,7 +49,7 @@ class DexalotConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="dexalot")
 
 
-KEYS = DexalotConfigMap.construct()
+KEYS = DexalotConfigMap.model_construct()
 
 OTHER_DOMAINS = ["dexalot_testnet"]
 OTHER_DOMAINS_PARAMETER = {"dexalot_testnet": "dexalot_testnet"}
@@ -80,4 +80,4 @@ class DexalotTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="dexalot_testnet")
 
 
-OTHER_DOMAINS_KEYS = {"dexalot_testnet": DexalotTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"dexalot_testnet": DexalotTestnetConfigMap.model_construct()}

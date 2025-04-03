@@ -38,4 +38,4 @@ class GateIOConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="gate_io")
 
 
-KEYS = GateIOConfigMap.construct()
+KEYS = GateIOConfigMap.model_construct()

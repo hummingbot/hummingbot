@@ -60,7 +60,7 @@ class KuCoinConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="kucoin")
 
 
-KEYS = KuCoinConfigMap.construct()
+KEYS = KuCoinConfigMap.model_construct()
 
 OTHER_DOMAINS = ["kucoin_hft"]
 OTHER_DOMAINS_PARAMETER = {"kucoin_hft": "hft"}
@@ -100,4 +100,4 @@ class KuCoinHFTConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="kucoin_hft")
 
 
-OTHER_DOMAINS_KEYS = {"kucoin_hft": KuCoinHFTConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"kucoin_hft": KuCoinHFTConfigMap.model_construct()}

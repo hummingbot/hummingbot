@@ -79,4 +79,4 @@ class BitmartConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bitmart")
 
 
-KEYS = BitmartConfigMap.construct()
+KEYS = BitmartConfigMap.model_construct()

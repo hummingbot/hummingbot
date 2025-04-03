@@ -168,7 +168,7 @@ class VertexConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="vertex")
 
 
-KEYS = VertexConfigMap.construct()
+KEYS = VertexConfigMap.model_construct()
 
 
 class VertexTestnetConfigMap(BaseConnectorConfigMap):
@@ -199,4 +199,4 @@ OTHER_DOMAINS_PARAMETER = {"vertex_testnet": "vertex_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"vertex_testnet": "WBTC-USDC"}
 OTHER_DOMAINS_DEFAULT_FEES = {"vertex_testnet": DEFAULT_FEES}
 
-OTHER_DOMAINS_KEYS = {"vertex_testnet": VertexTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"vertex_testnet": VertexTestnetConfigMap.model_construct()}

@@ -61,4 +61,4 @@ class BingXConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bing_x")
 
 
-KEYS = BingXConfigMap.construct()
+KEYS = BingXConfigMap.model_construct()

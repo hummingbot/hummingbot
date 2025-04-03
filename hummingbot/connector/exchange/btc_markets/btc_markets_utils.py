@@ -49,4 +49,4 @@ class BtcMarketsConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="btc_markets")
 
 
-KEYS = BtcMarketsConfigMap.construct()
+KEYS = BtcMarketsConfigMap.model_construct()

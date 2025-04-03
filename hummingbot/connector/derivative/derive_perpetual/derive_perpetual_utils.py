@@ -60,7 +60,7 @@ class DerivePerpetualConfigMap(BaseConnectorConfigMap):
     )
 
 
-KEYS = DerivePerpetualConfigMap.construct()
+KEYS = DerivePerpetualConfigMap.model_construct()
 
 OTHER_DOMAINS = ["derive_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"derive_perpetual_testnet": "derive_perpetual_testnet"}
@@ -109,4 +109,4 @@ class DerivePerpetualTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="derive_perpetual")
 
 
-OTHER_DOMAINS_KEYS = {"derive_perpetual_testnet": DerivePerpetualTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"derive_perpetual_testnet": DerivePerpetualTestnetConfigMap.model_construct()}

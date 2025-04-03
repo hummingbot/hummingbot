@@ -43,4 +43,4 @@ class DydxV4PerpetualConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="dydx_v4_perpetual")
 
 
-KEYS = DydxV4PerpetualConfigMap.construct()
+KEYS = DydxV4PerpetualConfigMap.model_construct()

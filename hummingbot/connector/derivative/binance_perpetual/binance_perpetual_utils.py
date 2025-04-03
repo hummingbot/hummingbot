@@ -41,7 +41,7 @@ class BinancePerpetualConfigMap(BaseConnectorConfigMap):
     )
 
 
-KEYS = BinancePerpetualConfigMap.construct()
+KEYS = BinancePerpetualConfigMap.model_construct()
 
 OTHER_DOMAINS = ["binance_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"binance_perpetual_testnet": "binance_perpetual_testnet"}
@@ -72,4 +72,4 @@ class BinancePerpetualTestnetConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="binance_perpetual")
 
 
-OTHER_DOMAINS_KEYS = {"binance_perpetual_testnet": BinancePerpetualTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"binance_perpetual_testnet": BinancePerpetualTestnetConfigMap.model_construct()}

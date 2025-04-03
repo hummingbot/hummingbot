@@ -48,7 +48,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
     )
 
 
-KEYS = OKXConfigMap.construct()
+KEYS = OKXConfigMap.model_construct()
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

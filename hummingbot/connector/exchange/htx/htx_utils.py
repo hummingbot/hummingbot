@@ -52,4 +52,4 @@ class HtxConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="htx")
 
 
-KEYS = HtxConfigMap.construct()
+KEYS = HtxConfigMap.model_construct()

@@ -71,7 +71,7 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
         return v
 
 
-KEYS = HyperliquidPerpetualConfigMap.construct()
+KEYS = HyperliquidPerpetualConfigMap.model_construct()
 
 OTHER_DOMAINS = ["hyperliquid_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"hyperliquid_perpetual_testnet": "hyperliquid_perpetual_testnet"}
@@ -121,4 +121,4 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
         return v
 
 
-OTHER_DOMAINS_KEYS = {"hyperliquid_perpetual_testnet": HyperliquidPerpetualTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"hyperliquid_perpetual_testnet": HyperliquidPerpetualTestnetConfigMap.model_construct()}

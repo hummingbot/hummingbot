@@ -162,4 +162,4 @@ OTHER_DOMAINS = ["tegro_testnet"]
 OTHER_DOMAINS_PARAMETER = {"tegro_testnet": "tegro_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"tegro_testnet": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"tegro_testnet": DEFAULT_FEES}
-OTHER_DOMAINS_KEYS = {"tegro_testnet": TegroTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"tegro_testnet": TegroTestnetConfigMap.model_construct()}

@@ -49,4 +49,4 @@ class BitrueConfigMap(BaseConnectorConfigMap):
     model_config = ConfigDict(title="bitrue")
 
 
-KEYS = BitrueConfigMap.construct()
+KEYS = BitrueConfigMap.model_construct()

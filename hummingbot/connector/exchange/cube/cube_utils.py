@@ -136,4 +136,4 @@ class CubeConfigMap(BaseConnectorConfigMap):
         return v
 
 
-KEYS = CubeConfigMap.construct()
+KEYS = CubeConfigMap.model_construct()

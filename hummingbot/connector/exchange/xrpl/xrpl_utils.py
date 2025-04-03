@@ -399,4 +399,4 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         return v
 
 
-KEYS = XRPLConfigMap.construct()
+KEYS = XRPLConfigMap.model_construct()
