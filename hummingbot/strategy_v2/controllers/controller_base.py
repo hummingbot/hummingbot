@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Set
 
 from pydantic import ConfigDict, field_validator
 from pydantic.v1 import Field
+from pydantic.v1.fields import FieldInfo
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -167,8 +168,9 @@ class ControllerBase(RunnableBase):
         Update the controller configuration. With the variables that in the client_data have the is_updatable flag set
         to True. This will be only available for those variables that don't interrupt the bot operation.
         """
-        for field in self.config.model_fields.values():
-            setattr(self.config, field.name, getattr(new_config, field.name))
+        for name, field_info in self.config.model_fields.items():
+            if isinstance(field_info.default, FieldInfo) and field_info.default.extra.get("client_data").is_updatable:
+                setattr(self.config, name, getattr(new_config, name))
 
     async def control_task(self):
         if self.market_data_provider.ready and self.executors_update_event.is_set():
