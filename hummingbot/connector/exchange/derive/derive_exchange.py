@@ -1,11 +1,12 @@
 import asyncio
 import hashlib
+from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
-from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.constants import SECOND, TWELVE_HOURS, s_decimal_NaN
 from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS, derive_web_utils as web_utils
 from hummingbot.connector.exchange.derive.derive_api_order_book_data_source import DeriveAPIOrderBookDataSource
 from hummingbot.connector.exchange.derive.derive_api_user_stream_data_source import DeriveAPIUserStreamDataSource
@@ -41,6 +42,7 @@ class DeriveExchange(ExchangePyBase):
             client_config_map: "ClientConfigAdapter",
             derive_api_secret: str = None,
             sub_id: int = None,
+            account_type: str = None,
             derive_api_key: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
@@ -49,6 +51,7 @@ class DeriveExchange(ExchangePyBase):
         self.derive_api_key = derive_api_key
         self.derive_secret_key = derive_api_secret
         self._sub_id = sub_id
+        self._account_type = account_type
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -74,7 +77,7 @@ class DeriveExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> DeriveAuth:
-        return DeriveAuth(self.derive_api_key, self.derive_secret_key, self._sub_id, self._trading_required)
+        return DeriveAuth(self.derive_api_key, self.derive_secret_key, self._sub_id, self._trading_required, self._domain)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -212,6 +215,10 @@ class DeriveExchange(ExchangePyBase):
             quote_currency=quote_currency.upper()
         )
         return trade_base_fee
+
+    async def start_network(self):
+        await super().start_network()
+        self._rate_limits_polling_task = safe_ensure_future(self._rate_limits_polling_loop())
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
@@ -448,6 +455,54 @@ class DeriveExchange(ExchangePyBase):
             )
 
             self._order_tracker.process_trade_update(trade_update)
+
+        # === loops and sync related methods === #
+    async def _rate_limits_polling_loop(self):
+        """
+        Updates the rate limits.
+        """
+        try:
+            await self._update_rate_limits()
+            await self._sleep(TWELVE_HOURS)
+        except NotImplementedError:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().info(
+                "Unexpected error while Updating rate limits."
+            )
+
+    async def _update_rate_limits(self):
+        await self._initialize_rate_limits()
+
+    async def _initialize_rate_limits(self):
+        # Update rate limits
+        for r_limit_id in CONSTANTS.ENDPOINTS["limits"]["non_matching"]:
+            limit_id = None
+            rate_limits_copy = deepcopy(self._throttler._rate_limits)
+
+            if self._account_type == CONSTANTS.MARKET_MAKER_ACCOUNTS_TYPE:
+                limit_id = r_limit_id
+                interval = SECOND
+                limit = CONSTANTS.TRADER_NON_MATCHING
+            else:
+                limit_id = r_limit_id
+                interval = SECOND
+                limit = CONSTANTS.MARKET_MAKER_NON_MATCHING
+
+            if limit_id is not None and interval is not None:
+                for r_l in rate_limits_copy:
+                    if r_l.limit_id == limit_id:
+                        rate_limits_copy.remove(r_l)
+                rate_limits_copy.append(
+                    RateLimit(
+                        limit_id=limit_id,
+                        limit=limit,
+                        time_interval=interval,
+                    )
+                )
+            self._throttler.set_rate_limits(rate_limits_copy)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

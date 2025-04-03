@@ -4,6 +4,7 @@ import logging
 import re
 from copy import deepcopy
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Callable, List, Optional, Tuple
 from unittest.mock import AsyncMock
 
@@ -26,7 +27,10 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
-class HashkeyPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
+class HashkeyPerpetualDerivativeTests(
+    AbstractPerpetualDerivativeTests.PerpetualDerivativeTests,
+    IsolatedAsyncioWrapperTestCase,
+):
     _logger = logging.getLogger(__name__)
 
     @classmethod
@@ -38,6 +42,9 @@ class HashkeyPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"  # linear
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
+
+    async def asyncSetUp(self) -> None:
+        super().setUp()
 
     @property
     def all_symbols_url(self):
@@ -1447,7 +1454,7 @@ class HashkeyPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         ]
 
     @aioresponses()
-    def test_start_network_update_trading_rules(self, mock_api):
+    async def test_start_network_update_trading_rules(self, mock_api):
         self.exchange._set_current_timestamp(1000)
 
         url = self.trading_rules_url
@@ -1459,7 +1466,8 @@ class HashkeyPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         results.append(duplicate)
         mock_api.get(url, body=json.dumps(response))
 
-        self.async_run_with_timeout(self.exchange.start_network())
+        await self.exchange.start_network()
+        await asyncio.sleep(0.1)
 
         self.assertEqual(1, len(self.exchange.trading_rules))
         self.assertIn(self.trading_pair, self.exchange.trading_rules)

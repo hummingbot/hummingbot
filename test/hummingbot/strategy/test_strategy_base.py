@@ -384,8 +384,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
                 trading_pair=self.trading_pair,
                 order_type=OrderType.LIMIT,
                 trade_type=TradeType.BUY,
-                price=Decimal(f"{i+1}"),
-                amount=Decimal(f"{10 * (i+1)}"),
+                price=Decimal(f"{i + 1}"),
+                amount=Decimal(f"{10 * (i + 1)}"),
                 creation_timestamp=1640001112.0,
                 initial_state="OPEN"
             )
