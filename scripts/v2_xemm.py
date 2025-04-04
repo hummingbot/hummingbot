@@ -2,9 +2,8 @@ import os
 from decimal import Decimal
 from typing import Dict, List, Set
 
-from pydantic.v1 import Field
+from pydantic import Field
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import PriceType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -21,52 +20,28 @@ class V2XEMMConfig(StrategyV2ConfigBase):
     markets: Dict[str, Set[str]] = {}
     maker_connector: str = Field(
         default="kucoin",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the maker connector: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the maker connector: ", "prompt_on_new": True})
     maker_trading_pair: str = Field(
         default="LBR-USDT",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the maker trading pair: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the maker trading pair: ", "prompt_on_new": True})
     taker_connector: str = Field(
         default="okx",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the taker connector: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the taker connector: ", "prompt_on_new": True})
     taker_trading_pair: str = Field(
         default="LBR-USDT",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the taker trading pair: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the taker trading pair: ", "prompt_on_new": True})
     target_profitability: Decimal = Field(
         default=0.006,
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the target profitability: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the target profitability: ", "prompt_on_new": True})
     min_profitability: Decimal = Field(
         default=0.003,
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the minimum profitability: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the minimum profitability: ", "prompt_on_new": True})
     max_profitability: Decimal = Field(
         default=0.008,
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the maximum profitability: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the maximum profitability: ", "prompt_on_new": True})
     order_amount_quote: Decimal = Field(
         default=100,
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the order amount in quote asset: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the order amount in quote asset: ", "prompt_on_new": True})
 
 
 class V2XEMM(StrategyV2Base):
