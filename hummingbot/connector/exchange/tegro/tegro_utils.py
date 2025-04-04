@@ -1,10 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from pydantic import ConfigDict, SecretStr, field_validator
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, SecretStr, field_validator
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = False
@@ -75,30 +74,30 @@ class TegroConfigMap(BaseConnectorConfigMap):
     connector: str = "tegro"
     tegro_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Public Wallet Address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Public Wallet Address",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     tegro_api_secret: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Private Wallet Address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Private Wallet Address",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     chain_name: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your preferred chain. (base/ )",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your preferred chain. (base/ )",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
 
     @field_validator("chain_name", mode="before")
@@ -120,30 +119,30 @@ class TegroTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "tegro_testnet"
     tegro_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Public Wallet Address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Public Wallet Address",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     tegro_api_secret: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Private Wallet Address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Private Wallet Address",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     chain_name: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your preferred chain. (base/polygon/optimism)",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your preferred chain. (base/polygon/optimism)",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
 
     @field_validator("chain_name", mode="before")

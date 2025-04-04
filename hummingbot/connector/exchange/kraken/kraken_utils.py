@@ -1,11 +1,10 @@
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from pydantic import ConfigDict, SecretStr, field_validator
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, SecretStr, field_validator
 
 import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -168,29 +167,28 @@ class KrakenConfigMap(BaseConnectorConfigMap):
     connector: str = "kraken"
     kraken_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Kraken API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Kraken API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     kraken_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Kraken secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Kraken secret key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     kraken_api_tier: str = Field(
         default="Starter",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Kraken API Tier (Starter/Intermediate/Pro)",
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Kraken API Tier (Starter/Intermediate/Pro)",
+            "prompt_on_new": True,
+        }
     )
     model_config = ConfigDict(title="kraken")
 
