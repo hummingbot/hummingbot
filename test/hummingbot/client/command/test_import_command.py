@@ -8,7 +8,7 @@ from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable, Type
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pydantic.v1 import Field
+from pydantic import Field
 
 from hummingbot.client.command import import_command
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
