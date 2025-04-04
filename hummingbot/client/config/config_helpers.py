@@ -14,10 +14,8 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, 
 
 import ruamel.yaml
 import yaml
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from pydantic.fields import FieldInfo
-from pydantic.v1 import ValidationError
-from pydantic.v1.main import validate_model
 from pydantic_core import PydanticUndefinedType
 from yaml import SafeDumper
 
@@ -199,13 +197,13 @@ class ClientConfigAdapter:
 
     def validate_model(self) -> List[str]:
         input_data = self._hb_config.model_dump()
-        results = validate_model(model=type(self._hb_config), input_data=input_data)  # coerce types
+        results = self._hb_config.model_validate(input_data)  # coerce types
         conf_dict = results[0]
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
         self.decrypt_all_secure_data()
         input_data = self._hb_config.model_dump()
-        results = validate_model(model=type(self._hb_config), input_data=input_data)  # validate decrypted values
+        results = self._hb_config.model_validate(input_data)  # validate decrypted values
         conf_dict = results[0]
         errors = results[2]
         for key, value in conf_dict.items():
