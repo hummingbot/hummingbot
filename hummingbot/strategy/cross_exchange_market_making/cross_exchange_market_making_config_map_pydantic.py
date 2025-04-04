@@ -2,12 +2,11 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict, Tuple, Union
 
-from pydantic import ConfigDict, field_validator, model_validator
-from pydantic.v1 import Field, validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 import hummingbot.client.settings as settings
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
-from hummingbot.client.config.config_validators import validate_bool, validate_connector
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
+from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -74,40 +73,34 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
         default=Decimal("1.0"),
         description="A fixed conversion rate between the maker and taker trading pairs based on the maker base asset.",
         gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Enter conversion rate for taker base asset value to maker base asset value, e.g. "
-                "if maker base asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
-                "the conversion rate is 1.25"
-            ),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter conversion rate for taker base asset value to maker base asset value, e.g. "
+                      "if maker base asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
+                      "the conversion rate is 1.25",
+            "prompt_on_new": True
+        }
     )
     taker_to_maker_quote_conversion_rate: Decimal = Field(
         default=Decimal("1.0"),
         description="A fixed conversion rate between the maker and taker trading pairs based on the maker quote asset.",
         gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Enter conversion rate for taker quote asset value to maker quote asset value, e.g. "
-                "if maker quote asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
-                "the conversion rate is 1.25"
-            ),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter conversion rate for taker quote asset value to maker quote asset value, e.g. "
+                      "if maker quote asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
+                      "the conversion rate is 1.25",
+            "prompt_on_new": True
+        }
     )
     gas_to_maker_base_conversion_rate: Decimal = Field(
         default=Decimal("1.0"),
         description="A fixed conversion rate between the maker quote asset and taker gas asset.",
         gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Enter conversion rate for gas token value of taker gateway exchange to maker base asset value, e.g. "
-                "if maker base asset is USD and the gas token is DAI, 1 DAI is valued at 1.25 USD, "
-                "the conversion rate is 1.25"
-            ),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter conversion rate for gas token value of taker gateway exchange to maker base asset value, e.g. "
+                      "if maker base asset is USD and the gas token is DAI, 1 DAI is valued at 1.25 USD, "
+                      "the conversion rate is 1.25",
+            "prompt_on_new": True
+        }
     )
     model_config = ConfigDict(title="fixed_conversion_rate")
 
@@ -164,20 +157,20 @@ class PassiveOrderRefreshMode(OrderRefreshMode):
         description="Profitability threshold to cancel a trade.",
         gt=-100.0,
         lt=100.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "What is the threshold of profitability to cancel a trade? (Enter 1 to indicate 1%)",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "What is the profitability threshold to cancel a trade? (Enter 1 to indicate 1%)",
+            "prompt_on_new": True
+        }
     )
 
     limit_order_min_expiration: Decimal = Field(
         default=130.0,
         description="Limit order expiration time limit.",
         gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "How often do you want limit orders to expire (in seconds)?",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "How long do you want limit orders to expire? (in seconds)",
+            "prompt_on_new": True
+        }
     )
     model_config = ConfigDict(title="passive_order_refresh")
 
@@ -212,130 +205,101 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         description="The minimum estimated profitability required to open a position.",
         ge=-100.0,
         le=100.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%)",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%)",
+            "prompt_on_new": True
+        }
     )
     order_amount: Decimal = Field(
         default=...,
         description="The strategy order amount.",
         ge=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: CrossExchangeMarketMakingConfigMap.order_amount_prompt(mi),
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": lambda mi: CrossExchangeMarketMakingConfigMap.order_amount_prompt(mi),
+            "prompt_on_new": True
+        }
     )
     adjust_order_enabled: bool = Field(
         default=True,
         description="Adjust order price to be one tick above the top bid or below the top ask.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Do you want to enable adjust order? (Yes/No)"
-        ),
+        json_schema_extra={"prompt": "Do you want to enable adjust order? (Yes/No)"},
     )
     order_refresh_mode: Union[ActiveOrderRefreshMode, PassiveOrderRefreshMode] = Field(
         default=ActiveOrderRefreshMode.model_construct(),
         description="Refresh orders by cancellation or by letting them expire.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: f"Select the order refresh mode ({'/'.join(list(ORDER_REFRESH_MODELS.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": lambda mi: f"Select the order refresh mode ({'/'.join(list(ORDER_REFRESH_MODELS.keys()))})",
+            "prompt_on_new": True
+        }
     )
     top_depth_tolerance: Decimal = Field(
         default=Decimal("0.0"),
         description="Volume requirement for determining a possible top bid or ask price from the order book.",
         ge=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: CrossExchangeMarketMakingConfigMap.top_depth_tolerance_prompt(mi),
-        ),
+        json_schema_extra={"prompt": lambda mi: CrossExchangeMarketMakingConfigMap.top_depth_tolerance_prompt(mi)}
     )
     anti_hysteresis_duration: float = Field(
         default=60.0,
         description="Minimum time limit between two subsequent order adjustments.",
         gt=0.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "What is the minimum time interval you want limit orders to be adjusted? (in seconds)",
-        ),
+        json_schema_extra={"prompt": "What is the minimum time interval you want limit orders to be adjusted? (in seconds)"}
     )
     order_size_taker_volume_factor: Decimal = Field(
         default=Decimal("25.0"),
         description="Taker order size as a percentage of volume.",
         ge=0.0,
         le=100.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "What percentage of hedge-able volume would you like to be traded on the taker market? "
-                "(Enter 1 to indicate 1%)"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": "What percentage of hedge-able volume would you like to be traded on the taker market? (Enter 1 to indicate 1%)"
+        }
     )
     order_size_taker_balance_factor: Decimal = Field(
         default=Decimal("99.5"),
         description="Taker order size as a percentage of the available balance.",
         ge=0.0,
         le=100.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "What percentage of asset balance would you like to use for hedging trades on the taker market? "
-                "(Enter 1 to indicate 1%)"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": "What percentage of asset balance would you like to use for hedging trades on the taker market? (Enter 1 to indicate 1%)"
+        }
     )
     order_size_portfolio_ratio_limit: Decimal = Field(
         default=Decimal("16.67"),
         description="Order size as a maker and taker account balance ratio.",
         ge=0.0,
         le=100.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "What ratio of your total portfolio value would you like to trade on the maker and taker markets? "
-                "Enter 50 for 50%"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": "What ratio of your total portfolio value would you like to trade on the maker and taker markets? Enter 50 for 50%"
+        }
     )
     conversion_rate_mode: Union[OracleConversionRateMode, TakerToMakerConversionRateMode] = Field(
         default=OracleConversionRateMode.model_construct(),
         description="Convert between different trading pairs using fixed conversion rates or using the rate oracle.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: f"Select the conversion rate mode ({'/'.join(list(CONVERSION_RATE_MODELS.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": f"Select the conversion rate mode ({'/'.join(list(CONVERSION_RATE_MODELS.keys()))})",
+            "prompt_on_new": True
+        }
     )
     slippage_buffer: Decimal = Field(
         default=Decimal("5.0"),
         description="Allowed slippage to fill ensure taker orders are filled.",
         ge=0.0,
         le=100.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "How much buffer do you want to add to the price to account for slippage for taker orders "
-                "Enter 1 to indicate 1%"
-            ),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "How much buffer do you want to add to the price to account for slippage for taker orders. "
+                      "Enter 1 to indicate 1%",
+            "prompt_on_new": True
+        }
     )
-
-    debug_price_shim: bool = Field(
-        default=False,
-        description="Usd the debug price shim to mock gateway price.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Do you want to enable the debug price shim for integration tests? If you don't know what this does "
-                "you should keep it disabled."
-            ),
-        ),
-    )
+    debug_price_shim: bool = Field(default=False, description="Usd the debug price shim to mock gateway price.")
     gateway_transaction_cancel_interval: int = Field(
         default= 600,
         description="Gateway transaction cancellation timeout.",
         ge=1,
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "After what time should blockchain transactions be cancelled if they are not included in a block? "
-                "(this only affects decentralized exchanges) (Enter time in seconds)"
-            ),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "After what time should gateway transactions be cancelled if they are not included in a block? "
+                      "(this only affects decentralized exchanges) (Enter time in seconds)",
+            "prompt_on_new": True
+        }
     )
     taker_market: ClientConfigEnum(
         value="TakerMarkets",  # noqa: F821
@@ -347,10 +311,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     ) = Field(
         default=...,
         description="The name of the taker exchange connector.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter your taker connector (Exchange/AMM/CLOB)",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter your taker connector (Exchange/AMM/CLOB)", "prompt_on_new": True}
     )
 
     # === prompts ===
@@ -396,9 +357,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
 
     # === generic validations ===
 
-    @field_validator(
-        "adjust_order_enabled",
-        mode="before")
+    @field_validator("adjust_order_enabled", mode="before")
     @classmethod
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
@@ -407,25 +366,6 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             if ret is not None:
                 raise ValueError(ret)
         return v
-
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator(
-        "min_profitability",
-        "order_amount",
-        "top_depth_tolerance",
-        "anti_hysteresis_duration",
-        "order_size_taker_volume_factor",
-        "order_size_taker_balance_factor",
-        "order_size_portfolio_ratio_limit",
-        "slippage_buffer",
-        pre=True,
-    )
-    def validate_decimal(cls, v: str, field: Field):
-        """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
-
-    # === post-validations ===
 
     @model_validator(mode="after")
     def post_validations(self):
@@ -448,25 +388,3 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             settings.required_rate_oracle = False
             settings.rate_oracle_pairs = []
         return self
-
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @field_validator("maker_market", "taker_market", mode="before")
-    def validate_exchange(cls, v: str, field: Field):
-        """Used for client-friendly error output."""
-        if field.name == "maker_market":
-            super().validate_exchange(v=v, field=field)
-        if field.name == "taker_market":
-            ret = validate_connector(v)
-            if ret is not None:
-                raise ValueError(ret)
-            cls.__fields__["taker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-                value="TakerMarkets",  # noqa: F821
-                names={e: e for e in sorted(
-                    AllConnectorSettings.get_exchange_names().union(
-                        AllConnectorSettings.get_gateway_amm_connector_names()
-                    ))},
-                type=str,
-            )
-            cls._clear_schema_cache()
-        return v
