@@ -6,12 +6,10 @@ from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar, Union
 
-from pydantic import BaseModel, ConfigDict, SecretStr, field_validator, model_validator
-from pydantic.v1 import Field
-from pydantic.v1.fields import FieldInfo
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 from tabulate import tabulate_formats
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_float
 from hummingbot.client.settings import DEFAULT_GATEWAY_CERTS_PATH, DEFAULT_LOG_FILE_PATH, AllConnectorSettings
@@ -45,94 +43,48 @@ def using_exchange(exchange: str) -> Callable:
 class MQTTBridgeConfigMap(BaseClientModel):
     mqtt_host: str = Field(
         default="localhost",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the MQTT hostname to connect to (e.g. localhost)"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Set the MQTT hostname to connect to (e.g. localhost)"}
     )
     mqtt_port: int = Field(
         default=1883,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the MQTT port to connect to (e.g. 1883)"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Set the MQTT port to connect to (e.g. 1883)"},
     )
     mqtt_username: str = Field(
         default="",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the username for connecting to the MQTT broker"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Set the username for connecting to the MQTT broker"},
     )
     mqtt_password: str = Field(
         default="",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the password for connecting to the MQTT broker"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Set the password for connecting to the MQTT broker"},
     )
     mqtt_namespace: str = Field(
         default='hbot',
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the mqtt uri namespace (Default='hbot')"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Set the MQTT namespace to connect to (e.g. hbot)"},
     )
     mqtt_ssl: bool = Field(
         default=False,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable SSL for MQTT connections"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enable/Disable SSL for MQTT connections"},
     )
-    mqtt_logger: bool = Field(
-        default=True
-    )
+    mqtt_logger: bool = Field(default=True)
     mqtt_notifier: bool = Field(
         default=True,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable MQTT Notifier"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enable/Disable MQTT Notifier"},
     )
     mqtt_commands: bool = Field(
         default=True,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable MQTT Commands"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enable/Disable MQTT Commands"},
     )
     mqtt_events: bool = Field(
         default=True,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable Events forwarding to MQTT broker"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enable/Disable MQTT Events"},
     )
     mqtt_external_events: bool = Field(
         default=True,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable External MQTT Event listener"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enable/Disable External MQTT Events"},
     )
     mqtt_autostart: bool = Field(
         default=False,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable autostart"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enable/Disable MQTT Autostart"},
     )
     model_config = ConfigDict(title="mqtt_bridge")
 
@@ -140,29 +92,17 @@ class MQTTBridgeConfigMap(BaseClientModel):
 class MarketDataCollectionConfigMap(BaseClientModel):
     market_data_collection_enabled: bool = Field(
         default=False,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enable/Disable Market Data Collection"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enable/Disable Market Data Collection"},
     )
     market_data_collection_interval: int = Field(
         default=60,
         ge=1,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the market data collection interval in seconds (Default=60)"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Set the market data collection interval in seconds (Default=60)"},
     )
     market_data_collection_depth: int = Field(
         default=20,
         ge=2,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Set the order book collection depth (Default=20)"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Set the order book collection depth (Default=20)"},
     )
     model_config = ConfigDict(title="market_data_collection")
 
@@ -170,93 +110,63 @@ class MarketDataCollectionConfigMap(BaseClientModel):
 class ColorConfigMap(BaseClientModel):
     top_pane: str = Field(
         default="#000000",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color of the top pane?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color of the top pane?"},
     )
     bottom_pane: str = Field(
         default="#000000",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color of the bottom pane?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color of the bottom pane?"},
     )
     output_pane: str = Field(
         default="#262626",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color of the output pane?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color of the output pane?"},
     )
     input_pane: str = Field(
         default="#1C1C1C",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color of the input pane?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color of the input pane?"},
     )
     logs_pane: str = Field(
         default="#121212",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color of the logs pane?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color of the logs pane?"},
     )
     terminal_primary: str = Field(
         default="#5FFFD7",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the terminal primary color?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the terminal primary color?"},
     )
     primary_label: str = Field(
         default="#5FFFD7",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for primary label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for primary label?"},
     )
     secondary_label: str = Field(
         default="#FFFFFF",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for secondary label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for secondary label?"},
     )
     success_label: str = Field(
         default="#5FFFD7",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for success label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for success label?"},
     )
     warning_label: str = Field(
         default="#FFFF00",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for warning label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for warning label?"},
     )
     info_label: str = Field(
         default="#5FD7FF",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for info label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for info label?"},
     )
     error_label: str = Field(
         default="#FF0000",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for error label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for error label?"},
     )
     gold_label: str = Field(
         default="#FFD700",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for gold label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for gold label?"},
     )
     silver_label: str = Field(
         default="#C0C0C0",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for silver label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for silver label?"},
     )
     bronze_label: str = Field(
         default="#CD7F32",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "What is the background color for bronze label?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is the background color for bronze label?"},
     )
 
     @field_validator(
@@ -303,12 +213,10 @@ class PaperTradeConfigMap(BaseClientModel):
             "DOGE": 1000000,
             "HBOT": 10000000,
         },
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Enter paper trade balance settings (Input must be valid json — "
-                "e.g. {\"ETH\": 10, \"USDC\": 50000})"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: (
+            "Enter paper trade balance settings (Input must be valid json — "
+            "e.g. {\"ETH\": 10, \"USDC\": 50000})"
+        )},
     )
 
     @field_validator("paper_trade_account_balance", mode="before")
@@ -328,12 +236,10 @@ class KillSwitchMode(BaseClientModel, ABC):
 class KillSwitchEnabledMode(KillSwitchMode):
     kill_switch_rate: Decimal = Field(
         default=Decimal("10"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "At what profit/loss rate would you like the bot to stop?"
-                " (e.g. -5 equals 5 percent loss)"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "At what profit/loss rate would you like the bot to stop? "
+                                 "(e.g. -5 equals 5 percent loss)"
+        }
     )
     model_config = ConfigDict(title="kill_switch_enabled")
 
@@ -371,12 +277,10 @@ class DBMode(BaseClientModel, ABC):
 class DBSqliteMode(DBMode):
     db_engine: str = Field(
         default="sqlite",
-        const=True,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Please enter database engine you want to use (reference: https://docs.sqlalchemy.org/en/13/dialects/)"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Please enter database engine you want to use "
+                                 "(reference: https://docs.sqlalchemy.org/en/13/dialects/)"
+        }
     )
     model_config = ConfigDict(title="sqlite_db_engine")
 
@@ -387,41 +291,29 @@ class DBSqliteMode(DBMode):
 class DBOtherMode(DBMode):
     db_engine: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Please enter database engine you want to use (reference: https://docs.sqlalchemy.org/en/13/dialects/)"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Please enter database engine you want to use "
+        }
     )
     db_host: str = Field(
         default="127.0.0.1",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter your DB host address",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Please enter your DB host address"},
     )
     db_port: int = Field(
         default=3306,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter your DB port",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Please enter your DB port"},
     )
     db_username: str = Field(
-        defaul="username",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter your DB username",
-        ),
+        default="username",
+        json_schema_extra={"prompt": lambda cm: "Please enter your DB username"},
     )
     db_password: str = Field(
         default="password",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter your DB password",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Please enter your DB password"},
     )
     db_name: str = Field(
         default="dbname",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter your the name of your DB",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Please enter your DB name"},
     )
     model_config = ConfigDict(title="other_db_engine")
 
@@ -444,15 +336,11 @@ DB_MODES = {
 class GatewayConfigMap(BaseClientModel):
     gateway_api_host: str = Field(
         default="localhost",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter your Gateway API host",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Please enter your Gateway API host"},
     )
     gateway_api_port: str = Field(
         default="15888",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter your Gateway API port",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Please enter your Gateway API port"},
     )
     model_config = ConfigDict(title="gateway")
 
@@ -460,17 +348,11 @@ class GatewayConfigMap(BaseClientModel):
 class GlobalTokenConfigMap(BaseClientModel):
     global_token_name: str = Field(
         default="USDT",
-        client_data=ClientFieldData(
-            prompt=lambda
-                cm: "What is your default display token? (e.g. USD,EUR,BTC)",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is your default display token? (e.g. USDT, BTC)"},
     )
     global_token_symbol: str = Field(
         default="$",
-        client_data=ClientFieldData(
-            prompt=lambda
-                cm: "What is your default display token symbol? (e.g. $,€)",
-        ),
+        json_schema_extra={"prompt": lambda cm: "What is your default display token symbol? (e.g. $,€)"},
     )
     model_config = ConfigDict(title="global_token")
 
@@ -491,21 +373,16 @@ class CommandsTimeoutConfigMap(BaseClientModel):
     create_command_timeout: Decimal = Field(
         default=Decimal("10"),
         gt=Decimal("0"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Network timeout when fetching the minimum order amount in the create command (in seconds)"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Network timeout when fetching the minimum order amount in the create command (in seconds)"
+        }
     )
     other_commands_timeout: Decimal = Field(
         default=Decimal("30"),
         gt=Decimal("0"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Network timeout to apply to the other commands' API calls"
-                " (i.e. import, connect, balance, history; in seconds)"
-            ),
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Network timeout to apply to the other commands' API calls (in seconds)"
+        }
     )
     model_config = ConfigDict(title="commands_timeout")
 
@@ -539,9 +416,7 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
     anonymized_metrics_interval_min: Decimal = Field(
         default=Decimal("15"),
         gt=Decimal("0"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: "How often do you want to send the anonymized metrics (Enter 5 for 5 minutes)?",
-        ),
+        json_schema_extra={"prompt": lambda cm: "How often do you want to send the anonymized metrics (in minutes)"},
     )
     model_config = ConfigDict(title="anonymized_metrics_enabled")
 
@@ -580,57 +455,35 @@ class ExchangeRateSourceModeBase(RateSourceModeBase):
 
 
 class AscendExRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="ascend_ex",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="ascend_ex")
     model_config = ConfigDict(title="ascend_ex")
 
 
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="binance",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="binance")
     model_config = ConfigDict(title="binance")
 
 
 class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="binance_us",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="binance_us")
     model_config = ConfigDict(title="binance_us")
 
 
 class CubeRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="cube",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="cube")
     model_config = ConfigDict(title="cube")
 
 
 class CoinGeckoRateSourceMode(RateSourceModeBase):
-    name: str = Field(
-        default="coin_gecko",
-        const=True,
-        client_data=None,
-    )
-
+    name: str = Field(default="coin_gecko")
     extra_tokens: List[str] = Field(
         default=[],
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
+        json_schema_extra={
+            "prompt": lambda cm: (
                 "List of comma-delimited CoinGecko token ids to always include"
                 " in CoinGecko rates query (e.g. frontier-token,pax-gold,rbtc — empty to skip)"
             ),
-            prompt_on_new=True,
-        )
+        }
     )
     model_config = ConfigDict(title="coin_gecko")
 
@@ -654,11 +507,7 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
 
 
 class CoinCapRateSourceMode(RateSourceModeBase):
-    name: str = Field(
-        default="coin_cap",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="coin_cap")
     assets_map: Dict[str, str] = Field(
         default=",".join(
             [
@@ -677,24 +526,24 @@ class CoinCapRateSourceMode(RateSourceModeBase):
             "The symbol-to-asset ID map for CoinCap. Assets IDs can be found by selecting a symbol"
             " on https://coincap.io/ and extracting the last segment of the URL path."
         ),
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
+        json_schema_extra={
+            "prompt": lambda cm: (
                 "CoinCap symbol-to-asset ID map (e.g. 'BTC:bitcoin,ETH:ethereum', find IDs on https://coincap.io/"
                 " by selecting a symbol and extracting the last segment of the URL path)"
             ),
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     api_key: SecretStr = Field(
         default=SecretStr(""),
         description="API key to use to request information from CoinCap (if empty public requests will be used)",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "CoinCap API key (optional, but improves rate limits)",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "CoinCap API key (optional, but improves rate limits)",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     model_config = ConfigDict(title="coin_cap")
 
@@ -721,65 +570,37 @@ class CoinCapRateSourceMode(RateSourceModeBase):
 
 
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="kucoin",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="kucoin")
     model_config = ConfigDict(title="kucoin")
 
 
 class GateIoRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="gate_io",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="gate_io")
     model_config = ConfigDict(title="gate_io")
 
 
 class DexalotRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="dexalot",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="dexalot")
     model_config = ConfigDict(title="dexalot")
 
 
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="coinbase_advanced_trade",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="coinbase_advanced_trade")
     model_config = ConfigDict(title="coinbase_advanced_trade")
 
 
 class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="hyperliquid",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="hyperliquid")
     model_config = ConfigDict(title="hyperliquid")
 
 
 class DeriveRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="derive",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="derive")
     model_config = ConfigDict(title="derive")
 
 
 class TegroRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
-        default="tegro",
-        const=True,
-        client_data=None,
-    )
+    name: str = Field(default="tegro")
     model_config = ConfigDict(title="tegro")
 
 
@@ -812,16 +633,14 @@ class CommandShortcutModel(BaseModel):
 class ClientConfigMap(BaseClientModel):
     instance_id: str = Field(
         default=generate_client_id(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Instance UID of the bot",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enter a unique identifier for this instance of Hummingbot"},
     )
     fetch_pairs_from_all_exchanges: bool = Field(
         default=False,
         description="Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Would you like to fetch from all exchanges? (True/False)",
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Would you like to fetch trading pairs from all exchanges? (True/False)"
+        }
     )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
@@ -831,24 +650,18 @@ class ClientConfigMap(BaseClientModel):
     )
     log_file_path: Path = Field(
         default=DEFAULT_LOG_FILE_PATH,
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Where would you like to save your logs? (default '{DEFAULT_LOG_FILE_PATH}')",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Where would you like to save your logs? (default 'logs/hummingbot_logs.log')"},
     )
     kill_switch_mode: Union[tuple(KILL_SWITCH_MODES.values())] = Field(
         default=KillSwitchDisabledMode(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select your kill-switch mode ({'/'.join(list(KILL_SWITCH_MODES.keys()))})",
-        ),
+        json_schema_extra={"prompt": lambda cm: f"Select the desired kill-switch mode ({'/'.join(list(KILL_SWITCH_MODES.keys()))})"},
     )
     autofill_import: AutofillImportEnum = Field(
         default=AutofillImportEnum.disabled,
         description="What to auto-fill in the prompt after each import command (start/config)",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                f"What to auto-fill in the prompt after each import command? ({'/'.join(list(AutofillImportEnum))})"
-            ),
-        )
+        json_schema_extra={
+            "prompt": lambda cm: f"What to auto-fill in the prompt after each import command? ({'/'.join(list(AutofillImportEnum))})"
+        }
     )
     mqtt_bridge: MQTTBridgeConfigMap = Field(
         default=MQTTBridgeConfigMap(),
@@ -857,9 +670,7 @@ class ClientConfigMap(BaseClientModel):
     send_error_logs: bool = Field(
         default=True,
         description="Error log sharing",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Would you like to send error logs to hummingbot? (Yes/No)",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Would you like to send error logs to hummingbot? (True/False)"},
     )
     previous_strategy: Optional[str] = Field(
         default=None,
@@ -873,9 +684,7 @@ class ClientConfigMap(BaseClientModel):
                      "\nTo use a DBMS the required configuration is"
                      "\n  db_host: 127.0.0.1\n  db_port: 3306\n  db_username: username\n  db_password: password"
                      "\n  db_name: dbname"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the desired db mode ({'/'.join(list(DB_MODES.keys()))})",
-        ),
+        json_schema_extra={"prompt": lambda cm: f"Select the desired db mode ({'/'.join(list(DB_MODES.keys()))})"},
     )
     balance_asset_limit: Dict[str, Dict[str, Decimal]] = Field(
         default={exchange: {} for exchange in AllConnectorSettings.get_exchange_names()},
@@ -885,19 +694,13 @@ class ClientConfigMap(BaseClientModel):
                      "\n  binance:"
                      "\n    BTC: 0.1"
                      "\n    USDT: 1000"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "Use the `balance limit` command e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: "Use the `balance limit` command e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]"},
     )
     manual_gas_price: Decimal = Field(
         default=Decimal("50"),
         description="Fixed gas price (in Gwei) for Ethereum transactions",
         gt=Decimal("0"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter fixed gas price (in Gwei) you want to use for Ethereum transactions",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Enter fixed gas price (in Gwei) you want to use for Ethereum transactions"},
     )
     gateway: GatewayConfigMap = Field(
         default=GatewayConfigMap(),
@@ -907,17 +710,13 @@ class ClientConfigMap(BaseClientModel):
     )
     certs_path: Path = Field(
         default=DEFAULT_GATEWAY_CERTS_PATH,
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
-        ),
+        json_schema_extra={"prompt": lambda cm: "Where would you like to save certificates that connect your bot to Gateway? (default 'certs')"},
     )
 
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsEnabledMode(),
         description="Whether to enable aggregated order and trade data collection",
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the desired metrics mode ({'/'.join(list(METRICS_MODES.keys()))})",
-        ),
+        json_schema_extra={"prompt": lambda cm: f"Select the desired metrics mode ({'/'.join(list(METRICS_MODES.keys()))})"},
     )
     command_shortcuts: List[CommandShortcutModel] = Field(
         default=[
@@ -935,11 +734,7 @@ class ClientConfigMap(BaseClientModel):
     rate_oracle_source: RateSourceModeT = Field(
         default=BinanceRateSourceMode(),
         description=f"A source for rate oracle, currently {', '.join(RATE_SOURCE_MODES.keys())}",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                f"What source do you want rate oracle to pull data from? ({'/'.join(RATE_SOURCE_MODES.keys())})"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: f"Select the desired rate oracle source ({'/'.join(RATE_SOURCE_MODES.keys())})"},
     )
     global_token: GlobalTokenConfigMap = Field(
         default=GlobalTokenConfigMap(),
@@ -952,12 +747,10 @@ class ClientConfigMap(BaseClientModel):
                      "\n50% to this setting, the bot will have a maximum (limit) of 50 calls per second"),
         gt=Decimal("0"),
         le=Decimal("100"),
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "What percentage of API rate limits do you want to allocate to this bot instance?"
-                " (Enter 50 to indicate 50%)"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: (
+            "What percentage of API rate limits do you want to allocate to this bot instance?"
+            " (Enter 50 to indicate 50%)"
+        )},
     )
     commands_timeout: CommandsTimeoutConfigMap = Field(default=CommandsTimeoutConfigMap())
     tables_format: ClientConfigEnum(
@@ -967,12 +760,9 @@ class ClientConfigMap(BaseClientModel):
     ) = Field(
         default="psql",
         description="Tabulate table format style (https://github.com/astanin/python-tabulate#table-format)",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "What tabulate formatting to apply to the tables?"
-                " [https://github.com/astanin/python-tabulate#table-format]"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: (
+            "What tabulate formatting to apply to the tables? [https://github.com/astanin/python-tabulate#table-format]"
+        )}
     )
     paper_trade: PaperTradeConfigMap = Field(default=PaperTradeConfigMap())
     color: ColorConfigMap = Field(default=ColorConfigMap())
@@ -982,11 +772,9 @@ class ClientConfigMap(BaseClientModel):
         description="The tick size is the frequency with which the clock notifies the time iterators by calling the"
                     "\nc_tick() method, that means for example that if the tick size is 1, the logic of the strategy"
                     " \nwill run every second.",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (
-                "What tick size (in seconds) do you want to use? (Enter 0.5 to indicate 0.5 seconds)"
-            ),
-        ),
+        json_schema_extra={"prompt": lambda cm: (
+            "What tick size (in seconds) do you want to use? (Enter 0.5 to indicate 0.5 seconds)"
+        )},
     )
     market_data_collection: MarketDataCollectionConfigMap = Field(default=MarketDataCollectionConfigMap())
     model_config = ConfigDict(title="client_config_map")
@@ -1085,15 +873,15 @@ class ClientConfigMap(BaseClientModel):
 
     @model_validator(mode="after")
     def post_validations(self):
-        for key in self.model_fields.keys():
-            value = getattr(self, key)
-            if isinstance(value, FieldInfo):
-                setattr(self, key, value.default)
-            elif isinstance(value, BaseClientModel):
-                for inner_key in value.model_fields.keys():
-                    inner_value = getattr(value, inner_key)
-                    if isinstance(inner_value, FieldInfo):
-                        setattr(value, inner_key, inner_value.default)
+        # for key in self.model_fields.keys():
+        #     value = getattr(self, key)
+        #     if isinstance(value, FieldInfo):
+        #         setattr(self, key, value.default)
+        #     elif isinstance(value, BaseClientModel):
+        #         for inner_key in value.model_fields.keys():
+        #             inner_value = getattr(value, inner_key)
+        #             if isinstance(inner_value, FieldInfo):
+        #                 setattr(value, inner_key, inner_value.default)
         rate_source_mode: RateSourceModeBase = self.rate_oracle_source
         RateOracle.get_instance().source = rate_source_mode.build_rate_source()
         RateOracle.get_instance().quote_token = self.global_token.global_token_name
