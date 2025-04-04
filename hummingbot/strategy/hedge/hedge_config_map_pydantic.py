@@ -1,11 +1,10 @@
 from decimal import Decimal
 from typing import Dict, List, Literal, Union
 
-from pydantic import ConfigDict, field_validator
-from pydantic.v1 import Field, validator
+from pydantic import ConfigDict, Field, field_validator
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
-from hummingbot.client.config.config_validators import validate_bool, validate_decimal, validate_market_trading_pair
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
+from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import AllConnectorSettings
 
@@ -22,10 +21,7 @@ def get_field(i: int) -> Field:
     return Field(
         default="",
         description="The name of the hedge exchange connector.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: f"Do you want to monitor connector {i}? (y/n)",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": f"Do you want to monitor connector {i}? (y/n)", "prompt_on_new": True},
     )
 
 
@@ -43,63 +39,23 @@ class MarketConfigMap(BaseClientModel):
     connector: Union[None, ExchangeEnum] = Field(
         default=...,
         description="The name of the exchange connector.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter name of the exchange to use",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter name of the exchange to use", "prompt_on_new": True}
     )
     markets: Union[None, List[str]] = Field(
         default=...,
         description="The name of the trading pair.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: MarketConfigMap.trading_pair_prompt(mi),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": lambda mi: MarketConfigMap.trading_pair_prompt(mi), "prompt_on_new": True},
     )
     offsets: Union[None, List[Decimal]] = Field(
         default=Decimal("0.0"),
         description="The offsets for each trading pair.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the offsets to use to hedge the markets comma seperated. "
-            "the remainder will be assumed as 0 if no inputs. "
-            "e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT. "
-            "and offsets is 0.1, -0.2. "
-            "then the offset amount that will be added is 0.1 BTC, -0.2 ETH and 0 LTC. ",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter the offsets to use to hedge the markets comma seperated, the remainder will be assumed as 0 if no inputs. "
+                      "e.g if markets is BTC-USDT,ETH-USDT,LTC-USDT, and offsets is 0.1, -0.2. "
+                      "then the offset amount that will be added is 0.1 BTC, -0.2 ETH and 0 LTC. ",
+            "prompt_on_new": True,
+        }
     )
-
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("offsets", pre=True)
-    def validate_offsets(cls, offsets: Union[str, List[Decimal]], values: Dict):
-        """checks and ensure offsets are of decimal type"""
-        if offsets is None:
-            return None
-        if isinstance(offsets, str):
-            offsets = offsets.split(",")
-        for offset in offsets:
-            if validate_decimal(offset):
-                return validate_decimal(offset)
-        markets = values["markets"]
-        if len(offsets) >= len(markets):
-            return offsets[: len(markets)]
-        return offsets + ["0"] * (len(markets) - len(offsets))
-
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("markets", pre=True)
-    def validate_markets(cls, markets: Union[str, List[str]], values: Dict):
-        """checks and ensure offsets are of decimal type"""
-        if markets is None:
-            return None
-        if isinstance(markets, str):
-            markets = markets.split(",")
-        for market in markets:
-            validated = validate_market_trading_pair(values["connector"], market)
-            if validated:
-                return validated
-        return markets
 
     @staticmethod
     def trading_pair_prompt(model_instance: "MarketConfigMap") -> str:
@@ -122,91 +78,64 @@ class HedgeConfigMap(BaseStrategyConfigMap):
     value_mode: bool = Field(
         default=True,
         description="Whether to hedge based on value or amount",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Do you want to hedge by asset value [y] or asset amount[n] (y/n)?",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Do you want to hedge by asset value [y] or asset amount[n] (y/n)?",
+            "prompt_on_new": True,
+        }
     )
     hedge_ratio: Decimal = Field(
         default=Decimal("1"),
         description="The ratio of the hedge amount to the total asset amount",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter ratio of asset to hedge, e.g 0.5 means 50 percent of the total asset value will be hedged.",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter the ratio of asset to hedge, e.g 0.5 means 50 percent of the total asset value will be hedged.",
+            "prompt_on_new": True,
+        }
     )
     hedge_interval: int = Field(
         default=60,
         description="The interval in seconds to check for hedge.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the interval in seconds to check for hedge",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter the interval in seconds to check for hedge", "prompt_on_new": True},
     )
     min_trade_size: Decimal = Field(
         default=Decimal("0.0"),
         description="The minimum trade size in quote asset.",
         ge=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the minimum trade size in quote asset",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter the minimum trade size in quote asset", "prompt_on_new": True},
     )
     slippage: Decimal = Field(
         default=Decimal("0.02"),
         description="The slippage tolerance for the hedge order.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the slippage tolerance for the hedge order",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter the slippage tolerance for the hedge order", "prompt_on_new": True},
     )
     hedge_connector: ExchangeEnum = Field(
         default=...,
         description="The name of the hedge exchange connector.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter name of the exchange to hedge overall assets",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter name of the exchange to hedge overall assets", "prompt_on_new": True},
     )
     hedge_markets: List[str] = Field(
         default=...,
         description="The name of the trading pair.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: HedgeConfigMap.hedge_markets_prompt(mi),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": lambda mi: HedgeConfigMap.hedge_markets_prompt(mi), "prompt_on_new": True},
     )
     hedge_offsets: List[Decimal] = Field(
         default=Decimal("0.0"),
         description="The offsets for each trading pair.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: HedgeConfigMap.hedge_offsets_prompt(mi),
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": lambda mi: HedgeConfigMap.hedge_offsets_prompt(mi), "prompt_on_new": True},
     )
     hedge_leverage: int = Field(
         default=1,
         description="The leverage to use for the market.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the leverage to use for the hedge market",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter the leverage to use for the hedge market", "prompt_on_new": True},
     )
     hedge_position_mode: Literal["ONEWAY", "HEDGE"] = Field(
         default="ONEWAY",
         description="The position mode to use for the market.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the position mode to use for the hedge market",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={"prompt": "Enter the position mode to use for the hedge market", "prompt_on_new": True},
     )
     enable_auto_set_position_mode: bool = Field(
         default=False,
         description="Whether to automatically set the exchange position mode to one-way or hedge based  ratio.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Do you want to automatically set the exchange position mode to one-way or hedge [y/n]?",
-            prompt_on_new=False,
-        )
+        json_schema_extra={"prompt": "Do you want to automatically set the exchange position mode to one-way or hedge based on the ratio [y/n]?"},
     )
     connector_0: market_config_map = get_field(0)
     connector_1: market_config_map = get_field(1)
@@ -224,38 +153,6 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         if v.lower() in (True, "true", "yes", "y"):
             return MarketConfigMap.model_construct()
         return EmptyMarketConfigMap.model_construct()
-
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("hedge_offsets", pre=True)
-    def validate_offsets(cls, offsets: Union[str, List[Decimal]], values: Dict):
-        """checks and ensure offsets are of decimal type"""
-        if isinstance(offsets, str):
-            offsets = offsets.split(",")
-        for offset in offsets:
-            if validate_decimal(offset):
-                return validate_decimal(offset)
-        markets = values["hedge_markets"]
-        if len(offsets) >= len(markets):
-            return offsets[: len(markets)]
-        return offsets + ["0"] * (len(markets) - len(offsets))
-
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("hedge_markets", pre=True)
-    def validate_markets(cls, markets: Union[str, List[str]], values: Dict):
-        """checks and ensure offsets are of decimal type"""
-        if isinstance(markets, str):
-            markets = markets.split(",")
-        for market in markets:
-            validated = validate_market_trading_pair(values["hedge_connector"], market)
-            if validated:
-                raise ValueError(validated)
-        if len(markets) == 0:
-            raise ValueError("No market entered")
-        if values["value_mode"] and len(markets) > 1:
-            raise ValueError("Only one market can be used for value mode")
-        return markets
 
     @staticmethod
     def hedge_markets_prompt(mi: "HedgeConfigMap") -> str:
