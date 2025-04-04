@@ -1,9 +1,8 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
-from pydantic.v1 import Field
+from pydantic import Field
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
@@ -30,22 +29,20 @@ class GridStrikeConfig(ControllerConfigBase):
     connector_name: str = "binance_perpetual"
     trading_pair: str = "PNUT-USDT"
     side: TradeType = TradeType.BUY
-    start_price: Decimal = Field(default=Decimal("1.04"), client_data=ClientFieldData(is_updatable=True))
-    end_price: Decimal = Field(default=Decimal("1.17"), client_data=ClientFieldData(is_updatable=True))
-    limit_price: Decimal = Field(default=Decimal("1.016"), client_data=ClientFieldData(is_updatable=True))
+    start_price: Decimal = Field(default=Decimal("1.04"), json_schema_extra={"is_updatable": True})
+    end_price: Decimal = Field(default=Decimal("1.17"), json_schema_extra={"is_updatable": True})
+    limit_price: Decimal = Field(default=Decimal("1.016"), json_schema_extra={"is_updatable": True})
 
     # Profiling
-    total_amount_quote: Decimal = Field(default=Decimal("1000"), client_data=ClientFieldData(is_updatable=True))
-    min_spread_between_orders: Optional[Decimal] = Field(default=Decimal("0.001"),
-                                                         client_data=ClientFieldData(is_updatable=True))
-    min_order_amount_quote: Optional[Decimal] = Field(default=Decimal("5"),
-                                                      client_data=ClientFieldData(is_updatable=True))
+    total_amount_quote: Decimal = Field(default=Decimal("1000"), json_schema_extra={"is_updatable": True})
+    min_spread_between_orders: Optional[Decimal] = Field(default=Decimal("0.001"), json_schema_extra={"is_updatable": True})
+    min_order_amount_quote: Optional[Decimal] = Field(default=Decimal("5"), json_schema_extra={"is_updatable": True})
 
     # Execution
-    max_open_orders: int = Field(default=5, client_data=ClientFieldData(is_updatable=True))
-    max_orders_per_batch: Optional[int] = Field(default=1, client_data=ClientFieldData(is_updatable=True))
-    order_frequency: int = Field(default=10, client_data=ClientFieldData(is_updatable=True))
-    activation_bounds: Optional[Decimal] = Field(default=None, client_data=ClientFieldData(is_updatable=True))
+    max_open_orders: int = Field(default=5, json_schema_extra={"is_updatable": True})
+    max_orders_per_batch: Optional[int] = Field(default=1, json_schema_extra={"is_updatable": True})
+    order_frequency: int = Field(default=10, json_schema_extra={"is_updatable": True})
+    activation_bounds: Optional[Decimal] = Field(default=None, json_schema_extra={"is_updatable": True})
 
     # Risk Management
     triple_barrier_config: TripleBarrierConfig = TripleBarrierConfig(
@@ -55,7 +52,7 @@ class GridStrikeConfig(ControllerConfigBase):
         take_profit_order_type=OrderType.LIMIT_MAKER,
         trailing_stop=TrailingStop(activation_price=Decimal("0.03"), trailing_delta=Decimal("0.005"))
     )
-    time_limit: Optional[int] = Field(default=60 * 60 * 24 * 2, client_data=ClientFieldData(is_updatable=True))
+    time_limit: Optional[int] = Field(default=60 * 60 * 24 * 2, json_schema_extra={"is_updatable": True})
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.connector_name not in markets:
