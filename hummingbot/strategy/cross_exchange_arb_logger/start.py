@@ -1,17 +1,8 @@
 from hummingbot.strategy.cross_exchange_arb_logger import CrossExchangeArbLogger
-from hummingbot.strategy.cross_exchange_arb_logger.cross_exchange_arb_logger_config_map import (
-    cross_exchange_arb_logger_config_map as c_map,
-)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
-def start(self):
-    exchange_1_market_1 = c_map.get("exchange_1_market_1").value
-    exchange_2_market_2 = c_map.get("exchange_2_market_2").value
-
-    exchange_1, market_1 = exchange_1_market_1.split(":")
-    exchange_2, market_2 = exchange_2_market_2.split(":")
-
+def start(self, exchange_1, market_1, exchange_2, market_2):
     self._initialize_markets(
         [
             (exchange_1, [market_1]),
