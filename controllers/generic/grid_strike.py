@@ -1,9 +1,8 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -34,21 +33,21 @@ class GridStrikeConfig(ControllerConfigBase):
     controller_type = "generic"
     connector_name: str = "binance"
     trading_pair: str = "BTC-USDT"
-    total_amount_quote: Decimal = Field(default=Decimal("1000"), client_data=ClientFieldData(is_updatable=True))
+    total_amount_quote: Decimal = Field(default=Decimal("1000"), json_schema_extra={"is_updatable": True})
     grid_ranges: List[GridRange] = Field(default=[GridRange(id="R0", start_price=Decimal("40000"),
                                                             end_price=Decimal("60000"),
                                                             total_amount_pct=Decimal("0.1"))],
-                                         client_data=ClientFieldData(is_updatable=True))
+                                         json_schema_extra={"is_updatable": True})
     position_mode: PositionMode = PositionMode.HEDGE
     leverage: int = 1
-    time_limit: Optional[int] = Field(default=60 * 60 * 24 * 2, client_data=ClientFieldData(is_updatable=True))
-    activation_bounds: Decimal = Field(default=Decimal("0.01"), client_data=ClientFieldData(is_updatable=True))
+    time_limit: Optional[int] = Field(default=60 * 60 * 24 * 2, json_schema_extra={"is_updatable": True})
+    activation_bounds: Decimal = Field(default=Decimal("0.01"), json_schema_extra={"is_updatable": True})
     min_spread_between_orders: Optional[Decimal] = Field(default=None,
-                                                         client_data=ClientFieldData(is_updatable=True))
+                                                         json_schema_extra={"is_updatable": True})
     min_order_amount: Optional[Decimal] = Field(default=Decimal("1"),
-                                                client_data=ClientFieldData(is_updatable=True))
-    max_open_orders: int = Field(default=5, client_data=ClientFieldData(is_updatable=True))
-    grid_range_update_interval: int = Field(default=60, client_data=ClientFieldData(is_updatable=True))
+                                                json_schema_extra={"is_updatable": True})
+    max_open_orders: int = Field(default=5, json_schema_extra={"is_updatable": True})
+    grid_range_update_interval: int = Field(default=60, json_schema_extra={"is_updatable": True})
     extra_balance_base_usd: Decimal = Decimal("10")
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:

@@ -73,6 +73,8 @@ class XEMMMultipleLevelsConfig(ControllerConfigBase):
             prompt_on_new=True
         ))
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("buy_levels_targets_amount", "sell_levels_targets_amount", pre=True, always=True)
     def validate_levels_targets_amount(cls, v, values):
         if isinstance(v, str):

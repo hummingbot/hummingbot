@@ -56,6 +56,8 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
                               "(e.g., 0.01 activates the next order when the price is closer than 1%): ",
             prompt_on_new=False))
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("executor_activation_bounds", pre=True, always=True)
     def parse_activation_bounds(cls, v):
         if isinstance(v, list):
@@ -66,6 +68,8 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
             return [Decimal(val) for val in v.split(",")]
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('dca_spreads', pre=True, always=True)
     def parse_spreads(cls, v):
         if v is None:
@@ -76,6 +80,8 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
             return [float(x.strip()) for x in v.split(',')]
         return v
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator('dca_amounts', pre=True, always=True)
     def parse_and_validate_amounts(cls, v, values, field):
         if v is None or v == "":
