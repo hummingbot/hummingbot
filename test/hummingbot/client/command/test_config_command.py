@@ -5,10 +5,10 @@ from test.mock.mock_cli import CLIMockingAssistant
 from typing import Awaitable, Union
 from unittest.mock import MagicMock, patch
 
-from pydantic.v1 import Field
+from pydantic import Field
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
@@ -190,8 +190,8 @@ class ConfigCommandTest(unittest.TestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_config_non_configurable_key_fails(self, notify_mock, get_strategy_config_map_mock):
         class DummyModel(BaseStrategyConfigMap):
-            strategy: str = Field(default="pure_market_making", client_data=None)
-            some_attr: int = Field(default=1, client_data=ClientFieldData(prompt=lambda mi: "some prompt"))
+            strategy: str = Field(default="pure_market_making")
+            some_attr: int = Field(default=1, json_schema_extra={"prompt": "some prompt"})
             another_attr: Decimal = Field(default=Decimal("1.0"))
 
             class Config:
@@ -218,16 +218,14 @@ class ConfigCommandTest(unittest.TestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_config_single_keys(self, _, get_strategy_config_map_mock, save_to_yml_mock):
         class NestedModel(BaseClientModel):
-            nested_attr: str = Field(
-                default="some value", client_data=ClientFieldData(prompt=lambda mi: "some prompt")
-            )
+            nested_attr: str = Field(default="some value", json_schema_extra={"prompt": "some prompt"})
 
             class Config:
                 title = "nested_model"
 
         class DummyModel(BaseStrategyConfigMap):
-            strategy: str = Field(default="pure_market_making", client_data=None)
-            some_attr: int = Field(default=1, client_data=ClientFieldData(prompt=lambda mi: "some prompt"))
+            strategy: str = Field(default="pure_market_making")
+            some_attr: int = Field(default=1, json_schema_extra={"prompt": "some prompt"})
             nested_model: NestedModel = Field(default=NestedModel())
 
             class Config:

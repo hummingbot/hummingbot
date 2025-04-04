@@ -7,7 +7,6 @@ from typing import Awaitable, Dict
 from unittest.mock import patch
 
 import yaml
-from pydantic.v1 import validate_model
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigValidationError
 from hummingbot.client.settings import AllConnectorSettings
@@ -81,8 +80,6 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
                         build_config_map(new_value, cs[key])
 
         build_config_map(config_map, config_settings)
-        hb_config = config_map.hb_config
-        validate_model(hb_config.__class__, hb_config.__dict__)
         self.assertEqual(0, len(config_map.validate_model()))
 
     def test_order_amount_prompt(self):
