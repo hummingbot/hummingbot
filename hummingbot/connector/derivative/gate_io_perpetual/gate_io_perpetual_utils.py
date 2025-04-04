@@ -1,10 +1,8 @@
 from decimal import Decimal
 
-from pydantic import ConfigDict, SecretStr
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, SecretStr
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
-from hummingbot.connector.derivative.gate_io_perpetual import gate_io_perpetual_constants as CONSTANTS
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -19,30 +17,30 @@ class GateIOPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = "gate_io_perpetual"
     gate_io_perpetual_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Enter your {CONSTANTS.EXCHANGE_NAME} API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Gate.io Perpetual API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     gate_io_perpetual_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Enter your {CONSTANTS.EXCHANGE_NAME} secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Gate.io Perpetual API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     gate_io_perpetual_user_id: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Enter your {CONSTANTS.EXCHANGE_NAME} user id",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Gate.io Perpetual user id",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     model_config = ConfigDict(title="gate_io_perpetual")
 

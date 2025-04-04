@@ -1,10 +1,9 @@
 from decimal import Decimal
 from typing import Dict, Union
 
-from pydantic import ConfigDict, field_validator
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, field_validator
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     ACCOUNT_MODES,
     FEE_CALCULATOR_MODES,
@@ -27,30 +26,27 @@ DEFAULT_FEES = TradeFeeSchema(
 class InjectiveConfigMap(BaseConnectorConfigMap):
     # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
     connector: str = "injective_v2_perpetual"
-    receive_connector_configuration: bool = Field(
-        default=True, const=True,
-        client_data=ClientFieldData(),
-    )
+    receive_connector_configuration: bool = Field(default=True)
     network: Union[tuple(NETWORK_MODES.values())] = Field(
         default=InjectiveMainnetNetworkMode(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the network ({'/'.join(list(NETWORK_MODES.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: f"Select the network ({'/'.join(list(NETWORK_MODES.keys()))})",
+            "prompt_on_new": True,
+        }
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
         default=InjectiveReadOnlyAccountMode(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the type of account configuration ({'/'.join(list(ACCOUNT_MODES.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: f"Select the type of account ({'/'.join(list(ACCOUNT_MODES.keys()))})",
+            "prompt_on_new": True
+        },
     )
     fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
         default=InjectiveSimulatedTransactionFeeCalculatorMode(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": lambda cm: f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
+            "prompt_on_new": True,
+        }
     )
     model_config = ConfigDict(title="injective_v2_perpetual")
 

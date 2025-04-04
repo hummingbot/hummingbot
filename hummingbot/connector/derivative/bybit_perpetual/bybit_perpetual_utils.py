@@ -1,10 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict, List, Tuple
 
-from pydantic import ConfigDict, SecretStr
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, SecretStr
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
@@ -66,21 +65,21 @@ class BybitPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = "bybit_perpetual"
     bybit_perpetual_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit Perpetual API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bybit Perpetual API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     bybit_perpetual_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit Perpetual secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bybit Perpetual API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
     model_config = ConfigDict(title="bybit_perpetual")
 
@@ -102,21 +101,21 @@ class BybitPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "bybit_perpetual_testnet"
     bybit_perpetual_testnet_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit Perpetual Testnet API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bybit Perpetual Testnet API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     bybit_perpetual_testnet_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit Perpetual Testnet secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bybit Perpetual Testnet API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     model_config = ConfigDict(title="bybit_perpetual_testnet")
 
