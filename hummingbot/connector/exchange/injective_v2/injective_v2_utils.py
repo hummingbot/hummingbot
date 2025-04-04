@@ -14,7 +14,7 @@ from pyinjective.core.broadcaster import (
 from pyinjective.core.network import Network
 from pyinjective.wallet import PrivateKey
 
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
@@ -294,32 +294,30 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
 class InjectiveVaultAccountMode(InjectiveAccountMode):
     private_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter the vault admin private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter the vault admin private key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     subaccount_index: int = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter the vault admin subaccount index",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter the vault admin subaccount index",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     vault_contract_address: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter the vault contract address",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter the vault contract address",
+            "prompt_on_new": True,
+        }
     )
-    vault_subaccount_index: int = Field(
-        default=1,
-        const=True,
-        client_data=None
-    )
+    vault_subaccount_index: int = Field(default=1)
     model_config = ConfigDict(title="vault_account")
 
     def create_data_source(
@@ -367,30 +365,24 @@ ACCOUNT_MODES = {
 class InjectiveConfigMap(BaseConnectorConfigMap):
     # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
     connector: str = "injective_v2"
-    receive_connector_configuration: bool = Field(
-        default=True, const=True,
-        client_data=ClientFieldData(),
-    )
+    receive_connector_configuration: bool = Field(default=True)
     network: Union[tuple(NETWORK_MODES.values())] = Field(
         default=InjectiveMainnetNetworkMode(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the network ({'/'.join(list(NETWORK_MODES.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": f"Select the network ({'/'.join(list(NETWORK_MODES.keys()))})",
+            "prompt_on_new": True},
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
         default=InjectiveReadOnlyAccountMode(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the type of account configuration ({'/'.join(list(ACCOUNT_MODES.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": f"Select the account type ({'/'.join(list(ACCOUNT_MODES.keys()))})",
+            "prompt_on_new": True},
     )
     fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
         default=InjectiveSimulatedTransactionFeeCalculatorMode(),
-        client_data=ClientFieldData(
-            prompt=lambda cm: f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
+            "prompt_on_new": True},
     )
     model_config = ConfigDict(title="injective_v2")
 
