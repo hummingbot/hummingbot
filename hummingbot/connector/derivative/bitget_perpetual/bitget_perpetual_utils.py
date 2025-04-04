@@ -1,10 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic import ConfigDict, SecretStr
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, SecretStr
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Bitget fees: https://www.bitget.com/en/rate?tab=1
@@ -32,30 +31,30 @@ class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = "bitget_perpetual"
     bitget_perpetual_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bitget Perpetual API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bitget Perpetual API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True
+        }
     )
     bitget_perpetual_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bitget Perpetual secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bitget Perpetual secret key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True
+        }
     )
     bitget_perpetual_passphrase: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bitget Perpetual passphrase",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bitget Perpetual passphrase",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True
+        }
     )
     model_config = ConfigDict(title="bitget_perpetual")
 
