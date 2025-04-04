@@ -15,6 +15,7 @@ class BaseStrategyConfigMap(BaseClientModel):
         default=...,
         json_schema_extra={
             "prompt": "Enter the strategy name (e.g., market_making, arbitrage): ",
+            "prompt_on_new": True,
         }
     )
 
@@ -60,7 +61,7 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
         if ret is not None:
             raise ValueError(ret)
 
-        cls.__fields__["exchange"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+        cls.model_fields["exchange"].annotation = ClientConfigEnum(  # rebuild the exchanges enum
             value="Exchanges",  # noqa: F821
             names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
             type=str,

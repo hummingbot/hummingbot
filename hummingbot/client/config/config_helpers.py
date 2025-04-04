@@ -283,8 +283,7 @@ class ClientConfigAdapter:
     def _encrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
         for attr, value in conf_dict.items():
-            attr_type = self._hb_config.model_fields[attr].annotation
-            if attr_type == SecretStr:
+            if isinstance(value, SecretStr):
                 clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
                 conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, clear_text_value)
 
@@ -659,9 +658,8 @@ async def load_strategy_config_map_from_file(yml_path: Path) -> Union[ClientConf
         await load_yml_into_cm_legacy(str(yml_path), str(template_path), config_map)
     else:
         config_data = read_yml_file(yml_path)
-        hb_config = config_cls.model_construct()
+        hb_config = config_cls(**config_data)
         config_map = ClientConfigAdapter(hb_config)
-        _load_yml_data_into_map(config_data, config_map)
     return config_map
 
 
@@ -734,15 +732,6 @@ def list_connector_configs() -> List[Path]:
         if f.is_file() and not f.name.startswith("_") and not f.name.startswith(".")
     ]
     return connector_configs
-
-
-def _load_yml_data_into_map(yml_data: Dict[str, Any], cm: ClientConfigAdapter) -> List[str]:
-    for key in cm.keys():
-        if key in yml_data:
-            cm.setattr_no_validation(key, yml_data[key])
-
-    config_validation_errors = cm.validate_model()  # try coercing values to appropriate type
-    return config_validation_errors
 
 
 async def load_yml_into_dict(yml_path: str) -> Dict[str, Any]:

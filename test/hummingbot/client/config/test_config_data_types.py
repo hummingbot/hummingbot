@@ -1,4 +1,3 @@
-import json
 import unittest
 from datetime import date, datetime, time
 from decimal import Decimal
@@ -58,19 +57,17 @@ class BaseClientModelTest(unittest.TestCase):
         class DummyModel(BaseClientModel):
             some_attr: str = Field(
                 default=...,
-                json_schema_extra={"prompt": "Some prompt?", "prompt_on_new": True},
+                json_schema_extra={"prompt": lambda c: "Some prompt?", "prompt_on_new": True},
             )
 
-        schema = DummyModel.schema_json()
-        j = json.loads(schema)
+        schema = DummyModel.model_json_schema()
         expected = {
-            "prompt": None,
+            "prompt": "Some prompt?",
             "prompt_on_new": True,
-            "is_secure": False,
-            "is_connect_key": False,
-            "is_updatable": False,
+            "title": "Some Attr",
+            "type": "string",
         }
-        self.assertEqual(expected, j["properties"]["some_attr"]["client_data"])
+        self.assertEqual(expected, schema["properties"]["some_attr"])
 
     def test_traverse(self):
         class DoubleNestedModel(BaseClientModel):
@@ -142,7 +139,6 @@ class BaseClientModelTest(unittest.TestCase):
             self.assertEqual(expected.attr, actual.attr)
             self.assertEqual(expected.value, actual.value)
             self.assertEqual(expected.printable_value, actual.printable_value)
-            self.assertEqual(expected.client_field_data, actual.client_field_data)
 
     def test_generate_yml_output_dict_with_comments(self):
         instance = self._nested_config_adapter()
