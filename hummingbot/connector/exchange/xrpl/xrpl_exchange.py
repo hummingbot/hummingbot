@@ -804,9 +804,19 @@ class XrplExchange(ExchangePyBase):
                             if isinstance(tx_taker_pays, str):
                                 tx_taker_pays = {"currency": "XRP", "value": str(drops_to_xrp(tx_taker_pays))}
 
-                            if taker_gets.get("value") != tx_taker_gets.get("value") or taker_pays.get(
-                                "value"
-                            ) != tx_taker_pays.get("value"):
+                            # Use a small tolerance for comparing decimal values
+                            tolerance = Decimal("0.00001")  # 0.001% tolerance
+
+                            taker_gets_value = Decimal(taker_gets.get("value", "0"))
+                            tx_taker_gets_value = Decimal(tx_taker_gets.get("value", "0"))
+                            taker_pays_value = Decimal(taker_pays.get("value", "0"))
+                            tx_taker_pays_value = Decimal(tx_taker_pays.get("value", "0"))
+
+                            # Check if values differ by more than the tolerance
+                            gets_diff = abs((taker_gets_value - tx_taker_gets_value) / tx_taker_gets_value if tx_taker_gets_value else 0)
+                            pays_diff = abs((taker_pays_value - tx_taker_pays_value) / tx_taker_pays_value if tx_taker_pays_value else 0)
+
+                            if gets_diff > tolerance or pays_diff > tolerance:
                                 new_order_state = OrderState.PARTIALLY_FILLED
                             else:
                                 new_order_state = OrderState.OPEN
@@ -961,8 +971,8 @@ class XrplExchange(ExchangePyBase):
                 )
                 return None
 
-            # If this order is market order, this order has been filled
-            if order.order_type is OrderType.MARKET:
+            # If this order is market order or there is no offer changes, this order has been filled
+            if order.order_type is OrderType.MARKET or len(offer_changes) == 0:
                 # check if there is any balance changes
                 if len(balance_changes) == 0:
                     self.logger().error(
@@ -1301,59 +1311,70 @@ class XrplExchange(ExchangePyBase):
             return order_update
 
         sequence, ledger_index = tracked_order.exchange_order_id.split("-")
+        found_tx = None
+        found_meta = None
 
-        if tracked_order.order_type is OrderType.MARKET:
-            if creation_tx_resp is None:
-                transactions = await self._fetch_account_transactions(int(ledger_index))
+        # Find the creation_transaction
+        if creation_tx_resp is None:
+            transactions = await self._fetch_account_transactions(int(ledger_index))
+        else:
+            transactions = [creation_tx_resp]
+
+        for transaction in transactions:
+            if "result" in transaction:
+                data_result = transaction.get("result", {})
+                meta = data_result.get("meta", {})
+                tx = data_result
             else:
-                transactions = [creation_tx_resp]
-
-            for transaction in transactions:
-                if "result" in transaction:
-                    data_result = transaction.get("result", {})
-                    meta = data_result.get("meta", {})
-                    tx = data_result
+                meta = transaction.get("meta", {})
+                if "tx" in transaction:
+                    tx = transaction.get("tx", None)
+                elif "transaction" in transaction:
+                    tx = transaction.get("transaction", None)
+                elif "tx_json" in transaction:
+                    tx = transaction.get("tx_json", None)
                 else:
-                    meta = transaction.get("meta", {})
-                    if "tx" in transaction:
-                        tx = transaction.get("tx", None)
-                    elif "transaction" in transaction:
-                        tx = transaction.get("transaction", None)
-                    elif "tx_json" in transaction:
-                        tx = transaction.get("tx_json", None)
-                    else:
-                        tx = transaction
+                    tx = transaction
 
-                tx_sequence = tx.get("Sequence")
+            if tx.get("Sequence", 0) == int(sequence) and tx.get("ledger_index", 0) == int(ledger_index):
+                found_meta = meta
+                found_tx = tx
+                break
 
-                if tx_sequence is None:
-                    raise ValueError(f"Transaction sequence is None for order {tracked_order.client_order_id}")
-
-                if int(tx_sequence) == int(sequence):
-                    tx_status = meta.get("TransactionResult")
-                    update_timestamp = time.time()
-                    if tx_status != "tesSUCCESS":
-                        new_order_state = OrderState.FAILED
-                        self.logger().error(
-                            f"Order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}) failed: {tx_status}, data: {transaction}"
-                        )
-                    else:
-                        new_order_state = OrderState.FILLED
-
-                    order_update = OrderUpdate(
-                        client_order_id=tracked_order.client_order_id,
-                        exchange_order_id=tracked_order.exchange_order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=update_timestamp,
-                        new_state=new_order_state,
+        if found_meta is None or found_tx is None:
+            current_state = tracked_order.current_state
+            if current_state is OrderState.PENDING_CREATE or current_state is OrderState.PENDING_CANCEL:
+                if time.time() - tracked_order.last_update_timestamp > CONSTANTS.PENDING_ORDER_STATUS_CHECK_TIMEOUT:
+                    new_order_state = OrderState.FAILED
+                    self.logger().error(
+                        f"Order status not found for order {tracked_order.client_order_id} ({sequence}), tx history: {transactions}"
                     )
+                else:
+                    new_order_state = current_state
+            else:
+                new_order_state = current_state
 
-                    return order_update
-
-            update_timestamp = time.time()
-            self.logger().debug(
-                f"Order {tracked_order.client_order_id} ({sequence}) not found in transaction history, tx history: {transactions}"
+            order_update = OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=tracked_order.exchange_order_id,
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=time.time(),
+                new_state=new_order_state,
             )
+
+            return order_update
+
+        # Process order by found_meta and found_tx
+        if tracked_order.order_type is OrderType.MARKET:
+            tx_status = found_meta.get("TransactionResult")
+            update_timestamp = time.time()
+            if tx_status != "tesSUCCESS":
+                new_order_state = OrderState.FAILED
+                self.logger().error(
+                    f"Order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}) failed: {tx_status}, data: {transaction}"
+                )
+            else:
+                new_order_state = OrderState.FILLED
 
             order_update = OrderUpdate(
                 client_order_id=tracked_order.client_order_id,
@@ -1365,52 +1386,32 @@ class XrplExchange(ExchangePyBase):
 
             return order_update
         else:
-            # TODO: Check if on order creation time, if the order consumed any offers or AMM fully, then it will not create any offer object
-            # In that case, we need to check from the creation_tx_resp or the transaction matching the sequence number that if the offer was created or not
-            # If not, then check balance changes to see if the offer was filled or not
-
-            if creation_tx_resp is None:
-                transactions = await self._fetch_account_transactions(int(ledger_index), is_forward=True)
-            else:
-                transactions = [creation_tx_resp]
-
             found = False
-            update_timestamp = time.time()
+            changes_array = get_order_book_changes(found_meta)
+            # Filter out change that is not from this account
+            changes_array = [x for x in changes_array if x.get("maker_account") == self._xrpl_auth.get_account()]
 
-            for transaction in transactions:
-                if found:
-                    break
+            for offer_change in changes_array:
+                changes = offer_change.get("offer_changes", [])
 
-                if "result" in transaction:
-                    data_result = transaction.get("result", {})
-                    meta = data_result.get("meta", {})
+                for change in changes:
+                    if int(change.get("sequence")) == int(sequence):
+                        latest_status = change.get("status")
+                        found = True
+
+            if found is False:
+                # No offer created, this look like the order has been consumed without creating any offer object
+                # Check if there is any balance changes
+                balance_changes = get_balance_changes(found_meta)
+
+                # Filter by account
+                balance_changes = [x for x in balance_changes if x.get("account") == self._xrpl_auth.get_account()]
+
+                # If there is balance change for the account, this order has been filled
+                if len(balance_changes) > 0:
+                    new_order_state = OrderState.FILLED
                 else:
-                    meta = transaction.get("meta", {})
-
-                changes_array = get_order_book_changes(meta)
-                # Filter out change that is not from this account
-                changes_array = [x for x in changes_array if x.get("maker_account") == self._xrpl_auth.get_account()]
-
-                for offer_change in changes_array:
-                    changes = offer_change.get("offer_changes", [])
-
-                    for change in changes:
-                        if int(change.get("sequence")) == int(sequence):
-                            latest_status = change.get("status")
-                            found = True
-
-            if latest_status == "UNKNOWN":
-                current_state = tracked_order.current_state
-                if current_state is OrderState.PENDING_CREATE or current_state is OrderState.PENDING_CANCEL:
-                    if time.time() - tracked_order.last_update_timestamp > CONSTANTS.PENDING_ORDER_STATUS_CHECK_TIMEOUT:
-                        new_order_state = OrderState.FAILED
-                        self.logger().error(
-                            f"Order status not found for order {tracked_order.client_order_id} ({sequence}), tx history: {transactions}"
-                        )
-                    else:
-                        new_order_state = current_state
-                else:
-                    new_order_state = current_state
+                    new_order_state = OrderState.FAILED
             elif latest_status == "filled":
                 new_order_state = OrderState.FILLED
             elif latest_status == "partially-filled":
@@ -1424,7 +1425,7 @@ class XrplExchange(ExchangePyBase):
                 client_order_id=tracked_order.client_order_id,
                 exchange_order_id=tracked_order.exchange_order_id,
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=update_timestamp,
+                update_timestamp=time.time(),
                 new_state=new_order_state,
             )
 
