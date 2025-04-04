@@ -15,10 +15,11 @@ class CrossExchangeArbLogger(StrategyPyBase):
             hws_logger = logging.getLogger(__name__)
         return hws_logger
 
-    def __init__(self,
-                 market_info_1: MarketTradingPairTuple,
-                 market_info_2: MarketTradingPairTuple,
-                 ):
+    def __init__(
+        self,
+        market_info_1: MarketTradingPairTuple,
+        market_info_2: MarketTradingPairTuple,
+    ):
 
         super().__init__()
         self._market_info_1 = market_info_1
@@ -27,8 +28,6 @@ class CrossExchangeArbLogger(StrategyPyBase):
         self._connector_2_ready = False
         self.add_markets([market_info_1.market, market_info_2.market])
 
-    # After initializing the required variables, we define the tick method.
-    # The tick method is the entry point for the strategy.
     def tick(self, timestamp: float):
         if not self._connector_1_ready:
             self._connector_1_ready = self._market_info_1.market.ready
@@ -48,8 +47,10 @@ class CrossExchangeArbLogger(StrategyPyBase):
 
         self.logger().info("Logging started.")
 
-        mid_price_1 = self._market_info_1.get_mid_price()
-        self.logger().info(f"Market_1 mid price {mid_price_1}")
+        best_buy_1 = self._market_info_1.get_price(is_buy=False)
+        best_sell_1 = self._market_info_1.get_price(is_buy=True)
+        self.logger().info(f"Bid: {best_buy_1} Ask: {best_sell_1}")
 
-        mid_price_2 = self._market_info_2.get_mid_price()
-        self.logger().info(f"Market_2 mid price {mid_price_2}")
+        best_buy_2 = self._market_info_2.get_price(is_buy=False)
+        best_sell_2 = self._market_info_2.get_price(is_buy=True)
+        self.logger().info(f"Bid: {best_buy_2} Ask: {best_sell_2}")
