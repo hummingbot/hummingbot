@@ -14,7 +14,7 @@ repos:
     rev: v2.0.4
     hooks:
     -   id: autopep8
-        args: ["--in-place", "--max-line-length=120", "--select=E128,E201,E202,E302,E303,E305,W293"]
+        args: ["--in-place", "--max-line-length=120", "--select=E128,E129,E201,E202,E225,E231,E226,E261,E301,E302,E303,E305,W293"]
 -   repo: https://github.com/pre-commit/mirrors-eslint
     rev: v8.10.0
     hooks:
