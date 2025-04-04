@@ -20,28 +20,12 @@ class CheckArbCommand:
         exchange_2_market_2: str,
     ):
         safe_ensure_future(
-            self.check_arb_async(exchange_1_market_1, exchange_2_market_2),
+            self._check_arb_async(exchange_1_market_1, exchange_2_market_2),
             loop=self.ev_loop,
         )
 
-    async def _run_clock(self):
-        with self.clock as clock:
-            await clock.run()
-
-    async def wait_till_ready(
-        self,  # type: HummingbotApplication
-        func: Callable,
-        *args,
-        **kwargs,
-    ):
-        while True:
-            all_ready = all([market.ready for market in self.markets.values()])
-            if not all_ready:
-                await asyncio.sleep(0.5)
-            else:
-                return func(*args, **kwargs)
-
-    async def check_arb_async(
+    # TODO Change it to take just one market. I am not going to check for equivalent markets
+    async def _check_arb_async(
         self,  # type: HummingbotApplication
         exchange_1_market_1: str,
         exchange_2_market_2: str,
@@ -52,6 +36,8 @@ class CheckArbCommand:
         self.notify(
             f"Starting check_arb command with {exchange_1}, {exchange_2}, {market_1}, {market_2}"
         )
+
+        # Strategy dependency
         self.strategy_file_name = "conf_cross_exchange_arb_logger_1.yml"
         self.strategy_name = "cross_exchange_arb_logger"
         self._last_started_strategy_file = self.strategy_file_name
@@ -69,12 +55,13 @@ class CheckArbCommand:
         self.notify(
             f"\nStatus check complete. Starting '{self.strategy_name}' strategy..."
         )
-        await self.start_market_making()
+        await self._start_market_making()
 
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
 
-    async def start_market_making(
+    # DO NOT TOUCH
+    async def _start_market_making(
         self,  # type: HummingbotApplication
     ):
         try:
@@ -108,6 +95,25 @@ class CheckArbCommand:
                 self.kill_switch = (
                     self.client_config_map.kill_switch_mode.get_kill_switch(self)
                 )
-                await self.wait_till_ready(self.kill_switch.start)
+                await self._wait_till_ready(self.kill_switch.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
+
+    # DO NOT TOUCH
+    async def _wait_till_ready(
+        self,  # type: HummingbotApplication
+        func: Callable,
+        *args,
+        **kwargs,
+    ):
+        while True:
+            all_ready = all([market.ready for market in self.markets.values()])
+            if not all_ready:
+                await asyncio.sleep(0.5)
+            else:
+                return func(*args, **kwargs)
+
+    # DO NOT TOUCH
+    async def _run_clock(self):
+        with self.clock as clock:
+            await clock.run()
