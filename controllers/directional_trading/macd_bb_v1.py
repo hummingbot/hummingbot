@@ -37,22 +37,13 @@ class MACDBBV1ControllerConfig(DirectionalTradingControllerConfigBase):
     bb_short_threshold: float = Field(default=1.0)
     macd_fast: int = Field(
         default=21,
-        json_schema_extra={
-            "prompt": "Enter the MACD fast period: ",
-            "prompt_on_new": True}
-    )
+        json_schema_extra={"prompt": "Enter the MACD fast period: ", "prompt_on_new": True})
     macd_slow: int = Field(
         default=42,
-        json_schema_extra={
-            "prompt": "Enter the MACD slow period: ",
-            "prompt_on_new": True}
-    )
+        json_schema_extra={"prompt": "Enter the MACD slow period: ", "prompt_on_new": True})
     macd_signal: int = Field(
         default=9,
-        json_schema_extra={
-            "prompt": "Enter the MACD signal period: ",
-            "prompt_on_new": True}
-    )
+        json_schema_extra={"prompt": "Enter the MACD signal period: ", "prompt_on_new": True})
 
     @field_validator("candles_connector", mode="before")
     @classmethod
