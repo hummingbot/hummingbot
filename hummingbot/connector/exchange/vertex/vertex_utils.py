@@ -3,11 +3,10 @@ from decimal import Decimal
 from random import randint
 from typing import Any, Dict, Optional
 
-from pydantic import ConfigDict, SecretStr
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, SecretStr
 
 import hummingbot.connector.exchange.vertex.vertex_constants as CONSTANTS
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -149,21 +148,21 @@ class VertexConfigMap(BaseConnectorConfigMap):
     connector: str = "vertex"
     vertex_arbitrum_private_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum private key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     vertex_arbitrum_address: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum wallet address",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum wallet address",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     model_config = ConfigDict(title="vertex")
 
@@ -175,21 +174,21 @@ class VertexTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "vertex_testnet"
     vertex_testnet_arbitrum_private_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum TESTNET private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum TESTNET private key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     vertex_testnet_arbitrum_address: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum TESTNET wallet address",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum TESTNET wallet address",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     model_config = ConfigDict(title="vertex_testnet")
 

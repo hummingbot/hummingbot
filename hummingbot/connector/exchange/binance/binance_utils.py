@@ -74,7 +74,7 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
     binance_api_key: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": lambda cm: "Enter your Binance US API key",
+            "prompt": "Enter your Binance US API key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -83,7 +83,7 @@ class BinanceUSConfigMap(BaseConnectorConfigMap):
     binance_api_secret: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": lambda cm: "Enter your Binance US API secret",
+            "prompt": "Enter your Binance US API secret",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,

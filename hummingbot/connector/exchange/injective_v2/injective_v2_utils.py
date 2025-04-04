@@ -3,8 +3,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
-from pydantic import ConfigDict, SecretStr, field_validator
-from pydantic.v1 import Field
+from pydantic import ConfigDict, Field, SecretStr, field_validator
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer
 from pyinjective.core.broadcaster import (
@@ -56,11 +55,7 @@ class InjectiveFeeCalculatorMode(BaseClientModel, ABC):
 
 
 class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(
-        default="simulated_transaction_fee_calculator",
-        const=True,
-        client_data=ClientFieldData(),
-    )
+    name: str = Field(default="simulated_transaction_fee_calculator")
     model_config = ConfigDict(title="simulated_transaction_fee_calculator")
 
     def create_calculator(
@@ -79,11 +74,7 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
 
 
 class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(
-        default="message_based_transaction_fee_calculator",
-        const=True,
-        client_data=ClientFieldData(),
-    )
+    name: str = Field(default="message_based_transaction_fee_calculator")
     model_config = ConfigDict(title="message_based_transaction_fee_calculator")
 
     def create_calculator(
@@ -132,10 +123,9 @@ class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
 class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
     testnet_node: str = Field(
         default="lb",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (f"Enter the testnet node you want to connect to ({'/'.join(TESTNET_NODES)})"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={
+            "prompt": f"Enter the testnet node you want to connect to ({'/'.join(TESTNET_NODES)})",
+            "prompt_on_new": True}
     )
     model_config = ConfigDict(title="testnet_network")
 
@@ -159,66 +149,39 @@ class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
 class InjectiveCustomNetworkMode(InjectiveNetworkMode):
     lcd_endpoint: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network lcd_endpoint"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network lcd_endpoint", "prompt_on_new": True},
     )
     tm_websocket_endpoint: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network tm_websocket_endpoint"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network tm_websocket_endpoint", "prompt_on_new": True},
     )
     grpc_endpoint: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network grpc_endpoint"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network grpc_endpoint", "prompt_on_new": True},
     )
     grpc_exchange_endpoint: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network grpc_exchange_endpoint"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network grpc_exchange_endpoint", "prompt_on_new": True},
     )
     grpc_explorer_endpoint: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network grpc_explorer_endpoint"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network grpc_explorer_endpoint", "prompt_on_new": True},
     )
     chain_stream_endpoint: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network chain_stream_endpoint"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network chain_stream_endpoint", "prompt_on_new": True},
     )
     chain_id: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network chain_id"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network chain_id", "prompt_on_new": True},
     )
     env: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the network environment name"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Enter the network environment name", "prompt_on_new": True},
     )
     secure_connection: bool = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: ("Should this configuration use secure connections? (yes/no)"),
-            prompt_on_new=True
-        ),
+        json_schema_extra={"prompt": "Should this configuration use secure connections? (yes/no)", "prompt_on_new": True},
     )
     model_config = ConfigDict(title="custom_network")
 
@@ -268,33 +231,33 @@ class InjectiveAccountMode(BaseClientModel, ABC):
 class InjectiveDelegatedAccountMode(InjectiveAccountMode):
     private_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Injective trading account private key or seed phrase",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Injective trading account private key or seed phrase",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     subaccount_index: int = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Injective trading account subaccount index",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Injective trading account subaccount index",
+            "prompt_on_new": True,
+        }
     )
     granter_address: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter the Injective address of the granter account (portfolio account)",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter the Injective address of the granter account (portfolio account)",
+            "is_connect_key": True,
+        }
     )
     granter_subaccount_index: int = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter the Injective granter subaccount index (portfolio subaccount index)",
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter the Injective granter subaccount index (portfolio subaccount index)",
+            "prompt_on_new": True,
+        }
     )
 
     @field_validator("private_key", mode="before")

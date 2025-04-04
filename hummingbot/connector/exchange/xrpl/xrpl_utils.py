@@ -5,8 +5,7 @@ from decimal import Decimal
 from random import randrange
 from typing import Any, Dict, Final, List, Optional, cast
 
-from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
-from pydantic.v1 import Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
@@ -30,7 +29,7 @@ from xrpl.utils.txn_parser.utils.order_book_parser import (
 from xrpl.utils.txn_parser.utils.types import AccountOfferChange, AccountOfferChanges, OfferChange
 from yaml.representer import SafeRepresenter
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_validators import validate_with_regex
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -305,42 +304,42 @@ class XRPLConfigMap(BaseConnectorConfigMap):
     connector: str = "xrpl"
     xrpl_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your XRPL wallet secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your XRPL wallet secret key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
 
     wss_node_url: str = Field(
         default="wss://xrplcluster.com/",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your XRPL Websocket Node URL",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your XRPL Websocket Node URL",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
 
     wss_second_node_url: str = Field(
         default="wss://s1.ripple.com/",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your second XRPL Websocket Node URL",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your second XRPL Websocket Node URL",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
 
     wss_third_node_url: str = Field(
         default="wss://s2.ripple.com/",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your third XRPL Websocket Node URL",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your third XRPL Websocket Node URL",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
 
     custom_markets: Dict[str, XRPLMarket] = Field(
@@ -352,9 +351,6 @@ class XRPLConfigMap(BaseConnectorConfigMap):
                 quote_issuer="",
             )
         },
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter custom markets: ", is_connect_key=True, prompt_on_new=False
-        ),
     )
     model_config = ConfigDict(title="xrpl")
 
