@@ -2,10 +2,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
 import pandas as pd
-from pydantic import field_validator
-from pydantic.v1 import Field, validator
+from pydantic import Field, field_validator
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
@@ -25,71 +23,72 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
     controller_type: str = "directional_trading"
     connector_name: str = Field(
         default="binance_perpetual",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the name of the exchange to trade on (e.g., binance_perpetual):"))
+        json_schema_extra={
+            "prompt": "Enter the connector name (e.g., binance_perpetual): ",
+            "prompt_on_new": True}
+    )
     trading_pair: str = Field(
         default="WLD-USDT",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
+        json_schema_extra={
+            "prompt": "Enter the trading pair to trade on (e.g., WLD-USDT): ",
+            "prompt_on_new": True}
+    )
     max_executors_per_side: int = Field(
         default=2,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the maximum number of executors per side (e.g., 2):"))
+        json_schema_extra={
+            "prompt": "Enter the maximum number of executors per side (e.g., 2): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     cooldown_time: int = Field(
         default=60 * 5, gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=False,
-            prompt=lambda mi: "Specify the cooldown time in seconds after executing a signal (e.g., 300 for 5 minutes):"))
-
+        json_schema_extra={
+            "prompt": "Enter the cooldown time in seconds after executing a signal (e.g., 300 for 5 minutes): ",
+            "prompt_on_new": True, "is_updatable": True},
+    )
     leverage: int = Field(
         default=20,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Set the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading:"))
+        json_schema_extra={
+            "prompt": "Enter the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading: ",
+            "prompt_on_new": True}
+    )
     position_mode: PositionMode = Field(
         default="HEDGE",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
-            prompt_on_new=False
-        )
+        json_schema_extra={"prompt": "Enter the position mode (HEDGE/ONEWAY): "}
     )
     # Triple Barrier Configuration
     stop_loss: Optional[Decimal] = Field(
         default=Decimal("0.03"), gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     take_profit: Optional[Decimal] = Field(
         default=Decimal("0.02"), gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the take profit (as a decimal, e.g., 0.02 for 2%): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     time_limit: Optional[int] = Field(
         default=60 * 45, gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     take_profit_order_type: OrderType = Field(
         default="LIMIT",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the order type for take profit (LIMIT/MARKET): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     trailing_stop: Optional[TrailingStop] = Field(
         default="0.015,0.003",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
+            "prompt_on_new": True, "is_updatable": True},
+    )
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("trailing_stop", pre=True, always=True)
+    @field_validator("trailing_stop", mode="before")
+    @classmethod
     def parse_trailing_stop(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -98,9 +97,8 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("time_limit", "stop_loss", "take_profit", pre=True, always=True)
+    @field_validator("time_limit", "stop_loss", "take_profit", mode="before")
+    @classmethod
     def validate_target(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -108,9 +106,8 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             return Decimal(v)
         return v
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
+    @field_validator('take_profit_order_type', mode="before")
+    @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
             return v
@@ -126,6 +123,15 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
                 pass
         raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
 
+    @field_validator('position_mode', mode="before")
+    @classmethod
+    def validate_position_mode(cls, v: str) -> PositionMode:
+        if isinstance(v, str):
+            if v.upper() in PositionMode.__members__:
+                return PositionMode[v.upper()]
+            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+        return v
+
     @property
     def triple_barrier_config(self) -> TripleBarrierConfig:
         return TripleBarrierConfig(
@@ -138,15 +144,6 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
-
-    @field_validator('position_mode', mode="before")
-    @classmethod
-    def validate_position_mode(cls, v: str) -> PositionMode:
-        if isinstance(v, str):
-            if v.upper() in PositionMode.__members__:
-                return PositionMode[v.upper()]
-            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
-        return v
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.connector_name not in markets:
