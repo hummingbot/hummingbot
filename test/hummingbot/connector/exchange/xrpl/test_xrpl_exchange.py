@@ -1626,7 +1626,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.connector._account_balances["USD"], Decimal("0.011094399237562"))
         self.assertEqual(self.connector._account_balances["SOLO"], Decimal("35.95165691730148"))
 
-        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("32.030868"))
+        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("53.630868"))
         self.assertEqual(self.connector._account_available_balances["USD"], Decimal("0.011094399237562"))
         self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("31.337975848655761"))
 
@@ -2132,8 +2132,8 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                     "TxnSignature": "0E62B49938249F9AED6C6D3C893C21569F23A84CE44F9B9189D22545D5FA05896A5F0C471C68079C8CF78682D74F114038E10DA2995C18560C2259C7590A0304",  # noqa: mock
                     "date": 773184150,
                     "hash": "5BAF81CF16BA62153F31096DDDEFC12CE39EC41025A9625357BF084411045517",  # noqa: mock
-                    "inLedger": 89077136,
-                    "ledger_index": 89077136,
+                    "inLedger": 89077154,
+                    "ledger_index": 89077154,
                 },
                 "validated": True,
             },
@@ -2270,6 +2270,17 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(order_update.new_state, OrderState.FILLED)
 
         fetch_account_transactions_mock.return_value = []
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1719868942218900-SSOXP61c36315c76a2aa2eb3bb461924f46f4336f2",  # noqa: mock
+            exchange_order_id="84439854-89077154",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("0.217090"),
+            amount=Decimal("2.303184724670496"),
+            creation_timestamp=time.time(),
+        )
 
         order_update = await self.connector._request_order_status(in_flight_order)
         self.assertEqual(order_update.new_state, OrderState.PENDING_CREATE)
