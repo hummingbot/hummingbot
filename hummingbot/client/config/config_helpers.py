@@ -278,8 +278,6 @@ class ClientConfigAdapter:
             value = getattr(self, attr)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
-            elif isinstance(value, FieldInfo):
-                value = value.default
             conf_dict[attr] = value
         self._encrypt_secrets(conf_dict)
         return conf_dict
