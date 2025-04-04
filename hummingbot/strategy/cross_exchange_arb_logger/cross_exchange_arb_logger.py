@@ -20,7 +20,6 @@ class CrossExchangeArbLogger(StrategyPyBase):
         market_info_1: MarketTradingPairTuple,
         market_info_2: MarketTradingPairTuple,
     ):
-
         super().__init__()
         self._market_info_1 = market_info_1
         self._market_info_2 = market_info_2
@@ -32,7 +31,9 @@ class CrossExchangeArbLogger(StrategyPyBase):
         if not self._connector_1_ready:
             self._connector_1_ready = self._market_info_1.market.ready
             if not self._connector_1_ready:
-                self.logger().warning(f"{self._market_info_1.market.name} is not ready. Please wait...")
+                self.logger().warning(
+                    f"{self._market_info_1.market.name} is not ready. Please wait..."
+                )
                 return
             else:
                 self.logger().warning(f"{self._market_info_1.market.name} is ready.")
@@ -40,7 +41,9 @@ class CrossExchangeArbLogger(StrategyPyBase):
         if not self._connector_2_ready:
             self._connector_2_ready = self._market_info_2.market.ready
             if not self._connector_2_ready:
-                self.logger().warning(f"{self._market_info_2.market.name} is not ready. Please wait...")
+                self.logger().warning(
+                    f"{self._market_info_2.market.name} is not ready. Please wait..."
+                )
                 return
             else:
                 self.logger().warning(f"{self._market_info_2.market.name} is ready.")
