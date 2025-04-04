@@ -1,9 +1,8 @@
 import asyncio
 import platform
 import time
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable
 
-from hummingbot.client.settings import required_exchanges
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -20,19 +19,7 @@ class CheckArbCommand:
         exchange_1_market_1: str,
         exchange_2_market_2: str,
     ):
-        safe_ensure_future(self.import_config_file())
-
-    async def import_config_file(
-            self,  # type: HummingbotApplication
-    ):
-        file_name = "conf_cross_exchange_arb_logger_1.yml"
-        self.app.clear_input()
-        required_exchanges.clear()
-        self.strategy_file_name = file_name
-        self.strategy_name = "cross_exchange_arb_logger"
-        self.strategy_config_map = {}
-        self.app.change_prompt(prompt=">>> ")
-        self.start()
+        safe_ensure_future(self.check_arb_async(exchange_1_market_1, exchange_2_market_2), loop=self.ev_loop)
 
     async def _run_clock(self):
         with self.clock as clock:
@@ -47,19 +34,18 @@ class CheckArbCommand:
             else:
                 return func(*args, **kwargs)
 
-    def start(self,  # type: HummingbotApplication
-              log_level: Optional[str] = None,
-              script: Optional[str] = None,
-              conf: Optional[str] = None,
-              is_quickstart: Optional[bool] = False):
-        safe_ensure_future(self.start_check(), loop=self.ev_loop)
+    async def check_arb_async(
+        self,  # type: HummingbotApplication
+        exchange_1_market_1: str,
+        exchange_2_market_2: str,
+    ):
 
-    async def start_check(self,  # type: HummingbotApplication
-                          log_level: Optional[str] = None,
-                          script: Optional[str] = None,
-                          conf: Optional[str] = None,
-                          is_quickstart: Optional[bool] = False):
-        self.notify("Starting START command")
+        exchange_1, market_1 = exchange_1_market_1.split(":")
+        exchange_2, market_2 = exchange_2_market_2.split(":")
+
+        self.notify(f"Starting check_arb command with {exchange_1}, {exchange_2}, {market_1}, {market_2}")
+        self.strategy_file_name = "conf_cross_exchange_arb_logger_1.yml"
+        self.strategy_name = "cross_exchange_arb_logger"
         self._last_started_strategy_file = self.strategy_file_name
 
         # If macOS, disable App Nap.
@@ -69,7 +55,7 @@ class CheckArbCommand:
 
         self._initialize_notifiers()
 
-        self._initialize_strategy(self.strategy_name)
+        start(self, exchange_1, market_1, exchange_2, market_2)
 
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making()
@@ -103,6 +89,3 @@ class CheckArbCommand:
                 await self.wait_till_ready(self.kill_switch.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
-
-    def _initialize_strategy(self, strategy_name: str):
-        start(self, "binance", "ETH-USDT", "gate_io", "ETH-USDT")
