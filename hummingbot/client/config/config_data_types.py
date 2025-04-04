@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic.json_schema import DEFAULT_REF_TEMPLATE, GenerateJsonSchema, JsonSchemaMode, model_json_schema
 
 from hummingbot.client.config.config_validators import validate_connector
 
@@ -30,6 +31,35 @@ class BaseClientModel(BaseModel):
     @classmethod
     def _clear_schema_cache(cls):
         cls.__schema_cache__ = {}
+
+    @classmethod
+    def model_json_schema(
+        cls,
+        by_alias: bool = True,
+        ref_template: str = DEFAULT_REF_TEMPLATE,
+        schema_generator: type[GenerateJsonSchema] = GenerateJsonSchema,
+        mode: JsonSchemaMode = 'validation',
+    ) -> dict[str, Any]:
+        """Generates a JSON schema for a model class.
+
+               Args:
+                   by_alias: Whether to use attribute aliases or not.
+                   ref_template: The reference template.
+                   schema_generator: To override the logic used to generate the JSON schema, as a subclass of
+                       `GenerateJsonSchema` with your desired modifications
+                   mode: The mode in which to generate the schema.
+
+               Returns:
+                   The JSON schema for the given model class.
+               """
+        # Check if in json_schema_extra we have functions defined as values that can produce errors when serializing
+        # the schema. We need to remove them.
+        for key, value in cls.model_fields.items():
+            if callable(value.json_schema_extra["prompt"]):
+                value.json_schema_extra["prompt"] = value.json_schema_extra["prompt"](cls)
+        return model_json_schema(
+            cls, by_alias=by_alias, ref_template=ref_template, schema_generator=schema_generator, mode=mode
+        )
 
     def is_required(self, attr: str) -> bool:
         default = self.model_fields[attr].default

@@ -4,7 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 from tabulate import tabulate_formats
@@ -620,8 +620,6 @@ RATE_SOURCE_MODES = {
     TegroRateSourceMode.model_config["title"]: TegroRateSourceMode,
 }
 
-RateSourceModeT = TypeVar("RateSourceModeT", bound=RateSourceModeBase)
-
 
 class CommandShortcutModel(BaseModel):
     command: str
@@ -731,7 +729,7 @@ class ClientConfigMap(BaseClientModel):
                      "\nDefine abbreviations for often used commands"
                      "\nor batch grouped commands together"),
     )
-    rate_oracle_source: RateSourceModeT = Field(
+    rate_oracle_source: Union[tuple(RATE_SOURCE_MODES.values())] = Field(
         default=BinanceRateSourceMode(),
         description=f"A source for rate oracle, currently {', '.join(RATE_SOURCE_MODES.keys())}",
         json_schema_extra={"prompt": lambda cm: f"Select the desired rate oracle source ({'/'.join(RATE_SOURCE_MODES.keys())})"},
