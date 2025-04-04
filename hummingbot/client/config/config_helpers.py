@@ -113,8 +113,6 @@ class ClientConfigAdapter:
             type_ = field_info.annotation
             if hasattr(self, attr):
                 value = getattr(self, attr)
-                if isinstance(value, FieldInfo):
-                    value = self.get_default(attr)
                 printable_value = self._get_printable_value(attr, value, secure)
                 client_field_data = self.get_client_data(attr)
             else:
@@ -155,10 +153,15 @@ class ClientConfigAdapter:
         return secure
 
     def get_client_data(self, attr_name: str) -> Optional[ClientFieldData]:
-        default = self._hb_config.model_fields[attr_name].default
-        if isinstance(default, FieldInfo):
-            return default.extra.get("client_data")
-        return None
+        json_schema_extra = self._hb_config.model_fields[attr_name].json_schema_extra or {}
+        client_data = ClientFieldData(
+            prompt=json_schema_extra.get("prompt"),
+            prompt_on_new=json_schema_extra.get("prompt_on_new", False),
+            is_secure=json_schema_extra.get("is_secure", False),
+            is_connect_key=json_schema_extra.get("is_connect_key", False),
+            is_updatable=json_schema_extra.get("is_updatable", False),
+        )
+        return client_data
 
     def get_description(self, attr_name: str) -> str:
         return self._hb_config.model_fields[attr_name].description
