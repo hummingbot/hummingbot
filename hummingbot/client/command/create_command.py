@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
 import yaml
-from pydantic.v1.fields import FieldInfo
 
 from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel
@@ -223,10 +222,6 @@ class CreateCommand:
                 await self.prompt_a_config(config_map, key)
                 if self.app.to_stop_config:
                     break
-            elif isinstance(getattr(config_map, key), FieldInfo):
-                # If the config is a FieldInfo and the other checks passed we use the default value
-                default_value = getattr(config_map, key).default
-                setattr(config_map, key, default_value)
 
     async def prompt_for_configuration_legacy(
         self,  # type: HummingbotApplication
