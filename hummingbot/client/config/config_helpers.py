@@ -15,8 +15,8 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, 
 import ruamel.yaml
 import yaml
 from pydantic import SecretStr
+from pydantic.fields import FieldInfo
 from pydantic.v1 import ValidationError
-from pydantic.v1.fields import FieldInfo
 from pydantic.v1.main import validate_model
 from yaml import SafeDumper
 
@@ -143,8 +143,10 @@ class ClientConfigAdapter:
             prompt_fn = client_data.prompt
             if inspect.iscoroutinefunction(prompt_fn):
                 prompt = await prompt_fn(self._hb_config)
-            else:
+            elif inspect.isfunction(prompt_fn):
                 prompt = prompt_fn(self._hb_config)
+            elif isinstance(prompt_fn, str):
+                prompt = prompt_fn
         return prompt
 
     def is_secure(self, attr_name: str) -> bool:
@@ -168,10 +170,6 @@ class ClientConfigAdapter:
 
     def get_default(self, attr_name: str) -> Any:
         default = self._hb_config.model_fields[attr_name].default
-        if isinstance(default, FieldInfo):
-            default = default.default
-        else:
-            return None
         if isinstance(default, type(Ellipsis)):
             default = None
         return default
