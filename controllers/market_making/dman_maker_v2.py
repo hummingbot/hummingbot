@@ -2,9 +2,8 @@ from decimal import Decimal
 from typing import List, Optional
 
 import pandas_ta as ta  # noqa: F401
-from pydantic.v1 import Field, validator
+from pydantic import Field, field_validator
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.market_making_controller_base import (
@@ -25,40 +24,21 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
     # DCA configuration
     dca_spreads: List[Decimal] = Field(
         default="0.01,0.02,0.04,0.08",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter a comma-separated list of spreads for each DCA level: "))
+        json_schema_extra={"prompt": "Enter a comma-separated list of spreads for each DCA level: ", "prompt_on_new": True})
     dca_amounts: List[Decimal] = Field(
         default="0.1,0.2,0.4,0.8",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter a comma-separated list of amounts for each DCA level: "))
+        json_schema_extra={"prompt": "Enter a comma-separated list of amounts for each DCA level: ", "prompt_on_new": True})
     time_limit: int = Field(
         default=60 * 60 * 24 * 7, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the time limit for each DCA level: ",
-            prompt_on_new=False))
+        json_schema_extra={"prompt": "Enter the time limit for each DCA level (in seconds): ", "prompt_on_new": True})
     stop_loss: Decimal = Field(
         default=Decimal("0.03"), gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
-            prompt_on_new=True))
-    top_executor_refresh_time: Optional[float] = Field(
-        default=None,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=False))
-    executor_activation_bounds: Optional[List[Decimal]] = Field(
-        default=None,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the activation bounds for the orders "
-                              "(e.g., 0.01 activates the next order when the price is closer than 1%): ",
-            prompt_on_new=False))
+        json_schema_extra={"prompt": "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ", "prompt_on_new": True})
+    top_executor_refresh_time: Optional[float] = Field(default=None, json_schema_extra={"is_updatable": True})
+    executor_activation_bounds: Optional[List[Decimal]] = Field(default=None, json_schema_extra={"is_updatable": True})
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("executor_activation_bounds", pre=True, always=True)
+    @field_validator("executor_activation_bounds", mode="before")
+    @classmethod
     def parse_activation_bounds(cls, v):
         if isinstance(v, list):
             return [Decimal(val) for val in v]
@@ -68,9 +48,8 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
             return [Decimal(val) for val in v.split(",")]
         return v
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator('dca_spreads', pre=True, always=True)
+    @field_validator('dca_spreads', mode="before")
+    @classmethod
     def parse_spreads(cls, v):
         if v is None:
             return []
@@ -80,17 +59,16 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
             return [float(x.strip()) for x in v.split(',')]
         return v
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator('dca_amounts', pre=True, always=True)
-    def parse_and_validate_amounts(cls, v, values, field):
+    @field_validator('dca_amounts', mode="before")
+    @classmethod
+    def parse_and_validate_amounts(cls, v, validation_info):
         if v is None or v == "":
-            return [1 for _ in values[values['dca_spreads']]]
+            return [1 for _ in validation_info.data['dca_spreads']]
         if isinstance(v, str):
             return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(values['dca_spreads']):
+        elif isinstance(v, list) and len(v) != len(validation_info.data['dca_spreads']):
             raise ValueError(
-                f"The number of {field.name} must match the number of {values['dca_spreads']}.")
+                f"The number of dca amounts must match the number of {validation_info.data['dca_spreads']}.")
         return v
 
 
