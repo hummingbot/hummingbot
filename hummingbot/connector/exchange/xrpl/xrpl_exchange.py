@@ -1641,6 +1641,9 @@ class XrplExchange(ExchangePyBase):
         tx_timestamp = 0
         price = float("NaN")
 
+        if not self._wss_second_node_url.startswith(("ws://", "wss://")):
+            return price, tx_timestamp
+
         try:
             resp: Response = await self.request_with_retry(
                 self._xrpl_query_client,
