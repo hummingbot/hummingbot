@@ -18,6 +18,7 @@ from pydantic import SecretStr
 from pydantic.fields import FieldInfo
 from pydantic.v1 import ValidationError
 from pydantic.v1.main import validate_model
+from pydantic_core import PydanticUndefinedType
 from yaml import SafeDumper
 
 from hummingbot import get_strategy_list, root_path
@@ -170,7 +171,7 @@ class ClientConfigAdapter:
 
     def get_default(self, attr_name: str) -> Any:
         default = self._hb_config.model_fields[attr_name].default
-        if isinstance(default, type(Ellipsis)):
+        if isinstance(default, type(Ellipsis)) or isinstance(default, PydanticUndefinedType):
             default = None
         return default
 
