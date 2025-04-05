@@ -88,7 +88,7 @@ class CheckArbCommand:
                 f"\n'{self.strategy_name}' strategy started.\n"
                 f"Run `status` command to query the progress."
             )
-            self.logger().info("start command initiated.")
+            self.logger().info("check_arb command initiated.")
 
             if self._trading_required:
                 self.kill_switch = (
