@@ -18,41 +18,39 @@ class CrossExchangeArbLogger(StrategyPyBase):
     def __init__(
         self,
         market_infos: list[MarketTradingPairTuple],
+        with_fees: bool,
     ):
         super().__init__()
-        self._market_info_1 = market_infos[0]
-        self._market_info_2 = market_infos[1]
-        self._connector_1_ready = False
-        self._connector_2_ready = False
-        self.add_markets([self._market_info_1.market, self._market_info_2.market])
+        self._market_infos = market_infos
+        self._with_fees = with_fees
+        self._all_markets_ready = False
+        self.add_markets([market_info.market for market_info in market_infos])
+
+    @property
+    def all_markets_ready(self) -> bool:
+        return self._all_markets_ready
+
+    @all_markets_ready.setter
+    def all_markets_ready(self, value: bool):
+        self._all_markets_ready = value
 
     def tick(self, timestamp: float):
-        if not self._connector_1_ready:
-            self._connector_1_ready = self._market_info_1.market.ready
-            if not self._connector_1_ready:
-                self.logger().warning(
-                    f"{self._market_info_1.market.name} is not ready. Please wait..."
-                )
+        if not self.all_markets_ready:
+            self.all_markets_ready = all([market.ready for market in self.active_markets])
+            if not self.all_markets_ready:
+                if int(timestamp) % 10 == 0:  # prevent spamming by logging every 10 secs
+                    unready_markets = [market for market in self.active_markets if market.ready is False]
+                    for market in unready_markets:
+                        msg = ', '.join([k for k, v in market.status_dict.items() if v is False])
+                        self.logger().warning(f"{market.name} not ready: waiting for {msg}.")
                 return
             else:
-                self.logger().warning(f"{self._market_info_1.market.name} is ready.")
+                self.logger().info("Markets are ready. Logging started.")
 
-        if not self._connector_2_ready:
-            self._connector_2_ready = self._market_info_2.market.ready
-            if not self._connector_2_ready:
-                self.logger().warning(
-                    f"{self._market_info_2.market.name} is not ready. Please wait..."
-                )
-                return
-            else:
-                self.logger().warning(f"{self._market_info_2.market.name} is ready.")
-
-        self.logger().info("Logging started.")
-
-        best_buy_1 = self._market_info_1.get_price(is_buy=False)
-        best_sell_1 = self._market_info_1.get_price(is_buy=True)
+        best_buy_1 = self._market_infos[0].get_price(is_buy=False)
+        best_sell_1 = self._market_infos[0].get_price(is_buy=True)
         self.logger().info(f"Bid: {best_buy_1} Ask: {best_sell_1}")
 
-        best_buy_2 = self._market_info_2.get_price(is_buy=False)
-        best_sell_2 = self._market_info_2.get_price(is_buy=True)
+        best_buy_2 = self._market_infos[1].get_price(is_buy=False)
+        best_sell_2 = self._market_infos[1].get_price(is_buy=True)
         self.logger().info(f"Bid: {best_buy_2} Ask: {best_sell_2}")
