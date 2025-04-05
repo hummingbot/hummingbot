@@ -2,11 +2,13 @@ import decimal
 import itertools
 import logging
 
+from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
-from .data_types import TopOfBookPrices
+from .utils import calculate_spread
 
 hws_logger = None
 
@@ -54,28 +56,44 @@ class CrossExchangeArbLogger(StrategyPyBase):
         self._main()
 
     def _main(self):
-        # TODO replace self._market_info
-        # Get prices once
-        top_of_books: dict[MarketTradingPairTuple, TopOfBookPrices] = {}
-        for market_info in self._market_infos:
-            top_of_books[market_info] = TopOfBookPrices(
-                bid=market_info.get_price(is_buy=False),
-                ask=market_info.get_price(is_buy=True),
+        for market_1, market_2 in itertools.combinations(self._market_infos, 2):
+            market_1_fee, market_2_fee = decimal.Decimal("0"), decimal.Decimal("0")
+            if self._with_fees:
+                trade_fee_schema_1: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(
+                    exchange_name=market_1.market.name,
+                )
+                market_1_fee = trade_fee_schema_1.taker_percent_fee_decimal
+
+                trade_fee_schema_2: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(
+                    exchange_name=market_2.market.name,
+                )
+                market_2_fee = trade_fee_schema_2.taker_percent_fee_decimal
+
+            m_1_b, m_1_a = market_1.get_price(is_buy=False), market_1.get_price(is_buy=True)
+            m_2_b, m_2_a = market_2.get_price(is_buy=False), market_2.get_price(is_buy=True)
+
+            forward_spead = calculate_spread(
+                m_1_b,
+                m_2_a,
+                market_1_fee,
+                market_2_fee,
             )
 
-        for market_1, market_2 in itertools.combinations(self._market_infos, 2):
-            forward_spead = calculate_spread(top_of_books[market_1].bid, top_of_books[market_2].ask)
-            reverse_spread = calculate_spread(top_of_books[market_2].bid, top_of_books[market_1].ask)
+            reverse_spread = calculate_spread(
+                m_2_b,
+                m_1_a,
+                market_2_fee,
+                market_1_fee,
+            )
+
             log_lines = [
-                self._format_orderbook_line(market_1.market.name, market_1.trading_pair, top_of_books[market_1].bid, top_of_books[market_1].ask),
-                self._format_orderbook_line(market_2.market.name, market_2.trading_pair, top_of_books[market_2].bid, top_of_books[market_2].ask),
+                self._format_orderbook_line(market_1.market.name, market_1.trading_pair, m_1_b, m_1_a),
+                self._format_orderbook_line(market_2.market.name, market_2.trading_pair, m_2_b, m_2_a),
                 self._format_arb_opportunity_line(True, market_1.market.name, market_2.market.name, forward_spead),
                 self._format_arb_opportunity_line(False, market_2.market.name, market_1.market.name, reverse_spread),
+                f"Fees{'' if self._with_fees else ' not'} included.",
             ]
             self.logger().info("\n" + "\n".join(log_lines))
-
-    def _calculate_arb(self, bid_price, ask_price, bid_fee, ask_fee):
-        return 0.001
 
     @staticmethod
     def _format_orderbook_line(exchange: str, instrument: str, best_bid: float, best_ask: float) -> str:
@@ -98,28 +116,3 @@ class CrossExchangeArbLogger(StrategyPyBase):
             f"({bid_exchange} bid) - ({ask_exchange} ask) / "
             f"({ask_exchange} ask) = {sign}{abs(pct):.2f}%"
         )
-
-
-def calculate_spread(
-    bid_price: decimal.Decimal,
-    ask_price: decimal.Decimal,
-    bid_fee: decimal.Decimal | None = None,
-    ask_fee: decimal.Decimal | None = None
-) -> decimal.Decimal:
-    """
-    Calculate arbitrage spread between a bid and ask price:
-    Spread = ((bid - ask) / ask) * 100
-
-    Fees are expected as decimals (e.g., 0.001 for 0.1%).
-    Applies fees as:
-        - bid_price reduced by bid_fee
-        - ask_price increased by ask_fee
-    """
-    bid_fee = bid_fee or decimal.Decimal("0")
-    ask_fee = ask_fee or decimal.Decimal("0")
-
-    adj_bid = bid_price * (decimal.Decimal("1") - bid_fee)
-    adj_ask = ask_price * (decimal.Decimal("1") + ask_fee)
-
-    spread = ((adj_bid - adj_ask) / adj_ask) * decimal.Decimal("100")
-    return spread
