@@ -1,11 +1,10 @@
-import asyncio
-from test.hummingbot.data_feed.candles_feed.test_candles_base import AbstractTestCandlesBase
+from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
+from hummingbot.data_feed.candles_feed.okx_perpetual_candles import OKXPerpetualCandles
 
 
-class TestGateioPerpetualCandles(AbstractTestCandlesBase.TestCandlesBase):
+class TestOKXPerpetualCandles(TestCandlesBase):
     __test__ = True
     level = 0
 
@@ -16,116 +15,113 @@ class TestGateioPerpetualCandles(AbstractTestCandlesBase.TestCandlesBase):
         cls.quote_asset = "USDT"
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = cls.base_asset + "_" + cls.quote_asset
+        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}-SWAP"
         cls.max_records = 150
 
     def setUp(self) -> None:
         super().setUp()
-        self.data_feed = GateioPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
-        self.data_feed.quanto_multiplier = 0.0001
-
-        self.log_records = []
+        self.data_feed = OKXPerpetualCandles(trading_pair=self.trading_pair,
+                                             interval=self.interval,
+                                             max_records=self.max_records)
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
 
     async def asyncSetUp(self):
         await super().asyncSetUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.resume_test_event = asyncio.Event()
-
-    @staticmethod
-    def get_fetch_candles_data_mock():
-        return [[1685167200, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0],
-                [1685170800, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0],
-                [1685174400, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0],
-                [1685178000, '1.032', '1.032', '1.032', '1.032', 9.7151, '3580', 0, 0, 0]]
 
     @staticmethod
     def get_candles_rest_data_mock():
-        data = [
-            {
-                "t": 1685167200,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            }, {
-                "t": 1685170800,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            }, {
-                "t": 1685174400,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            }, {
-                "t": 1685178000,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            },
-        ]
-        return data
-
-    @staticmethod
-    def get_exchange_trading_pair_quanto_multiplier_data_mock():
-        data = {"quanto_multiplier": 0.0001}
-        return data
-
-    @staticmethod
-    def get_candles_ws_data_mock_1():
         data = {
-            "time": 1542162490,
-            "time_ms": 1542162490123,
-            "channel": "futures.candlesticks",
-            "event": "update",
-            "error": None,
-            "result": [
-                {
-                    "t": 1545129300,
-                    "v": 27525555,
-                    "c": "95.4",
-                    "h": "96.9",
-                    "l": "89.5",
-                    "o": "94.3",
-                    "n": "1m_BTC_USD"
-                }
+            "code": "0",
+            "msg": "",
+            "data": [
+                [
+                    "1718658000000",
+                    "66401",
+                    "66734",
+                    "66310.1",
+                    "66575.3",
+                    "201605.6",
+                    "2016.056",
+                    "134181486.8892",
+                    "1"
+                ],
+                [
+                    "1718654400000",
+                    "66684",
+                    "66765.1",
+                    "66171.3",
+                    "66400.6",
+                    "532566.8",
+                    "5325.668",
+                    "353728101.5321",
+                    "1"
+                ],
+                [
+                    "1718650800000",
+                    "67087.1",
+                    "67099.8",
+                    "66560",
+                    "66683.9",
+                    "449946.1",
+                    "4499.461",
+                    "300581935.693",
+                    "1"
+                ],
+                [
+                    "1718647200000",
+                    "66602",
+                    "67320",
+                    "66543.3",
+                    "67087",
+                    "1345995.9",
+                    "13459.959",
+                    "900743428.1363",
+                    "1"
+                ]
             ]
         }
         return data
 
-    @staticmethod
-    def get_candles_ws_data_mock_2():
+    def get_fetch_candles_data_mock(self):
+        return [[1718647200.0, '66602', '67320', '66543.3', '67087', '13459.959', '900743428.1363', 0.0, 0.0, 0.0],
+                [1718650800.0, '67087.1', '67099.8', '66560', '66683.9', '4499.461', '300581935.693', 0.0, 0.0, 0.0],
+                [1718654400.0, '66684', '66765.1', '66171.3', '66400.6', '5325.668', '353728101.5321', 0.0, 0.0, 0.0],
+                [1718658000.0, '66401', '66734', '66310.1', '66575.3', '2016.056', '134181486.8892', 0.0, 0.0, 0.0]]
+
+    def get_candles_ws_data_mock_1(self):
         data = {
-            "time": 1542162490,
-            "time_ms": 1542162490123,
-            "channel": "futures.candlesticks",
-            "event": "update",
-            "error": None,
-            "result": [
-                {
-                    "t": 1545139300,
-                    "v": 27525555,
-                    "c": "95.4",
-                    "h": "96.9",
-                    "l": "89.5",
-                    "o": "94.3",
-                    "n": "1m_BTC_USD"
-                }
-            ]
-        }
+            "arg": {
+                "channel": "candle1H",
+                "instId": self.ex_trading_pair},
+            "data": [
+                ["1705420800000",
+                 "43253.6",
+                 "43440.2",
+                 "43000",
+                 "43250.9",
+                 "942.87870026",
+                 "40743115.773175484",
+                 "40743115.773175484",
+                 "1"]]}
+        return data
+
+    def get_candles_ws_data_mock_2(self):
+        data = {
+            "arg": {
+                "channel": "candle1H",
+                "instId": self.ex_trading_pair},
+            "data": [
+                ["1705435200000",
+                 "43169.8",
+                 "43370",
+                 "43168",
+                 "43239",
+                 "297.60067612",
+                 "12874025.740848533",
+                 "12874025.740848533",
+                 "0"]]}
         return data
 
     @staticmethod

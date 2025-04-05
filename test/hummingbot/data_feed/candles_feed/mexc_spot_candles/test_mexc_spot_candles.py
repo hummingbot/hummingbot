@@ -1,11 +1,11 @@
 import asyncio
-from test.hummingbot.data_feed.candles_feed.test_candles_base import AbstractTestCandlesBase
+from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.mexc_spot_candles import MexcSpotCandles
 
 
-class TestMexcSpotCandles(AbstractTestCandlesBase.TestCandlesBase):
+class TestMexcSpotCandles(TestCandlesBase):
     __test__ = True
     level = 0
 

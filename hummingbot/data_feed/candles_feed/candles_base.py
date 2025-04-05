@@ -198,6 +198,7 @@ class CandlesBase(NetworkBase):
         """
         if len(self._candles) <= 1:
             return
+        candles = np.array(candles)
         timestamps = candles[:, 0].astype(float)
         if not np.all(np.diff(timestamps) >= 0):
             self.logger().warning("Candles are not sorted by timestamp in ascending order.")
