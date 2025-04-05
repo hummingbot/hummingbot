@@ -1,8 +1,11 @@
+import itertools
 import logging
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
+
+from .utils import create_arb_proposals
 
 hws_logger = None
 
@@ -47,10 +50,6 @@ class CrossExchangeArbLogger(StrategyPyBase):
             else:
                 self.logger().info("Markets are ready. Logging started.")
 
-        best_buy_1 = self._market_infos[0].get_price(is_buy=False)
-        best_sell_1 = self._market_infos[0].get_price(is_buy=True)
-        self.logger().info(f"Bid: {best_buy_1} Ask: {best_sell_1}")
-
-        best_buy_2 = self._market_infos[1].get_price(is_buy=False)
-        best_sell_2 = self._market_infos[1].get_price(is_buy=True)
-        self.logger().info(f"Bid: {best_buy_2} Ask: {best_sell_2}")
+        for market_combination in itertools.combinations(self._market_infos, 2):
+            arb_proposals = create_arb_proposals(*market_combination)
+            self.logger().info(f"Arbitration proposals: {arb_proposals}")

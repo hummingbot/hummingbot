@@ -10,7 +10,8 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
-from hummingbot.strategy.cross_exchange_arb_logger.start import ExchangeInstrumentPair, start
+from hummingbot.strategy.cross_exchange_arb_logger.data_types import ExchangeInstrumentPair
+from hummingbot.strategy.cross_exchange_arb_logger.start import start
 
 
 class CheckArbCommand:

@@ -1,13 +1,7 @@
-import dataclasses
-
 from hummingbot.strategy.cross_exchange_arb_logger import CrossExchangeArbLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-
-@dataclasses.dataclass(frozen=True)
-class ExchangeInstrumentPair:
-    exchange_name: str
-    instrument_name: str
+from .data_types import ExchangeInstrumentPair
 
 
 def start(self, exchange_instrument_pairs: list[ExchangeInstrumentPair], with_fees: bool) -> None:
