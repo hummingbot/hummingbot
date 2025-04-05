@@ -5,7 +5,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles import AscendExSpotCandles
 
 
-class TestAscendExCandles(TestCandlesBase):
+class TestAscendExSpotCandles(TestCandlesBase):
     __test__ = True
     level = 0
 
