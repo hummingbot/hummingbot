@@ -1,8 +1,6 @@
 import dataclasses
 import decimal
 
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-
 
 @dataclasses.dataclass(frozen=True)
 class ExchangeInstrumentPair:
@@ -11,12 +9,14 @@ class ExchangeInstrumentPair:
 
 
 @dataclasses.dataclass(frozen=True)
-class ArbSide:
-    market_info: MarketTradingPairTuple
-    price: decimal.Decimal
+class TopOfBookPrices:
+    bid: decimal.Decimal | None
+    ask: decimal.Decimal | None
 
 
-@dataclasses.dataclass(frozen=True)
-class CrossExchangeArbProposal:
-    buy: ArbSide
-    sell: ArbSide
+class ArbInfo:
+    def __init__(self, exchange: ExchangeInstrumentPair):
+        ...
+
+    def profit_pct(self, with_fees, reverse: bool = False) -> decimal.Decimal:
+        ...
