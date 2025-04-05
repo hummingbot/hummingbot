@@ -176,12 +176,14 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
         help="Check arbitrage opportunities for markets across multiple exchanges",
     )
     check_arb_parser.add_argument(
-        "exchange_1_market_1",
-        help="First exchange and market, in the format exchange:market (e.g., binance:BTC-USDT)"
+        "exchange_instrument_pairs",
+        nargs="+",
+        help="Exchange and instrument pairs in the format exchange:instrument (e.g., binance:BTC-USDT kucoin:BTC-USDT)",
     )
     check_arb_parser.add_argument(
-        "exchange_2_market_2",
-        help="Second exchange and market, in the format exchange:market (e.g., kucoin:BTC-USDT)"
+        "--with-fees",
+        action="store_true",
+        help="Include fees in arbitrage calculation",
     )
     check_arb_parser.set_defaults(func=hummingbot.check_arb)
 

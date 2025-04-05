@@ -10,31 +10,34 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
-from hummingbot.strategy.cross_exchange_arb_logger.start import start
+from hummingbot.strategy.cross_exchange_arb_logger.start import ExchangeInstrumentPair, start
 
 
 class CheckArbCommand:
     def check_arb(
         self,  # type: HummingbotApplication
-        exchange_1_market_1: str,
-        exchange_2_market_2: str,
-    ):
+        exchange_instrument_pairs: list[str],
+        with_fees: bool,
+    ) -> None:
         safe_ensure_future(
-            self._check_arb_async(exchange_1_market_1, exchange_2_market_2),
+            self._check_arb_async(exchange_instrument_pairs, with_fees),
             loop=self.ev_loop,
         )
 
     # TODO Change it to take just one market. I am not going to check for equivalent markets
     async def _check_arb_async(
         self,  # type: HummingbotApplication
-        exchange_1_market_1: str,
-        exchange_2_market_2: str,
+        exchange_instrument_pairs: list[str],
+        with_fees: bool,
     ):
-        exchange_1, market_1 = exchange_1_market_1.split(":")
-        exchange_2, market_2 = exchange_2_market_2.split(":")
 
+        exchange_instrument_pairs_sanitized = [
+            ExchangeInstrumentPair(
+                *exchange_instrument.split(":")
+            ) for exchange_instrument in exchange_instrument_pairs
+        ]
         self.notify(
-            f"Starting check_arb command with {exchange_1}, {exchange_2}, {market_1}, {market_2}"
+            f"Starting check_arb command with {exchange_instrument_pairs_sanitized}, {with_fees}"
         )
 
         # Strategy dependency
@@ -50,7 +53,7 @@ class CheckArbCommand:
 
         self._initialize_notifiers()
 
-        start(self, exchange_1, market_1, exchange_2, market_2)
+        start(self, exchange_instrument_pairs_sanitized, with_fees)
 
         self.notify(
             f"\nStatus check complete. Starting '{self.strategy_name}' strategy..."

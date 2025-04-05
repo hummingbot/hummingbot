@@ -17,15 +17,14 @@ class CrossExchangeArbLogger(StrategyPyBase):
 
     def __init__(
         self,
-        market_info_1: MarketTradingPairTuple,
-        market_info_2: MarketTradingPairTuple,
+        market_infos: list[MarketTradingPairTuple],
     ):
         super().__init__()
-        self._market_info_1 = market_info_1
-        self._market_info_2 = market_info_2
+        self._market_info_1 = market_infos[0]
+        self._market_info_2 = market_infos[1]
         self._connector_1_ready = False
         self._connector_2_ready = False
-        self.add_markets([market_info_1.market, market_info_2.market])
+        self.add_markets([self._market_info_1.market, self._market_info_2.market])
 
     def tick(self, timestamp: float):
         if not self._connector_1_ready:
