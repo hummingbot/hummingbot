@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import time
-from test.hummingbot.data_feed.candles_feed.test_candles_base import AbstractTestCandlesBase
+from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
 from aioresponses import aioresponses
 
@@ -11,7 +11,7 @@ from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.kraken_spot_candles import KrakenSpotCandles, constants as CONSTANTS
 
 
-class TestKrakenSpotCandles(AbstractTestCandlesBase.TestCandlesBase):
+class TestKrakenSpotCandles(TestCandlesBase):
     __test__ = True
     level = 0
 
