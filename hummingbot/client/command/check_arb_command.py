@@ -24,21 +24,19 @@ class CheckArbCommand:
             loop=self.ev_loop,
         )
 
-    # TODO Change it to take just one market. I am not going to check for equivalent markets
     async def _check_arb_async(
         self,  # type: HummingbotApplication
         exchange_instrument_pairs: list[str],
         with_fees: bool,
     ):
 
+        # TODO sanitize
+        # TODO handle len(exchange_instrument_pairs) < 2
         exchange_instrument_pairs_sanitized = [
             ExchangeInstrumentPair(
                 *exchange_instrument.split(":")
             ) for exchange_instrument in exchange_instrument_pairs
         ]
-        self.notify(
-            f"Starting check_arb command with {exchange_instrument_pairs_sanitized}, {with_fees}"
-        )
 
         # Strategy dependency
         self.strategy_file_name = "conf_cross_exchange_arb_logger_1.yml"
@@ -48,19 +46,16 @@ class CheckArbCommand:
         # If macOS, disable App Nap.
         if platform.system() == "Darwin":
             import appnope
-
             appnope.nope()
 
         self._initialize_notifiers()
 
         start(self, exchange_instrument_pairs_sanitized, with_fees)
 
-        self.notify(
-            f"\nStatus check complete. Starting '{self.strategy_name}' strategy..."
-        )
         await self._start_market_making()
 
         # We always start the RateOracle. It is required for PNL calculation.
+        # TODO is this needed?
         RateOracle.get_instance().start()
 
     # DO NOT TOUCH
