@@ -57,43 +57,46 @@ class CrossExchangeArbLogger(StrategyPyBase):
 
     def _main(self):
         for market_1, market_2 in itertools.combinations(self._market_infos, 2):
-            market_1_fee, market_2_fee = decimal.Decimal("0"), decimal.Decimal("0")
-            if self._with_fees:
-                trade_fee_schema_1: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(
-                    exchange_name=market_1.market.name,
-                )
-                market_1_fee = trade_fee_schema_1.taker_percent_fee_decimal
+            self._main_for_two_exchanges(market_1, market_2)
 
-                trade_fee_schema_2: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(
-                    exchange_name=market_2.market.name,
-                )
-                market_2_fee = trade_fee_schema_2.taker_percent_fee_decimal
-
-            m_1_b, m_1_a = market_1.get_price(is_buy=False), market_1.get_price(is_buy=True)
-            m_2_b, m_2_a = market_2.get_price(is_buy=False), market_2.get_price(is_buy=True)
-
-            forward_spead = calculate_spread(
-                m_1_b,
-                m_2_a,
-                market_1_fee,
-                market_2_fee,
+    def _main_for_two_exchanges(self, market_1: MarketTradingPairTuple, market_2: MarketTradingPairTuple):
+        market_1_fee, market_2_fee = decimal.Decimal("0"), decimal.Decimal("0")
+        if self._with_fees:
+            trade_fee_schema_1: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(
+                exchange_name=market_1.market.name,
             )
+            market_1_fee = trade_fee_schema_1.taker_percent_fee_decimal  # assuming market order
 
-            reverse_spread = calculate_spread(
-                m_2_b,
-                m_1_a,
-                market_2_fee,
-                market_1_fee,
+            trade_fee_schema_2: TradeFeeSchema = TradeFeeSchemaLoader.configured_schema_for_exchange(
+                exchange_name=market_2.market.name,
             )
+            market_2_fee = trade_fee_schema_2.taker_percent_fee_decimal  # assuming market order
 
-            log_lines = [
-                self._format_orderbook_line(market_1.market.name, market_1.trading_pair, m_1_b, m_1_a),
-                self._format_orderbook_line(market_2.market.name, market_2.trading_pair, m_2_b, m_2_a),
-                self._format_arb_opportunity_line(True, market_1.market.name, market_2.market.name, forward_spead),
-                self._format_arb_opportunity_line(False, market_2.market.name, market_1.market.name, reverse_spread),
-                f"Fees{'' if self._with_fees else ' not'} included.",
-            ]
-            self.logger().info("\n" + "\n".join(log_lines))
+        m_1_b, m_1_a = market_1.get_price(is_buy=False), market_1.get_price(is_buy=True)
+        m_2_b, m_2_a = market_2.get_price(is_buy=False), market_2.get_price(is_buy=True)
+
+        forward_spead = calculate_spread(
+            m_1_b,
+            m_2_a,
+            market_1_fee,
+            market_2_fee,
+        )
+
+        reverse_spread = calculate_spread(
+            m_2_b,
+            m_1_a,
+            market_2_fee,
+            market_1_fee,
+        )
+
+        log_lines = [
+            self._format_orderbook_line(market_1.market.name, market_1.trading_pair, m_1_b, m_1_a),
+            self._format_orderbook_line(market_2.market.name, market_2.trading_pair, m_2_b, m_2_a),
+            self._format_arb_opportunity_line(True, market_1.market.name, market_2.market.name, forward_spead),
+            self._format_arb_opportunity_line(False, market_2.market.name, market_1.market.name, reverse_spread),
+            f"Fees{'' if self._with_fees else ' not'} included.",
+        ]
+        self.logger().info("\n" + "\n".join(log_lines))
 
     @staticmethod
     def _format_orderbook_line(exchange: str, instrument: str, best_bid: float, best_ask: float) -> str:
