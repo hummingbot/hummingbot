@@ -159,7 +159,10 @@ The custom market making strategy in this repository incorporates advanced featu
 
 - **docs/**: Documentation files (for future expansion)
 
-- **tests/**: Unit tests (for future implementation)
+- **tests/**: Unit tests
+  - `unit/test_config_loading.py`: Tests for configuration file validation
+  - `unit/test_strategy_functionality.py`: Tests for basic strategy functionality
+  - `run_tests.py`: Script to run all tests
 
 - **logs/**: Log files
   - `transformation_log.txt`: Log of changes made during repository restructuring
@@ -201,6 +204,42 @@ The custom market making strategy in this repository incorporates advanced featu
    ```
    start
    ```
+
+## Testing
+
+The repository includes a suite of unit tests to ensure code quality and functionality:
+
+### Running Tests
+
+To run all tests:
+```
+python tests/run_tests.py
+```
+
+### Test Coverage
+
+- **Configuration Tests**:
+  - Validates that the YAML config file exists and can be loaded
+  - Verifies that all required fields are present in the configuration
+  - Checks that numeric values are within valid ranges
+
+- **Strategy Tests**:
+  - Tests basic strategy functionality using mocks
+  - Validates inventory ratio calculation logic
+  - Tests connector behavior for price and balance retrieval
+
+### Static Analysis
+
+Static code analysis can be run using pylint:
+```
+pylint strategies/precision_trading.py
+```
+
+The analysis checks for:
+- Code style issues
+- Potential bugs
+- Performance issues
+- Maintainability concerns
 
 ## Archive
 
