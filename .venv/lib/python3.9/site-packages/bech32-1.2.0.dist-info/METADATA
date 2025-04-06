@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: bech32
+Version: 1.2.0
+Summary: Reference implementation for Bech32 and segwit addresses.
+Home-page: https://github.com/fiatjaf/bech32
+Maintainer: fiatjaf
+Maintainer-email: fiatjaf@alhur.es
+License: MIT
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=3.5
+Description-Content-Type: text/markdown
+
+bech32
+======
+
+Since this implementation wasn't in a place that was easy to use for Python programmers I took it from from https://github.com/rustyrussell/lightning-payencode and published [on GitHub](https://github.com/fiatjaf/bech32) and [on PyPI](https://pypi.org/project/bech32/).
+
+The original version of this package is probably the one at https://github.com/sipa/bech32/tree/master/ref/python, but apparently Rusty Russel commented out the 90-length limit of bech32-encoded stuff so it could be used for Lightning invoices. Let's keep that change.
+
+Install
+-------
+
+```
+pip install bech32
+```
+
+

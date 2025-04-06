@@ -1,0 +1,51 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+    <head>
+        <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
+        <title>Diff Quality</title>
+        {% include 'snippet_style.html' %}
+    </head>
+    <body>
+        <h1>Diff Quality</h1>
+        <p>Quality Report: {{ report_name }}</p>
+        <p>Diff: {{ diff_name }}</p>
+        {% if src_stats %}
+        <table border="1">
+            <tr>
+                <th>Source File</th>
+                <th>Diff Quality (%)</th>
+                <th>Lines in violation</th>
+            </tr>
+            {% for src_path, stats in src_stats|dictsort %}
+            {% if stats.percent_covered < 100 %}
+            <tr>
+                <td>{{ src_path }}</td>
+                <td>{{ stats.percent_covered|round(1) }}%</td>
+                <td>
+                    <ul>
+                        {% for line, message in stats.violations %}
+                        <li>{{ line }}: {{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td>{{ src_path }}</td>
+                <td>100%</td>
+                <td>&nbsp;</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </table>
+        <ul>
+            <li><b>Total</b>: {{ total_num_lines }} {% trans count=total_num_lines %}line{% pluralize %}lines{% endtrans %}</li>
+            <li><b>Violation</b>: {{ total_num_violations }} {% trans count=total_num_violations %}line{% pluralize %}lines{% endtrans %}</li>
+            <li><b>% Quality</b>: {{ total_percent_covered }}%</li>
+        </ul>
+        {% else %}
+        <p>No lines with quality information in this diff.</p>
+        {% endif %}
+        {% include 'snippet_content.html' %}
+    </body>
+</html>

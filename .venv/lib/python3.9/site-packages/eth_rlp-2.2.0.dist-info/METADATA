@@ -1,0 +1,84 @@
+Metadata-Version: 2.2
+Name: eth-rlp
+Version: 2.2.0
+Summary: eth-rlp: RLP definitions for common Ethereum objects in Python
+Home-page: https://github.com/ethereum/eth-rlp
+Author: The Ethereum Foundation
+Author-email: snakecharmers@ethereum.org
+License: MIT
+Keywords: ethereum
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8, <4
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: eth-utils>=2.0.0
+Requires-Dist: hexbytes>=1.2.0
+Requires-Dist: rlp>=0.6.0
+Requires-Dist: typing_extensions>=4.0.1; python_version <= "3.10"
+Provides-Extra: dev
+Requires-Dist: build>=0.9.0; extra == "dev"
+Requires-Dist: bump_my_version>=0.19.0; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: mypy==1.10.0; extra == "dev"
+Requires-Dist: pre-commit>=3.4.0; extra == "dev"
+Requires-Dist: tox>=4.0.0; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: sphinx>=6.0.0; extra == "dev"
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "dev"
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "dev"
+Requires-Dist: towncrier<25,>=24; extra == "dev"
+Requires-Dist: eth-hash[pycryptodome]; extra == "dev"
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-xdist>=2.4.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=6.0.0; extra == "docs"
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "docs"
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "docs"
+Requires-Dist: towncrier<25,>=24; extra == "docs"
+Provides-Extra: test
+Requires-Dist: eth-hash[pycryptodome]; extra == "test"
+Requires-Dist: pytest>=7.0.0; extra == "test"
+Requires-Dist: pytest-xdist>=2.4.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# eth-rlp
+
+[![Join the conversation on Discord](https://img.shields.io/discord/809793915578089484?color=blue&label=chat&logo=discord&logoColor=white)](https://discord.gg/GHryRvPB84)
+[![Build Status](https://circleci.com/gh/ethereum/eth-rlp.svg?style=shield)](https://circleci.com/gh/ethereum/eth-rlp)
+[![PyPI version](https://badge.fury.io/py/eth-rlp.svg)](https://badge.fury.io/py/eth-rlp)
+[![Python versions](https://img.shields.io/pypi/pyversions/eth-rlp.svg)](https://pypi.python.org/pypi/eth-rlp)
+[![Docs build](https://readthedocs.org/projects/eth-rlp/badge/?version=latest)](https://eth-rlp.readthedocs.io/en/latest/?badge=latest)
+
+RLP definitions for common Ethereum objects in Python
+
+Read the [documentation](https://eth-rlp.readthedocs.io/).
+
+View the [change log](https://eth-rlp.readthedocs.io/en/latest/release_notes.html).
+
+## Installation
+
+```sh
+python -m pip install eth-rlp
+```

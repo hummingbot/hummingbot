@@ -1,0 +1,135 @@
+Metadata-Version: 2.4
+Name: web3
+Version: 7.10.0
+Summary: web3: A Python library for interacting with Ethereum
+Home-page: https://github.com/ethereum/web3.py
+Author: The Ethereum Foundation
+Author-email: snakecharmers@ethereum.org
+License: MIT
+Keywords: ethereum
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8, <4
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: eth-abi>=5.0.1
+Requires-Dist: eth-account>=0.13.1
+Requires-Dist: eth-hash[pycryptodome]>=0.5.1
+Requires-Dist: eth-typing>=5.0.0
+Requires-Dist: eth-utils>=5.0.0
+Requires-Dist: hexbytes>=1.2.0
+Requires-Dist: aiohttp>=3.7.4.post0
+Requires-Dist: pydantic>=2.4.0
+Requires-Dist: pywin32>=223; platform_system == "Windows"
+Requires-Dist: requests>=2.23.0
+Requires-Dist: typing-extensions>=4.0.1
+Requires-Dist: types-requests>=2.0.0
+Requires-Dist: websockets<16.0.0,>=10.0.0
+Requires-Dist: pyunormalize>=15.0.0
+Provides-Extra: tester
+Requires-Dist: eth-tester[py-evm]<0.13.0b1,>=0.12.0b1; extra == "tester"
+Requires-Dist: py-geth>=5.1.0; extra == "tester"
+Provides-Extra: dev
+Requires-Dist: build>=0.9.0; extra == "dev"
+Requires-Dist: bump_my_version>=0.19.0; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: setuptools>=38.6.0; extra == "dev"
+Requires-Dist: tqdm>4.32; extra == "dev"
+Requires-Dist: twine>=1.13; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: sphinx>=6.0.0; extra == "dev"
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "dev"
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "dev"
+Requires-Dist: towncrier<25,>=24; extra == "dev"
+Requires-Dist: pytest-asyncio<0.23,>=0.18.1; extra == "dev"
+Requires-Dist: pytest-mock>=1.10; extra == "dev"
+Requires-Dist: pytest-xdist>=2.4.0; extra == "dev"
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: flaky>=3.7.0; extra == "dev"
+Requires-Dist: hypothesis>=3.31.2; extra == "dev"
+Requires-Dist: tox>=4.0.0; extra == "dev"
+Requires-Dist: mypy==1.10.0; extra == "dev"
+Requires-Dist: pre-commit>=3.4.0; extra == "dev"
+Requires-Dist: eth-tester[py-evm]<0.13.0b1,>=0.12.0b1; extra == "dev"
+Requires-Dist: py-geth>=5.1.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=6.0.0; extra == "docs"
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "docs"
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "docs"
+Requires-Dist: towncrier<25,>=24; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest-asyncio<0.23,>=0.18.1; extra == "test"
+Requires-Dist: pytest-mock>=1.10; extra == "test"
+Requires-Dist: pytest-xdist>=2.4.0; extra == "test"
+Requires-Dist: pytest>=7.0.0; extra == "test"
+Requires-Dist: flaky>=3.7.0; extra == "test"
+Requires-Dist: hypothesis>=3.31.2; extra == "test"
+Requires-Dist: tox>=4.0.0; extra == "test"
+Requires-Dist: mypy==1.10.0; extra == "test"
+Requires-Dist: pre-commit>=3.4.0; extra == "test"
+Requires-Dist: eth-tester[py-evm]<0.13.0b1,>=0.12.0b1; extra == "test"
+Requires-Dist: py-geth>=5.1.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# web3.py
+
+[![Join the conversation on Discord](https://img.shields.io/discord/809793915578089484?color=blue&label=chat&logo=discord&logoColor=white)](https://discord.gg/GHryRvPB84)
+[![Build Status](https://circleci.com/gh/ethereum/web3.py.svg?style=shield)](https://circleci.com/gh/ethereum/web3.py)
+[![PyPI version](https://badge.fury.io/py/web3.svg)](https://badge.fury.io/py/web3)
+[![Python versions](https://img.shields.io/pypi/pyversions/web3.svg)](https://pypi.python.org/pypi/web3)
+[![Docs build](https://readthedocs.org/projects/web3py/badge/?version=latest)](https://web3py.readthedocs.io/en/latest/?badge=latest)
+
+## A Python Library for Interacting with Ethereum
+
+web3.py allows you to interact with the Ethereum blockchain using Python, enabling you to build decentralized applications, interact with smart contracts, and much more.
+
+- Python 3.8+ support
+
+## Installation
+
+```sh
+python -m pip install web3
+```
+
+## Documentation
+
+[Get started in 5 minutes](https://web3py.readthedocs.io/en/latest/quickstart.html) or
+[take a tour](https://web3py.readthedocs.io/en/latest/overview.html) of the library.
+
+View the [change log](https://web3py.readthedocs.io/en/latest/release_notes.html).
+
+For additional guides, examples, and APIs, see the [documentation](https://web3py.readthedocs.io/en/latest/).
+
+## Want to Help?
+
+Want to file a bug, contribute some code, or improve documentation? Excellent! Read up on our
+guidelines for [contributing](https://web3py.readthedocs.io/en/latest/contributing.html),
+then check out issues that are labeled
+[Good First Issue](https://github.com/ethereum/web3.py/issues?q=is%3Aissue+is%3Aopen+label%3A%22Good+First+Issue%22).
+
+______________________________________________________________________
+
+## Questions on Implementation or Usage?
+
+Join the conversation in the Ethereum Python Community [Discord](https://discord.gg/GHryRvPB84).

@@ -1,0 +1,100 @@
+# Backtesting Configuration for Adaptive Market Making Strategy
+
+# Strategy configuration (same as for live trading)
+strategy_config:
+  connector_name: binance
+  trading_pair: ETH-USDT
+  order_amount: 0.01
+  min_spread: 0.001
+  max_spread: 0.01
+  order_refresh_time: 10.0
+  max_order_age: 300.0
+  rsi_length: 14
+  rsi_overbought: 70.0
+  rsi_oversold: 30.0
+  ema_short: 12
+  ema_long: 26
+  bb_length: 20
+  bb_std: 2.0
+  bb_use_kalman: true
+  max_inventory_ratio: 0.5
+  min_inventory_ratio: 0.3
+  volatility_adjustment: 1.0
+  trailing_stop_pct: 0.02
+  use_ml: false
+  primary_timeframe: 1h
+  secondary_timeframe: 15m
+  tertiary_timeframe: 1d
+  signal_threshold: 30.0
+  inventory_target_base_pct: 0.5
+  min_order_amount: 0.001
+
+# Backtesting parameters
+backtest:
+  # Data parameters
+  exchange: binance
+  trading_pair: ETH-USDT
+  start_time: 2023-01-01
+  end_time: 2023-06-30
+  data_source: csv  # Options: csv, database, api
+  data_path: data/historical/binance_ETH_USDT_1h.csv
+  
+  # Initial balances
+  initial_base_balance: 1.0  # ETH
+  initial_quote_balance: 2000.0  # USDT
+  
+  # Fee structure
+  maker_fee: 0.001  # 0.1%
+  taker_fee: 0.001  # 0.1%
+  
+  # Market simulation parameters
+  slippage: 0.0005  # 0.05%
+  latency: 0.5  # seconds
+  fill_probability: 0.95  # probability of limit orders being filled
+
+# Analysis parameters
+analysis:
+  benchmark: hold  # Options: hold, rebalance
+  metrics:
+    - total_pnl
+    - sharpe_ratio
+    - sortino_ratio
+    - max_drawdown
+    - win_rate
+    - profit_factor
+    - avg_profit_per_trade
+    - avg_holding_time
+  
+  # Visualization options
+  visualize:
+    equity_curve: true
+    drawdown_curve: true
+    trade_history: true
+    volume_profile: true
+    heatmap: false
+
+# Optimization parameters (if running parameter optimization)
+optimization:
+  enabled: false
+  method: grid  # Options: grid, random, bayesian
+  parameters:
+    min_spread:
+      min: 0.0005
+      max: 0.005
+      step: 0.0005
+    max_spread:
+      min: 0.005
+      max: 0.02
+      step: 0.001
+    volatility_adjustment:
+      min: 0.5
+      max: 2.0
+      step: 0.1
+    signal_threshold:
+      min: 20.0
+      max: 40.0
+      step: 5.0
+  
+  # Optimization objective
+  objective: sharpe_ratio  # Metric to maximize/minimize
+  direction: maximize  # maximize or minimize 

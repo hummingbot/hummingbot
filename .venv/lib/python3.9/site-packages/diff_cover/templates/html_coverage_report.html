@@ -1,0 +1,44 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+    <head>
+        <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
+        <title>Diff Coverage</title>
+        {% include 'snippet_style.html' %}
+    </head>
+    <body>
+        <h1>Diff Coverage</h1>
+        <p>Diff: {{ diff_name }}</p>
+        {% if src_stats %}
+        <ul>
+            <li><b>Total</b>: {{ total_num_lines }} {% trans count=total_num_lines %}line{% pluralize %}lines{% endtrans %}</li>
+            <li><b>Missing</b>: {{ total_num_violations }} {% trans count=total_num_violations %}line{% pluralize %}lines{% endtrans %}</li>
+            <li><b>Coverage</b>: {{ total_percent_covered }}%</li>
+        </ul>
+        <table border="1">
+            <tr>
+                <th>Source File</th>
+                <th>Diff Coverage (%)</th>
+                <th>Missing Lines</th>
+            </tr>
+            {% for src_path, stats in src_stats|dictsort %}
+            {% if stats.percent_covered < 100 %}
+            <tr>
+                <td>{{ src_path }}</td>
+                <td>{{ stats.percent_covered|round(1) }}%</td>
+                <td>{{ stats.violation_lines|join(',') }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td>{{ src_path }}</td>
+                <td>100%</td>
+                <td>&nbsp;</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>No lines with coverage information in this diff.</p>
+        {% endif %}
+        {% include 'snippet_content.html' %}
+    </body>
+</html>

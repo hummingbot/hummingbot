@@ -45,9 +45,7 @@ __pycache__
 **/.DS_Store
 portfolio_value.csv
 /notebooks
-/data
 debug.log
-/installation/docker-commands/hummingbot_files
 
 # Distribution files
 /build
@@ -55,7 +53,6 @@ debug.log
 /src
 /*.egg-info
 *.whl
-
 
 # VSCode
 .vscode/
@@ -78,17 +75,58 @@ debug.log
 /coverage_html_report/
 coverage.xml
 
-# misc
-*.srl
+# Sensitive files
 *.key
 *.crt
-*.log
+.env
+api-keys.json
+api_keys.yml
+.password_verification
+hummingbot-gateway.cfg
 
-# Debug console
-.debug_console_ssh_host_key
+# Keep important runtime data and logs
+!data/logs/
+!data/trades/
+!logs/debug/
+!logs/trades/
+!*.log
 
-/conf_backup
+# Exclude only sensitive config files
+conf/*_key.yml
+conf/*_secret.yml
+conf/api_keys.yml
+conf/conf_client.yml
+
+# Keep template and strategy configs
+!conf/conf_client_template.yml
+!conf/conf_custom_adaptive_mm.yml
+!conf/strategy_templates/
 
 # External SDK files
 /**/.chain_cookie
 /**/.injective_cookie
+
+# Cursor Rules
+.cursor/
+.cursor_rules/
+*.cursor
+cursor_rules.md
+.cursor_rules
+cursor.json
+.cursorignore
+.windsurfrules
+cursor_rules_context.md
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

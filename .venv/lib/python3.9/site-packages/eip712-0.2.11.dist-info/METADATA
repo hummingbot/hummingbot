@@ -1,0 +1,157 @@
+Metadata-Version: 2.2
+Name: eip712
+Version: 0.2.11
+Summary: eip712: Message classes for typed structured data hashing and signing in Ethereum
+Home-page: https://github.com/ApeWorX/eip712
+Author: ApeWorX Ltd.
+Author-email: admin@apeworx.io
+License: Apache-2.0
+Keywords: ethereum
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9,<4
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: dataclassy<1,>=0.11.1
+Requires-Dist: eth-abi<6,>=5.1.0
+Requires-Dist: eth-account<0.14,>=0.11.3
+Requires-Dist: eth-typing<6,>=3.5.2
+Requires-Dist: eth-utils<6,>=2.3.1
+Requires-Dist: hexbytes<2,>=0.3.1
+Provides-Extra: test
+Requires-Dist: pytest>=6.0; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: hypothesis<7,>=6.70.0; extra == "test"
+Provides-Extra: lint
+Requires-Dist: black<25,>=24.10.0; extra == "lint"
+Requires-Dist: mypy<2,>=1.13.0; extra == "lint"
+Requires-Dist: types-setuptools; extra == "lint"
+Requires-Dist: flake8<8,>=7.1.1; extra == "lint"
+Requires-Dist: flake8-breakpoint<2,>=1.1.0; extra == "lint"
+Requires-Dist: flake8-print<6,>=5.0.0; extra == "lint"
+Requires-Dist: flake8-pydantic; extra == "lint"
+Requires-Dist: flake8-type-checking; extra == "lint"
+Requires-Dist: isort<6,>=5.13.2; extra == "lint"
+Requires-Dist: mdformat>=0.7.19; extra == "lint"
+Requires-Dist: mdformat-gfm>=0.3.5; extra == "lint"
+Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "lint"
+Requires-Dist: mdformat-pyproject>=0.0.2; extra == "lint"
+Provides-Extra: release
+Requires-Dist: setuptools>=75.6.0; extra == "release"
+Requires-Dist: wheel; extra == "release"
+Requires-Dist: twine; extra == "release"
+Provides-Extra: doc
+Requires-Dist: myst-parser<0.19,>=0.18.1; extra == "doc"
+Requires-Dist: Sphinx<6,>=5.3.0; extra == "doc"
+Requires-Dist: sphinx_rtd_theme<2,>=1.2.0; extra == "doc"
+Requires-Dist: sphinxcontrib-napoleon>=0.7; extra == "doc"
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: hypothesis<7,>=6.70.0; extra == "dev"
+Requires-Dist: black<25,>=24.10.0; extra == "dev"
+Requires-Dist: mypy<2,>=1.13.0; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: flake8<8,>=7.1.1; extra == "dev"
+Requires-Dist: flake8-breakpoint<2,>=1.1.0; extra == "dev"
+Requires-Dist: flake8-print<6,>=5.0.0; extra == "dev"
+Requires-Dist: flake8-pydantic; extra == "dev"
+Requires-Dist: flake8-type-checking; extra == "dev"
+Requires-Dist: isort<6,>=5.13.2; extra == "dev"
+Requires-Dist: mdformat>=0.7.19; extra == "dev"
+Requires-Dist: mdformat-gfm>=0.3.5; extra == "dev"
+Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "dev"
+Requires-Dist: mdformat-pyproject>=0.0.2; extra == "dev"
+Requires-Dist: myst-parser<0.19,>=0.18.1; extra == "dev"
+Requires-Dist: Sphinx<6,>=5.3.0; extra == "dev"
+Requires-Dist: sphinx_rtd_theme<2,>=1.2.0; extra == "dev"
+Requires-Dist: sphinxcontrib-napoleon>=0.7; extra == "dev"
+Requires-Dist: setuptools>=75.6.0; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: commitizen<3,>=2.42; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest-watch; extra == "dev"
+Requires-Dist: IPython; extra == "dev"
+Requires-Dist: ipdb; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Quick Start
+
+Message classes for typed structured data hashing and signing in Ethereum.
+See [EIP-712](https://eips.ethereum.org/EIPS/eip-712) for details.
+
+## Dependencies
+
+- [python3](https://www.python.org/downloads) version 3.9 up to 3.12.
+
+## Installation
+
+### via `pip`
+
+You can install the latest release via [`pip`](https://pypi.org/project/pip/):
+
+```bash
+pip install eip712
+```
+
+### via `setuptools`
+
+You can clone the repository and use [`setuptools`](https://github.com/pypa/setuptools) for the most up-to-date version:
+
+```bash
+git clone https://github.com/ApeWorX/eip712.git
+cd eip712
+python3 setup.py install
+```
+
+## Quick Usage
+
+Define EIP-712 models:
+
+```python
+from eip712.messages import EIP712Message, EIP712Type
+
+
+class Person(EIP712Type):
+    name: "string"
+    wallet: "address"
+
+
+class Mail(EIP712Message):
+    _chainId_ = 1
+    _name_ = "Ether Mail"
+    _verifyingContract_ = "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+    _version_ = "1"
+
+    sender: Person
+    receiver: Person
+```
+
+# Initialize a Person object as you would normally
+
+person = Person(name="Joe", wallet="0xa27CEF8aF2B6575903b676e5644657FAe96F491F")

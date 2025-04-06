@@ -1,0 +1,99 @@
+Metadata-Version: 2.2
+Name: eth-hash
+Version: 0.7.1
+Summary: eth-hash: The Ethereum hashing function, keccak256, sometimes (erroneously) called sha3
+Home-page: https://github.com/ethereum/eth-hash
+Author: The Ethereum Foundation
+Author-email: snakecharmers@ethereum.org
+License: MIT
+Keywords: ethereum
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8, <4
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: build>=0.9.0; extra == "dev"
+Requires-Dist: bump_my_version>=0.19.0; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: mypy==1.10.0; extra == "dev"
+Requires-Dist: pre-commit>=3.4.0; extra == "dev"
+Requires-Dist: tox>=4.0.0; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: sphinx>=6.0.0; extra == "dev"
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "dev"
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "dev"
+Requires-Dist: towncrier<25,>=24; extra == "dev"
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-xdist>=2.4.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=6.0.0; extra == "docs"
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "docs"
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "docs"
+Requires-Dist: towncrier<25,>=24; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest>=7.0.0; extra == "test"
+Requires-Dist: pytest-xdist>=2.4.0; extra == "test"
+Provides-Extra: pycryptodome
+Requires-Dist: pycryptodome<4,>=3.6.6; extra == "pycryptodome"
+Provides-Extra: pysha3
+Requires-Dist: pysha3<2.0.0,>=1.0.0; python_version < "3.9" and extra == "pysha3"
+Requires-Dist: safe-pysha3>=1.0.0; python_version >= "3.9" and extra == "pysha3"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
+
+# eth-hash
+
+[![Join the conversation on Discord](https://img.shields.io/discord/809793915578089484?color=blue&label=chat&logo=discord&logoColor=white)](https://discord.gg/GHryRvPB84)
+[![Build Status](https://circleci.com/gh/ethereum/eth-hash.svg?style=shield)](https://circleci.com/gh/ethereum/eth-hash)
+[![PyPI version](https://badge.fury.io/py/eth-hash.svg)](https://badge.fury.io/py/eth-hash)
+[![Python versions](https://img.shields.io/pypi/pyversions/eth-hash.svg)](https://pypi.python.org/pypi/eth-hash)
+[![Docs build](https://readthedocs.org/projects/eth-hash/badge/?version=latest)](https://eth-hash.readthedocs.io/en/latest/?badge=latest)
+
+The Ethereum hashing function, keccak256, sometimes (erroneously) called sha3
+
+Note: the similarly named [pyethash](https://github.com/ethereum/ethash)
+has a completely different use: it generates proofs of work.
+
+This is a low-level library, intended to be used internally by other Ethereum tools.
+If you're looking for a convenient hashing tool, check out
+[`eth_utils.keccak()`](https://eth-utils.readthedocs.io/en/stable/utilities.html#keccak-bytes-int-bool-text-str-hexstr-str-bytes)
+which will be a little friendlier, and provide access to other helpful utilities.
+
+Read the [documentation](https://eth-hash.readthedocs.io/).
+
+[View the change log](https://eth-hash.readthedocs.io/en/latest/release_notes.html).
+
+## Installation
+
+```sh
+python -m pip install "eth-hash[pycryptodome]"
+```
+
+```py
+>>> from eth_hash.auto import keccak
+>>> keccak(b'')
+b"\xc5\xd2F\x01\x86\xf7#<\x92~}\xb2\xdc\xc7\x03\xc0\xe5\x00\xb6S\xca\x82';{\xfa\xd8\x04]\x85\xa4p"
+```
+
+See the [docs](http://eth-hash.readthedocs.io/en/latest/quickstart.html#quickstart)
+for more about choosing and installing backends.

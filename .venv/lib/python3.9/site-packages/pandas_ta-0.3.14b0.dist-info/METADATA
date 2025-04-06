@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: pandas_ta
+Version: 0.3.14b0
+Summary: An easy to use Python 3 Pandas Extension with 130+ Technical Analysis Indicators. Can be called from a Pandas DataFrame or standalone like TA-Lib. Correlation tested with TA-Lib.
+Home-page: https://github.com/twopirllc/pandas-ta
+Download-URL: https://github.com/twopirllc/pandas-ta.git
+Author: Kevin Johnson
+Author-email: appliedmathkj@gmail.com
+Maintainer: Kevin Johnson
+Maintainer-email: appliedmathkj@gmail.com
+License: The MIT License (MIT)
+Keywords: technical analysis,trading,python3,pandas
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Office/Business :: Financial
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Requires-Dist: pandas
+Provides-Extra: dev
+Requires-Dist: alphaVantage-api; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+Requires-Dist: mplfinance; extra == "dev"
+Requires-Dist: scipy; extra == "dev"
+Requires-Dist: sklearn; extra == "dev"
+Requires-Dist: statsmodels; extra == "dev"
+Requires-Dist: stochastic; extra == "dev"
+Requires-Dist: talib; extra == "dev"
+Requires-Dist: tqdm; extra == "dev"
+Requires-Dist: vectorbt; extra == "dev"
+Requires-Dist: yfinance; extra == "dev"
+Provides-Extra: test
+Requires-Dist: ta-lib; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
+
+An easy to use Python 3 Pandas Extension with 130+ Technical Analysis Indicators. Can be called from a Pandas DataFrame or standalone like TA-Lib. Correlation tested with TA-Lib.

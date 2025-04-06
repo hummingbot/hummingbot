@@ -1,0 +1,80 @@
+# Custom Adaptive Market Making Strategy Configuration
+
+# Exchange and trading pair settings
+exchange: "binance_paper_trade"
+trading_pair: "ETH-USDT"
+
+# Basic trading parameters
+order_amount: 0.01
+order_refresh_time: 15.0  # in seconds
+max_order_age: 300.0  # in seconds
+min_spread: 0.001  # 0.1%
+max_spread: 0.01  # 1.0%
+
+# Technical indicators parameters
+rsi_length: 14
+rsi_overbought: 70
+rsi_oversold: 30
+ema_short: 12
+ema_medium: 21
+ema_long: 50
+bb_length: 20
+bb_std: 2.0
+
+# Volatility parameters
+atr_length: 14
+volatility_multiplier: 1.5
+natr_threshold_low: 1.0
+natr_threshold_high: 3.0
+
+# Risk management parameters
+target_inventory_ratio: 0.5  # 50% base, 50% quote
+max_position_pct: 0.2  # Maximum position size as % of portfolio
+stop_loss_pct: 0.05  # 5% stop loss
+take_profit_pct: 0.1  # 10% take profit
+trailing_stop_activation_pct: 0.015  # Activate trailing stop at 1.5% profit
+trailing_stop_trailing_delta: 0.005  # Trail by 0.5%
+
+# Market regime detection parameters
+trend_strength_threshold: 0.02  # Threshold for trend strength
+volatility_threshold: 0.03  # Threshold for volatility classification
+
+# Candle settings
+candle_intervals: ["1m", "5m", "15m", "1h"]
+max_candles: 1000
+
+# Indicator weights
+indicator_weights:
+  # Trending market regime
+  trending:
+    RSI: 0.15
+    MACD: 0.25
+    EMA: 0.20
+    BB: 0.15
+    VOLUME: 0.15
+    ATR: 0.10
+  
+  # Volatile market regime
+  volatile:
+    RSI: 0.20
+    MACD: 0.15
+    EMA: 0.15
+    BB: 0.25
+    VOLUME: 0.15
+    ATR: 0.10
+  
+  # Ranging market regime
+  ranging:
+    RSI: 0.25
+    MACD: 0.15
+    EMA: 0.10
+    BB: 0.25
+    VOLUME: 0.10
+    ATR: 0.15
+
+# Timeframe weights for multi-timeframe analysis
+timeframe_weights:
+  "1m": 0.15
+  "5m": 0.25
+  "15m": 0.35
+  "1h": 0.25 

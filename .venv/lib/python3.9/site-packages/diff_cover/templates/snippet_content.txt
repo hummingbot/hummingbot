@@ -1,0 +1,11 @@
+{% for src_path, stats in src_stats|dictsort %}
+{% if stats.snippets_terminal %}
+--- {{ src_path }} ---
+{% for snippet in stats.snippets_terminal %}
+
+{{ snippet }}
+
+
+{% endfor %}
+{% endif %}
+{% endfor %}

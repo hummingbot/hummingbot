@@ -1,0 +1,48 @@
+# Adaptive Market Making Strategy Configuration
+
+# Exchange and market parameters
+connector_name: binance_paper_trade
+trading_pair: ETH-USDT
+
+# Basic market making parameters
+order_amount: 0.01
+min_spread: 0.001
+max_spread: 0.01
+order_refresh_time: 10.0
+max_order_age: 300.0
+
+# Technical indicator parameters
+rsi_length: 14
+rsi_overbought: 70.0
+rsi_oversold: 30.0
+ema_short: 12
+ema_long: 26
+
+# Bollinger Bands parameters
+bb_length: 20
+bb_std: 2.0
+bb_use_kalman: true
+
+# Risk management parameters
+max_inventory_ratio: 0.5
+min_inventory_ratio: 0.3
+volatility_adjustment: 1.0
+trailing_stop_pct: 0.02
+
+# ML parameters
+use_ml: false
+ml_data_buffer_size: 5000
+ml_update_interval: 3600
+ml_confidence_threshold: 0.65
+
+# Multi-timeframe parameters
+primary_timeframe: 1h
+secondary_timeframe: 15m
+tertiary_timeframe: 1d
+
+# Score threshold for signal strength
+signal_threshold: 30.0
+
+# Additional strategy parameters
+inventory_target_base_pct: 0.5
+min_order_amount: 0.001 

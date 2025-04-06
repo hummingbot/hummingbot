@@ -1,0 +1,68 @@
+Metadata-Version: 2.3
+Name: coincurve
+Version: 20.0.0
+Summary: Cross-platform Python CFFI bindings for libsecp256k1
+Project-URL: Homepage, https://github.com/ofek/coincurve
+Project-URL: Documentation, https://ofek.dev/coincurve/
+Project-URL: Repository, https://github.com/ofek/coincurve
+Project-URL: Bug Tracker, https://github.com/ofek/coincurve/issues
+Author-email: Ofek Lev <oss@ofek.dev>
+License-Expression: MIT OR Apache-2.0
+License-File: LICENSE-APACHE
+License-File: LICENSE-MIT
+Keywords: bitcoin,crypto,cryptocurrency,elliptic curves,ethereum,secp256k1
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Security :: Cryptography
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.8
+Requires-Dist: asn1crypto
+Requires-Dist: cffi>=1.3.0
+Provides-Extra: dev
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-benchmark; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# coincurve
+
+| | |
+| --- | --- |
+| CI/CD | [![CI - Test](https://github.com/ofek/coincurve/actions/workflows/build.yml/badge.svg)](https://github.com/ofek/coincurve/actions/workflows/build.yml) [![CI - Coverage](https://img.shields.io/codecov/c/github/ofek/coincurve/master.svg?logo=codecov&logoColor=red)](https://codecov.io/github/ofek/coincurve) |
+| Docs | [![CI - Docs](https://github.com/ofek/coincurve/actions/workflows/docs.yml/badge.svg)](https://github.com/ofek/coincurve/actions/workflows/docs.yml) |
+| Package | [![PyPI - Version](https://img.shields.io/pypi/v/coincurve.svg?logo=pypi&label=PyPI&logoColor=gold)](https://pypi.org/project/coincurve/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/coincurve.svg?color=blue&label=Downloads&logo=pypi&logoColor=gold)](https://pypi.org/project/coincurve/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/coincurve.svg?logo=python&label=Python&logoColor=gold)](https://pypi.org/project/coincurve/) |
+| Meta | [![code style - black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![types - Mypy](https://img.shields.io/badge/types-Mypy-blue.svg)](https://github.com/ambv/black) [![imports - isort](https://img.shields.io/badge/imports-isort-ef8336.svg)](https://github.com/pycqa/isort) [![License - MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-9400d3.svg)](https://spdx.org/licenses/) [![GitHub Sponsors](https://img.shields.io/github/sponsors/ofek?logo=GitHub%20Sponsors&style=social)](https://github.com/sponsors/ofek) |
+
+-----
+
+This library provides well-tested Python bindings for [libsecp256k1](https://github.com/bitcoin-core/secp256k1), the heavily optimized C library
+used by [Bitcoin Core](https://github.com/bitcoin/bitcoin) for operations on the elliptic curve [secp256k1](https://en.bitcoin.it/wiki/Secp256k1).
+
+Feel free to read the [documentation](https://ofek.dev/coincurve/)!
+
+## Users
+
+- [Ethereum](https://ethereum.org)
+- [LBRY](https://lbry.com)
+- [libp2p](https://libp2p.io)
+
+and [many more](https://ofek.dev/coincurve/users/)!
+
+## License
+
+`coincurve` is distributed under the terms of any of the following licenses:
+
+- [MIT](https://spdx.org/licenses/MIT.html)
+- [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html)

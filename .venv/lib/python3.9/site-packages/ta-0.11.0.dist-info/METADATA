@@ -1,0 +1,36 @@
+Metadata-Version: 2.4
+Name: ta
+Version: 0.11.0
+Summary: Technical Analysis Library in Python
+Home-page: https://github.com/bukosabino/ta
+Download-URL: https://github.com/bukosabino/ta/tarball/0.11.0
+Author: Dario Lopez Padial (Bukosabino)
+Author-email: Bukosabino@gmail.com
+Maintainer: Dario Lopez Padial (Bukosabino)
+Maintainer-email: Bukosabino@gmail.com
+License: The MIT License (MIT)
+Project-URL: Documentation, https://technical-analysis-library-in-python.readthedocs.io/en/latest/
+Project-URL: Bug Reports, https://github.com/bukosabino/ta/issues
+Project-URL: Source, https://github.com/bukosabino/ta
+Keywords: technical analysis,python3,pandas
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: numpy
+Requires-Dist: pandas
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
+
+It is a Technical Analysis library to financial time series datasets. You can use to do feature engineering. It is built on Python Pandas library.

@@ -1,0 +1,12 @@
+{% for src_path, stats in src_stats|dictsort %}
+{% if stats.snippets_html %}
+        <div class="src-snippet">
+            <div class="src-name">{{ src_path }}</div>
+            <div class="snippets">
+            {% for snippet in stats.snippets_html %}
+            {{ snippet | safe }}
+            {% endfor %}
+            </div>
+        </div>
+{% endif %}
+{% endfor %}

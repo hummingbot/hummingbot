@@ -1,0 +1,164 @@
+Metadata-Version: 2.1
+Name: mnemonic
+Version: 0.21
+Summary: Implementation of Bitcoin BIP-0039
+License: MIT
+Author: Trezor
+Author-email: info@trezor.io
+Requires-Python: >=3.8.1
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Description-Content-Type: text/x-rst
+
+python-mnemonic
+===============
+
+.. image:: https://badge.fury.io/py/mnemonic.svg
+    :target: https://badge.fury.io/py/mnemonic
+
+Reference implementation of BIP-0039: Mnemonic code for generating
+deterministic keys
+
+Abstract
+--------
+
+This BIP describes the implementation of a mnemonic code or mnemonic sentence --
+a group of easy to remember words -- for the generation of deterministic wallets.
+
+It consists of two parts: generating the mnenomic, and converting it into a
+binary seed. This seed can be later used to generate deterministic wallets using
+BIP-0032 or similar methods.
+
+BIP Paper
+---------
+
+See https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
+for full specification
+
+Installation
+------------
+
+To install this library and its dependencies use:
+
+ ``pip install mnemonic``
+
+Usage examples
+--------------
+
+Import library into python project via:
+
+.. code-block:: python
+
+   from mnemonic import Mnemonic
+
+Initialize class instance, picking from available dictionaries:
+
+- english
+- chinese_simplified
+- chinese_traditional
+- french
+- italian
+- japanese
+- korean
+- spanish
+- turkish
+- czech
+- portuguese
+
+.. code-block:: python
+
+   mnemo = Mnemonic(language)
+   mnemo = Mnemonic("english")
+
+Generate word list given the strength (128 - 256):
+
+.. code-block:: python
+
+   words = mnemo.generate(strength=256)
+
+Given the word list and custom passphrase (empty in example), generate seed:
+
+.. code-block:: python
+
+   seed = mnemo.to_seed(words, passphrase="")
+
+Given the word list, calculate original entropy:
+
+.. code-block:: python
+
+   entropy = mnemo.to_entropy(words)
+
+Changelog
+=========
+
+.. default-role:: code
+
+All notable changes to this project will be documented in this file.
+
+The format is based on `Keep a Changelog`_, and this project adheres to
+`Semantic Versioning`_.
+
+`0.21`_ - 2024-01-05
+--------------------
+
+.. _0.21: https://github.com/trezor/python-mnemonic/compare/v0.20...v0.21
+
+Added
+~~~~~
+
+- Czech and Portuguese wordlists
+- Option to provide custom list of words instead of loading from built-in file
+
+Changed
+~~~~~~~
+
+- Use `secrets` module for randomness
+- Use English as a default language if none is provided
+- Language detection is unambiguous even if some words are ambiguous
+- Build system switched to Poetry
+
+Removed
+~~~~~~~
+
+- Support for Python below 3.8 was dropped
+
+
+`0.20`_ - 2021-07-27
+---------------------
+
+.. _0.20: https://github.com/trezor/python-mnemonic/compare/v0.19...v0.20
+
+Added
+~~~~~
+
+- Type annotations
+- Support for testnet private keys
+
+Changed
+~~~~~~~
+
+- Project directory structure was cleaned up
+- Language on the `Mnemonic` object is remembered instead of repeatedly detecting
+
+Removed
+~~~~~~~
+
+- Support for Python 2.7 and 3.4 was dropped
+
+
+
+0.19 - 2019-10-01
+------------------
+
+Added
+~~~~~
+
+- Start of changelog
+
+
+.. _Keep a Changelog: https://keepachangelog.com/en/1.0.0/
+.. _Semantic Versioning: https://semver.org/spec/v2.0.0.html
+

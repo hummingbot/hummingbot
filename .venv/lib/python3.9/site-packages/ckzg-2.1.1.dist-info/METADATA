@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: ckzg
+Version: 2.1.1
+Summary: Python bindings for C-KZG-4844
+Home-page: https://github.com/ethereum/c-kzg-4844
+Author: Ethereum Foundation
+Author-email: security@ethereum.org
+License: Apache-2.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
+
+# Python Bindings for the C-KZG Library
+
+This directory contains Python bindings for the C-KZG-4844 library.
+
+## Prerequisites
+
+These bindings require `python3`, `PyYAML` and `make`.
+```
+sudo apt install python3 python3-pip
+python3 -m pip install build PyYAML
+```
+
+## Build & test
+
+Everything is consolidated into one command:
+```
+make
+```
+
+You should expect to see these messages at the bottom:
+```
+python3 tests.py
+tests passed
+```

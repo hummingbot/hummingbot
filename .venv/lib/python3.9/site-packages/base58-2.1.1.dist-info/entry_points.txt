@@ -1,0 +1,3 @@
+[console_scripts]
+base58 = base58.__main__:main
+
