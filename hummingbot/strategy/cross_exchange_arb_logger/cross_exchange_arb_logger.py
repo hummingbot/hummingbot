@@ -75,6 +75,18 @@ class CrossExchangeArbLogger(StrategyPyBase):
         m_1_b, m_1_a = market_1.get_price(is_buy=False), market_1.get_price(is_buy=True)
         m_2_b, m_2_a = market_2.get_price(is_buy=False), market_2.get_price(is_buy=True)
 
+        # The get_price method return type hint is decimal.Decimal, implying that a price
+        # will always be returned. In reality, there could be no bid or ask. Let's assume
+        # get_price returns None or decimal.Decimal("0") in this case, and log it
+        if any(p is None or p == decimal.Decimal("0") for p in (m_1_b, m_1_a, m_2_b, m_2_a)):
+            self.logger().warning(
+                f"\nOne or more prices could not be retrieved.\n"
+                f"{market_1.market.name} - Bid: {m_1_b}, Ask: {m_1_a}\n"
+                f"{market_2.market.name} - Bid: {m_2_b}, Ask: {m_2_a}\n"
+                f"Prices may be None or zero if no order is present."
+            )
+            return
+
         forward_spead = calculate_spread(
             m_1_b,
             m_2_a,

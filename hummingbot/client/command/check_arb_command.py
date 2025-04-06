@@ -47,7 +47,11 @@ class CheckArbCommand:
         exchange_instrument_pairs: list[str],
         with_fees: bool,
     ):
-        # This should ensure that the exchanges and instruments are suitable for the strategy
+        self.app.clear_input()
+        self.placeholder_mode = True
+        self.app.hide_input = True
+
+        # This should ensure that the exchanges and instruments are suitable/valid for the strategy
         exchange_instrument_pairs_sanitized = await self._get_sanitized_exchange_instrument_pairs(exchange_instrument_pairs)
 
         # Strategy dependency
@@ -63,6 +67,8 @@ class CheckArbCommand:
         self._initialize_notifiers()
 
         self.notify(f"Starting '{self.strategy_name}' strategy...")
+        self.placeholder_mode = False
+        self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
         # Strategy initializer
@@ -133,15 +139,16 @@ class CheckArbCommand:
             await clock.run()
 
     async def _get_sanitized_exchange_instrument_pairs(self, exchange_instrument_pairs: list[str]) -> list[ExchangeInstrumentPair]:
-        # This is the list that is passed to the strategy
-        sanitized_exchange_instrument_pairs: list[ExchangeInstrumentPair] = []
+        # This is what ends up getting passed to the strategy
+        # it's a set because we want 'distinct' exchange instrument pairs
+        sanitized_exchange_instrument_pairs: set[ExchangeInstrumentPair] = set()
 
         # all exchanges passed in by the user are checked against this set. Any user provided
         # exchanges that aren't in this set will either cause the app to raise, or re prompt
         known_exchanges = set(AllConnectorSettings.get_connector_settings().keys())
 
         # For the time being, we will only support arbitrage opportunities for the exact same market
-        # We could allow equivalent symbols such as USDT and USDC, but that is beyon the scope of this
+        # We could allow equivalent symbols such as USDT and USDC, but that is beyond the scope of this
         # MVP. Potentially could be an attribute on self, but unsure.
         instruments: set[str] = set()
 
@@ -164,13 +171,22 @@ class CheckArbCommand:
                 # exists in _prompt_for_sanitized_exchange_instrument_pair
                 self._check_instrument(sanitized, instruments)
             # Add either an initially provided or prompted sanitized input
-            sanitized_exchange_instrument_pairs.append(sanitized)
+            sanitized_exchange_instrument_pairs.add(sanitized)
 
-        # Sanitize any additional pairs
+        if len(sanitized_exchange_instrument_pairs) == 1:
+            self.notify("Duplicate exchange instrument pairs provided.")
+            sanitized = await self._prompt_for_sanitized_exchange_instrument_pair(
+                instruments,
+                "second",
+                known_exchanges,
+            )
+            sanitized_exchange_instrument_pairs.add(sanitized)
+
+        # Sanitize any additional inputs
         for exchange_instrument_pair in exchange_instrument_pairs[2:]:
             sanitized = sanitize_exchange_instrument_pair(exchange_instrument_pair, known_exchanges)
             self._check_instrument(sanitized, instruments)
-            sanitized_exchange_instrument_pairs.append(sanitized)
+            sanitized_exchange_instrument_pairs.add(sanitized)
 
         for sanitized_exchange_instrument_pair in sanitized_exchange_instrument_pairs:
             # TODO why is this necessary?
@@ -179,7 +195,7 @@ class CheckArbCommand:
                 sanitized_exchange_instrument_pair.instrument_name
             )
 
-        return sanitized_exchange_instrument_pairs
+        return list(sanitized_exchange_instrument_pairs)
 
     async def _prompt_for_sanitized_exchange_instrument_pair(
         self,
@@ -187,7 +203,7 @@ class CheckArbCommand:
         n: Literal["first", "second"],
         known_exchanges: set[str],
     ) -> ExchangeInstrumentPair:
-        prompt = f"Please enter the {n} exchange instrument pair you would like to check >>>"
+        prompt = f"Please enter the {n} exchange instrument pair you would like to check >>> "
         # Keep prompting until user provides a valid input
         while True:
             exchange_instrument_pair = await self.app.prompt(prompt=prompt)
@@ -199,6 +215,7 @@ class CheckArbCommand:
             try:
                 self._check_instrument(sanitized, instruments)
             except InvalidUserInputError:
+                self.notify(f"Arbitrage between different instruments is not supported. {next(iter(instruments))} has already been specified")
                 continue
             return sanitized
 
