@@ -52,7 +52,15 @@ class CheckArbCommand:
         self.app.hide_input = True
 
         # This should ensure that the exchanges and instruments are suitable/valid for the strategy
-        exchange_instrument_pairs_sanitized = await self._get_sanitized_exchange_instrument_pairs(exchange_instrument_pairs)
+        try:
+            exchange_instrument_pairs_sanitized = await self._get_sanitized_exchange_instrument_pairs(exchange_instrument_pairs)
+        except InvalidUserInputError as e:
+            self.notify(str(e))
+            return e
+        finally:
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
 
         # Strategy dependency
         self.strategy_file_name = "conf_cross_exchange_arb_logger_1.yml"
