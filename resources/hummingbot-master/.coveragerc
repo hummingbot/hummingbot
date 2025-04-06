@@ -1,0 +1,55 @@
+[run]
+source_pkgs = hummingbot
+omit =
+        hummingbot/core/gateway/*
+        hummingbot/core/management/*
+        hummingbot/client/config/config_helpers.py
+        hummingbot/client/config/conf_migration.py
+        hummingbot/client/config/security.py
+        hummingbot/client/hummingbot_application.py
+        hummingbot/client/command/*
+        hummingbot/client/settings.py
+        hummingbot/client/ui/completer.py
+        hummingbot/client/ui/layout.py
+        hummingbot/client/tab/*
+        hummingbot/client/ui/parser.py
+        hummingbot/connector/derivative/position.py
+        hummingbot/connector/derivative/dydx_v4_perpetual/*
+        hummingbot/connector/derivative/dydx_v4_perpetual/data_sources/*
+        hummingbot/connector/exchange/injective_v2/account_delegation_script.py
+        hummingbot/connector/exchange/paper_trade*
+        hummingbot/connector/gateway/**
+        hummingbot/connector/test_support/*
+        hummingbot/core/utils/gateway_config_utils.py
+        hummingbot/core/utils/kill_switch.py
+        hummingbot/core/utils/wallet_setup.py
+        hummingbot/connector/mock*
+        hummingbot/strategy/*/start.py
+        hummingbot/strategy/dev*
+        hummingbot/user/user_balances.py
+        hummingbot/connector/exchange/cube/cube_ws_protobufs/*
+        hummingbot/strategy_v2/backtesting/*
+dynamic_context = test_function
+branch = true
+
+[report]
+fail_under = 70
+precision = 2
+skip_empty = true
+exclude_lines =
+    @(abc\.)?abstractmethod
+    if TYPE_CHECKING:
+    pragma: no cover
+    if __name__ == .__main__.:
+    if 0:
+    raise AssertionError
+    raise NotImplementedError
+    if settings.DEBUG
+    except asyncio.exceptions.TimeoutError:
+
+[html]
+directory = coverage_html_report
+show_contexts = true
+
+[xml]
+output = coverage.xml

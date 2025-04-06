@@ -1,0 +1,11 @@
+#!/bin/bash
+
+cd $(dirname "$0")
+
+echo "Cleaning up all intermediate and compiled files generated from Cython compilation..."
+
+rm -rf build dist
+rm -f $(find . -name "*.pyx" | sed s/\.pyx$/\*\.cpp/g)
+find . \( -name "*.so" -o -name "*.pyd" \) -exec rm -f {} \;
+
+echo "Done!"

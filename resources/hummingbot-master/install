@@ -1,0 +1,72 @@
+#!/bin/bash
+
+cd $(dirname $0)
+
+# Compatibility logic for older Anaconda versions.
+if [ "${CONDA_EXE} " == " " ]; then
+    CONDA_EXE=$((find /opt/conda/bin/conda || find ~/anaconda3/bin/conda || \
+	    find /usr/local/anaconda3/bin/conda || find ~/miniconda3/bin/conda  || \
+	    find /root/miniconda/bin/conda || find ~/Anaconda3/Scripts/conda || \
+	    find $CONDA/bin/conda) 2>/dev/null)
+fi
+
+if [ "${CONDA_EXE}_" == "_" ]; then
+    echo "Please install Anaconda w/ Python 3.7+ first"
+    echo "See: https://www.anaconda.com/download"
+    exit 1
+fi
+
+CONDA_BIN=$(dirname ${CONDA_EXE})
+ENV_FILE_1="setup/environment.yml"
+ENV_FILE_2="setup/environment_dydx.yml"
+
+# The default is ENV_FILE_1
+ENV_FILE=$ENV_FILE_1
+
+# Parse command line arguments
+USE_DYDX=false
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --dydx)
+        USE_DYDX=true
+        shift
+        ;;
+        *)
+        # Handle other unidentified parameters
+        shift
+        ;;
+    esac
+done
+
+# If you use the --dydx flag, switch to ENV_FILE_2
+if [ "$USE_DYDX" = true ]; then
+    ENV_FILE=$ENV_FILE_2
+    echo "install dydx version."
+fi
+
+if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
+    ${CONDA_EXE} env update -f $ENV_FILE
+else
+    ${CONDA_EXE} env create -f $ENV_FILE
+fi
+
+source "${CONDA_BIN}/activate" hummingbot
+
+# Add the project directory to module search paths.
+conda develop .
+
+# For some reason, this needs to be installed outside of the environment file,
+# or it'll give you the graphviz install error.
+pip install objgraph
+
+pre-commit install
+
+# Check for build-essential (only relevant for Debian-based systems)
+if [ "$(uname)" = "Linux" ]; then
+    if ! dpkg -s build-essential &> /dev/null; then
+        echo "build-essential not found, installing..."
+        sudo apt-get update && sudo apt-get upgrade -y
+        sudo apt-get install -y build-essential
+    fi
+fi

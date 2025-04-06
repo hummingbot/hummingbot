@@ -106,7 +106,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
             prompt_on_new=True))
 
-    @validator("trailing_stop", pre=True, always=True)
+    @validator("trailing_stop", pre=True)
     def parse_trailing_stop(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -115,7 +115,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
-    @validator("time_limit", "stop_loss", "take_profit", pre=True, always=True)
+    @validator("time_limit", "stop_loss", "take_profit", pre=True)
     def validate_target(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -123,7 +123,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return Decimal(v)
         return v
 
-    @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
+    @validator('take_profit_order_type', pre=True)
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
             return v
@@ -152,7 +152,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
 
-    @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
+    @validator('buy_spreads', 'sell_spreads', pre=True)
     def parse_spreads(cls, v):
         if v is None:
             return []
@@ -162,19 +162,22 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return [float(x.strip()) for x in v.split(',')]
         return v
 
-    @validator('buy_amounts_pct', 'sell_amounts_pct', pre=True, always=True)
-    def parse_and_validate_amounts(cls, v, values, field):
+    @validator('buy_amounts_pct', 'sell_amounts_pct', pre=True)
+    def parse_and_validate_amounts(cls, v, info):
+        values = info.data
+        field_name = info.field_name
+        spread_field = field_name.replace('amounts_pct', 'spreads')
+        
         if v is None or v == "":
-            spread_field = field.name.replace('amounts_pct', 'spreads')
             return [1 for _ in values[spread_field]]
         if isinstance(v, str):
             return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(values[field.name.replace('amounts_pct', 'spreads')]):
+        elif isinstance(v, list) and len(v) != len(values[spread_field]):
             raise ValueError(
-                f"The number of {field.name} must match the number of {field.name.replace('amounts_pct', 'spreads')}.")
+                f"The number of {field_name} must match the number of {spread_field}.")
         return v
 
-    @validator('position_mode', pre=True, allow_reuse=True)
+    @validator('position_mode', pre=True)
     def validate_position_mode(cls, v) -> PositionMode:
         if isinstance(v, str):
             if v.upper() in PositionMode.__members__:
@@ -186,9 +189,35 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         spreads_field = 'buy_spreads' if trade_type == TradeType.BUY else 'sell_spreads'
         amounts_pct_field = 'buy_amounts_pct' if trade_type == TradeType.BUY else 'sell_amounts_pct'
 
-        setattr(self, spreads_field, self.parse_spreads(new_spreads))
+        # Parse spreads without using validator directly
+        if isinstance(new_spreads, str):
+            if new_spreads == "":
+                parsed_spreads = []
+            else:
+                parsed_spreads = [float(x.strip()) for x in new_spreads.split(',')]
+        elif new_spreads is None:
+            parsed_spreads = []
+        else:
+            parsed_spreads = new_spreads
+        
+        setattr(self, spreads_field, parsed_spreads)
+        
+        # Handle amounts
         if new_amounts_pct is not None:
-            setattr(self, amounts_pct_field, self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, self.__fields__[amounts_pct_field]))
+            if isinstance(new_amounts_pct, str):
+                if new_amounts_pct == "":
+                    parsed_amounts = [1 for _ in parsed_spreads]
+                else:
+                    parsed_amounts = [float(x.strip()) for x in new_amounts_pct.split(',')]
+            elif new_amounts_pct is None:
+                parsed_amounts = [1 for _ in parsed_spreads]
+            else:
+                if len(new_amounts_pct) != len(parsed_spreads):
+                    raise ValueError(
+                        f"The number of {amounts_pct_field} must match the number of {spreads_field}.")
+                parsed_amounts = new_amounts_pct
+            
+            setattr(self, amounts_pct_field, parsed_amounts)
         else:
             setattr(self, amounts_pct_field, [1 for _ in getattr(self, spreads_field)])
 

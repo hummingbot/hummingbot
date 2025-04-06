@@ -1,0 +1,47 @@
+# Take Home Assignment- BITS GOA
+
+# Task Create a Custom Market Making strategy on HummingBot
+
+Design and develop a custom Python script for pure market-making for a Centralized crypto exchange(CEX) . The script will run on an [orderbook](https://www.coinbase.com/en-gb/learn/advanced-trading/what-is-an-order-book) within the  Hummingbot framework and should incorporate  volatility indicators, trend analysis, and risk framework for managing  for inventory. Your task is to create a market-making script that combines these indicators with proper risk management practices while showcasing your own thought process and creativity.
+
+First, review the resources below to understand how Hummingbot works. Study the demo Pure Market Making (PMM) script, then use the available parameters to complete the assignment.
+
+Hummingbot is an open-source Python framework that helps you run automated trading strategies on a  CEX. It includes a demo pure market-making strategy, which you can learn about in these resources: https://hummingbot.org/strategies/pure-market-making/ and https://hummingbot.org/strategy-configs/#list-of-configs. Your task it to take the PMM algorithm and improve upon the algorithm by incorporating volatility, trend analysis and risk framework.  
+
+## Some resources on Hummingbot and its Installation
+
+ 1. Installation of Hummingbot (Use Source, Not docker) - https://www.youtube.com/watch?v=U1oa9ZECNdk
+2. Running the simple demo PMM - https://youtu.be/Y7-tX1OKfKs?si=KpJ83THgtUogaVoP
+
+## Some Demo Strategy Scripts(Just for Reference)
+
+[pmm_candles.py](attachment:7edbc896-d26f-4fe2-a57d-2a6a468ea30d:pmm_candles.py)
+
+[pmm-inventory-shift.py](attachment:1414fbaa-62e8-43fe-a3d4-5c65ec0b6cc8:pmm-inventory-shift.py)
+
+[pmm_trend_shift.py](attachment:4711ca02-2c79-44d5-a1d0-19baa975991e:pmm_trend_shift.py)
+
+[pmm-volatility-spread.py](attachment:671ef9a0-cde5-4410-a72a-bf182a323b10:pmm-volatility-spread.py)
+
+### Evaluation Process:
+
+1. Creativity in using indicators and developing a strategy plan for any trading pair on any Centralised exchange supported by Hummingbot. (no restrictions on creative approach)
+2. Financial understanding of the strategy and adherence to best practices
+3. Code quality of the Python script and its operational functionality
+
+### Deliverables:
+
+1. A 2-minute video explaining your strategy
+2. A 3-minute video demonstrating your strategy running on Hummingbot
+3. Python script
+4. A one-page explanation of why you believe in your strategy
+
+## Deadline
+
+ April 6th EOD IST, Submission will happen through google forms, The link to google forms is [[link]](https://forms.gle/MjoTaAFeiBhjZcf8A)
+
+### Support:
+
+We will have a telegram group chat [[link]](https://t.me/+fwswsoUw1s00N2I1) where our team can try to answer any questions you may have in regards to this assignment and chat on anything related to market-making and crypto!
+
+While this is a part of an initial screening process for a potential contract and full-time employment, this is also a contest. $100 for the best and most creative script, $50 for second place and $25 for third.

@@ -1,0 +1,122 @@
+########################################
+###   Fee overrides configurations   ###
+########################################
+
+# For more detailed information: https://hummingbot.org/docs/
+template_version: 14
+
+# Example of the fields that can be specified to override the `TradeFeeFactory` default settings.
+# If the field is missing or the value is left blank, the default value will be used.
+# The percentage values are specified as 0.1 for 0.1%.
+#
+# [exchange name]_percent_fee_token:
+# [exchange name]_maker_percent_fee:
+# [exchange name]_taker_percent_fee:
+# [exchange name]_buy_percent_fee_deducted_from_returns:  # if False, the buy fee is added to the order costs
+# [exchange name]_maker_fixed_fees:  # a list of lists of token-fee pairs (e.g. [["ETH", 1]])
+# [exchange name]_taker_fixed_fees:  # a list of lists of token-fee pairs (e.g. [["ETH", 1]])
+
+binance_percent_fee_token:  # BNB
+binance_maker_percent_fee:  # 0.75
+binance_taker_percent_fee:  # 0.75
+binance_buy_percent_fee_deducted_from_returns:  # True
+
+# List of supported Exchanges for which the user's conf/conf_fee_override.yml
+# will work. This file currently needs to be in sync with hummingbot list of
+# supported exchanges
+ascend_ex_buy_percent_fee_deducted_from_returns:
+ascend_ex_maker_fixed_fees:
+ascend_ex_maker_percent_fee:
+ascend_ex_percent_fee_token:
+ascend_ex_taker_fixed_fees:
+ascend_ex_taker_percent_fee:
+binance_maker_fixed_fees:
+binance_perpetual_buy_percent_fee_deducted_from_returns:
+binance_perpetual_maker_fixed_fees:
+binance_perpetual_maker_percent_fee:
+binance_perpetual_percent_fee_token:
+binance_perpetual_taker_fixed_fees:
+binance_perpetual_taker_percent_fee:
+binance_perpetual_testnet_buy_percent_fee_deducted_from_returns:
+binance_perpetual_testnet_maker_fixed_fees:
+binance_perpetual_testnet_maker_percent_fee:
+binance_perpetual_testnet_percent_fee_token:
+binance_perpetual_testnet_taker_fixed_fees:
+binance_perpetual_testnet_taker_percent_fee:
+binance_taker_fixed_fees:
+binance_us_buy_percent_fee_deducted_from_returns:
+binance_us_maker_fixed_fees:
+binance_us_maker_percent_fee:
+binance_us_percent_fee_token:
+binance_us_taker_fixed_fees:
+binance_us_taker_percent_fee:
+bitmart_buy_percent_fee_deducted_from_returns:
+bitmart_maker_fixed_fees:
+bitmart_maker_percent_fee:
+bitmart_percent_fee_token:
+bitmart_taker_fixed_fees:
+bitmart_taker_percent_fee:
+bitstamp_buy_percent_fee_deducted_from_returns:
+bitstamp_maker_fixed_fees:
+bitstamp_maker_percent_fee:
+bitstamp_percent_fee_token:
+bitstamp_taker_fixed_fees:
+bitstamp_taker_percent_fee:
+btc_markets_percent_fee_token:
+btc_markets_maker_percent_fee:  
+btc_markets_taker_percent_fee:  
+btc_markets_buy_percent_fee_deducted_from_returns: 
+bybit_perpetual_buy_percent_fee_deducted_from_returns:
+bybit_perpetual_maker_fixed_fees:
+bybit_perpetual_maker_percent_fee:
+bybit_perpetual_percent_fee_token:
+bybit_perpetual_taker_fixed_fees:
+bybit_perpetual_taker_percent_fee:
+bybit_perpetual_testnet_buy_percent_fee_deducted_from_returns:
+bybit_perpetual_testnet_maker_fixed_fees:
+bybit_perpetual_testnet_maker_percent_fee:
+bybit_perpetual_testnet_percent_fee_token:
+bybit_perpetual_testnet_taker_fixed_fees:
+bybit_perpetual_testnet_taker_percent_fee:
+coinbase_advanced_trade_buy_percent_fee_deducted_from_returns:
+coinbase_advanced_trade_maker_fixed_fees:
+coinbase_advanced_trade_maker_percent_fee:
+coinbase_advanced_trade_percent_fee_token:
+coinbase_advanced_trade_taker_fixed_fees:
+coinbase_advanced_trade_taker_percent_fee:
+gate_io_buy_percent_fee_deducted_from_returns:
+gate_io_maker_fixed_fees:
+gate_io_maker_percent_fee:
+gate_io_percent_fee_token:
+gate_io_taker_fixed_fees:
+gate_io_taker_percent_fee:
+htx_buy_percent_fee_deducted_from_returns:
+htx_maker_fixed_fees:
+htx_maker_percent_fee:
+htx_percent_fee_token:
+htx_taker_fixed_fees:
+htx_taker_percent_fee:
+kraken_buy_percent_fee_deducted_from_returns:
+kraken_maker_fixed_fees:
+kraken_maker_percent_fee:
+kraken_percent_fee_token:
+kraken_taker_fixed_fees:
+kraken_taker_percent_fee:
+kucoin_buy_percent_fee_deducted_from_returns:
+kucoin_maker_fixed_fees:
+kucoin_maker_percent_fee:
+kucoin_percent_fee_token:
+kucoin_taker_fixed_fees:
+kucoin_taker_percent_fee:
+mexc_buy_percent_fee_deducted_from_returns:
+mexc_maker_fixed_fees:
+mexc_maker_percent_fee:
+mexc_percent_fee_token:
+mexc_taker_fixed_fees:
+mexc_taker_percent_fee:
+okx_buy_percent_fee_deducted_from_returns:
+okx_maker_fixed_fees:
+okx_maker_percent_fee:
+okx_percent_fee_token:
+okx_taker_fixed_fees:
+okx_taker_percent_fee:

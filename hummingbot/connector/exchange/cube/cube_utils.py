@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union, Literal
 
 from pydantic import Field, SecretStr, validator
 
@@ -60,7 +60,7 @@ def raw_units_to_number(raw_units: trade_pb2.RawUnits):
 
 
 class CubeConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="cube", const=True, client_data=None)
+    connector: Literal["cube"] = Field(default="cube", client_data=None)
     cube_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -88,7 +88,7 @@ class CubeConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    domain = Field(
+    domain: Literal["live", "staging"] = Field(
         default="live",
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Cube environment (live or staging)",

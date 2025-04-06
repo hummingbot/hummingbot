@@ -146,21 +146,11 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         "taker_market",
         pre=True
     )
-    def validate_exchange(cls, v: str, field: Field):
+    def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
         ret = validate_exchange(v)
         if ret is not None:
             raise ValueError(ret)
-
-        enum_name = "MakerMarkets" if field.alias == "maker_market" else "TakerMarkets"
-
-        field.type_ = ClientConfigEnum(  # rebuild the exchanges enum
-            value=enum_name,
-            names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
-            type=str,
-        )
-        cls._clear_schema_cache()
-
         return v
 
     @validator(
@@ -168,12 +158,14 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         "taker_market_trading_pair",
         pre=True,
     )
-    def validate_exchange_trading_pair(cls, v: str, values: Dict, field: Field):
+    def validate_exchange_trading_pair(cls, v: str, values: Dict):
         ret = None
-        if field.name == "maker_market_trading_pair":
+        field_name = values.get("field_name", "")
+        
+        if field_name == "maker_market_trading_pair":
             exchange = values.get("maker_market")
             ret = validate_market_trading_pair(exchange, v)
-        if field.name == "taker_market_trading_pair":
+        if field_name == "taker_market_trading_pair":
             exchange = values.get("taker_market")
             ret = validate_market_trading_pair(exchange, v)
         if ret is not None:

@@ -1,0 +1,147 @@
+########################################################
+###       Pure market making strategy config         ###
+########################################################
+
+template_version: 24
+strategy: null
+
+# Exchange and token parameters.
+exchange: null
+
+# Token trading pair for the exchange, e.g. BTC-USDT
+market: null
+
+# How far away from mid price to place the bid order.
+# Spread of 1 = 1% away from mid price at that time.
+# Example if mid price is 100 and bid_spread is 1.
+# Your bid is placed at 99.
+bid_spread: null
+
+# How far away from mid price to place the ask order.
+# Spread of 1 = 1% away from mid price at that time.
+# Example if mid price is 100 and ask_spread is 1.
+# Your bid is placed at 101.
+ask_spread: null
+
+# Minimum Spread
+# How far away from the mid price to cancel active orders
+minimum_spread: null
+
+# Time in seconds before cancelling and placing new orders.
+# If the value is 60, the bot cancels active orders and placing new ones after a minute.
+order_refresh_time: null
+
+# Time in seconds before replacing existing order with new orders at the same price.
+max_order_age: null
+
+# The spread (from mid price) to defer order refresh process to the next cycle.
+# (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
+order_refresh_tolerance_pct: null
+
+# Size of your bid and ask order.
+order_amount: null
+
+# Price band ceiling.
+price_ceiling: null
+
+# Price band floor.
+price_floor: null
+
+# enable moving price floor and ceiling.
+moving_price_band_enabled: null
+
+# Price band ceiling pct.
+price_ceiling_pct: null
+
+# Price band floor pct.
+price_floor_pct: null
+
+# price_band_refresh_time.
+price_band_refresh_time: null
+
+# Whether to alternate between buys and sells (true/false).
+ping_pong_enabled: null
+
+# Whether to enable Inventory skew feature (true/false).
+inventory_skew_enabled: null
+
+# Target base asset inventory percentage target to be maintained (for Inventory skew feature).
+inventory_target_base_pct: null
+
+# The range around the inventory target base percent to maintain, expressed in multiples of total order size (for
+# inventory skew feature).
+inventory_range_multiplier: null
+
+# Initial price of the base asset. Note: this setting is not affects anything, the price is kept in the database.
+inventory_price: null
+
+# Number of levels of orders to place on each side of the order book.
+order_levels: null
+
+# Increase or decrease size of consecutive orders after the first order (if order_levels > 1).
+order_level_amount: null
+
+# Order price space between orders (if order_levels > 1).
+order_level_spread: null
+
+# How long to wait before placing the next order in case your order gets filled.
+filled_order_delay: null
+
+# Whether to stop cancellations of orders on the other side (of the order book),
+# when one side is filled (hanging orders feature) (true/false).
+hanging_orders_enabled: null
+
+# Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)
+hanging_orders_cancel_pct: null
+
+# Whether to enable order optimization mode (true/false).
+order_optimization_enabled: null
+
+# The depth in base asset amount to be used for finding top ask (for order optimization mode).
+ask_order_optimization_depth: null
+
+# The depth in base asset amount to be used for finding top bid (for order optimization mode).
+bid_order_optimization_depth: null
+
+# Whether to enable adding transaction costs to order price calculation (true/false).
+add_transaction_costs: null
+
+# The price source (current_market/external_market/custom_api).
+price_source: null
+
+# The price type (mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost).
+price_type: null
+
+# An external exchange name (for external exchange pricing source).
+price_source_exchange: null
+
+# A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
+price_source_market: null
+
+# An external api that returns price (for custom_api pricing source).
+price_source_custom_api: null
+
+# An interval time in second to update the price from custom api (for custom_api pricing source).
+custom_api_update_interval: null
+
+#Take order if they cross order book when external price source is enabled
+take_if_crossed: null
+
+# Use user provided orders to directly override the orders placed by order_amount and order_level_parameter
+# This is an advanced feature and user is expected to directly edit this field in config file
+# Below is an sample input, the format is a dictionary, the key is user-defined order name, the value is a list which includes buy/sell, order spread, and order amount
+# order_override:
+#   order_1: [buy, 0.5, 100]
+#   order_2: [buy, 0.75, 200]
+#   order_3: [sell, 0.1, 500]
+# Please make sure there is a space between : and [
+order_override: null
+
+# Simpler override config for separate bid and order level spreads
+split_order_levels_enabled: null
+bid_order_level_spreads: null
+ask_order_level_spreads: null
+bid_order_level_amounts: null
+ask_order_level_amounts: null
+# If the strategy should wait to receive cancellations confirmation before creating new orders during refresh time
+should_wait_order_cancel_confirmation: True

@@ -21,7 +21,7 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
     """
     This class represents the configuration required to run a Directional Strategy.
     """
-    controller_type = "directional_trading"
+    controller_type: str = "directional_trading"
     connector_name: str = Field(
         default="binance_perpetual",
         client_data=ClientFieldData(

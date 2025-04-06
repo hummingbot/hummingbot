@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 from pydantic import Field, SecretStr
 
@@ -39,7 +39,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BinanceConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="binance", const=True, client_data=None)
+    connector: Literal["binance"] = Field(default="binance", client_data=None)
     binance_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -72,7 +72,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": DEFAULT_FEES}
 
 
 class BinanceUSConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="binance_us", const=True, client_data=None)
+    connector: Literal["binance_us"] = Field(default="binance_us", client_data=None)
     binance_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

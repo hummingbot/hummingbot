@@ -1,0 +1,53 @@
+# Precision Trading Strategy Configuration
+
+# Market parameters
+exchange: binance  # Exchange to trade on (use paper_trade if available)
+trading_pair: BTC-USDT
+
+# Order parameters
+order_amount: 0.01  # Base asset amount per order
+min_spread: 0.002  # Minimum spread (0.2%)
+max_spread: 0.02  # Maximum spread (2.0%)
+target_inventory_ratio: 0.5  # Target ratio of base asset value to total portfolio value
+
+# Technical indicator parameters
+rsi_length: 14
+bb_length: 20
+atr_length: 14
+short_window: 9
+long_window: 21
+
+# Timeframe weights (must sum to 1.0)
+timeframe_weights:
+  1m: 0.2
+  5m: 0.3
+  15m: 0.3
+  1h: 0.2
+
+# Risk profile (conservative, moderate, aggressive)
+risk_profile: conservative
+
+# Indicator weights by market regime
+# These determine how much each indicator contributes to the overall signal in different market conditions
+indicator_weights:
+  trending:
+    RSI: 0.1
+    MACD: 0.3
+    EMA: 0.3
+    BB: 0.1
+    VOLUME: 0.1
+    ATR: 0.1
+  ranging:
+    RSI: 0.3
+    MACD: 0.1
+    EMA: 0.1
+    BB: 0.3
+    VOLUME: 0.1
+    ATR: 0.1
+  volatile:
+    RSI: 0.2
+    MACD: 0.2
+    EMA: 0.1
+    BB: 0.2
+    VOLUME: 0.1
+    ATR: 0.2

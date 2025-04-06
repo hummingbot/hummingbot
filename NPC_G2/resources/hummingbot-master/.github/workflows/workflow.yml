@@ -1,0 +1,131 @@
+name: ci
+
+on:
+  push:
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
+  pull_request:
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
+    types: [ready_for_review, opened, synchronize, reopened]
+
+jobs:
+  run_client:
+    name: Check if client files changed
+    outputs:
+      is_set: ${{ steps.check_files.outputs.is_set }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: technote-space/get-diff-action@v6
+        with:
+          PATTERNS: |
+            **/*.+(py|pyx|pyd|yml)
+      - name: Check if client files are modified
+        id: check_files
+        if: env.GIT_DIFF
+        run: |
+          echo ${{ env.GIT_DIFF }}
+          echo "::set-output name=is_set::true"
+
+  build_hummingbot:
+    name: Hummingbot build + stable tests
+    needs: run_client
+    if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Use cache's hashFiles function to check for changes in core code
+      - name: Check for code changes
+        id: program-changes
+        uses: actions/cache@v3
+        env:
+          # Increase this value to manually reset cache if program files have not changed
+          CACHE_NUMBER: 0
+        with:
+          path: README.md # placeholder file
+          key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
+
+      # Check for setup/environment.yml changes
+      - name: Cache conda dependencies
+        id: conda-dependencies
+        uses: actions/cache@v3
+        env:
+          # Increase this value to manually reset cache if setup/environment.yml has not changed
+          CONDA_CACHE_NUMBER: 0
+        with:
+          path: |
+            /home/runner/conda_pkgs_dir/
+            /usr/share/miniconda/envs
+          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment.yml') }}
+
+      # Install environment and Hummingbot
+      - name: Install environment and Hummingbot
+        uses: ./.github/actions/install_env_and_hb
+        with:
+          program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
+          dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
+
+      # Compile and run tests if code has changed
+      - name: Run pre-commit hooks on diff
+        shell: bash
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate hummingbot
+          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
+
+      - name: Run stable tests and calculate coverage
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate hummingbot
+          make test
+
+      - name: Check and report global coverage
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate hummingbot
+          make report_coverage
+
+      - name: Validate coverage for the changes
+        if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
+        shell: bash
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate hummingbot
+          git fetch --all -q
+          git checkout -b $GITHUB_SHA
+          coverage xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
+
+      # Notify results to discord
+      - name: Discord Webhook Action
+        id: discord-direct-webhook
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: tsickert/discord-webhook@v5.2.0
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          raw-data: ${{ matrix.target }}-build_report.json
+
+      # Notify results to discord
+      - uses: ruby/setup-ruby@v1
+        if: github.event_name != 'pull_request' && steps.discord-direct-webhook.outcome == 'failure'
+      - name: Send Webhook Notification
+        if: github.event_name != 'pull_request' && steps.discord-direct-webhook.outcome == 'failure'
+        env:
+          JOB_STATUS: ${{ job.status }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          HOOK_OS_NAME: ${{ runner.os }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+        run: |
+          git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
+          bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
+        shell: bash

@@ -1,0 +1,34 @@
+ ########################################
+###   Precision Market Making Strategy Configuration
+########################################
+
+template_version: 1
+strategy: precision_market_making
+
+# Exchange and market settings
+exchange: binance_paper_trade
+trading_pair: ETH-USDT
+order_amount: 0.01
+
+# Order settings
+order_refresh_time: 15  # seconds
+min_spread: 0.001      # 0.1%
+max_spread: 0.05       # 5%
+
+# Risk management
+max_position_pct: 0.5  # Maximum position size as % of portfolio
+
+# Volatility parameters
+atr_length: 14
+volatility_multiplier: 1.5
+
+# Trend analysis
+rsi_length: 14
+rsi_threshold_high: 70
+rsi_threshold_low: 30
+macd_fast: 12
+macd_slow: 26
+macd_signal: 9
+
+# Advanced settings
+should_wait_order_cancel_confirmation: True  # Wait for cancellation confirmation before placing new orders

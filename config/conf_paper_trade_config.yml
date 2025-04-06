@@ -1,0 +1,35 @@
+template_version: 6
+strategy: adaptive_market_making
+
+# Exchange and markets
+exchange: binance_paper_trade
+market: ETH-BTC
+
+# Paper trading settings
+paper_trade_account_balance:
+  BTC: 1.0
+  ETH: 10.0
+
+# Strategy parameters
+min_spread: 0.002
+max_spread: 0.01
+order_amount: 0.1
+order_refresh_time: 30.0
+max_order_age: 300.0
+
+# Technical indicator parameters
+rsi_length: 14
+ema_short: 12
+ema_long: 26
+bb_length: 20
+
+# Risk management parameters
+max_inventory_ratio: 0.5
+min_inventory_ratio: 0.3
+volatility_adjustment: 1.0
+max_position_value: 5.0
+trailing_stop_pct: 0.02
+
+# Enable advanced features
+kill_switch_enabled: true
+kill_switch_rate: -5.0  # Stop if 5% loss 

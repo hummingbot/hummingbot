@@ -15,8 +15,8 @@ class TrailingStop(BaseModel):
 
 
 class TripleBarrierConfig(BaseModel):
-    stop_loss: Optional[Decimal]
-    take_profit: Optional[Decimal]
+    stop_loss: Optional[Decimal] = None
+    take_profit: Optional[Decimal] = None
     time_limit: Optional[int] = None
     trailing_stop: Optional[TrailingStop] = None
     open_order_type: OrderType = OrderType.LIMIT

@@ -1,0 +1,41 @@
+template_version: 10
+
+strategy: adaptive_ml_market_making
+exchange: binance_paper_trade  # Start with paper trading
+market: ETH-USDT  # Replace with your desired trading pair
+
+# Order Parameters
+order_amount: 0.1  # Amount of base asset per order
+min_spread: 0.002  # Minimum spread (0.2%)
+max_spread: 0.02   # Maximum spread (2.0%)
+order_refresh_time: 30.0  # How often to refresh orders (in seconds)
+max_order_age: 300.0  # Maximum lifetime of an order (in seconds)
+
+# Technical Indicator Parameters
+rsi_length: 14
+rsi_overbought: 70
+rsi_oversold: 30
+ema_short: 12
+ema_long: 26
+bb_length1: 120
+bb_length2: 12
+bb_std: 2.0
+
+# Risk Management Parameters
+max_inventory_ratio: 0.5  # Maximum allowed base asset as % of total portfolio
+min_inventory_ratio: 0.3  # Minimum allowed base asset as % of total portfolio
+volatility_adjustment: 1.0  # Multiplier for volatility-based spread adjustments
+trailing_stop_pct: 0.02  # Trailing stop loss percentage (2%)
+
+# ML Model Parameters
+use_ml: true  # Enable ML features
+ml_data_buffer_size: 5000  # How many candles to store
+ml_update_interval: 3600  # How often to update models (in seconds)
+ml_confidence_threshold: 0.65  # Minimum confidence to apply ML signals
+ml_signal_weight: 0.35  # Weight of ML signals in decision making
+ml_model_dir: "./models"  # Directory to store ML models
+
+# Paper Trading Account Balance (for paper trading)
+paper_trade_account_balance:
+  USDT: 10000
+  ETH: 5

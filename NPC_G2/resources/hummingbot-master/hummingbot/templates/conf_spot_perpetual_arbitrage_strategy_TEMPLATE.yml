@@ -1,0 +1,39 @@
+##########################################
+###   Spot-Perpetual Arbitrage strategy config   ###
+##########################################
+
+template_version: 3
+strategy: null
+
+# The following configurations are only required for the Spot-Perpetual Arbitrage trading strategy
+
+# Connectors and markets parameters
+spot_connector: null
+spot_market: null
+perpetual_connector: null
+perpetual_market: null
+
+# Order amount to submit orders on both spot and perpetual markets
+order_amount: null
+
+perpetual_leverage: null
+
+# Minimum profit percentage required before opening an arbitrage position, expressed in percentage value, e.g. 1 = 1%
+# The profitability is calculated from the gap between sell and buy price, it does not account for fees and slippages
+min_opening_arbitrage_pct: null
+
+# Minimum profit percentage required before closing the arbitrage position, expressed in percentage value, e.g. 1 = 1%
+min_closing_arbitrage_pct: null
+
+# A buffer for which to adjust order price for higher chance of the order getting filled.
+# This is important for AMM which transaction takes a long time where a slippage is acceptable rather having
+# the transaction get rejected. The submitted order price will be adjust higher (by percentage value) for buy order
+# and lower for sell order. (Enter 1 for 1%)
+spot_market_slippage_buffer: null
+
+# A buffer to add to the price to account for slippage when buying/selling on second connector market
+# (Enter 1 for 1%)
+perpetual_market_slippage_buffer: null
+
+# cool off period between arbitrage cycles
+next_arbitrage_opening_delay: null

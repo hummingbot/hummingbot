@@ -14,10 +14,24 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, 
 
 import ruamel.yaml
 import yaml
-from pydantic import SecretStr, ValidationError
+from pydantic import SecretStr, ValidationError, BaseModel
 from pydantic.fields import FieldInfo
-from pydantic.main import ModelMetaclass, validate_model
+from pydantic.main import ModelMetaclass
+# Pydantic v1 compatibility
 from yaml import SafeDumper
+
+# Compatibility function for Pydantic v1
+def validate_model(model: Type[BaseModel], input_data: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
+    """
+    A compatibility function for Pydantic v1.
+    This validates the input data against the model and returns a tuple of
+    (validated_data, validation_errors).
+    """
+    try:
+        instance = model.parse_obj(input_data)
+        return instance.dict(), []
+    except ValidationError as e:
+        return input_data, [str(e)]
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
@@ -113,12 +127,12 @@ class ClientConfigAdapter:
         """
         depth = 0
         for attr, field in self._hb_config.__fields__.items():
-            field_info = field.field_info
-            type_ = field.type_
+            field_info = field.field_info  # In Pydantic v1, field_info is nested
+            type_ = field_info.annotation
             if hasattr(self, attr):
                 value = getattr(self, attr)
                 printable_value = self._get_printable_value(attr, value, secure)
-                client_field_data = field_info.extra.get("client_data")
+                client_field_data = field_info.extra.get("client_data") if hasattr(field_info, "extra") else None
             else:
                 value = None
                 printable_value = "&cMISSING_AND_REQUIRED"
@@ -157,7 +171,8 @@ class ClientConfigAdapter:
         return secure
 
     def get_client_data(self, attr_name: str) -> Optional[ClientFieldData]:
-        return self._hb_config.__fields__[attr_name].field_info.extra.get("client_data")
+        field = self._hb_config.__fields__[attr_name]
+        return field.field_info.extra.get("client_data") if hasattr(field.field_info, "extra") else None
 
     def get_description(self, attr_name: str) -> str:
         return self._hb_config.__fields__[attr_name].field_info.description
@@ -182,7 +197,7 @@ class ClientConfigAdapter:
         return default_str
 
     def get_type(self, attr_name: str) -> Type:
-        return self._hb_config.__fields__[attr_name].type_
+        return self._hb_config.__fields__[attr_name].annotation
 
     def generate_yml_output_str_with_comments(self) -> str:
         fragments_with_comments = [self._generate_title()]
@@ -191,25 +206,20 @@ class ClientConfigAdapter:
         return yml_str
 
     def validate_model(self) -> List[str]:
-        input_data = self._hb_config.dict()
+        input_data = self._hb_config.dict()  # Using dict() for pydantic v1
         results = validate_model(model=type(self._hb_config), input_data=input_data)  # coerce types
-        conf_dict = results[0]
+        conf_dict, _ = results  # Unpack only two values since validate_model now returns a 2-tuple
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
         self.decrypt_all_secure_data()
-        input_data = self._hb_config.dict()
+        input_data = self._hb_config.dict()  # Using dict() for pydantic v1
         results = validate_model(model=type(self._hb_config), input_data=input_data)  # validate decrypted values
-        conf_dict = results[0]
-        errors = results[2]
+        conf_dict, errors = results  # Unpack the 2-tuple
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
         validation_errors = []
-        if errors is not None:
-            errors = errors.errors()
-            validation_errors = [
-                f"{'.'.join(e['loc'])} - {e['msg']}"
-                for e in errors
-            ]
+        if errors:
+            validation_errors = errors
         return validation_errors
 
     def setattr_no_validation(self, attr: str, value: Any):
@@ -267,7 +277,7 @@ class ClientConfigAdapter:
 
     def _dict_in_conf_order(self) -> Dict[str, Any]:
         conf_dict = {}
-        for attr in self._hb_config.__fields__.keys():
+        for attr in self._hb_config.model_fields.keys():
             value = getattr(self, attr)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
@@ -278,7 +288,7 @@ class ClientConfigAdapter:
     def _encrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
         for attr, value in conf_dict.items():
-            attr_type = self._hb_config.__fields__[attr].type_
+            attr_type = self._hb_config.model_fields[attr].annotation
             if attr_type == SecretStr:
                 clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
                 conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, clear_text_value)
@@ -286,7 +296,7 @@ class ClientConfigAdapter:
     def _decrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
         for attr, value in conf_dict.items():
-            attr_type = self._hb_config.__fields__[attr].type_
+            attr_type = self._hb_config.model_fields[attr].annotation
             if attr_type == SecretStr:
                 decrypted_value = Security.secrets_manager.decrypt_secret_value(attr, value.get_secret_value())
                 conf_dict[attr] = SecretStr(decrypted_value)

@@ -1,0 +1,28 @@
+template_version: 9
+
+strategy: adaptive_market_making
+exchange: paper_trade  # Changed to paper_trade
+market: ETH-USDT  # Replace with your trading pair
+
+# Order Parameters
+order_amount: 0.1
+min_spread: 0.002
+max_spread: 0.02
+order_refresh_time: 30.0
+max_order_age: 1800.0
+
+# Technical Indicator Parameters
+rsi_length: 14
+rsi_overbought: 70
+rsi_oversold: 30
+ema_short: 9
+ema_long: 21
+bb_length: 20
+bb_std: 2.0
+
+# Risk Management Parameters
+max_inventory_ratio: 0.5
+volatility_adjustment: 1.0
+
+# Optional Parameters
+status_report_interval: 900.0  # Status report interval in seconds 

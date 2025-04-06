@@ -1,0 +1,16 @@
+strategy: cross_exchange_market_making
+maker_market: mock_paper_exchange
+taker_market: mock_paper_exchange
+maker_market_trading_pair: COINALPHA-HBOT
+taker_market_trading_pair: COINALPHA-HBOT
+min_profitability: 0
+order_amount: 10
+adjust_order_enabled: true
+order_refresh_mode: active_order_refresh
+top_depth_tolerance: 0.0
+anti_hysteresis_duration: 60.0
+order_size_taker_volume_factor: 25.0
+order_size_taker_balance_factor: 99.5
+order_size_portfolio_ratio_limit: 16.67
+conversion_rate_mode: {}
+slippage_buffer: 5.0

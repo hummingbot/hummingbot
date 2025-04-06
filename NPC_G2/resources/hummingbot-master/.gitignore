@@ -1,0 +1,94 @@
+# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and Webstorm
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+
+# .idea
+/.idea
+
+# CMake
+cmake-build-debug/
+
+## File-based project format:
+*.iws
+
+## Plugin-specific files:
+
+# IntelliJ
+/out/
+
+# JIRA plugin
+atlassian-ide-plugin.xml
+
+# Crashlytics plugin (for Android Studio and IntelliJ)
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+__pycache__
+.ipynb_checkpoints
+*.pyc
+
+# Cython objects
+/**/*.so
+/**/*.pyd
+/hummingbot/**/*.c
+/hummingbot/**/*.cpp
+!/hummingbot/core/cpp/*.cpp
+/hummingbot/wallet/*.c
+/hummingbot/wallet/*.cpp
+/hummingbot/wallet/ethereum/*.c
+/hummingbot/wallet/ethereum/*.cpp
+/test/**/*.cpp
+/build
+
+# Local files
+**/.DS_Store
+portfolio_value.csv
+/notebooks
+/data
+debug.log
+/installation/docker-commands/hummingbot_files
+
+# Distribution files
+/build
+/dist
+/src
+/*.egg-info
+*.whl
+
+
+# VSCode
+.vscode/
+.history/
+
+# emacs files
+\#*\#
+.\#*
+
+# Documentation build dir
+/documentation/site/
+
+# Cert files
+/certs
+*.pem
+
+# Coverage
+.coverage
+/cover/
+/coverage_html_report/
+coverage.xml
+
+# misc
+*.srl
+*.key
+*.crt
+*.log
+
+# Debug console
+.debug_console_ssh_host_key
+
+/conf_backup
+
+# External SDK files
+/**/.chain_cookie
+/**/.injective_cookie

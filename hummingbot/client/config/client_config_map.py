@@ -4,7 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union, Literal
 
 from pydantic import BaseModel, Field, SecretStr, root_validator, validator
 from tabulate import tabulate_formats
@@ -332,8 +332,8 @@ class KillSwitchMode(BaseClientModel, ABC):
 class KillSwitchEnabledMode(KillSwitchMode):
     kill_switch_rate: Decimal = Field(
         default=...,
-        ge=Decimal(-100),
-        le=Decimal(100),
+        ge=Decimal("-100"),
+        le=Decimal("100"),
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "At what profit/loss rate would you like the bot to stop?"
@@ -350,9 +350,14 @@ class KillSwitchEnabledMode(KillSwitchMode):
         return kill_switch
 
     @validator("kill_switch_rate", pre=True)
-    def validate_decimal(cls, v: str, field: Field):
+    def validate_decimal(cls, v):
         """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
+        if isinstance(v, str):
+            try:
+                v = Decimal(v)
+            except Exception:
+                raise ValueError(f"Invalid decimal value: {v}")
+        return v
 
 
 class KillSwitchDisabledMode(KillSwitchMode):
@@ -383,9 +388,8 @@ class DBMode(BaseClientModel, ABC):
 
 
 class DBSqliteMode(DBMode):
-    db_engine: str = Field(
+    db_engine: Literal["sqlite"] = Field(
         default="sqlite",
-        const=True,
         client_data=ClientFieldData(
             prompt=lambda cm: (
                 "Please enter database engine you want to use (reference: https://docs.sqlalchemy.org/en/13/dialects/)"
@@ -501,7 +505,7 @@ class GlobalTokenConfigMap(BaseClientModel):
 
     # === post-validations ===
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def post_validations(cls, values: Dict):
         cls.global_token_on_validated(values)
         return values
@@ -540,9 +544,14 @@ class CommandsTimeoutConfigMap(BaseClientModel):
         "other_commands_timeout",
         pre=True,
     )
-    def validate_decimals(cls, v: str, field: Field):
+    def validate_decimals(cls, v):
         """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
+        if isinstance(v, str):
+            try:
+                v = Decimal(v)
+            except Exception:
+                raise ValueError(f"Invalid decimal value: {v}")
+        return v
 
 
 class AnonymizedMetricsMode(BaseClientModel, ABC):
@@ -600,9 +609,14 @@ class AnonymizedMetricsEnabledMode(AnonymizedMetricsMode):
         return instance
 
     @validator("anonymized_metrics_interval_min", pre=True)
-    def validate_decimal(cls, v: str, field: Field):
+    def validate_decimal(cls, v):
         """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
+        if isinstance(v, str):
+            try:
+                v = Decimal(v)
+            except Exception:
+                raise ValueError(f"Invalid decimal value: {v}")
+        return v
 
 
 METRICS_MODES = {
@@ -623,9 +637,8 @@ class ExchangeRateSourceModeBase(RateSourceModeBase):
 
 
 class AscendExRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["ascend_ex"] = Field(
         default="ascend_ex",
-        const=True,
         client_data=None,
     )
 
@@ -634,9 +647,8 @@ class AscendExRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["binance"] = Field(
         default="binance",
-        const=True,
         client_data=None,
     )
 
@@ -645,9 +657,8 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["binance_us"] = Field(
         default="binance_us",
-        const=True,
         client_data=None,
     )
 
@@ -656,9 +667,8 @@ class BinanceUSRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class CubeRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["cube"] = Field(
         default="cube",
-        const=True,
         client_data=None,
     )
 
@@ -667,9 +677,8 @@ class CubeRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class CoinGeckoRateSourceMode(RateSourceModeBase):
-    name: str = Field(
+    name: Literal["coin_gecko"] = Field(
         default="coin_gecko",
-        const=True,
         client_data=None,
     )
 
@@ -699,16 +708,15 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
         extra_tokens = value.split(",") if isinstance(value, str) else value
         return extra_tokens
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def post_validations(cls, values: Dict):
         RateOracle.get_instance().source.extra_token_ids = values["extra_tokens"]
         return values
 
 
 class CoinCapRateSourceMode(RateSourceModeBase):
-    name: str = Field(
+    name: Literal["coin_cap"] = Field(
         default="coin_cap",
-        const=True,
         client_data=None,
     )
     assets_map: Dict[str, str] = Field(
@@ -766,7 +774,7 @@ class CoinCapRateSourceMode(RateSourceModeBase):
 
     # === post-validations ===
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def post_validations(cls, values: Dict):
         cls.rate_oracle_source_on_validated(values)
         return values
@@ -786,9 +794,8 @@ class CoinCapRateSourceMode(RateSourceModeBase):
 
 
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["kucoin"] = Field(
         default="kucoin",
-        const=True,
         client_data=None,
     )
 
@@ -797,9 +804,8 @@ class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class GateIoRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["gate_io"] = Field(
         default="gate_io",
-        const=True,
         client_data=None,
     )
 
@@ -808,9 +814,8 @@ class GateIoRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class DexalotRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["dexalot"] = Field(
         default="dexalot",
-        const=True,
         client_data=None,
     )
 
@@ -819,9 +824,8 @@ class DexalotRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["coinbase_advanced_trade"] = Field(
         default="coinbase_advanced_trade",
-        const=True,
         client_data=None,
     )
 
@@ -830,9 +834,8 @@ class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["hyperliquid"] = Field(
         default="hyperliquid",
-        const=True,
         client_data=None,
     )
 
@@ -841,9 +844,8 @@ class HyperliquidRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class DeriveRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["derive"] = Field(
         default="derive",
-        const=True,
         client_data=None,
     )
 
@@ -852,9 +854,8 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
 
 
 class TegroRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(
+    name: Literal["tegro"] = Field(
         default="tegro",
-        const=True,
         client_data=None,
     )
 
@@ -1145,9 +1146,14 @@ class ClientConfigMap(BaseClientModel):
         "rate_limits_share_pct",
         pre=True,
     )
-    def validate_decimals(cls, v: str, field: Field):
+    def validate_decimals(cls, v):
         """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
+        if isinstance(v, str):
+            try:
+                v = Decimal(v)
+            except Exception:
+                raise ValueError(f"Invalid decimal value: {v}")
+        return v
 
     @validator("tick_size", pre=True)
     def validate_tick_size(cls, v: float):
@@ -1159,7 +1165,7 @@ class ClientConfigMap(BaseClientModel):
 
     # === post-validations ===
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def post_validations(cls, values: Dict):
         cls.rate_oracle_source_on_validated(values)
         return values

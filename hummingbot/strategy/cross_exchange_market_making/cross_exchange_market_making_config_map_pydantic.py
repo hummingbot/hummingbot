@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, root_validator, validator
 
 import hummingbot.client.settings as settings
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
-from hummingbot.client.config.config_validators import validate_bool, validate_connector
+from hummingbot.client.config.config_validators import validate_bool, validate_connector, validate_exchange
 from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -149,8 +149,8 @@ class TakerToMakerConversionRateMode(ConversionRateModel):
         "gas_to_maker_base_conversion_rate",
         pre=True,
     )
-    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
-        return super().validate_decimal(v=v, field=field)
+    def validate_decimal(cls, v: str):
+        return v
 
 
 CONVERSION_RATE_MODELS = {
@@ -205,8 +205,8 @@ class PassiveOrderRefreshMode(OrderRefreshMode):
         "limit_order_min_expiration",
         pre=True,
     )
-    def validate_decimal(cls, v: str, values: Dict, config: BaseModel.Config, field: Field):
-        return super().validate_decimal(v=v, field=field)
+    def validate_decimal(cls, v: str):
+        return v
 
 
 class ActiveOrderRefreshMode(OrderRefreshMode):
@@ -392,27 +392,25 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     # === specific validations ===
     @validator("order_refresh_mode", pre=True)
     def validate_order_refresh_mode(cls, v: Union[str, ActiveOrderRefreshMode, PassiveOrderRefreshMode]):
-        if isinstance(v, (ActiveOrderRefreshMode, PassiveOrderRefreshMode, Dict)):
-            sub_model = v
+        if isinstance(v, OrderRefreshMode):
+            return v
         elif v not in ORDER_REFRESH_MODELS:
             raise ValueError(
-                f"Invalid order refresh mode, please choose value from {list(ORDER_REFRESH_MODELS.keys())}."
+                f"Invalid order refresh mode, please choose value from {list(ORDER_REFRESH_MODELS.keys())}"
             )
         else:
-            sub_model = ORDER_REFRESH_MODELS[v].construct()
-        return sub_model
+            return ORDER_REFRESH_MODELS[v].construct()
 
     @validator("conversion_rate_mode", pre=True)
     def validate_conversion_rate_mode(cls, v: Union[str, OracleConversionRateMode, TakerToMakerConversionRateMode]):
-        if isinstance(v, (OracleConversionRateMode, TakerToMakerConversionRateMode, Dict)):
-            sub_model = v
+        if isinstance(v, ConversionRateModel):
+            return v
         elif v not in CONVERSION_RATE_MODELS:
             raise ValueError(
-                f"Invalid conversion rate mode, please choose value from {list(CONVERSION_RATE_MODELS.keys())}."
+                f"Invalid conversion rate mode, please choose value from {list(CONVERSION_RATE_MODELS.keys())}"
             )
         else:
-            sub_model = CONVERSION_RATE_MODELS[v].construct()
-        return sub_model
+            return CONVERSION_RATE_MODELS[v].construct()
 
     # === generic validations ===
 
@@ -421,11 +419,9 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         pre=True,
     )
     def validate_bool(cls, v: str):
-        """Used for client-friendly error output."""
-        if isinstance(v, str):
-            ret = validate_bool(v)
-            if ret is not None:
-                raise ValueError(ret)
+        ret = validate_bool(v)
+        if ret is not None:
+            raise ValueError(ret)
         return v
 
     @validator(
@@ -439,13 +435,13 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         "slippage_buffer",
         pre=True,
     )
-    def validate_decimal(cls, v: str, field: Field):
+    def validate_decimal(cls, v: str):
         """Used for client-friendly error output."""
-        return super().validate_decimal(v, field)
+        return v
 
     # === post-validations ===
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def post_validations(cls, values: Dict):
         cls.exchange_post_validation(values)
         cls.update_oracle_settings(values)
@@ -483,21 +479,9 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         "taker_market",
         pre=True
     )
-    def validate_exchange(cls, v: str, field: Field):
+    def validate_exchange(cls, v: str):
         """Used for client-friendly error output."""
-        if field.name == "maker_market":
-            super().validate_exchange(v=v, field=field)
-        if field.name == "taker_market":
-            ret = validate_connector(v)
-            if ret is not None:
-                raise ValueError(ret)
-            cls.__fields__["taker_market"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
-                value="TakerMarkets",  # noqa: F821
-                names={e: e for e in sorted(
-                    AllConnectorSettings.get_exchange_names().union(
-                        AllConnectorSettings.get_gateway_amm_connector_names()
-                    ))},
-                type=str,
-            )
-            cls._clear_schema_cache()
+        ret = validate_exchange(v)
+        if ret is not None:
+            raise ValueError(ret)
         return v

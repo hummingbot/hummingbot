@@ -1,0 +1,346 @@
+Metadata-Version: 2.1
+Name: ptpython
+Version: 3.0.29
+Summary: Python REPL build on top of prompt_toolkit
+Home-page: https://github.com/prompt-toolkit/ptpython
+Author: Jonathan Slenders
+Project-URL: Bug Tracker, https://github.com/prompt-toolkit/ptpython/issues
+Project-URL: Source Code, https://github.com/prompt-toolkit/ptpython
+Project-URL: Changelog, https://github.com/prompt-toolkit/ptpython/blob/master/CHANGELOG
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: appdirs
+Requires-Dist: jedi >=0.16.0
+Requires-Dist: prompt-toolkit <3.1.0,>=3.0.43
+Requires-Dist: pygments
+Requires-Dist: importlib-metadata ; python_version < "3.8"
+Provides-Extra: all
+Requires-Dist: black ; extra == 'all'
+Provides-Extra: ptipython
+Requires-Dist: ipython ; extra == 'ptipython'
+
+ptpython
+========
+
+|Build Status|  |PyPI|  |License|
+
+*A better Python REPL*
+
+::
+
+    pip install ptpython
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/example1.png
+
+Ptpython is an advanced Python REPL. It should work on all
+Python versions from 2.6 up to 3.11 and work cross platform (Linux,
+BSD, OS X and Windows).
+
+Note: this version of ptpython requires at least Python 3.6. Install ptpython
+2.0.5 for older Python versions.
+
+
+Installation
+************
+
+Install it using pip:
+
+::
+
+    pip install ptpython
+
+Start it by typing ``ptpython``.
+
+
+Features
+********
+
+- Syntax highlighting.
+- Multiline editing (the up arrow works).
+- Autocompletion.
+- Mouse support. [1]
+- Support for color schemes.
+- Support for `bracketed paste <https://cirw.in/blog/bracketed-paste>`_ [2].
+- Both Vi and Emacs key bindings.
+- Support for double width (Chinese) characters.
+- ... and many other things.
+
+
+[1] Disabled by default. (Enable in the menu.)
+
+[2] If the terminal supports it (most terminals do), this allows pasting
+without going into paste mode. It will keep the indentation.
+
+Command Line Options
+********************
+
+The help menu shows basic command-line options.
+
+::
+
+    $ ptpython --help
+    usage: ptpython [-h] [--vi] [-i] [--light-bg] [--dark-bg] [--config-file CONFIG_FILE]
+                    [--history-file HISTORY_FILE] [-V]
+                    [args ...]
+
+    ptpython: Interactive Python shell.
+
+    positional arguments:
+      args                  Script and arguments
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --vi                  Enable Vi key bindings
+      -i, --interactive     Start interactive shell after executing this file.
+      --asyncio             Run an asyncio event loop to support top-level "await".
+      --light-bg            Run on a light background (use dark colors for text).
+      --dark-bg             Run on a dark background (use light colors for text).
+      --config-file CONFIG_FILE
+                            Location of configuration file.
+      --history-file HISTORY_FILE
+                            Location of history file.
+      -V, --version         show program's version number and exit
+
+    environment variables:
+      PTPYTHON_CONFIG_HOME: a configuration directory to use
+      PYTHONSTARTUP: file executed on interactive startup (no default)
+
+
+__pt_repr__: A nicer repr with colors
+*************************************
+
+When classes implement a ``__pt_repr__`` method, this will be used instead of
+``__repr__`` for printing. Any `prompt_toolkit "formatted text"
+<https://python-prompt-toolkit.readthedocs.io/en/master/pages/printing_text.html>`_
+can be returned from here. In order to avoid writing a ``__repr__`` as well,
+the ``ptpython.utils.ptrepr_to_repr`` decorator can be applied. For instance:
+
+.. code:: python
+
+    from ptpython.utils import ptrepr_to_repr
+    from prompt_toolkit.formatted_text import HTML
+
+    @ptrepr_to_repr
+    class MyClass:
+        def __pt_repr__(self):
+            return HTML('<yellow>Hello world!</yellow>')
+
+More screenshots
+****************
+
+The configuration menu:
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/ptpython-menu.png
+
+The history page and its help:
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/ptpython-history-help.png
+
+Autocompletion:
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/file-completion.png
+
+
+Embedding the REPL
+******************
+
+Embedding the REPL in any Python application is easy:
+
+.. code:: python
+
+    from ptpython.repl import embed
+    embed(globals(), locals())
+
+You can make ptpython your default Python REPL by creating a `PYTHONSTARTUP file
+<https://docs.python.org/3/tutorial/appendix.html#the-interactive-startup-file>`_ containing code
+like this:
+
+.. code:: python
+
+   import sys
+   try:
+       from ptpython.repl import embed
+   except ImportError:
+       print("ptpython is not available: falling back to standard prompt")
+   else:
+       sys.exit(embed(globals(), locals()))
+
+Note config file support currently only works when invoking `ptpython` directly.
+That it, the config file will be ignored when embedding ptpython in an application.
+
+Multiline editing
+*****************
+
+Multi-line editing mode will automatically turn on when you press enter after a
+colon.
+
+To execute the input in multi-line mode, you can either press ``Alt+Enter``, or
+``Esc`` followed by ``Enter``. (If you want the first to work in the OS X
+terminal, you have to check the "Use option as meta key" checkbox in your
+terminal settings. For iTerm2, you have to check "Left option acts as +Esc" in
+the options.)
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/multiline.png
+
+
+Syntax validation
+*****************
+
+Before execution, ``ptpython`` will see whether the input is syntactically
+correct Python code. If not, it will show a warning, and move the cursor to the
+error.
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/validation.png
+
+
+Asyncio REPL and top level await
+********************************
+
+In order to get top-level ``await`` support, start ptpython as follows:
+
+.. code::
+
+   ptpython --asyncio
+
+This will spawn an asyncio event loop and embed the async REPL in the event
+loop. After this, top-level await will work and statements like ``await
+asyncio.sleep(10)`` will execute.
+
+
+Additional features
+*******************
+
+Running system commands: Press ``Meta-!`` in Emacs mode or just ``!`` in Vi
+navigation mode to see the "Shell command" prompt. There you can enter system
+commands without leaving the REPL.
+
+Selecting text: Press ``Control+Space`` in Emacs mode or ``V`` (major V) in Vi
+navigation mode.
+
+
+Configuration
+*************
+
+It is possible to create a ``config.py`` file to customize configuration.
+ptpython will look in an appropriate platform-specific directory via `appdirs
+<https://pypi.org/project/appdirs/>`. See the ``appdirs`` documentation for the
+precise location for your platform. A ``PTPYTHON_CONFIG_HOME`` environment
+variable, if set, can also be used to explicitly override where configuration
+is looked for.
+
+Have a look at this example to see what is possible:
+`config.py <https://github.com/jonathanslenders/ptpython/blob/master/examples/ptpython_config/config.py>`_
+
+Note config file support currently only works when invoking `ptpython` directly.
+That it, the config file will be ignored when embedding ptpython in an application.
+
+
+IPython support
+***************
+
+Run ``ptipython`` (prompt_toolkit - IPython), to get a nice interactive shell
+with all the power that IPython has to offer, like magic functions and shell
+integration. Make sure that IPython has been installed. (``pip install
+ipython``)
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/ipython.png
+
+This is also available for embedding:
+
+.. code:: python
+
+    from ptpython.ipython import embed
+    embed(globals(), locals())
+
+
+Django support
+**************
+
+`django-extensions <https://github.com/django-extensions/django-extensions>`_
+has a ``shell_plus`` management command. When ``ptpython`` has been installed,
+it will by default use ``ptpython`` or ``ptipython``.
+
+
+PDB
+***
+
+There is an experimental PDB replacement: `ptpdb
+<https://github.com/jonathanslenders/ptpdb>`_.
+
+
+Windows support
+***************
+
+``prompt_toolkit`` and ``ptpython`` works better on Linux and OS X than on
+Windows. Some things might not work, but it is usable:
+
+.. image :: https://github.com/jonathanslenders/ptpython/raw/master/docs/images/windows.png
+
+Windows terminal integration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you are using the `Windows Terminal <https://aka.ms/terminal>`_ and want to 
+integrate ``ptpython`` as a profile, go to *Settings -> Open JSON file* and add the
+following profile under *profiles.list*:
+
+.. code-block:: JSON
+
+    {
+        "commandline": "%SystemRoot%\\System32\\cmd.exe /k ptpython",
+        "guid": "{f91d49a3-741b-409c-8a15-c4360649121f}",
+        "hidden": false,
+        "icon": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Python_Windows_interpreter_icon_2006%E2%80%932016_Tiny.png",
+        "name": "ptpython@cmd"
+    }
+
+FAQ
+***
+
+**Q**: The ``Ctrl-S`` forward search doesn't work and freezes my terminal.
+
+**A**: Try to run ``stty -ixon`` in your terminal to disable flow control.
+
+**Q**: The ``Meta``-key doesn't work.
+
+**A**: For some terminals you have to enable the Alt-key to act as meta key, but you
+can also type ``Escape`` before any key instead.
+
+
+Alternatives
+************
+
+- `BPython <http://bpython-interpreter.org/downloads.html>`_
+- `IPython <https://ipython.org/>`_
+
+If you find another alternative, you can create an issue and we'll list it
+here. If you find a nice feature somewhere that is missing in ``ptpython``,
+also create a GitHub issue and maybe we'll implement it.
+
+
+Special thanks to
+*****************
+
+- `Pygments <http://pygments.org/>`_: Syntax highlighter.
+- `Jedi <http://jedi.jedidjah.ch/en/latest/>`_: Autocompletion library.
+- `wcwidth <https://github.com/jquast/wcwidth>`_: Determine columns needed for a wide characters.
+- `prompt_toolkit <http://github.com/jonathanslenders/python-prompt-toolkit>`_ for the interface.
+
+.. |Build Status| image:: https://github.com/prompt-toolkit/ptpython/actions/workflows/test.yaml/badge.svg
+    :target: https://github.com/prompt-toolkit/ptpython/actions/workflows/test.yaml
+
+.. |License| image:: https://img.shields.io/github/license/prompt-toolkit/ptpython.svg
+    :target: https://github.com/prompt-toolkit/ptpython/blob/master/LICENSE
+
+.. |PyPI| image:: https://img.shields.io/pypi/v/ptpython.svg
+    :target: https://pypi.org/project/ptpython/
+    :alt: Latest Version

@@ -332,93 +332,17 @@ class AllConnectorSettings:
     @classmethod
     def create_connector_settings(cls):
         """
-        Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
+        Create a simplified connector settings dictionary that only includes Binance.
+        This bypasses loading all other connectors that might have Pydantic v2 compatibility issues.
         """
-        cls.all_connector_settings = {}  # reset
-        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
-        # connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade", "injective_v2", "injective_v2_perpetual"]
-
-        type_dirs: List[DirEntry] = [
-            cast(DirEntry, f) for f in scandir(f"{root_path() / 'hummingbot' / 'connector'}")
-            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
-        ]
-        for type_dir in type_dirs:
-            if type_dir.name == 'gateway':
-                continue
-            connector_dirs: List[DirEntry] = [
-                cast(DirEntry, f) for f in scandir(type_dir.path)
-                if f.is_dir() and exists(join(f.path, "__init__.py"))
-            ]
-            for connector_dir in connector_dirs:
-                if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
-                    continue
-                if connector_dir.name in cls.all_connector_settings:
-                    raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
-                try:
-                    util_module_path: str = f"hummingbot.connector.{type_dir.name}." \
-                                            f"{connector_dir.name}.{connector_dir.name}_utils"
-                    util_module = importlib.import_module(util_module_path)
-                except ModuleNotFoundError:
-                    continue
-                trade_fee_settings: List[float] = getattr(util_module, "DEFAULT_FEES", None)
-                trade_fee_schema: TradeFeeSchema = cls._validate_trade_fee_schema(
-                    connector_dir.name, trade_fee_settings
-                )
-                cls.all_connector_settings[connector_dir.name] = ConnectorSetting(
-                    name=connector_dir.name,
-                    type=ConnectorType[type_dir.name.capitalize()],
-                    centralised=getattr(util_module, "CENTRALIZED", True),
-                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
-                    use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
-                    trade_fee_schema=trade_fee_schema,
-                    config_keys=getattr(util_module, "KEYS", None),
-                    is_sub_domain=False,
-                    parent_name=None,
-                    domain_parameter=None,
-                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False),
-                )
-                # Adds other domains of connector
-                other_domains = getattr(util_module, "OTHER_DOMAINS", [])
-                for domain in other_domains:
-                    trade_fee_settings = getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain]
-                    trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_settings)
-                    parent = cls.all_connector_settings[connector_dir.name]
-                    cls.all_connector_settings[domain] = ConnectorSetting(
-                        name=domain,
-                        type=parent.type,
-                        centralised=parent.centralised,
-                        example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
-                        use_ethereum_wallet=parent.use_ethereum_wallet,
-                        trade_fee_schema=trade_fee_schema,
-                        config_keys=getattr(util_module, "OTHER_DOMAINS_KEYS")[domain],
-                        is_sub_domain=True,
-                        parent_name=parent.name,
-                        domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
-                        use_eth_gas_lookup=parent.use_eth_gas_lookup,
-                    )
-
-        # add gateway connectors
-        gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
-        trade_fee_settings: List[float] = [0.0, 0.0]  # we assume no swap fees for now
-        trade_fee_schema: TradeFeeSchema = cls._validate_trade_fee_schema("gateway", trade_fee_settings)
-
-        for connection_spec in gateway_connections_conf:
-            market_name: str = GatewayConnectionSetting.get_market_name_from_connector_spec(connection_spec)
-            cls.all_connector_settings[market_name] = ConnectorSetting(
-                name=market_name,
-                type=ConnectorType[connection_spec["trading_type"]],
-                centralised=False,
-                example_pair="WETH-USDC",
-                use_ethereum_wallet=False,
-                trade_fee_schema=trade_fee_schema,
-                config_keys=None,
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=False,
-            )
-
-        return cls.all_connector_settings
+        from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
+        from hummingbot.connector.exchange.binance.binance_utils import BinanceUSConfigMap
+        
+        # Only return the Binance connectors
+        return {
+            "binance": BinanceConfigMap,
+            "binance_us": BinanceUSConfigMap
+        }
 
     @classmethod
     def initialize_paper_trade_settings(cls, paper_trade_exchanges: List[str]):
@@ -471,34 +395,42 @@ class AllConnectorSettings:
 
     @classmethod
     def get_exchange_names(cls) -> Set[str]:
-        return {
-            cs.name for cs in cls.get_connector_settings().values()
-            if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
-        }.union(set(cls.paper_trade_connectors_names))
+        # Since we're now only using Binance connectors, return those directly
+        return {"binance", "binance_us"}
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.Derivative, ConnectorType.CLOB_PERP]}
+        # We're not using derivatives in our simplified approach
+        return set()
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Connector}
+        # We're not using other connectors in our simplified approach
+        return set()
 
     @classmethod
     def get_eth_wallet_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
+        # Binance doesn't use Ethereum wallet
+        return set()
 
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.AMM}
+        # We're not using gateway AMM connectors
+        return set()
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
-        return {name: cs.example_pair for name, cs in cls.get_connector_settings().items()}
+        # Return example pairs just for Binance
+        return {
+            "binance": "BTC-USDT",
+            "binance_us": "BTC-USDT"
+        }
 
     @classmethod
     def get_example_assets(cls) -> Dict[str, str]:
-        return {name: cs.example_pair.split("-")[0] for name, cs in cls.get_connector_settings().items()}
+        # Return example assets just for Binance
+        pairs = cls.get_example_pairs()
+        return {name: pair.split("-")[0] for name, pair in pairs.items()}
 
     @staticmethod
     def _validate_trade_fee_schema(

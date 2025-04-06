@@ -1,0 +1,13 @@
+# Simple Precision Trading Strategy Configuration
+
+# Market parameters
+exchange: binance_paper_trade
+trading_pair: BTC-USDT
+
+# Order parameters
+order_amount: 0.01
+min_spread: 0.002  # 0.2%
+max_spread: 0.02   # 2.0%
+
+# Order refresh time in seconds
+order_refresh_time: 30

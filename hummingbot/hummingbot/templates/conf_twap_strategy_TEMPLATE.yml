@@ -1,0 +1,47 @@
+########################################################
+###       Execution4 strategy config               ###
+########################################################
+
+template_version: 6
+strategy: null
+# The following configurations are only required for the
+# twap strategy
+
+# Connector and token parameters
+connector: null
+trading_pair: null
+
+# Total amount to be traded, considering all orders
+target_asset_amount: null
+
+# Size of the Order
+order_step_size: null
+
+# Price of Order (in case of Limit Order)
+order_price: null
+
+# Time in seconds before cancelling the limit order
+# If cancel_order wait time is 60 and the order is still open after 60 seconds since placing the order,
+# it will cancel the limit order.
+cancel_order_wait_time: null
+
+# Specify buy/sell.
+trade_side: "buy"
+
+# Specifies if the strategy should run during a fixed time span
+is_time_span_execution: False
+
+# Specifies if the strategy should run during a with a delayed start
+is_delayed_start_execution: False
+
+# Date and time the strategy should start running
+# Only valid if is_time_span_execution is True
+start_datetime: null
+
+# Date and time the strategy should stop running
+# Only valid if is_time_span_execution is True
+end_datetime: null
+
+# How long to between placing incremental orders
+# Only valid if is_time_span_execution is False
+order_delay_time: null

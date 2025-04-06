@@ -1,0 +1,22 @@
+#!/bin/bash
+
+cd $(dirname $0)
+
+# Compatibility logic for older Anaconda versions.
+if [ "${CONDA_EXE} " == " " ]; then
+    CONDA_EXE=$((find /opt/conda/bin/conda || find ~/anaconda3/bin/conda || \
+	    find /usr/local/anaconda3/bin/conda || find ~/miniconda3/bin/conda  || \
+	    find /root/miniconda/bin/conda || find ~/Anaconda3/Scripts/conda) 2>/dev/null)
+fi
+
+if [ "${CONDA_EXE}_" == "_" ]; then
+    echo "Please install Anaconda w/ Python 3.7+ first"
+    echo "See: https://www.continuum.io/downloads"
+    exit 1
+fi
+
+if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
+    ${CONDA_EXE} env remove -n hummingbot
+else
+    echo "Environment already removed."
+fi

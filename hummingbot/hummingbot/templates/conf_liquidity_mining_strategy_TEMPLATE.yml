@@ -1,0 +1,56 @@
+########################################################
+###        Liquidity Mining strategy config          ###
+########################################################
+
+template_version: 3
+strategy: null
+
+# The exchange to run this strategy.
+exchange: null
+
+# The list of markets, comma separated, e.g. LTC-USDT,ETH-USDT
+# Note: The actual markets will be determined by token below, only markets with the token specified below.
+markets: null
+
+# The asset (base or quote) to use to provide liquidity
+token: null
+
+# The size of each order in specified token amount
+order_amount: null
+
+# The spread from mid price to place bid and ask orders, enter 1 to indicate 1%
+spread: null
+
+# Whether to enable Inventory skew feature (true/false).
+inventory_skew_enabled: null
+
+# The target base asset percentage for all markets, enter 50 to indicate 50% target
+target_base_pct: null
+
+# Time in seconds before cancelling and placing new orders.
+# If the value is 60, the bot cancels active orders and placing new ones after a minute.
+order_refresh_time: null
+
+# The spread (from mid price) to defer order refresh process to the next cycle.
+# (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
+order_refresh_tolerance_pct: null
+
+# The range around the inventory target base percent to maintain, expressed in multiples of total order size (for
+# inventory skew feature).
+inventory_range_multiplier: null
+
+# The interval, in second, in which to pick historical mid price data from to calculate market volatility
+# E.g 300 for 5 minutes interval
+volatility_interval: null
+
+# The number of interval to calculate average market volatility.
+avg_volatility_period: null
+
+# The multiplier used to convert average volatility to spread, enter 1 for 1 to 1 conversion
+volatility_to_spread_multiplier: null
+
+# The maximum value for spread, enter 1 to indicate 1% or -1 to ignore this setting
+max_spread: null
+
+# The maximum life time of your orders in seconds
+max_order_age: null

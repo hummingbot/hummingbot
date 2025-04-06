@@ -1,0 +1,27 @@
+# Simple Precision Trading Strategy Configuration
+
+# KNOWN ISSUES AND TROUBLESHOOTING:
+# ================================
+# 1. Path error: "unsupported operand type(s) for /: 'PosixPath' and 'NoneType'"
+#    - This happens when config file paths are incorrectly handled
+#    - Solution: Use proper path handling with os.path functions
+#
+# 2. Network connectivity: "Error getting server time. Check network connection."
+#    - This occurs when there are issues connecting to the exchange server
+#    - Solutions: Check internet connection, verify API keys, or try a different exchange
+#
+# 3. API rate limits: "API rate limit on /public/get_all_instruments (5 calls per 1s) has almost reached"
+#    - The script is making too many API calls in a short period
+#    - Solution: Add delays between API calls or optimize code to reduce calls
+
+# Market parameters
+exchange: binance_paper_trade
+trading_pair: BTC-USDT
+
+# Order parameters
+order_amount: 0.01
+min_spread: 0.002  # 0.2%
+max_spread: 0.02   # 2.0%
+
+# Order refresh time in seconds
+order_refresh_time: 30
