@@ -112,3 +112,101 @@ To have your exchange connector or other pull request merged into the codebase, 
 
 * **License**: Hummingbot is open source and licensed under [Apache 2.0](./LICENSE).
 * **Data collection**: See [Reporting](https://hummingbot.org/reporting/) for information on anonymous data collection and reporting in Hummingbot.
+
+# Custom Market Making Strategy for Hummingbot
+
+This repository contains a custom market making strategy implementation for the BITS GOA Take Home Assignment. The strategy is built on the Hummingbot framework and incorporates volatility indicators, trend analysis, and risk management for crypto trading on centralized exchanges.
+
+## Strategy Overview
+
+The custom market making strategy in this repository incorporates advanced features to adapt to changing market conditions:
+
+1. **Volatility-Based Spread Adjustment**: 
+   - Uses ATR (Average True Range) to dynamically adjust spreads based on market volatility
+   - Widens spreads during high volatility periods to reduce risk
+   - Tightens spreads during low volatility periods to capture more trades
+
+2. **Multi-Timeframe Trend Analysis**: 
+   - Analyzes market trends across multiple timeframes (1m, 5m, 15m, 1h)
+   - Incorporates RSI, MACD, EMAs, and Bollinger Bands
+   - Applies weighted scoring based on market regime
+
+3. **Market Regime Detection**:
+   - Automatically classifies market conditions as trending, ranging, or volatile
+   - Adjusts strategy parameters based on detected regime
+   - Assigns confidence scores to regime classifications
+
+4. **Inventory Management**:
+   - Adjusts order sizes to maintain target inventory ratio
+   - Skews buy/sell order sizes based on current inventory state
+   - Implements risk-based position sizing
+
+5. **Signal Generation System**:
+   - Calculates weighted signals across multiple indicators and timeframes
+   - Adapts indicator weights based on market regime
+   - Provides directional bias to order sizing and spread calculation
+
+## Repository Structure
+
+- **strategies/**: Contains the strategy implementations
+  - `institutional_crypto_framework.py`: Comprehensive trading framework with multiple entry systems
+  - `precision_market_making.py`: Focused market making strategy with volatility adjustments
+  - `precision_trading.py`: Advanced market making with regime detection and adaptive parameters
+  - `precision_trading_strategy.py`: Implementation of the weighted indicator system
+
+- **config/**: Configuration files
+  - `strategy_config.yaml`: YAML configuration for all strategy parameters
+
+- **docs/**: Documentation files (for future expansion)
+
+- **tests/**: Unit tests (for future implementation)
+
+- **logs/**: Log files
+  - `transformation_log.txt`: Log of changes made during repository restructuring
+
+- **archive/**: Archived files 
+  - See the Archive section below for details
+
+## Getting Started
+
+### Prerequisites
+
+1. Install Hummingbot from source:
+   ```
+   git clone https://github.com/hummingbot/hummingbot.git
+   cd hummingbot
+   ./install
+   ```
+
+2. Install additional Python dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+### Running the Strategy
+
+1. Configure strategy parameters in `config/strategy_config.yaml`
+
+2. Launch Hummingbot:
+   ```
+   ./start
+   ```
+
+3. Import the strategy script:
+   ```
+   import_strategy strategies/precision_trading.py
+   ```
+
+4. Start the strategy:
+   ```
+   start
+   ```
+
+## Archive
+
+The `archive/` folder contains files that were considered redundant or experimental:
+
+- **archive/scripts/**:
+  - `precision_trading_clean.py` and `precision_trading_clean1.py`: Early versions that were merged into the final `precision_trading.py`
+
+For more details about the archived files, please see [ARCHIVE_README.md](archive/ARCHIVE_README.md) within the archive folder.

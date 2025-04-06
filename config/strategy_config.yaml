@@ -1,0 +1,99 @@
+####################
+# MARKET PARAMETERS
+####################
+exchange: "binance_paper_trade"
+trading_pair: "BTC-USDT"
+order_refresh_time: 30.0  # seconds
+
+####################
+# ORDER PARAMETERS
+####################
+order_amount: 0.01  # Base order size
+min_spread: 0.002   # Minimum spread 0.2%
+max_spread: 0.02    # Maximum spread 2%
+
+####################
+# TECHNICAL ANALYSIS PARAMETERS
+####################
+# Window lengths
+short_window: 20
+long_window: 50
+
+# Indicator parameters
+rsi_length: 14
+rsi_overbought: 70
+rsi_oversold: 30
+
+bb_length: 20
+bb_std: 2.0
+
+atr_length: 14
+volatility_multiplier: 1.5
+
+# MACD parameters
+macd_fast: 12
+macd_slow: 26
+macd_signal: 9
+
+# EMA parameters
+ema_short: 9
+ema_medium: 21
+ema_long: 50
+ema_very_long: 200
+
+####################
+# RISK MANAGEMENT PARAMETERS
+####################
+risk_profile: "moderate"  # Options: conservative, moderate, aggressive
+target_inventory_ratio: 0.5  # Target base/quote inventory ratio
+max_position_pct: 0.5  # Maximum position size as % of portfolio
+
+# Stop loss and take profit settings
+stop_loss_pct: 0.02  # 2% stop loss
+take_profit_pct: 0.03  # 3% take profit
+trailing_stop_activation_pct: 0.015  # Activate trailing stop at 1.5% profit
+trailing_stop_trailing_delta: 0.005  # Trail by 0.5%
+
+####################
+# CANDLE CONFIGURATION
+####################
+candle_intervals:
+  - "1m"
+  - "5m"
+  - "15m"
+  - "1h"
+max_records: 100
+
+####################
+# INDICATOR WEIGHTS
+####################
+# Weights for different market regimes
+indicator_weights:
+  trending:
+    RSI: 0.15
+    MACD: 0.25
+    EMA: 0.20
+    BB: 0.15
+    VOLUME: 0.15
+    ATR: 0.10
+  volatile:
+    RSI: 0.20
+    MACD: 0.15
+    EMA: 0.15
+    BB: 0.25
+    VOLUME: 0.15
+    ATR: 0.10
+  ranging:
+    RSI: 0.25
+    MACD: 0.15
+    EMA: 0.10
+    BB: 0.25
+    VOLUME: 0.10
+    ATR: 0.15
+
+# Timeframe weights
+timeframe_weights:
+  1m: 0.15
+  5m: 0.25
+  15m: 0.35
+  1h: 0.25 
