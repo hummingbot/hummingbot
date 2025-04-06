@@ -177,7 +177,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     )
     check_arb_parser.add_argument(
         "exchange_instrument_pairs",
-        nargs="+",
+        nargs="*",
         help="Exchange and instrument pairs in the format exchange:instrument (e.g., binance:BTC-USDT kucoin:BTC-USDT)",
     )
     check_arb_parser.add_argument(

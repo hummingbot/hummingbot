@@ -1,7 +1,8 @@
 import asyncio
 import platform
+import re
 import time
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Literal
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -10,8 +11,24 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges, requried_connector_trading_pairs
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.strategy.cross_exchange_arb_logger.data_types import ExchangeInstrumentPair
 from hummingbot.strategy.cross_exchange_arb_logger.start import start
+
+INSTRUMENT_PATTERN = re.compile(r"^[A-Z0-9]+-[A-Z0-9]+$")
+
+
+class InvalidUserInputError(ValueError):
+    def __init__(self, message: str, value: str = "", suggestion: str = ""):
+        full_message = f"[Invalid Input] {message}"
+        if value:
+            full_message += f" → '{value}'"
+        if suggestion:
+            full_message += f"\nHint: {suggestion}"
+        super().__init__(full_message)
+        self.value = value
+        self.suggestion = suggestion
 
 
 class CheckArbCommand:
@@ -30,14 +47,8 @@ class CheckArbCommand:
         exchange_instrument_pairs: list[str],
         with_fees: bool,
     ):
-
-        # TODO sanitize
-        # TODO handle len(exchange_instrument_pairs) < 2
-        exchange_instrument_pairs_sanitized = [
-            ExchangeInstrumentPair(
-                *exchange_instrument.split(":")
-            ) for exchange_instrument in exchange_instrument_pairs
-        ]
+        # This should ensure that the exchanges and instruments are suitable for the strategy
+        exchange_instrument_pairs_sanitized = await self._get_sanitized_exchange_instrument_pairs(exchange_instrument_pairs)
 
         # Strategy dependency
         self.strategy_file_name = "conf_cross_exchange_arb_logger_1.yml"
@@ -51,7 +62,11 @@ class CheckArbCommand:
 
         self._initialize_notifiers()
 
-        start(self, exchange_instrument_pairs_sanitized, with_fees)
+        self.notify(f"Starting '{self.strategy_name}' strategy...")
+        self.app.change_prompt(prompt=">>> ")
+
+        # Strategy initializer
+        await start(self, exchange_instrument_pairs_sanitized, with_fees)
 
         await self._start_market_making()
 
@@ -116,3 +131,124 @@ class CheckArbCommand:
     async def _run_clock(self):
         with self.clock as clock:
             await clock.run()
+
+    async def _get_sanitized_exchange_instrument_pairs(self, exchange_instrument_pairs: list[str]) -> list[ExchangeInstrumentPair]:
+        # This is the list that is passed to the strategy
+        sanitized_exchange_instrument_pairs: list[ExchangeInstrumentPair] = []
+
+        # all exchanges passed in by the user are checked against this set. Any user provided
+        # exchanges that aren't in this set will either cause the app to raise, or re prompt
+        known_exchanges = set(AllConnectorSettings.get_connector_settings().keys())
+
+        # For the time being, we will only support arbitrage opportunities for the exact same market
+        # We could allow equivalent symbols such as USDT and USDC, but that is beyon the scope of this
+        # MVP. Potentially could be an attribute on self, but unsure.
+        instruments: set[str] = set()
+
+        # We require at least two exchanges for cross exchange arbitrage,
+        # hence the range(2). If the user did not provide 2 input values,
+        # IndexError is raised, and we prompt for input
+        for i in range(2):
+            try:
+                exchange_instrument_pair = exchange_instrument_pairs[i]
+            except IndexError:
+                sanitized = await self._prompt_for_sanitized_exchange_instrument_pair(
+                    instruments,
+                    "first" if i == 0 else "second",
+                    known_exchanges,
+                )
+            else:
+                # Sanitizing a string provided on initial command. Will raise if invalid
+                sanitized = sanitize_exchange_instrument_pair(exchange_instrument_pair, known_exchanges)
+                # The below should probably not live here, given a similar check
+                # exists in _prompt_for_sanitized_exchange_instrument_pair
+                self._check_instrument(sanitized, instruments)
+            # Add either an initially provided or prompted sanitized input
+            sanitized_exchange_instrument_pairs.append(sanitized)
+
+        # Sanitize any additional pairs
+        for exchange_instrument_pair in exchange_instrument_pairs[2:]:
+            sanitized = sanitize_exchange_instrument_pair(exchange_instrument_pair, known_exchanges)
+            self._check_instrument(sanitized, instruments)
+            sanitized_exchange_instrument_pairs.append(sanitized)
+
+        for sanitized_exchange_instrument_pair in sanitized_exchange_instrument_pairs:
+            # TODO why is this necessary?
+            required_exchanges.add(sanitized_exchange_instrument_pair.exchange_name)
+            requried_connector_trading_pairs.setdefault(sanitized_exchange_instrument_pair.exchange_name, []).append(
+                sanitized_exchange_instrument_pair.instrument_name
+            )
+
+        return sanitized_exchange_instrument_pairs
+
+    async def _prompt_for_sanitized_exchange_instrument_pair(
+        self,
+        instruments: set[str],
+        n: Literal["first", "second"],
+        known_exchanges: set[str],
+    ) -> ExchangeInstrumentPair:
+        prompt = f"Please enter the {n} exchange instrument pair you would like to check >>>"
+        # Keep prompting until user provides a valid input
+        while True:
+            exchange_instrument_pair = await self.app.prompt(prompt=prompt)
+            try:
+                sanitized = sanitize_exchange_instrument_pair(exchange_instrument_pair, known_exchanges)
+            except InvalidUserInputError as e:
+                self.notify(str(e))
+                continue
+            try:
+                self._check_instrument(sanitized, instruments)
+            except InvalidUserInputError:
+                continue
+            return sanitized
+
+    def _check_instrument(self, pair: ExchangeInstrumentPair, instruments: set[str]) -> None:
+        instruments.add(pair.instrument_name)
+        if len(instruments) > 1:
+            err = InvalidUserInputError(
+                message="Arbitrage between different instruments is not supported.",
+                value=instruments,
+            )
+            # We need to remove it because we can be in the situation where
+            # we keep prompting the user for input until its valid
+            instruments.remove(pair.instrument_name)
+            self.notify(str(err))
+            raise err
+
+
+def sanitize_exchange_instrument_pair(exchange_instrument_pair: str, known_exchanges: set[str]) -> ExchangeInstrumentPair:
+    # trim whitespace
+    exchange_instrument_pair = "".join(exchange_instrument_pair.split())
+
+    try:
+        exchange, instrument = exchange_instrument_pair.split(":")
+    except ValueError:
+        raise InvalidUserInputError(
+            message="Expected format 'exchange:market'",
+            value=exchange_instrument_pair,
+            suggestion="e.g. binance:BTC-USDT"
+        )
+
+    exchange = exchange.lower()
+    instrument = instrument.upper()
+
+    if exchange not in known_exchanges:
+        raise InvalidUserInputError(
+            message=f"Unknown exchange '{exchange}'",
+            value=exchange,
+            suggestion="Check that the connector is installed and spelled correctly."
+        )
+
+    if not INSTRUMENT_PATTERN.match(instrument):
+        raise InvalidUserInputError(
+            message=f"Invalid instrument format '{instrument}'",
+            suggestion="Expected something like BTC-USDT"
+        )
+
+    return ExchangeInstrumentPair(exchange, instrument)
+
+
+async def is_trading_pair_supported(exchange: str, trading_pair: str) -> bool:
+    await TradingPairFetcher.get_instance().ready  # Ensure fetcher is ready
+    trading_pairs = TradingPairFetcher.get_instance().trading_pairs(exchange)
+    return trading_pair in trading_pairs
