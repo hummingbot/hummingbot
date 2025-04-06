@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union, Literal
 
 from pydantic import Field, SecretStr
 
@@ -26,7 +26,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class DexalotConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="dexalot", const=True, client_data=None)
+    connector: Literal["dexalot"] = Field(default="dexalot", client_data=None)
     dexalot_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -59,7 +59,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"dexalot_testnet": [0, 0.025]}
 
 
 class DexalotTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="dexalot_testnet", const=True, client_data=None)
+    connector: Literal["dexalot_testnet"] = Field(default="dexalot_testnet", client_data=None)
     dexalot_testnet_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

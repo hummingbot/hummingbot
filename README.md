@@ -115,7 +115,7 @@ To have your exchange connector or other pull request merged into the codebase, 
 
 # Custom Market Making Strategy for Hummingbot
 
-This repository contains a custom market making strategy implementation for the BITS GOA Take Home Assignment. The strategy is built on the Hummingbot framework and incorporates volatility indicators, trend analysis, and risk management for crypto trading on centralized exchanges.
+This repository contains a custom market making strategy implementation for the BITS GOA Take Home Assignment. The strategy is built on the Hummingbot framework (latest April 2025 version) and incorporates volatility indicators, trend analysis, and risk management for crypto trading on Binance.
 
 ## Strategy Overview
 
@@ -174,7 +174,7 @@ The custom market making strategy in this repository incorporates advanced featu
 
 ### Prerequisites
 
-1. Install Hummingbot from source:
+1. Install Hummingbot (April 2025 version) from source:
    ```
    git clone https://github.com/hummingbot/hummingbot.git
    cd hummingbot
@@ -186,23 +186,34 @@ The custom market making strategy in this repository incorporates advanced featu
    pip install -r requirements.txt
    ```
 
-### Running the Strategy
+### Running the Strategy with Binance
 
 1. Configure strategy parameters in `config/strategy_config.yaml`
+   - Ensure `exchange` is set to `"binance_paper_trade"`
+   - Trading pair is configured for `"BTC-USDT"`
 
-2. Launch Hummingbot:
+2. Setup Binance API credentials (for paper trading)
+   - Create a Binance API key with read permissions
+   - Configure credentials in Hummingbot
+
+3. Launch Hummingbot:
    ```
    ./start
    ```
 
-3. Import the strategy script:
+4. Import the strategy script:
    ```
    import_strategy strategies/precision_trading.py
    ```
 
-4. Start the strategy:
+5. Start the strategy:
    ```
    start
+   ```
+
+6. Monitor performance in the logs:
+   ```
+   tail -f logs/logs_precision_trading.log
    ```
 
 ## Testing
@@ -249,3 +260,10 @@ The `archive/` folder contains files that were considered redundant or experimen
   - `precision_trading_clean.py` and `precision_trading_clean1.py`: Early versions that were merged into the final `precision_trading.py`
 
 For more details about the archived files, please see [ARCHIVE_README.md](archive/ARCHIVE_README.md) within the archive folder.
+
+## Release Info
+
+Last Updated: April 6, 2025
+Compatible with: Hummingbot v1.21.0 (April 2025 release)
+Tested on: Binance paper trading environment
+Primary Trading Pair: BTC-USDT

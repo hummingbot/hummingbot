@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Union, Optional
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import DEFAULT_DOMAIN
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
@@ -15,14 +15,14 @@ if TYPE_CHECKING:
 class CoinbaseAdvancedTradeRateSource(RateSourceBase):
     def __init__(self):
         super().__init__()
-        self._coinbase_exchange: CoinbaseAdvancedTradeExchange | None = None  # delayed because of circular reference
+        self._coinbase_exchange: Optional['CoinbaseAdvancedTradeExchange'] = None  # delayed because of circular reference
 
     @property
     def name(self) -> str:
         return "coinbase_advanced_trade"
 
     @async_ttl_cache(ttl=30, maxsize=1)
-    async def get_prices(self, quote_token: str | None = None) -> Dict[str, Decimal]:
+    async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
         if quote_token is None:
             quote_token = "USD"
 
@@ -40,7 +40,7 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
                 )
                 break
             else:
-                results |= {f"{k}-{quote_token}": v for k, v in task_result.items()}
+                results.update({f"{k}-{quote_token}": v for k, v in task_result.items()})
         return results
 
     def _ensure_exchanges(self):
@@ -50,7 +50,7 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
     async def _get_coinbase_prices(
             self,
             exchange: 'CoinbaseAdvancedTradeExchange',
-            quote_token: str = None) -> Dict[str, Decimal]:
+            quote_token: Optional[str] = None) -> Dict[str, Decimal]:
         """
         Fetches coinbase prices
 

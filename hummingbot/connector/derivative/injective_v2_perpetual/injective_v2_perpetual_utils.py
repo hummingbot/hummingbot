@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, Union
+from typing import Dict, Union, Literal
 
 from pydantic import Field
 from pydantic.class_validators import validator
@@ -26,9 +26,9 @@ DEFAULT_FEES = TradeFeeSchema(
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
     # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
-    connector: str = Field(default="injective_v2_perpetual", const=True, client_data=None)
-    receive_connector_configuration: bool = Field(
-        default=True, const=True,
+    connector: Literal["injective_v2_perpetual"] = Field(default="injective_v2_perpetual", client_data=None)
+    receive_connector_configuration: Literal[True] = Field(
+        default=True,
         client_data=ClientFieldData(),
     )
     network: Union[tuple(NETWORK_MODES.values())] = Field(

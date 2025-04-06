@@ -1,7 +1,7 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union, Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -17,7 +17,7 @@ EXAMPLE_PAIR = "BTC-USDT"
 
 
 class OKXConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="okx", const=True, client_data=None)
+    connector: Literal["okx"] = Field(default="okx", client_data=None)
     okx_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(

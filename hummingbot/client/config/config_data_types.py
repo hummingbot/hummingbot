@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, Extra, Field, validator
-from pydantic.schema import default_ref_template
+from pydantic import TypeAdapter
 
 from hummingbot.client.config.config_methods import strategy_config_schema_encoder
 from hummingbot.client.config.config_validators import validate_connector, validate_decimal
@@ -29,7 +29,6 @@ class BaseClientModel(BaseModel):
     class Config:
         validate_assignment = True
         title = None
-        smart_union = True
         extra = Extra.forbid
         json_encoders = {
             datetime: lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S"),
@@ -37,21 +36,21 @@ class BaseClientModel(BaseModel):
 
     @classmethod
     def schema_json(
-        cls, *, by_alias: bool = True, ref_template: str = default_ref_template, **dumps_kwargs: Any
+        cls, *, by_alias: bool = True, ref_template: str = "#/definitions/{model}", **dumps_kwargs: Any
     ) -> str:
-        # todo: make it ignore `client_data` all together
+        schema = cls.model_json_schema(by_alias=by_alias)
         return cls.__config__.json_dumps(
-            cls.schema(by_alias=by_alias, ref_template=ref_template),
+            schema,
             default=strategy_config_schema_encoder,
             **dumps_kwargs
         )
 
     @classmethod
     def _clear_schema_cache(cls):
-        cls.__schema_cache__ = {}
+        pass
 
     def is_required(self, attr: str) -> bool:
-        return self.__fields__[attr].required
+        return attr in self.model_fields_set
 
     def validate_decimal(v: str, field: Field):
         """Used for client-friendly error output."""

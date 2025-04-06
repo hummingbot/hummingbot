@@ -1,7 +1,7 @@
 import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, Literal
 
 from pydantic import Field, SecretStr
 from pydantic.class_validators import validator
@@ -56,9 +56,8 @@ class InjectiveFeeCalculatorMode(BaseClientModel, ABC):
 
 
 class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(
+    name: Literal["simulated_transaction_fee_calculator"] = Field(
         default="simulated_transaction_fee_calculator",
-        const=True,
         client_data=ClientFieldData(),
     )
 
@@ -81,9 +80,8 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
 
 
 class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode):
-    name: str = Field(
+    name: Literal["message_based_transaction_fee_calculator"] = Field(
         default="message_based_transaction_fee_calculator",
-        const=True,
         client_data=ClientFieldData(),
     )
 
@@ -362,9 +360,8 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
             prompt_on_new=True,
         ),
     )
-    vault_subaccount_index: int = Field(
+    vault_subaccount_index: Literal[1] = Field(
         default=1,
-        const=True,
         client_data=None
     )
 
@@ -417,9 +414,9 @@ ACCOUNT_MODES = {
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
     # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
-    connector: str = Field(default="injective_v2", const=True, client_data=None)
-    receive_connector_configuration: bool = Field(
-        default=True, const=True,
+    connector: Literal["injective_v2"] = Field(default="injective_v2", client_data=None)
+    receive_connector_configuration: Literal[True] = Field(
+        default=True,
         client_data=ClientFieldData(),
     )
     network: Union[tuple(NETWORK_MODES.values())] = Field(
