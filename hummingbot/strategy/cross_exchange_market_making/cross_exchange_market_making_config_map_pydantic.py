@@ -5,10 +5,9 @@ from typing import Dict, Tuple, Union
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 import hummingbot.client.settings as settings
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyMakerTakerConfigMap
-from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
@@ -301,14 +300,7 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             "prompt_on_new": True
         }
     )
-    taker_market: ClientConfigEnum(
-        value="TakerMarkets",  # noqa: F821
-        names={e: e for e in
-               sorted(AllConnectorSettings.get_exchange_names().union(
-                   AllConnectorSettings.get_gateway_amm_connector_names()
-               ))},
-        type=str,
-    ) = Field(
+    taker_market: str = Field(
         default=...,
         description="The name of the taker exchange connector.",
         json_schema_extra={"prompt": "Enter your taker connector (Exchange/AMM/CLOB)", "prompt_on_new": True}
@@ -370,14 +362,12 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
     @model_validator(mode="after")
     def post_validations(self):
         # Add the maker and taker markets to the required exchanges
-        settings.required_exchanges.add(self["maker_market"])
-        settings.required_exchanges.add(self["taker_market"])
+        settings.required_exchanges.add(self.maker_market)
+        settings.required_exchanges.add(self.taker_market)
 
-        # if the conversion rate mode is oracle, we need to set the oracle pairs
-        use_oracle = self.use_oracle_conversion_rate
         first_base, first_quote = self.maker_market_trading_pair.split("-")
         second_base, second_quote = self.taker_market_trading_pair.split("-")
-        if use_oracle and (first_base != second_base or first_quote != second_quote):
+        if first_base != second_base or first_quote != second_quote:
             settings.required_rate_oracle = True
             settings.rate_oracle_pairs = []
             if first_base != second_base:

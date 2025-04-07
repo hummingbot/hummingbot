@@ -53,7 +53,7 @@ class StrategyV2ConfigBase(BaseClientModel):
         }
     )
     controllers_config: List[str] = Field(
-        default=None,
+        default=[],
         json_schema_extra={
             "prompt": "Enter controller configurations (comma-separated file paths), leave it empty if none: ",
         }
