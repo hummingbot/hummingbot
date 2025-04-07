@@ -102,7 +102,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             "prompt_on_new": True, "is_updatable": True}
     )
     trailing_stop: Optional[TrailingStop] = Field(
-        default="0.015,0.003",
+        default=None,
         json_schema_extra={
             "prompt": "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
             "prompt_on_new": True, "is_updatable": True},
