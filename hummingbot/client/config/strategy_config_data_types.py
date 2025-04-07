@@ -29,11 +29,7 @@ class BaseStrategyConfigMap(BaseClientModel):
 
 
 class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
-    exchange: ClientConfigEnum(  # rebuild the exchanges enum
-        value="Exchanges",  # noqa: F821
-        names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
-        type=str,
-    ) = Field(
+    exchange: str = Field(
         default=...,
         description="The name of the exchange connector.",
         json_schema_extra={"prompt": "Input your maker spot connector", "prompt_on_new": True},
@@ -71,20 +67,12 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
 
 
 class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
-    maker_market: ClientConfigEnum(
-        value="MakerMarkets",  # noqa: F821
-        names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
-        type=str,
-    ) = Field(
+    maker_market: str = Field(
         default=...,
         description="The name of the maker exchange connector.",
         json_schema_extra={"prompt": "Enter your maker spot connector", "prompt_on_new": True},
     )
-    taker_market: ClientConfigEnum(
-        value="TakerMarkets",  # noqa: F821
-        names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
-        type=str,
-    ) = Field(
+    taker_market: str = Field(
         default=...,
         description="The name of the taker exchange connector.",
         json_schema_extra={"prompt": "Enter your taker spot connector", "prompt_on_new": True},

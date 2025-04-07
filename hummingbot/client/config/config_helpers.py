@@ -195,28 +195,6 @@ class ClientConfigAdapter:
         yml_str = "".join(fragments_with_comments)
         return yml_str
 
-    def validate_model(self) -> List[str]:
-        input_data = self._hb_config.model_dump()
-        results = self._hb_config.model_validate(input_data)  # coerce types
-        conf_dict = results[0]
-        for key, value in conf_dict.items():
-            self.setattr_no_validation(key, value)
-        self.decrypt_all_secure_data()
-        input_data = self._hb_config.model_dump()
-        results = self._hb_config.model_validate(input_data)  # validate decrypted values
-        conf_dict = results[0]
-        errors = results[2]
-        for key, value in conf_dict.items():
-            self.setattr_no_validation(key, value)
-        validation_errors = []
-        if errors is not None:
-            errors = errors.errors()
-            validation_errors = [
-                f"{'.'.join(e['loc'])} - {e['msg']}"
-                for e in errors
-            ]
-        return validation_errors
-
     def setattr_no_validation(self, attr: str, value: Any):
         with self._disable_validation():
             setattr(self, attr, value)
@@ -930,13 +908,11 @@ def short_strategy_name(strategy: str) -> str:
 
 
 def all_configs_complete(strategy_config: Union[ClientConfigAdapter, Dict], client_config_map: ClientConfigAdapter):
-    strategy_valid = (
+    return (
         config_map_complete_legacy(strategy_config)
         if isinstance(strategy_config, Dict)
-        else len(strategy_config.validate_model()) == 0
+        else True
     )
-    client_config_valid = len(client_config_map.validate_model()) == 0
-    return client_config_valid and strategy_valid
 
 
 def config_map_complete_legacy(config_map):

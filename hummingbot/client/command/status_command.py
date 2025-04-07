@@ -115,13 +115,6 @@ class StatusCommand:
             )
         return missing_configs
 
-    def validate_configs(
-        self,  # type: HummingbotApplication
-    ) -> List[str]:
-        config_map = self.strategy_config_map
-        validation_errors = config_map.validate_model() if isinstance(config_map, ClientConfigAdapter) else []
-        return validation_errors
-
     def status(self,  # type: HummingbotApplication
                live: bool = False):
         if threading.current_thread() != threading.main_thread():
@@ -165,12 +158,6 @@ class StatusCommand:
                 self.notify(f"    {config.key}")
         elif notify_success:
             self.notify('  - Strategy check: All required parameters confirmed.')
-        validation_errors = self.validate_configs()
-        if len(validation_errors) != 0:
-            self.notify("  - Strategy check: Validation of the config maps failed. The following errors were flagged.")
-            for error in validation_errors:
-                self.notify(f"    {error}")
-            return False
 
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
@@ -185,7 +172,7 @@ class StatusCommand:
         elif notify_success:
             self.notify('  - Exchange check: All connections confirmed.')
 
-        if invalid_conns or missing_configs or len(validation_errors) != 0:
+        if invalid_conns or missing_configs:
             return False
 
         loading_markets: List[ConnectorBase] = []
