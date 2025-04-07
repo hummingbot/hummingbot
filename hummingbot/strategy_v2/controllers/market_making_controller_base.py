@@ -192,16 +192,6 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
 
-    def update_parameters(self, trade_type: TradeType, new_spreads: Union[List[float], str], new_amounts_pct: Optional[Union[List[int], str]] = None):
-        spreads_field = 'buy_spreads' if trade_type == TradeType.BUY else 'sell_spreads'
-        amounts_pct_field = 'buy_amounts_pct' if trade_type == TradeType.BUY else 'sell_amounts_pct'
-
-        setattr(self, spreads_field, self.parse_spreads(new_spreads))
-        if new_amounts_pct is not None:
-            setattr(self, amounts_pct_field, self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, self.__fields__[amounts_pct_field]))
-        else:
-            setattr(self, amounts_pct_field, [1 for _ in getattr(self, spreads_field)])
-
     def get_spreads_and_amounts_in_quote(self, trade_type: TradeType) -> Tuple[List[float], List[float]]:
         buy_amounts_pct = getattr(self, 'buy_amounts_pct')
         sell_amounts_pct = getattr(self, 'sell_amounts_pct')

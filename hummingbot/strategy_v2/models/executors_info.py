@@ -15,8 +15,6 @@ class ExecutorInfo(BaseModel):
     id: str
     timestamp: float
     type: str
-    close_timestamp: Optional[float]
-    close_type: Optional[CloseType]
     status: RunnableStatus
     config: ExecutorConfigType
     net_pnl_pct: Decimal
@@ -25,7 +23,9 @@ class ExecutorInfo(BaseModel):
     filled_amount_quote: Decimal
     is_active: bool
     is_trading: bool
-    custom_info: Dict  # TODO: Define the custom info type for each executor
+    custom_info: Dict
+    close_timestamp: Optional[float] = None
+    close_type: Optional[CloseType] = None
     controller_id: Optional[str] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
