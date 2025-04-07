@@ -8,6 +8,7 @@
 .PHONY: uninstall
 .PHONY: clean
 .PHONY: build
+.PHONY: run-v2
 
 test:
 	coverage run -m pytest \
@@ -45,3 +46,9 @@ uninstall:
 
 build:
 	./compile
+
+run-v2:
+	./bin/hummingbot_quickstart.py -p a -f v2_with_controllers.py -c $(filter-out $@,$(MAKECMDGOALS))
+
+%:
+	@:
