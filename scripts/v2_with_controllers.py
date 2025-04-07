@@ -21,7 +21,6 @@ class GenericV2StrategyWithCashOutConfig(StrategyV2ConfigBase):
     time_to_cash_out: Optional[int] = None
     max_global_drawdown: Optional[float] = None
     max_controller_drawdown: Optional[float] = None
-    performance_report_interval: int = 1
     rebalance_interval: Optional[int] = None
     extra_inventory: Optional[float] = 0.02
     min_amount_to_rebalance_usd: Decimal = Decimal("8")
@@ -39,6 +38,8 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
     specific controller and wait until the active executors finalize their execution. The rest of the executors will
     wait until the main strategy stops them.
     """
+    performance_report_interval: int = 1
+
     def __init__(self, connectors: Dict[str, ConnectorBase], config: GenericV2StrategyWithCashOutConfig):
         super().__init__(connectors, config)
         self.config = config
@@ -48,7 +49,6 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         self.max_global_pnl = Decimal("0")
         self.drawdown_exited_controllers = []
         self.closed_executors_buffer: int = 30
-        self.performance_report_interval: int = self.config.performance_report_interval
         self.rebalance_interval: int = self.config.rebalance_interval
         self._last_performance_report_timestamp = 0
         self._last_rebalance_check_timestamp = 0

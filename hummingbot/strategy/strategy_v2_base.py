@@ -58,7 +58,6 @@ class StrategyV2ConfigBase(BaseClientModel):
             "prompt": "Enter controller configurations (comma-separated file paths), leave it empty if none: ",
         }
     )
-    config_update_interval: Optional[int] = Field(default=60, gt=0)
 
     @field_validator("controllers_config", mode="before")
     @classmethod
@@ -166,6 +165,7 @@ class StrategyV2Base(ScriptStrategyBase):
     _last_config_update_ts: float = 0
     closed_executors_buffer: int = 100
     max_executors_close_attempts: int = 10
+    config_update_interval: int = 10
 
     @classmethod
     def init_markets(cls, config: StrategyV2ConfigBase):
@@ -220,7 +220,7 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         Update the controllers configurations based on the provided configuration.
         """
-        if self._last_config_update_ts + self.config.config_update_interval < self.current_timestamp:
+        if self._last_config_update_ts + self.config_update_interval < self.current_timestamp:
             self._last_config_update_ts = self.current_timestamp
             controllers_configs = self.config.load_controller_configs()
             for controller_config in controllers_configs:
