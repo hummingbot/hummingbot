@@ -53,14 +53,10 @@ class StatusCommandTest(unittest.TestCase):
         except asyncio.TimeoutError:  # the coroutine did not finish on time
             raise RuntimeError
 
-    @patch("hummingbot.client.command.status_command.StatusCommand.validate_configs")
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
-    def test_status_check_all_handles_network_timeouts(
-        self, is_decryption_done_mock, validate_required_connections_mock, validate_configs_mock
-    ):
+    def test_status_check_all_handles_network_timeouts(self, is_decryption_done_mock, validate_required_connections_mock):
         validate_required_connections_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
-        validate_configs_mock.return_value = []
         self.client_config_map.commands_timeout.other_commands_timeout = 0.01
         is_decryption_done_mock.return_value = True
         strategy_name = "avellaneda_market_making"
