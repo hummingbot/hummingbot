@@ -1,5 +1,4 @@
 import asyncio
-import json
 from typing import Awaitable, Dict
 from unittest import TestCase
 from unittest.mock import patch
@@ -103,10 +102,9 @@ class BaseTradingStrategyConfigMapTest(TestCase):
 class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
 
     def test_maker_field_json_schema_includes_all_connectors_for_exchange_field(self):
-        schema = BaseTradingStrategyMakerTakerConfigMap.model_json_schema()
-        schema_dict = json.loads(schema)
+        schema_dict = BaseTradingStrategyMakerTakerConfigMap.model_json_schema()
 
-        self.assertIn("MakerMarkets", schema_dict["definitions"])
+        self.assertIn("MakerMarkets", schema_dict["$defs"])
         expected_connectors = [
             connector_setting.name for connector_setting in
             AllConnectorSettings.get_connector_settings().values()
@@ -114,13 +112,12 @@ class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
         ]
         expected_connectors.extend(AllConnectorSettings.paper_trade_connectors_names)
         expected_connectors.sort()
-        self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
+        self.assertEqual(expected_connectors, schema_dict["$defs"]["MakerMarkets"]["enum"])
 
     def test_taker_field_json_schema_includes_all_connectors_for_exchange_field(self):
-        schema = BaseTradingStrategyMakerTakerConfigMap.model_json_schema()
-        schema_dict = json.loads(schema)
+        schema_dict = BaseTradingStrategyMakerTakerConfigMap.model_json_schema()
 
-        self.assertIn("TakerMarkets", schema_dict["definitions"])
+        self.assertIn("TakerMarkets", schema_dict["$defs"])
         expected_connectors = [
             connector_setting.name for connector_setting in
             AllConnectorSettings.get_connector_settings().values()
@@ -128,4 +125,4 @@ class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
         ]
         expected_connectors.extend(AllConnectorSettings.paper_trade_connectors_names)
         expected_connectors.sort()
-        self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])
+        self.assertEqual(expected_connectors, schema_dict["$defs"]["TakerMarkets"]["enum"])

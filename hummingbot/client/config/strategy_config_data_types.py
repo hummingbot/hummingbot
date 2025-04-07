@@ -92,28 +92,15 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
     maker_market_trading_pair: str = Field(
         default=...,
         description="The name of the maker trading pair.",
-        json_schema_extra={"prompt": lambda mi: BaseTradingStrategyMakerTakerConfigMap.trading_pair_prompt(mi, True), "prompt_on_new": True},
+        json_schema_extra={"prompt": "Enter the token trading pair you would like to trade on maker market: (e.g. BTC-USDT)",
+                           "prompt_on_new": True},
     )
     taker_market_trading_pair: str = Field(
         default=...,
         description="The name of the taker trading pair.",
-        json_schema_extra={"prompt": lambda mi: BaseTradingStrategyMakerTakerConfigMap.trading_pair_prompt(mi, False), "prompt_on_new": True},
+        json_schema_extra={"prompt": "Enter the token trading pair you would like to trade on maker market: (e.g. BTC-USDT)",
+                           "prompt_on_new": True},
     )
-
-    @classmethod
-    def trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyMakerTakerConfigMap', is_maker: bool) -> str:
-        if is_maker:
-            exchange = model_instance.maker_market
-            example = AllConnectorSettings.get_example_pairs().get(exchange)
-            market_type = "maker"
-        else:
-            exchange = model_instance.taker_market
-            example = AllConnectorSettings.get_example_pairs().get(exchange)
-            market_type = "taker"
-        return (
-            f"Enter the token trading pair you would like to trade on {market_type} market:"
-            f" {exchange}{f' (e.g. {example})' if example else ''}"
-        )
 
     @field_validator("maker_market_trading_pair", "taker_market_trading_pair", mode="before")
     def validate_exchange_trading_pair(cls, v: str, validation_info: ValidationInfo):
