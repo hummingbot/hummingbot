@@ -41,17 +41,8 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
     market: str = Field(
         default=...,
         description="The trading pair.",
-        json_schema_extra={"prompt": lambda mi: BaseTradingStrategyConfigMap.trading_pair_prompt(mi), "prompt_on_new": True},
+        json_schema_extra={"prompt": "Enter the token trading pair you would like to trade on (e.g. BTC-USDT)", "prompt_on_new": True},
     )
-
-    @classmethod
-    def trading_pair_prompt(cls, model_instance: 'BaseTradingStrategyConfigMap') -> str:
-        exchange = model_instance.exchange
-        example = AllConnectorSettings.get_example_pairs().get(exchange)
-        return (
-            f"Enter the token trading pair you would like to trade on"
-            f" {exchange}{f' (e.g. {example})' if example else ''}"
-        )
 
     @field_validator("exchange", mode="before")
     @classmethod

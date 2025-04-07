@@ -69,11 +69,11 @@ class BaseTradingStrategyConfigMapTest(TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             self.config_map.exchange = "test-exchange"
 
-        error_msg = "Invalid exchange, please choose value from "
+        error_msg = "Value error, Invalid exchange, please choose value "
         self.assertTrue(str(e.exception).startswith(error_msg))
 
         alt_pair = "ETH-USDT"
-        error_msg = "Failed"
+        error_msg = "Value error, "
         validate_market_trading_pair_mock.side_effect = (
             lambda m, v: None if v in [self.trading_pair, alt_pair] else error_msg
         )
@@ -87,10 +87,9 @@ class BaseTradingStrategyConfigMapTest(TestCase):
         self.assertTrue(str(e.exception).startswith(error_msg))
 
     def test_json_schema_includes_all_connectors_for_exchange_field(self):
-        schema = BaseTradingStrategyConfigMap.schema_json()
-        schema_dict = json.loads(schema)
+        schema_dict = BaseTradingStrategyConfigMap.model_json_schema()
 
-        self.assertIn("Exchanges", schema_dict["definitions"])
+        self.assertIn("Exchanges", schema_dict["$defs"])
         expected_connectors = [
             connector_setting.name for connector_setting in
             AllConnectorSettings.get_connector_settings().values()
@@ -98,13 +97,13 @@ class BaseTradingStrategyConfigMapTest(TestCase):
         ]
         expected_connectors.extend(AllConnectorSettings.paper_trade_connectors_names)
         expected_connectors.sort()
-        self.assertEqual(expected_connectors, schema_dict["definitions"]["Exchanges"]["enum"])
+        self.assertEqual(expected_connectors, schema_dict["$defs"]["Exchanges"]["enum"])
 
 
 class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
 
-    def test_maker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
-        schema = BaseTradingStrategyMakerTakerConfigMap.schema_json()
+    def test_maker_field_json_schema_includes_all_connectors_for_exchange_field(self):
+        schema = BaseTradingStrategyMakerTakerConfigMap.model_json_schema()
         schema_dict = json.loads(schema)
 
         self.assertIn("MakerMarkets", schema_dict["definitions"])
@@ -117,8 +116,8 @@ class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
 
-    def test_taker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
-        schema = BaseTradingStrategyMakerTakerConfigMap.schema_json()
+    def test_taker_field_json_schema_includes_all_connectors_for_exchange_field(self):
+        schema = BaseTradingStrategyMakerTakerConfigMap.model_json_schema()
         schema_dict = json.loads(schema)
 
         self.assertIn("TakerMarkets", schema_dict["definitions"])
