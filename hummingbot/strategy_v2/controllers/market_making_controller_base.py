@@ -96,7 +96,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             "prompt_on_new": True, "is_updatable": True}
     )
     take_profit_order_type: OrderType = Field(
-        default="LIMIT",
+        default=OrderType.LIMIT,
         json_schema_extra={
             "prompt": "Enter the order type for take profit (LIMIT/MARKET): ",
             "prompt_on_new": True, "is_updatable": True}
@@ -135,8 +135,9 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         elif v is None:
             return OrderType.MARKET
         elif isinstance(v, str):
-            if v.upper() in OrderType.__members__:
-                return OrderType[v.upper()]
+            cleaned_str = v.replace("OrderType.", "").upper()
+            if cleaned_str in OrderType.__members__:
+                return OrderType[cleaned_str]
         elif isinstance(v, int):
             try:
                 return OrderType(v)
