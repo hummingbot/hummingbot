@@ -199,7 +199,7 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
         )
 
     def use_secure_connection(self) -> bool:
-        return self.secure_connection
+        return True
 
     def rate_limits(self) -> List[RateLimit]:
         return CONSTANTS.CUSTOM_NODE_RATE_LIMITS
@@ -221,7 +221,6 @@ class InjectiveAccountMode(BaseClientModel, ABC):
     def create_data_source(
             self,
             network: Network,
-            use_secure_connection: bool,
             rate_limits: List[RateLimit],
             fee_calculator_mode: InjectiveFeeCalculatorMode,
     ) -> "InjectiveDataSource":
@@ -275,7 +274,6 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
     def create_data_source(
             self,
             network: Network,
-            use_secure_connection: bool,
             rate_limits: List[RateLimit],
             fee_calculator_mode: InjectiveFeeCalculatorMode,
     ) -> "InjectiveDataSource":
@@ -285,7 +283,6 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
             granter_address=self.granter_address,
             granter_subaccount_index=self.granter_subaccount_index,
             network=network,
-            use_secure_connection=use_secure_connection,
             rate_limits=rate_limits,
             fee_calculator_mode=fee_calculator_mode,
         )
@@ -323,7 +320,6 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
     def create_data_source(
             self,
             network: Network,
-            use_secure_connection: bool,
             rate_limits: List[RateLimit],
             fee_calculator_mode: InjectiveFeeCalculatorMode,
     ) -> "InjectiveDataSource":
@@ -333,7 +329,6 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
             vault_contract_address=self.vault_contract_address,
             vault_subaccount_index=self.vault_subaccount_index,
             network=network,
-            use_secure_connection=use_secure_connection,
             rate_limits=rate_limits,
             fee_calculator_mode=fee_calculator_mode,
         )
@@ -344,13 +339,12 @@ class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
 
     def create_data_source(
             self,
-            network: Network, use_secure_connection: bool,
+            network: Network,
             rate_limits: List[RateLimit],
             fee_calculator_mode: InjectiveFeeCalculatorMode,
     ) -> "InjectiveDataSource":
         return InjectiveReadOnlyDataSource(
             network=network,
-            use_secure_connection=use_secure_connection,
             rate_limits=rate_limits,
         )
 
@@ -428,7 +422,6 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
     def create_data_source(self):
         return self.account_type.create_data_source(
             network=self.network.network(),
-            use_secure_connection=self.network.use_secure_connection(),
             rate_limits=self.network.rate_limits(),
             fee_calculator_mode=self.fee_calculator,
         )
