@@ -296,11 +296,7 @@ class HummingbotCompleter(Completer):
         :param document:
         :param complete_event:
         """
-        if self._complete_pmm_script_files(document):
-            for c in self._py_file_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_script_strategy_files(document):
+        if self._complete_script_strategy_files(document):
             for c in self._script_strategy_completer.get_completions(document, complete_event):
                 yield c
 
