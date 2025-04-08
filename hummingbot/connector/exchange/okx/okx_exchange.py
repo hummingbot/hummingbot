@@ -253,8 +253,8 @@ class OkxExchange(ExchangePyBase):
             path_url=CONSTANTS.OKX_TICKERS_PATH,
             params=params,
         )
-
-        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"]}
+        # some markets have no last traded price, so filter them out
+        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"] if ticker["last"]}
         return last_traded_prices
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
