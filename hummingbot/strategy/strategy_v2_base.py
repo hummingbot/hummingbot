@@ -56,6 +56,7 @@ class StrategyV2ConfigBase(BaseClientModel):
         default=[],
         json_schema_extra={
             "prompt": "Enter controller configurations (comma-separated file paths), leave it empty if none: ",
+            "prompt_on_new": True,
         }
     )
 
