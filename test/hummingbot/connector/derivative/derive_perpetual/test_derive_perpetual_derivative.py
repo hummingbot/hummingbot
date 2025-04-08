@@ -96,7 +96,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     def test_get_related_limits(self):
-        self.assertEqual(21, len(self.throttler._rate_limits))
+        self.assertEqual(17, len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
@@ -1618,8 +1618,9 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
 
+    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative.DerivePerpetualDerivative._update_positions")
     @aioresponses()
-    def test_user_stream_update_for_order_full_fill(self, mock_api):
+    def test_user_stream_update_for_order_full_fill(self, mock_api, mock_positions):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1639,6 +1640,17 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         event_messages = []
         if trade_event:
             event_messages.append(trade_event)
+            self._simulate_trading_rules_initialized()
+
+            url = web_utils.private_rest_url(
+                CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain
+            )
+            regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+            positions = self._get_position_risk_api_endpoint_single_position_list()
+            mock_positions.post(regex_url, body=json.dumps(positions))
+
+            self.async_run_with_timeout(self.exchange._update_positions())
         if order_event:
             event_messages.append(order_event)
         event_messages.append(asyncio.CancelledError)
@@ -2164,7 +2176,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         seconds_counter_mock.side_effect = [0, 0, 0]
 
         self.exchange._time_synchronizer.clear_time_offset_ms_samples()
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"result": 1640000003000}
@@ -2181,7 +2193,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
         request_sent_event = asyncio.Event()
 
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {"code": -1121, "msg": "Dummy error"}
@@ -2196,7 +2208,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @aioresponses()
     def test_update_time_synchronizer_raises_cancelled_error(self, mock_api):
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url,
