@@ -265,7 +265,7 @@ class BacktestingEngineBase:
             total_positions = executors_with_position.shape[0]
             win_signals = executors_with_position[executors_with_position["net_pnl_quote"] > 0]
             loss_signals = executors_with_position[executors_with_position["net_pnl_quote"] < 0]
-            accuracy = win_signals.shape[0] / total_positions
+            accuracy = (win_signals.shape[0] / total_positions) if total_positions else 0.0
             cumulative_returns = executors_with_position["net_pnl_quote"].cumsum()
             executors_with_position["cumulative_returns"] = cumulative_returns
             executors_with_position["cumulative_volume"] = executors_with_position["filled_amount_quote"].cumsum()
