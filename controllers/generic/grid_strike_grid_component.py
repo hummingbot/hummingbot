@@ -17,7 +17,7 @@ class GridStrikeConfig(ControllerConfigBase):
     """
     Configuration required to run the GridStrike strategy for one connector and trading pair.
     """
-    controller_type = "generic"
+    controller_type: str = "generic"
     controller_name: str = "grid_strike_grid_component"
     candles_config: List[CandlesConfig] = []
 
