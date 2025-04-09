@@ -1,9 +1,8 @@
-from typing import Optional
+from typing import Any, Dict
 
 from pydantic.v1 import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
-from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
@@ -19,24 +18,18 @@ DEFAULT_FEES = [0.2, 0.2]
 # FEE_TYPE not required because default value is Percentage
 # FEE_TOKEN not required because the fee is not flat
 
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "")
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return exchange_info.get("sessionStatus", "Stopped") in ["Starting", "Running"]
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     ts_micro_sec: int = get_tracking_nonce()
     return f"{HUMMINGBOT_ID_PREFIX}{ts_micro_sec}"
-
-
-def rest_api_url(connector_variant_label: Optional[str]) -> str:
-    variant = connector_variant_label if connector_variant_label else "ndax_main"
-    return CONSTANTS.REST_URLS.get(variant)
-
-
-def wss_url(connector_variant_label: Optional[str]) -> str:
-    variant = connector_variant_label if connector_variant_label else "ndax_main"
-    return CONSTANTS.WSS_URLS.get(variant)
 
 
 class NdaxConfigMap(BaseConnectorConfigMap):
