@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import field_validator
 
@@ -14,7 +14,7 @@ class TWAPMode(Enum):
 
 
 class TWAPExecutorConfig(ExecutorConfigBase):
-    type: str = "twap_executor"
+    type: Literal["twap_executor"] = "twap_executor"
     connector_name: str
     trading_pair: str
     side: TradeType

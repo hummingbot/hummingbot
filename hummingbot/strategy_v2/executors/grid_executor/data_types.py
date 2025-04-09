@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -11,7 +11,7 @@ from hummingbot.strategy_v2.models.executors import TrackedOrder
 
 
 class GridExecutorConfig(ExecutorConfigBase):
-    type: str = "grid_executor"
+    type: Literal["grid_executor"] = "grid_executor"
     # Boundaries
     connector_name: str
     trading_pair: str
