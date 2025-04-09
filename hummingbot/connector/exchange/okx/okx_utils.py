@@ -47,11 +47,11 @@ class OKXConfigMap(BaseConnectorConfigMap):
     )
     okx_registration_sub_domain: Literal["www", "app", "my"] = Field(
         default="www",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Which OKX subdomain did you register the key at? (www/app/my) - Generally www for most users, app for US users, my for EEA users.",
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Which OKX subdomain did you register the key at? (www/app/my) - Generally www for most users, app for US users, my for EEA users.",
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
 
 
