@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Set, Type
 
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel
 
 from hummingbot.data_feed.liquidations_feed.binance.binance_liquidations import BinancePerpetualLiquidations
 from hummingbot.data_feed.liquidations_feed.liquidations_base import LiquidationsBase
