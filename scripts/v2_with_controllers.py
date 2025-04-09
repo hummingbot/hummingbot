@@ -89,7 +89,7 @@ class GenericV2StrategyWithCashOut(StrategyV2Base):
         if self.rebalance_interval and self._last_rebalance_check_timestamp + self.rebalance_interval <= self.current_timestamp:
             balance_required = {}
             for controller_id, controller in self.controllers.items():
-                connector_name = controller.config.dict().get("connector_name")
+                connector_name = controller.config.model_dump().get("connector_name")
                 if connector_name and "perpetual" in connector_name:
                     continue
                 if connector_name not in balance_required:
