@@ -266,8 +266,6 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
                          ['id',
                           'timestamp',
                           'type',
-                          'close_timestamp',
-                          'close_type',
                           'status',
                           'config',
                           'net_pnl_pct',
@@ -277,6 +275,8 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
                           'is_active',
                           'is_trading',
                           'custom_info',
+                          'close_timestamp',
+                          'close_type',
                           'controller_id',
                           'side'])
         self.assertEqual(df.iloc[0]['id'], '2')  # Since the dataframe is sorted by status

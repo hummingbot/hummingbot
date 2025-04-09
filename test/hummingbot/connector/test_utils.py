@@ -9,7 +9,7 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 
 from hexbytes import HexBytes
-from pydantic.v1 import SecretStr
+from pydantic import SecretStr
 
 from hummingbot import root_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
