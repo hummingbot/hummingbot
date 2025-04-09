@@ -249,6 +249,7 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
         json_schema_extra={
             "prompt": "Enter the Injective address of the granter account (portfolio account)",
             "is_connect_key": True,
+            "prompt_on_new": True,
         }
     )
     granter_subaccount_index: int = Field(
