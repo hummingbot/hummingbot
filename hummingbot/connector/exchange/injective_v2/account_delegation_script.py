@@ -77,14 +77,10 @@ async def main() -> None:
     sim_tx_raw_bytes = tx.get_tx_data(sim_sig, granter_public_key)
 
     # simulate tx
-    (sim_res, success) = await client.simulate(sim_tx_raw_bytes)
-    if not success:
-        print(sim_res)
-        return
-
+    simulation = await client.simulate(sim_tx_raw_bytes)
     # build tx
     gas_price = 500000000
-    gas_limit = sim_res.gas_info.gas_used + 20000
+    gas_limit = int(simulation["gasInfo"]["gasUsed"]) + 20000
     gas_fee = "{:.18f}".format((gas_price * gas_limit) / pow(10, 18)).rstrip("0")
     fee = [composer.coin(
         amount=gas_price * gas_limit,
