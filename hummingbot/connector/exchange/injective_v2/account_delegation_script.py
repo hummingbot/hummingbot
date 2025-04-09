@@ -26,7 +26,7 @@ SECONDS_PER_DAY = 60 * 60 * 24
 
 async def main() -> None:
     # initialize grpc client
-    client = AsyncClient(NETWORK, insecure=False)
+    client = AsyncClient(NETWORK)
     composer = await client.composer()
     await client.sync_timeout_height()
 
