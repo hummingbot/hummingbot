@@ -1,9 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict, Literal
 
-from pydantic.v1 import Field, SecretStr
+from pydantic import Field, SecretStr
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 DEFAULT_FEES = TradeFeeSchema(
@@ -17,33 +17,33 @@ EXAMPLE_PAIR = "BTC-USDT"
 
 
 class OKXConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="okx", const=True, client_data=None)
+    connector: str = "okx"
     okx_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your OKX API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your OKX API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     okx_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your OKX secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your OKX secret key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     okx_passphrase: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your OKX passphrase key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your OKX passphrase key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     okx_registration_sub_domain: Literal["www", "app", "my"] = Field(
         default="www",
@@ -55,7 +55,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
     )
 
 
-KEYS = OKXConfigMap.construct()
+KEYS = OKXConfigMap.model_construct()
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
