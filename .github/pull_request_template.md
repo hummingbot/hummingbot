@@ -1,6 +1,7 @@
 **Before submitting this PR, please make sure**:
 
 - [ ] Your code builds clean without any errors or warnings
+- [ ] Tests all pass
 - [ ] You are using approved title ("feat/", "fix/", "docs/", "refactor/")
 
 **A description of the changes proposed in the pull request**:
@@ -12,5 +13,4 @@
 
 
 **Tips for QA testing**:
-
 

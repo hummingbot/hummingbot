@@ -18,6 +18,14 @@
 
 **Note:** Tests are crucial. If your pull request contains new, testable behavior, please submit tests. Refer to the 'Unit Test Coverage' section for more information.
 
+## Development Environment Setup
+
+### IDE Configuration
+If you're using VS Code or Cursor IDE, please refer to our [VS Code/Cursor Setup Guide](./CURSOR_VSCODE_SETUP.md) for detailed instructions on setting up your development environment, including:
+- VS Code/Cursor settings configuration
+- Debugging setup
+- Test discovery configuration
+
 ## Detailed Workflow
 
 ### 1. Fork the Repository
