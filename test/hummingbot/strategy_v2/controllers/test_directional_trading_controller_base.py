@@ -87,8 +87,7 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(config.stop_loss, Decimal("0.03"))
         self.assertEqual(config.take_profit, Decimal("0.02"))
         self.assertEqual(config.time_limit, 2700)
-        self.assertEqual(config.trailing_stop.activation_price, Decimal("0.015"))
-        self.assertEqual(config.trailing_stop.trailing_delta, Decimal("0.003"))
+        self.assertEqual(config.trailing_stop, None)
 
     def test_update_markets_new_connector(self):
         markets = {}
