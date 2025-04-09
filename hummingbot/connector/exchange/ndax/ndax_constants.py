@@ -1,12 +1,16 @@
 # A single source of truth for constant variables related to the exchange
-from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "ndax"
 
-REST_URLS = {"ndax_main": "https://api.ndax.io:8443/AP/",
-             "ndax_testnet": "https://ndaxmarginstaging.cdnhop.net:8443/AP/"}
-WSS_URLS = {"ndax_main": "wss://api.ndax.io/WSGateway",
-            "ndax_testnet": "wss://ndaxmarginstaging.cdnhop.net/WSGateway"}
+DEFAULT_DOMAIN = "ndax"
+
+REST_URLS = {
+    "ndax_main": "https://api.ndax.io:8443/AP/",
+    "ndax_testnet": "https://ndaxmarginstaging.cdnhop.net:8443/AP/",
+}
+WSS_URLS = {"ndax_main": "wss://api.ndax.io/WSGateway", "ndax_testnet": "wss://ndaxmarginstaging.cdnhop.net/WSGateway"}
 
 REST_API_VERSION = "v3.3"
 
@@ -47,6 +51,26 @@ HTTP_LIMIT = 600
 WS_AUTH_LIMIT_ID = "AllWsAuth"
 WS_ENDPOINTS_LIMIT_ID = "AllWs"
 WS_LIMIT = 500
+
+
+# Order States
+# 0 Unknown
+# 1 Working
+# 2 Rejected
+# 3 Canceled
+# 4 Expired
+# 5 Fully Executed.
+
+ORDER_STATE = {
+    "0": OrderState.OPEN,
+    "1": OrderState.OPEN,
+    "5": OrderState.FILLED,
+    "3": OrderState.CANCELED,
+    "4": OrderState.FAILED,
+    "2": OrderState.FAILED,
+}
+
+
 RATE_LIMITS = [
     RateLimit(limit_id=HTTP_ENDPOINTS_LIMIT_ID, limit=HTTP_LIMIT, time_interval=MINUTE),
     # public http

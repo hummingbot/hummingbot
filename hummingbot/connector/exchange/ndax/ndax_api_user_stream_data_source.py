@@ -1,21 +1,17 @@
-import aiohttp
 import asyncio
 import logging
-import time
-import ujson
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from typing import (
-    Any,
-    Dict,
-    Optional,
-)
-
+from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
 
 
 class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -27,56 +23,53 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: AsyncThrottler, auth_assistant: NdaxAuth, shared_client: Optional[aiohttp.ClientSession] = None, domain: Optional[str] = None):
+    def __init__(
+        self,
+        auth: NdaxAuth,
+        trading_pairs: str,
+        connector: "NdaxExchange",
+        api_factory: WebAssistantsFactory,
+        domain: Optional[str] = None,
+    ):
         super().__init__()
-        self._shared_client = shared_client or self._get_session_instance()
+        self._trading_pairs = trading_pairs
+        self._shared_client = api_factory._connections_factory.get_rest_connection()
         self._ws_adaptor = None
-        self._auth_assistant: NdaxAuth = auth_assistant
+        self._auth_assistant: NdaxAuth = auth
         self._last_recv_time: float = 0
         self._account_id: Optional[int] = None
         self._oms_id: Optional[int] = None
         self._domain = domain
-        self._throttler = throttler
+        self._api_factory = api_factory
+        self._connector = connector
 
-    @property
-    def last_recv_time(self) -> float:
-        return self._last_recv_time
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
 
-    @classmethod
-    def _get_session_instance(cls) -> aiohttp.ClientSession:
-        session = aiohttp.ClientSession()
-        return session
-
-    async def _init_websocket_connection(self) -> NdaxWebSocketAdaptor:
+    async def _connected_websocket_assistant(self) -> NdaxWebSocketAdaptor:
         """
-        Initialize WebSocket client for UserStreamDataSource
+        Creates an instance of WSAssistant connected to the exchange
         """
-        try:
-            if self._ws_adaptor is None:
-                ws = await self._shared_client.ws_connect(ndax_utils.wss_url(self._domain))
-                self._ws_adaptor = NdaxWebSocketAdaptor(throttler=self._throttler, websocket=ws)
-            return self._ws_adaptor
-        except asyncio.CancelledError:
-            raise
-        except Exception as ex:
-            self.logger().network(f"Unexpected error occurred during {CONSTANTS.EXCHANGE_NAME} WebSocket Connection "
-                                  f"({ex})")
-            raise
+        ws: WSAssistant = await self._get_ws_assistant()
+        url = CONSTANTS.WSS_URLS.get(self._domain or "ndax_main")
+        await ws.connect(ws_url=url)
+        return NdaxWebSocketAdaptor(ws)
 
     async def _authenticate(self, ws: NdaxWebSocketAdaptor):
         """
         Authenticates user to websocket
         """
         try:
-            auth_payload: Dict[str, Any] = self._auth_assistant.get_ws_auth_payload()
-            async with self._throttler.execute_task(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME):
-                await ws.send_request(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME, auth_payload)
+            await ws.send_request(
+                CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME, self._auth_assistant.add_auth_to_params({})
+            )
             auth_resp = await ws.receive()
             auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp.data)
 
             if not auth_payload["Authenticated"]:
-                self.logger().error(f"Response: {auth_payload}",
-                                    exc_info=True)
+                self.logger().error(f"Response: {auth_payload}", exc_info=True)
                 raise Exception("Could not authenticate websocket connection with NDAX")
 
             auth_user = auth_payload.get("User")
@@ -86,25 +79,22 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception as ex:
-            self.logger().error(f"Error occurred when authenticating to user stream ({ex})",
-                                exc_info=True)
+            self.logger().error(f"Error occurred when authenticating to user stream ({ex})", exc_info=True)
             raise
 
-    async def _subscribe_to_events(self, ws: NdaxWebSocketAdaptor):
+    async def _subscribe_channels(self, ws: NdaxWebSocketAdaptor):
         """
         Subscribes to User Account Events
         """
-        payload = {"AccountId": self._account_id,
-                   "OMSId": self._oms_id}
+        payload = {"AccountId": self._account_id, "OMSId": self._oms_id}
         try:
-            async with self._throttler.execute_task(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME):
-                await ws.send_request(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME, payload)
-
+            await ws.send_request(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME, payload)
         except asyncio.CancelledError:
             raise
         except Exception as ex:
-            self.logger().error(f"Error occurred subscribing to {CONSTANTS.EXCHANGE_NAME} private channels ({ex})",
-                                exc_info=True)
+            self.logger().error(
+                f"Error occurred subscribing to {CONSTANTS.EXCHANGE_NAME} private channels ({ex})", exc_info=True
+            )
             raise
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
@@ -116,24 +106,21 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             try:
-                ws: NdaxWebSocketAdaptor = await self._init_websocket_connection()
+                ws: NdaxWebSocketAdaptor = await self._connected_websocket_assistant()
                 self.logger().info("Authenticating to User Stream...")
                 await self._authenticate(ws)
                 self.logger().info("Successfully authenticated to User Stream.")
-                await self._subscribe_to_events(ws)
+                await self._subscribe_channels(ws)
                 self.logger().info("Successfully subscribed to user events.")
 
-                async for msg in ws.iter_messages():
-                    self._last_recv_time = int(time.time())
-                    output.put_nowait(ujson.loads(msg))
+                await ws.process_websocket_messages(queue=output)
             except asyncio.CancelledError:
                 raise
-            except Exception as ex:
-                self.logger().error(
-                    f"Unexpected error with NDAX WebSocket connection. Retrying in 30 seconds. ({ex})",
-                    exc_info=True
-                )
-                if self._ws_adaptor is not None:
-                    await self._ws_adaptor.close()
-                    self._ws_adaptor = None
-                await asyncio.sleep(30.0)
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception:
+                self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                await self._sleep(1.0)
+            finally:
+                await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
+                self._ws_assistant = None

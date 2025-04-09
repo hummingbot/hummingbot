@@ -1,42 +1,33 @@
 import asyncio
-import logging
 import math
-import time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-import aiohttp
-import ujson
+from bidict import bidict
 
-from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
+from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils, ndax_web_utils as web_utils
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
+from hummingbot.connector.exchange.ndax.ndax_api_user_stream_data_source import NdaxAPIUserStreamDataSource
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder, NdaxInFlightOrderNotCreated
-from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
-from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.clock import Clock
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder, OrderType, TradeType
-from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
     MarketEvent,
-    MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
 )
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -47,35 +38,28 @@ s_decimal_0 = Decimal(0)
 RESOURCE_NOT_FOUND_ERR = "Resource Not Found"
 
 
-class NdaxExchange(ExchangeBase):
+class NdaxExchange(ExchangePyBase):
     """
     Class to onnect with NDAX exchange. Provides order book pricing, user account tracking and
     trading functionality.
     """
-    SHORT_POLL_INTERVAL = 5.0
+
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     UPDATE_TRADING_RULES_INTERVAL = 60.0
-    LONG_POLL_INTERVAL = 120.0
-    ORDER_EXCEED_NOT_FOUND_COUNT = 2
 
-    _logger = None
+    web_utils = web_utils
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
-
-    def __init__(self,
-                 client_config_map: "ClientConfigAdapter",
-                 ndax_uid: str,
-                 ndax_api_key: str,
-                 ndax_secret_key: str,
-                 ndax_account_name: str,
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: Optional[str] = None
-                 ):
+    def __init__(
+        self,
+        client_config_map: "ClientConfigAdapter",
+        ndax_uid: str,
+        ndax_api_key: str,
+        ndax_secret_key: str,
+        ndax_account_name: str,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: Optional[str] = None,
+    ):
         """
         :param ndax_uid: User ID of the account
         :param ndax_api_key: The API key to connect to private NDAX APIs.
@@ -84,36 +68,17 @@ class NdaxExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__(client_config_map)
+        self._ndax_uid = ndax_uid
+        self._ndax_api_key = ndax_api_key
+        self._ndax_secret_key = ndax_secret_key
+        self._ndax_account_name = ndax_account_name
+        self._domain = domain
+
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._auth = NdaxAuth(uid=ndax_uid,
-                              api_key=ndax_api_key,
-                              secret_key=ndax_secret_key,
-                              account_name=ndax_account_name)
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._shared_client = aiohttp.ClientSession()
-        self._set_order_book_tracker(NdaxOrderBookTracker(
-            throttler=self._throttler, shared_client=self._shared_client, trading_pairs=trading_pairs, domain=domain
-        ))
-        self._user_stream_tracker = NdaxUserStreamTracker(
-            throttler=self._throttler, shared_client=self._shared_client, auth_assistant=self._auth, domain=domain
-        )
-        self._domain = domain
-        self._ev_loop = asyncio.get_event_loop()
-        self._poll_notifier = asyncio.Event()
-        self._last_timestamp = 0
-        self._in_flight_orders = {}
-        self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
-        self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
-        self._last_poll_timestamp = 0
-
-        self._status_polling_task = None
-        self._user_stream_tracker_task = None
-        self._user_stream_event_listener_task = None
-        self._trading_rules_polling_task = None
-
+        super().__init__(client_config_map)
         self._account_id = None
+        self._product_id_map = {}
 
     @property
     def name(self) -> str:
@@ -124,73 +89,58 @@ class NdaxExchange(ExchangeBase):
         return self._account_id
 
     @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
-        return self._trading_rules
+    def authenticator(self):
+        return NdaxAuth(
+            uid=self._ndax_uid,
+            api_key=self._ndax_api_key,
+            secret_key=self._ndax_secret_key,
+            account_name=self._ndax_account_name,
+        )
 
     @property
-    def in_flight_orders(self) -> Dict[str, NdaxInFlightOrder]:
-        return self._in_flight_orders
+    def domain(self):
+        return self._domain
 
     @property
-    def status_dict(self) -> Dict[str, bool]:
-        """
-        A dictionary of statuses of various exchange's components. Used to determine if the connector is ready
-        """
-        return {
-            "account_id_initialized": self.account_id if self._trading_required else True,
-            "order_books_initialized": self.order_book_tracker.ready,
-            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0,
-            "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
-        }
+    def trading_pairs(self):
+        return self._trading_pairs
 
     @property
-    def ready(self) -> bool:
-        """
-        Determines if the connector is ready.
-        :return True when all statuses pass, this might take 5-10 seconds for all the connector's components and
-        services to be ready.
-        """
-        return all(self.status_dict.values())
+    def rate_limits_rules(self):
+        return CONSTANTS.RATE_LIMITS
 
     @property
-    def order_books(self) -> Dict[str, OrderBook]:
-        return self.order_book_tracker.order_books
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
 
     @property
-    def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
-        ]
+    def check_network_request_path(self):
+        return CONSTANTS.PING_PATH_URL
 
     @property
-    def tracking_states(self) -> Dict[str, Any]:
-        """
-        :return active in-flight order in JSON format. Used to save order entries into local sqlite databse.
-        """
-        return {
-            client_oid: order.to_json()
-            for client_oid, order in self._in_flight_orders.items()
-            if not order.is_done
-        }
+    def client_order_id_max_length(self):
+        return 32
+
+    @property
+    def client_order_id_prefix(self):
+        return ""
+
+    @property
+    def trading_pairs_request_path(self):
+        return CONSTANTS.MARKETS_URL
+
+    @property
+    def trading_rules_request_path(self):
+        return CONSTANTS.MARKETS_URL
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
 
     async def initialized_account_id(self) -> int:
         if not self._account_id:
             self._account_id = await self._get_account_id()
         return self._account_id
-
-    def restore_tracking_states(self, saved_states: Dict[str, Any]):
-        """
-        Restore in-flight orders from the saved tracking states(from local db). This is such that the connector can pick
-        up from where it left off before Hummingbot client was terminated.
-        :param saved_states: The saved tracking_states.
-        """
-        self._in_flight_orders.update({
-            client_oid: NdaxInFlightOrder.from_json(order_json)
-            for client_oid, order_json in saved_states.items()
-        })
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -199,413 +149,134 @@ class NdaxExchange(ExchangeBase):
         """
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    async def _update_trading_fees(self):
+        """
+        Update fees information from the exchange
+        """
+        pass
+
     async def _get_account_id(self) -> int:
         """
         Calls REST API to retrieve Account ID
         """
-        params = {
-            "OMSId": 1,
-            "UserId": self._auth.uid,
-            "UserName": self._auth.account_name
-        }
+        params = {"omsId": 1, "accountId": self._auth.uid}
 
         resp: List[int] = await self._api_request(
-            "GET",
             path_url=CONSTANTS.USER_ACCOUNT_INFOS_PATH_URL,
             params=params,
             is_auth_required=True,
         )
 
-        account_info = next((account_info for account_info in resp
-                             if account_info.get("AccountName") == self._auth.account_name),
-                            None)
+        account_info = next(
+            (account_info for account_info in resp if account_info.get("AccountName") == self._auth.account_name), None
+        )
         if account_info is None:
-            self.logger().error(f"There is no account named {self._auth.account_name} "
-                                f"associated with the current NDAX user")
+            self.logger().error(
+                f"There is no account named {self._auth.account_name} " f"associated with the current NDAX user"
+            )
             acc_id = None
         else:
             acc_id = int(account_info.get("AccountId"))
 
         return acc_id
 
-    def start(self, clock: Clock, timestamp: float):
-        """
-        This function is called automatically by the clock.
-        """
-        super().start(clock, timestamp)
-
-    def stop(self, clock: Clock):
-        """
-        This function is called automatically by the clock.
-        """
-        super().stop(clock)
-
-    async def start_network(self):
-        """
-        This function is required by NetworkIterator base class and is called automatically.
-        It starts tracking order book, polling trading rules,
-        updating statuses and tracking user data.
-        """
-        self.logger().warning("This exchange connector does not provide trades feed. "
-                              "Strategies which depend on it will not work properly.")
-        self.order_book_tracker.start()
-        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
-
-    async def stop_network(self):
-        """
-        This function is required by NetworkIterator base class and is called automatically.
-        """
-        self.order_book_tracker.stop()
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._trading_rules_polling_task is not None:
-            self._trading_rules_polling_task.cancel()
-            self._trading_rules_polling_task = None
-        if self._user_stream_tracker_task is not None:
-            self._user_stream_tracker_task.cancel()
-            self._user_stream_tracker_task = None
-        if self._user_stream_event_listener_task is not None:
-            self._user_stream_event_listener_task.cancel()
-            self._user_stream_event_listener_task = None
-
-    async def check_network(self) -> NetworkStatus:
-        """
-        This function is required by NetworkIterator base class and is called periodically to check
-        the network connection. Simply ping the network (or call any light weight public API).
-        """
-        try:
-            resp = await self._api_request(
-                method="GET",
-                path_url=CONSTANTS.PING_PATH_URL,
-                limit_id=CONSTANTS.HTTP_PING_ID,
-            )
-            if "msg" not in resp or resp["msg"] != "PONG":
-                raise Exception()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
-
-    async def _api_request(self,
-                           method: str,
-                           path_url: str,
-                           params: Optional[Dict[str, Any]] = None,
-                           data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           limit_id: Optional[str] = None) -> Union[Dict[str, Any], List[Any]]:
-        """
-        Sends an aiohttp request and waits for a response.
-        :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
-        :param params: The query parameters of the API request
-        :param params: The body parameters of the API request
-        :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
-        signature to the request.
-        :param limit_id: The id used for the API throttler. If not supplied, the `path_url` is used instead.
-        :returns A response in json format.
-        """
-        url = ndax_utils.rest_api_url(self._domain) + path_url
-
-        try:
-            if is_auth_required:
-                headers = self._auth.get_auth_headers()
-            else:
-                headers = self._auth.get_headers()
-
-            limit_id = limit_id or path_url
-            if method == "GET":
-                async with self._throttler.execute_task(limit_id):
-                    response = await self._shared_client.get(url, headers=headers, params=params)
-            elif method == "POST":
-                async with self._throttler.execute_task(limit_id):
-                    response = await self._shared_client.post(url, headers=headers, data=ujson.dumps(data))
-            else:
-                raise NotImplementedError(f"{method} HTTP Method not implemented. ")
-
-            data = await response.text()
-            if data == CONSTANTS.API_LIMIT_REACHED_ERROR_MESSAGE:
-                raise Exception(f"The exchange API request limit has been reached (original error '{data}')")
-
-            parsed_response = await response.json()
-
-        except ValueError as e:
-            self.logger().error(f"{str(e)}")
-            raise ValueError(f"Error authenticating request {method} {url}. Error: {str(e)}")
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200 or (isinstance(parsed_response, dict) and not parsed_response.get("result", True)):
-            self.logger().error(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                                f"Message: {parsed_response} "
-                                f"Params: {params} "
-                                f"Data: {data}")
-            raise Exception(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                            f"Message: {parsed_response} "
-                            f"Params: {params} "
-                            f"Data: {data}")
-
-        return parsed_response
-
-    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
-        """
-        Used by quantize_order_price() in _create_order()
-        Returns a price step, a minimum price increment for a given trading pair.
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        return trading_rule.min_price_increment
-
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        """
-        Used by quantize_order_price() in _create_order()
-        Returns an order amount step, a minimum amount increment for a given trading pair.
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        return Decimal(trading_rule.min_base_amount_increment)
-
     def get_order_book(self, trading_pair: str) -> OrderBook:
         if trading_pair not in self.order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return self.order_book_tracker.order_books[trading_pair]
 
-    async def _create_order(self,
-                            trade_type: TradeType,
-                            order_id: str,
-                            trading_pair: str,
-                            amount: Decimal,
-                            price: Decimal = s_decimal_0,
-                            order_type: OrderType = OrderType.MARKET):
-        """
-        Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
-        :param trade_type: BUY or SELL
-        :param order_id: Internal order id (also called client_order_id)
-        :param trading_pair: The market to place order
-        :param amount: The order amount (in base token value)
-        :param price: The order price
-        :param order_type: The order type
-        """
-        trading_rule: TradingRule = self._trading_rules[trading_pair]
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        **kwargs,
+    ) -> Tuple[str, float]:
+        params = {
+            "InstrumentId": await self.exchange_symbol_associated_to_pair(trading_pair),
+            "OMSId": 1,
+            "AccountId": await self.initialized_account_id(),
+            "ClientOrderId": int(order_id),
+            "Side": 0 if trade_type == TradeType.BUY else 1,
+            "Quantity": f"{amount:f}",
+            "TimeInForce": 1,  # GTC
+        }
 
-        trading_pair_ids: Dict[str, int] = await self.order_book_tracker.data_source.get_instrument_ids()
+        if order_type.is_limit_type():
 
-        try:
-            amount: Decimal = self.quantize_order_amount(trading_pair, amount)
-            if amount < trading_rule.min_order_size:
-                raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
-                                 f"{trading_rule.min_order_size}.")
-
-            params = {
-                "InstrumentId": trading_pair_ids[trading_pair],
-                "OMSId": 1,
-                "AccountId": await self.initialized_account_id(),
-                "ClientOrderId": int(order_id),
-                "Side": 0 if trade_type == TradeType.BUY else 1,
-                "Quantity": amount,
-                "TimeInForce": 1,  # GTC
-            }
-
-            if order_type.is_limit_type():
-                price: Decimal = self.quantize_order_price(trading_pair, price)
-
-                params.update({
+            params.update(
+                {
                     "OrderType": 2,  # Limit
-                    "LimitPrice": price,
-                })
-            else:
-                params.update({
-                    "OrderType": 1  # Market
-                })
+                    "LimitPrice": f"{price:f}",
+                }
+            )
+        else:
+            params.update({"OrderType": 1})  # Market
 
-            self.start_tracking_order(order_id,
-                                      None,
-                                      trading_pair,
-                                      trade_type,
-                                      price,
-                                      amount,
-                                      order_type
-                                      )
+        send_order_results = await self._api_post(
+            path_url=CONSTANTS.SEND_ORDER_PATH_URL, data=params, is_auth_required=True
+        )
 
-            send_order_results = await self._api_request(
-                method="POST",
-                path_url=CONSTANTS.SEND_ORDER_PATH_URL,
-                data=params,
-                is_auth_required=True
+        if send_order_results["status"] == "Rejected":
+            raise ValueError(
+                f"Order is rejected by the API. " f"Parameters: {params} Error Msg: {send_order_results['errormsg']}"
             )
 
-            if send_order_results["status"] == "Rejected":
-                raise ValueError(f"Order is rejected by the API. "
-                                 f"Parameters: {params} Error Msg: {send_order_results['errormsg']}")
+        exchange_order_id = str(send_order_results["OrderId"])
+        return exchange_order_id, self._time_synchronizer.time()
 
-            exchange_order_id = str(send_order_results["OrderId"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
-
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.stop_tracking_order(order_id)
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
-            self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to NDAX for "
-                f"{amount} {trading_pair} {price}. Error: {str(e)}",
-                exc_info=True,
-                app_warning_msg="Error submitting order to NDAX. "
-            )
-
-    def trigger_order_created_event(self, order: NdaxInFlightOrder):
-        event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-        event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
-        self.trigger_event(event_tag,
-                           event_class(
-                               self.current_timestamp,
-                               order.order_type,
-                               order.trading_pair,
-                               order.amount,
-                               order.price,
-                               order.client_order_id,
-                               order.creation_timestamp,
-                               exchange_order_id=order.exchange_order_id
-                           ))
-
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
-            price: Decimal = s_decimal_NaN, **kwargs) -> str:
-        """
-        Buys an amount of base asset as specified in the trading pair. This function returns immediately.
-        To see an actual order, wait for a BuyOrderCreatedEvent.
-        :param trading_pair: The market (e.g. BTC-CAD) to buy from
-        :param amount: The amount in base token value
-        :param order_type: The order type
-        :param price: The price in which the order is to be placed at
-        :returns A new client order id
-        """
-        order_id: str = ndax_utils.get_new_client_order_id(True, trading_pair)
-        safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
-                                              trading_pair=trading_pair,
-                                              order_id=order_id,
-                                              amount=amount,
-                                              price=price,
-                                              order_type=order_type,
-                                              ))
-        return order_id
-
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
-             price: Decimal = s_decimal_NaN, **kwargs) -> str:
-        """
-        Sells an amount of base asset as specified in the trading pair. This function returns immediately.
-        To see an actual order, wait for a BuyOrderCreatedEvent.
-        :param trading_pair: The market (e.g. BTC-CAD) to buy from
-        :param amount: The amount in base token value
-        :param order_type: The order type
-        :param price: The price in which the order is to be placed at
-        :returns A new client order id
-        """
-        order_id: str = ndax_utils.get_new_client_order_id(False, trading_pair)
-        safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
-                                              trading_pair=trading_pair,
-                                              order_id=order_id,
-                                              amount=amount,
-                                              price=price,
-                                              order_type=order_type,
-                                              ))
-        return order_id
-
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         """
         To determine if an order is successfully canceled, we either call the
         GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
         :param trading_pair: The market (e.g. BTC-CAD) the order is in.
         :param order_id: The client_order_id of the order to be cancelled.
         """
-        try:
-            tracked_order: Optional[NdaxInFlightOrder] = self._in_flight_orders.get(order_id, None)
-            if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not being tracked.")
-            if tracked_order.is_locally_working:
-                raise NdaxInFlightOrderNotCreated(
-                    f"Failed to cancel order - {order_id}. Order not yet created."
-                    f" This is most likely due to rate-limiting."
-                )
+        body_params = {
+            "OMSId": 1,
+            "AccountId": await self.initialized_account_id(),
+            "OrderId": await tracked_order.get_exchange_order_id(),
+        }
 
-            body_params = {
-                "OMSId": 1,
-                "AccountId": await self.initialized_account_id(),
-                "OrderId": await tracked_order.get_exchange_order_id()
-            }
+        # The API response simply verifies that the API request have been received by the API servers.
+        response = await self._api_post(
+            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL, data=body_params, is_auth_required=True
+        )
 
-            # The API response simply verifies that the API request have been received by the API servers.
-            await self._api_request(
-                method="POST",
-                path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
-                data=body_params,
-                is_auth_required=True
-            )
-
-            return order_id
-
-        except asyncio.CancelledError:
-            raise
-        except NdaxInFlightOrderNotCreated:
-            raise
-        except Exception as e:
-            self.logger().error(f"Failed to cancel order {order_id}: {str(e)}")
-            self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
-                                f"Check API key and network connection."
-            )
-            if RESOURCE_NOT_FOUND_ERR in str(e):
-                self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
-                if self._order_not_found_records[order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
-                    self.logger().warning(f"Order {order_id} does not seem to be active, will stop tracking order...")
-                    self.stop_tracking_order(order_id)
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, order_id))
-
-    def cancel(self, trading_pair: str, order_id: str):
-        """
-        Cancel an order. This function returns immediately.
-        An Order is only determined to be cancelled when a OrderCancelledEvent is received.
-        :param trading_pair: The market (e.g. BTC-CAD) of the order.
-        :param order_id: The client_order_id of the order to be cancelled.
-        """
-        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
-        return order_id
+        return response.get("result", False)
 
     async def get_open_orders(self) -> List[OpenOrder]:
         query_params = {
             "OMSId": 1,
             "AccountId": await self.initialized_account_id(),
         }
-        open_orders: List[Dict[str, Any]] = await self._api_request(method="GET",
-                                                                    path_url=CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
-                                                                    params=query_params,
-                                                                    is_auth_required=True)
+        open_orders: List[Dict[str, Any]] = await self._api_request(
+            path_url=CONSTANTS.GET_OPEN_ORDERS_PATH_URL, params=query_params, is_auth_required=True
+        )
 
         trading_pair_id_map: Dict[str, int] = await self.order_book_tracker.data_source.get_instrument_ids()
-        id_trading_pair_map: Dict[int, str] = {instrument_id: trading_pair
-                                               for trading_pair, instrument_id in trading_pair_id_map.items()}
+        id_trading_pair_map: Dict[int, str] = {
+            instrument_id: trading_pair for trading_pair, instrument_id in trading_pair_id_map.items()
+        }
 
-        return [OpenOrder(client_order_id=order["ClientOrderId"],
-                          trading_pair=id_trading_pair_map[order["Instrument"]],
-                          price=Decimal(str(order["Price"])),
-                          amount=Decimal(str(order["Quantity"])),
-                          executed_amount=Decimal(str(order["QuantityExecuted"])),
-                          status=order["OrderState"],
-                          order_type=OrderType.LIMIT if order["OrderType"] == "Limit" else OrderType.MARKET,
-                          is_buy=True if order["Side"] == "Buy" else False,
-                          time=order["ReceiveTime"],
-                          exchange_order_id=order["OrderId"],
-                          )
-                for order in open_orders]
+        return [
+            OpenOrder(
+                client_order_id=order["ClientOrderId"],
+                trading_pair=id_trading_pair_map[order["Instrument"]],
+                price=Decimal(str(order["Price"])),
+                amount=Decimal(str(order["Quantity"])),
+                executed_amount=Decimal(str(order["QuantityExecuted"])),
+                status=order["OrderState"],
+                order_type=OrderType.LIMIT if order["OrderType"] == "Limit" else OrderType.MARKET,
+                is_buy=True if order["Side"] == "Buy" else False,
+                time=order["ReceiveTime"],
+                exchange_order_id=order["OrderId"],
+            )
+            for order in open_orders
+        ]
 
     async def cancel_all(self, timeout_sec: float) -> List[CancellationResult]:
         """
@@ -620,8 +291,7 @@ class NdaxExchange(ExchangeBase):
         tracked_orders = self.in_flight_orders
         try:
             for order in tracked_orders.values():
-                self.cancel(trading_pair=order.trading_pair,
-                            order_id=order.client_order_id)
+                self.cancel(trading_pair=order.trading_pair, order_id=order.client_order_id)
 
             open_orders = await self.get_open_orders()
 
@@ -629,8 +299,9 @@ class NdaxExchange(ExchangeBase):
                 matched_order = [o for o in open_orders if o.client_order_id == client_oid]
                 if not matched_order:
                     cancellation_results.append(CancellationResult(client_oid, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, client_oid))
+                    self.trigger_event(
+                        MarketEvent.OrderCancelled, OrderCancelledEvent(self.current_timestamp, client_oid)
+                    )
                 else:
                     cancellation_results.append(CancellationResult(client_oid, False))
 
@@ -638,7 +309,7 @@ class NdaxExchange(ExchangeBase):
             self.logger().network(
                 f"Failed to cancel all orders ({ex})",
                 exc_info=True,
-                app_warning_msg="Failed to cancel all orders on NDAX. Check API key and network connection."
+                app_warning_msg="Failed to cancel all orders on NDAX. Check API key and network connection.",
             )
         return cancellation_results
 
@@ -653,25 +324,19 @@ class NdaxExchange(ExchangeBase):
             try:
                 trading_pair = f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}"
 
-                result[trading_pair] = TradingRule(trading_pair=trading_pair,
-                                                   min_order_size=Decimal(str(instrument["MinimumQuantity"])),
-                                                   min_price_increment=Decimal(str(instrument["PriceIncrement"])),
-                                                   min_base_amount_increment=Decimal(str(instrument["QuantityIncrement"])),
-                                                   )
+                result[trading_pair] = TradingRule(
+                    trading_pair=trading_pair,
+                    min_order_size=Decimal(str(instrument["MinimumQuantity"])),
+                    min_price_increment=Decimal(str(instrument["PriceIncrement"])),
+                    min_base_amount_increment=Decimal(str(instrument["QuantityIncrement"])),
+                )
             except Exception:
-                self.logger().error(f"Error parsing the trading pair rule: {instrument}. Skipping...",
-                                    exc_info=True)
+                self.logger().error(f"Error parsing the trading pair rule: {instrument}. Skipping...", exc_info=True)
         return result
 
     async def _update_trading_rules(self):
-        params = {
-            "OMSId": 1
-        }
-        instrument_info: List[Dict[str, Any]] = await self._api_request(
-            method="GET",
-            path_url=CONSTANTS.MARKETS_URL,
-            params=params
-        )
+        params = {"OMSId": 1}
+        instrument_info: List[Dict[str, Any]] = await self._api_request(path_url=CONSTANTS.MARKETS_URL, params=params)
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(instrument_info)
 
@@ -686,10 +351,11 @@ class NdaxExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from NDAX. "
-                                      "Check network connection.")
+                self.logger().network(
+                    f"Unexpected error while fetching trading rules. Error: {str(e)}",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch new trading rules from NDAX. " "Check network connection.",
+                )
                 await asyncio.sleep(0.5)
 
     async def _update_balances(self):
@@ -699,21 +365,16 @@ class NdaxExchange(ExchangeBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        params = {
-            "OMSId": 1,
-            "AccountId": await self.initialized_account_id()
-        }
+        params = {"OMSId": 1, "AccountId": await self.initialized_account_id()}
         account_positions: List[Dict[str, Any]] = await self._api_request(
-            method="GET",
-            path_url=CONSTANTS.ACCOUNT_POSITION_PATH_URL,
-            params=params,
-            is_auth_required=True
+            path_url=CONSTANTS.ACCOUNT_POSITION_PATH_URL, params=params, is_auth_required=True
         )
         for position in account_positions:
             asset_name = position["ProductSymbol"]
             self._account_balances[asset_name] = Decimal(str(position["Amount"]))
             self._account_available_balances[asset_name] = self._account_balances[asset_name] - Decimal(
-                str(position["Hold"]))
+                str(position["Hold"])
+            )
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -721,201 +382,30 @@ class NdaxExchange(ExchangeBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def start_tracking_order(self,
-                             order_id: str,
-                             exchange_order_id: Optional[str],
-                             trading_pair: str,
-                             trade_type: TradeType,
-                             price: Decimal,
-                             amount: Decimal,
-                             order_type: OrderType):
-        """
-        Starts tracking an order by simply adding it into _in_flight_orders dictionary.
-        """
-        self._in_flight_orders[order_id] = NdaxInFlightOrder(
-            client_order_id=order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,
-            order_type=order_type,
-            trade_type=trade_type,
-            price=price,
-            amount=amount,
-            creation_timestamp=self.current_timestamp
-        )
-
-    def stop_tracking_order(self, order_id: str):
-        """
-        Stops tracking an order by simply removing it from _in_flight_orders dictionary.
-        """
-        if order_id in self._in_flight_orders:
-            del self._in_flight_orders[order_id]
-
-    async def _update_order_status(self):
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
         Calls REST API to get order status
         """
-        # Waiting on buy and sell functionality.
-        active_orders: List[NdaxInFlightOrder] = [
-            o for o in self._in_flight_orders.values()
-            if not o.is_locally_working
-        ]
-        if len(active_orders) == 0:
-            return
+        query_params = {
+            "OMSId": 1,
+            "AccountId": await self.initialized_account_id(),
+            "OrderId": int(await tracked_order.get_exchange_order_id()),
+        }
 
-        tasks = []
-        for active_order in active_orders:
-            ex_order_id: Optional[str] = None
-            try:
-                ex_order_id = await active_order.get_exchange_order_id()
-            except asyncio.TimeoutError:
-                # We assume that tracked orders without an exchange order id is an order that failed to be created.
-                self._order_not_found_records[active_order.client_order_id] = self._order_not_found_records.get(active_order.client_order_id, 0) + 1
-                self.logger().debug(f"Tracker order {active_order.client_order_id} does not have an exchange id."
-                                    f"Attempting fetch in next polling interval")
-                if self._order_not_found_records[active_order.client_order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
-                    self.logger().info(f"Order {active_order.client_order_id} does not seem to be active, will stop tracking order...")
-                    self.stop_tracking_order(active_order.client_order_id)
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, active_order.client_order_id))
-                continue
+        updated_order_data = await self._api_get(
+            path_url=CONSTANTS.GET_ORDER_STATUS_PATH_URL, params=query_params, is_auth_required=True
+        )
 
-            query_params = {
-                "OMSId": 1,
-                "AccountId": await self.initialized_account_id(),
-                "OrderId": int(ex_order_id),
-            }
+        new_state = CONSTANTS.ORDER_STATE[updated_order_data["OrderState"]]
 
-            tasks.append(
-                asyncio.create_task(self._api_request(method="GET",
-                                                      path_url=CONSTANTS.GET_ORDER_STATUS_PATH_URL,
-                                                      params=query_params,
-                                                      is_auth_required=True,
-                                                      )))
-        self.logger().debug(f"Polling for order status updates of {len(tasks)} orders. ")
-
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
-
-        # Initial parsing of responses. Removes Exceptions.
-        parsed_status_responses: List[Dict[str, Any]] = []
-        for resp in raw_responses:
-            if not isinstance(resp, Exception):
-                parsed_status_responses.append(resp)
-            else:
-                self.logger().error(f"Error fetching order status. Response: {resp}")
-
-        if len(parsed_status_responses) == 0:
-            return
-
-        min_ts: int = min([int(order_status["ReceiveTime"])
-                           for order_status in parsed_status_responses])
-
-        trade_history_tasks = []
-        trading_pair_ids: Dict[str, int] = await self.order_book_tracker.data_source.get_instrument_ids()
-
-        for trading_pair in self._trading_pairs:
-            body_params = {
-                "OMSId": 1,
-                "AccountId": await self.initialized_account_id(),
-                "UserId": self._auth.uid,
-                "InstrumentId": trading_pair_ids[trading_pair],
-                "StartTimestamp": min_ts,
-            }
-            trade_history_tasks.append(
-                asyncio.create_task(self._api_request(method="POST",
-                                                      path_url=CONSTANTS.GET_TRADES_HISTORY_PATH_URL,
-                                                      data=body_params,
-                                                      is_auth_required=True)))
-
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
-
-        # Initial parsing of responses. Joining all the responses
-        parsed_history_resps: List[Dict[str, Any]] = []
-        for resp in raw_responses:
-            if not isinstance(resp, Exception):
-                parsed_history_resps.extend(resp)
-            else:
-                self.logger().error(f"Error fetching trades history. Response: {resp}")
-
-        # Trade updates must be handled before any order status updates.
-        for trade in parsed_history_resps:
-            self._process_trade_event_message(trade)
-
-        for order_status in parsed_status_responses:
-            self._process_order_event_message(order_status)
-
-    def _reset_poll_notifier(self):
-        self._poll_notifier = asyncio.Event()
-
-    async def _status_polling_loop(self):
-        """
-        Periodically update user balances and order status via REST API. This serves as a fallback measure for web
-        socket API updates.
-        """
-        while True:
-            try:
-                self._reset_poll_notifier()
-                await self._poll_notifier.wait()
-                start_ts = self.current_timestamp
-                await safe_gather(
-                    self._update_balances(),
-                    self._update_order_status(),
-                )
-                self._last_poll_timestamp = start_ts
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(f"Unexpected error while in status polling loop. Error: {str(e)}", exc_info=True)
-                self.logger().network("Unexpected error while fetching account updates.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from NDAX. "
-                                                      "Check API key and network connection.")
-                await asyncio.sleep(0.5)
-
-    def tick(self, timestamp: float):
-        """
-        Is called automatically by the clock for each clock tick(1 second by default).
-        It checks if a status polling task is due for execution.
-        """
-        now = time.time()
-        poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self._user_stream_tracker.last_recv_time > 60.0
-                         else self.LONG_POLL_INTERVAL)
-        last_tick = int(self._last_timestamp / poll_interval)
-        current_tick = int(timestamp / poll_interval)
-        if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
-        self._last_timestamp = timestamp
-
-    def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: Decimal,
-                price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        """
-        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
-        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
-        maker order.
-        """
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
-
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
-        while True:
-            try:
-                yield await self._user_stream_tracker.user_stream.get()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from NDAX. Check API key and network connection."
-                )
-                await asyncio.sleep(1.0)
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=str(updated_order_data["OrderId"]),
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=self._time_synchronizer.time(),
+            new_state=new_state,
+        )
+        return order_update
 
     async def _user_stream_event_listener(self):
         """
@@ -945,40 +435,7 @@ class NdaxExchange(ExchangeBase):
         amount = Decimal(str(account_position_event["Amount"]))
         on_hold = Decimal(str(account_position_event["Hold"]))
         self._account_balances[token] = amount
-        self._account_available_balances[token] = (amount - on_hold)
-
-    def _process_order_event_message(self, order_msg: Dict[str, Any]):
-        """
-        Updates in-flight order and triggers cancellation or failure event if needed.
-        :param order_msg: The order event message payload
-        """
-        client_order_id = str(order_msg["ClientOrderId"])
-        if client_order_id in self.in_flight_orders:
-            tracked_order = self.in_flight_orders[client_order_id]
-            was_locally_working = tracked_order.is_locally_working
-
-            # Update order execution status
-            tracked_order.last_state = order_msg["OrderState"]
-
-            if was_locally_working and tracked_order.is_working:
-                self.trigger_order_created_event(tracked_order)
-            elif tracked_order.is_cancelled:
-                self.logger().info(f"Successfully canceled order {client_order_id}")
-                self.trigger_event(MarketEvent.OrderCancelled,
-                                   OrderCancelledEvent(
-                                       self.current_timestamp,
-                                       client_order_id))
-                self.stop_tracking_order(client_order_id)
-            elif tracked_order.is_failure:
-                self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
-                                   f"Reason: {order_msg['ChangeReason']}")
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(
-                                       self.current_timestamp,
-                                       client_order_id,
-                                       tracked_order.order_type
-                                   ))
-                self.stop_tracking_order(client_order_id)
+        self._account_available_balances[token] = amount - on_hold
 
     def _process_trade_event_message(self, order_msg: Dict[str, Any]):
         """
@@ -995,14 +452,17 @@ class NdaxExchange(ExchangeBase):
             if updated:
                 trade_amount = Decimal(str(order_msg["Quantity"]))
                 trade_price = Decimal(str(order_msg["Price"]))
-                trade_fee = self.get_fee(base_currency=tracked_order.base_asset,
-                                         quote_currency=tracked_order.quote_asset,
-                                         order_type=tracked_order.order_type,
-                                         order_side=tracked_order.trade_type,
-                                         amount=trade_amount,
-                                         price=trade_price)
-                amount_for_fee = (trade_amount if tracked_order.trade_type is TradeType.BUY
-                                  else trade_amount * trade_price)
+                trade_fee = self.get_fee(
+                    base_currency=tracked_order.base_asset,
+                    quote_currency=tracked_order.quote_asset,
+                    order_type=tracked_order.order_type,
+                    order_side=tracked_order.trade_type,
+                    amount=trade_amount,
+                    price=trade_price,
+                )
+                amount_for_fee = (
+                    trade_amount if tracked_order.trade_type is TradeType.BUY else trade_amount * trade_price
+                )
                 tracked_order.fee_paid += amount_for_fee * trade_fee.percent
 
                 self.trigger_event(
@@ -1016,41 +476,136 @@ class NdaxExchange(ExchangeBase):
                         trade_price,
                         trade_amount,
                         trade_fee,
-                        exchange_trade_id=str(order_msg["TradeId"])
-                    )
+                        exchange_trade_id=str(order_msg["TradeId"]),
+                    ),
                 )
-                if (math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or
-                        tracked_order.executed_amount_base >= tracked_order.amount):
+                if (
+                    math.isclose(tracked_order.executed_amount_base, tracked_order.amount)
+                    or tracked_order.executed_amount_base >= tracked_order.amount
+                ):
                     tracked_order.mark_as_filled()
-                    self.logger().info(f"The {tracked_order.trade_type.name} order "
-                                       f"{tracked_order.client_order_id} has completed "
-                                       f"according to order status API")
-                    event_tag = (MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY
-                                 else MarketEvent.SellOrderCompleted)
-                    event_class = (BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY
-                                   else SellOrderCompletedEvent)
-                    self.trigger_event(event_tag,
-                                       event_class(self.current_timestamp,
-                                                   tracked_order.client_order_id,
-                                                   tracked_order.base_asset,
-                                                   tracked_order.quote_asset,
-                                                   tracked_order.executed_amount_base,
-                                                   tracked_order.executed_amount_quote,
-                                                   tracked_order.order_type,
-                                                   tracked_order.exchange_order_id))
+                    self.logger().info(
+                        f"The {tracked_order.trade_type.name} order "
+                        f"{tracked_order.client_order_id} has completed "
+                        f"according to order status API"
+                    )
+                    event_tag = (
+                        MarketEvent.BuyOrderCompleted
+                        if tracked_order.trade_type is TradeType.BUY
+                        else MarketEvent.SellOrderCompleted
+                    )
+                    event_class = (
+                        BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY else SellOrderCompletedEvent
+                    )
+                    self.trigger_event(
+                        event_tag,
+                        event_class(
+                            self.current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.base_asset,
+                            tracked_order.quote_asset,
+                            tracked_order.executed_amount_base,
+                            tracked_order.executed_amount_quote,
+                            tracked_order.order_type,
+                            tracked_order.exchange_order_id,
+                        ),
+                    )
                     self.stop_tracking_order(tracked_order.client_order_id)
 
-    async def all_trading_pairs(self) -> List[str]:
-        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
-        return await NdaxAPIOrderBookDataSource.fetch_trading_pairs(
-            domain=self._domain,
-            throttler=self._throttler,
+    async def _make_trading_pairs_request(self) -> Any:
+        exchange_info = await self._api_get(path_url=self.trading_pairs_request_path, params={"OMSId": 1})
+        return exchange_info
+
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
+        body_params = {
+            "OMSId": 1,
+            "AccountId": await self.initialized_account_id(),
+            "UserId": self._auth.uid,
+            "InstrumentId": await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair),
+            "orderId": await order.get_exchange_order_id(),
+        }
+
+        raw_responses: List[Dict[str, Any]] = await self._api_get(
+            path_url=CONSTANTS.GET_TRADES_HISTORY_PATH_URL,
+            params=body_params,
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_TRADES_HISTORY_PATH_URL,
         )
 
-    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
-        # This method should be removed and instead we should implement _get_last_traded_price
-        return await NdaxAPIOrderBookDataSource.get_last_traded_prices(
-            trading_pairs=trading_pairs,
-            domain=self._domain,
-            throttler=self._throttler,
-            shared_client=self._shared_client)
+        for trade in raw_responses:
+            fee = TradeFeeBase.new_spot_fee(
+                fee_schema=self.trade_fee_schema(),
+                trade_type=order.trade_type,
+                flat_fees=[
+                    TokenAmount(amount=Decimal(trade["fee"]), token=self._product_id_map[trade["feeProductId"]])
+                ],
+            )
+            trade_update = TradeUpdate(
+                trade_id=str(trade["id"]),
+                client_order_id=order.client_order_id,
+                exchange_order_id=order.exchange_order_id,
+                trading_pair=order.trading_pair,
+                fee=fee,
+                fill_base_amount=Decimal(trade["quantity"]),
+                fill_quote_amount=Decimal(trade["quantity"]) * Decimal(trade["price"]),
+                fill_price=Decimal(trade["price"]),
+                fill_timestamp=trade["tradeTime"],
+            )
+            trade_updates.append(trade_update)
+
+        return trade_updates
+
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        return NdaxAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            domain=self.domain,
+            api_factory=self._web_assistants_factory,
+        )
+
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return NdaxAPIUserStreamDataSource(
+            auth=self._auth,
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            api_factory=self._web_assistants_factory,
+            domain=self.domain,
+        )
+
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return web_utils.build_api_factory(
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
+        )
+
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
+
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(ndax_utils.is_exchange_information_valid, exchange_info):
+            mapping[symbol_data["instrumentId"]] = combine_to_hb_trading_pair(
+                base=symbol_data["product1Symbol"], quote=symbol_data["product2Symbol"]
+            )
+            self._product_id_map[symbol_data["product1Symbol"]] = symbol_data["product1"]
+            self._product_id_map[symbol_data["product2Symbol"]] = symbol_data["product2"]
+        self._set_trading_pair_symbol_map(mapping)
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return str(RESOURCE_NOT_FOUND_ERR) in str(cancelation_exception)
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(RESOURCE_NOT_FOUND_ERR) in str(status_update_exception)
+
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        return False

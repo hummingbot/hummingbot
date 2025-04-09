@@ -1,12 +1,11 @@
-import aiohttp
 import asyncio
 from enum import Enum
-from typing import AsyncIterable, Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 import ujson
 
-import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class NdaxMessageType(Enum):
@@ -38,14 +37,12 @@ class NdaxWebSocketAdaptor:
 
     def __init__(
         self,
-        throttler: AsyncThrottler,
-        websocket: aiohttp.ClientWebSocketResponse,
+        websocket: WSAssistant,
         previous_messages_number: int = 0,
     ):
         self._websocket = websocket
         self._messages_counter = previous_messages_number
         self._lock = asyncio.Lock()
-        self._throttler = throttler
 
     @classmethod
     def endpoint_from_raw_message(cls, raw_message: str) -> str:
@@ -74,35 +71,25 @@ class NdaxWebSocketAdaptor:
 
     async def send_request(self, endpoint_name: str, payload: Dict[str, Any], limit_id: Optional[str] = None):
         message_number = await self.next_message_number()
-        message = {self._message_type_field_name: NdaxMessageType.REQUEST_TYPE.value,
-                   self._message_number_field_name: message_number,
-                   self._endpoint_field_name: endpoint_name,
-                   self._payload_field_name: ujson.dumps(payload)}
+        message = {
+            self._message_type_field_name: NdaxMessageType.REQUEST_TYPE.value,
+            self._message_number_field_name: message_number,
+            self._endpoint_field_name: endpoint_name,
+            self._payload_field_name: ujson.dumps(payload),
+        }
 
-        limit_id = limit_id or endpoint_name
-        async with self._throttler.execute_task(limit_id):
-            await self._websocket.send_json(message)
+        message_request: WSJSONRequest = WSJSONRequest(payload=message)
 
-    async def receive(self):
-        return await self._websocket.receive()
+        await self._websocket.send(message_request)
 
-    async def iter_messages(self) -> AsyncIterable[str]:
-        try:
-            while True:
-                try:
-                    raw_msg = await asyncio.wait_for(self.receive(), timeout=self.MESSAGE_TIMEOUT)
-                    if raw_msg.type == aiohttp.WSMsgType.CLOSED:
-                        raise ConnectionError
-                    yield raw_msg.data
-                except asyncio.TimeoutError:
-                    await asyncio.wait_for(
-                        self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}, limit_id=CONSTANTS.WS_PING_ID),
-                        timeout=self.PING_TIMEOUT
-                    )
-        except ConnectionError:
-            return
-        finally:
-            await self.close()
+    async def process_websocket_messages(self, queue: asyncio.Queue):
+        async for ws_response in self._websocket.iter_messages():
+            data = ws_response.data
+            await self._process_event_message(event_message=data, queue=queue)
+
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        if len(event_message) > 0:
+            queue.put_nowait(event_message)
 
     async def close(self):
         if self._websocket is not None:
