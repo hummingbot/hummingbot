@@ -3,7 +3,7 @@ import logging
 from decimal import Decimal
 from typing import Dict, Optional, Set
 
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel
 
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType

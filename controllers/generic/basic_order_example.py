@@ -8,15 +8,15 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 
 class BasicOrderExampleConfig(ControllerConfigBase):
-    controller_name = "basic_order_example"
-    controller_type = "generic"
-    connector_name = "binance_perpetual"
-    trading_pair = "WLD-USDT"
-    side = TradeType.BUY
-    position_mode = PositionMode.HEDGE
-    leverage = 50
-    amount_quote = Decimal("10")
-    order_frequency = 10
+    controller_name: str = "basic_order_example"
+    controller_type: str = "generic"
+    connector_name: str = "binance_perpetual"
+    trading_pair: str = "WLD-USDT"
+    side: TradeType = TradeType.BUY
+    position_mode: PositionMode = PositionMode.HEDGE
+    leverage: int = 50
+    amount_quote: Decimal = Decimal("10")
+    order_frequency: int = 10
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.connector_name not in markets:

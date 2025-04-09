@@ -7,10 +7,10 @@ from typing import Callable, Dict, List, Optional, Set
 
 import pandas as pd
 import yaml
-from pydantic.v1 import Field, validator
+from pydantic import Field, field_validator
 
 from hummingbot.client import settings
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -40,41 +40,28 @@ class StrategyV2ConfigBase(BaseClientModel):
     Base class for version 2 strategy configurations.
     """
     markets: Dict[str, Set[str]] = Field(
-        default="binance_perpetual.JASMY-USDT,RLC-USDT",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: (
-                "Enter markets in format 'exchange1.tp1,tp2:exchange2.tp1,tp2':"
-            )
-        )
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter markets in format 'exchange1.tp1,tp2:exchange2.tp1,tp2':",
+            "prompt_on_new": True}
     )
     candles_config: List[CandlesConfig] = Field(
-        default="binance_perpetual.JASMY-USDT.1m.500:binance_perpetual.RLC-USDT.1m.500",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: (
-                "Enter candle configs in format 'exchange1.tp1.interval1.max_records:"
-                "exchange2.tp2.interval2.max_records':"
-            )
-        )
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter candle configs in format 'exchange1.tp1.interval1.max_records:exchange2.tp2.interval2.max_records':",
+            "prompt_on_new": True,
+        }
     )
     controllers_config: List[str] = Field(
-        default=None,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter controller configurations (comma-separated file paths), leave it empty if none: "
-        ))
-    config_update_interval: int = Field(
-        default=60,
-        gt=0,
-        client_data=ClientFieldData(
-            prompt_on_new=False,
-            prompt=lambda mi: "Enter the config update interval in seconds (e.g. 60): ",
-        )
+        default=[],
+        json_schema_extra={
+            "prompt": "Enter controller configurations (comma-separated file paths), leave it empty if none: ",
+            "prompt_on_new": True,
+        }
     )
 
-    @validator("controllers_config", pre=True, always=True)
+    @field_validator("controllers_config", mode="before")
+    @classmethod
     def parse_controllers_config(cls, v):
         # Parse string input into a list of file pathsq
         if isinstance(v, str):
@@ -113,7 +100,8 @@ class StrategyV2ConfigBase(BaseClientModel):
 
         return loaded_configs
 
-    @validator('markets', pre=True)
+    @field_validator('markets', mode="before")
+    @classmethod
     def parse_markets(cls, v) -> Dict[str, Set[str]]:
         if isinstance(v, str):
             return cls.parse_markets_str(v)
@@ -135,7 +123,8 @@ class StrategyV2ConfigBase(BaseClientModel):
                 markets_dict[exchange_name] = set(trading_pairs.split(','))
         return markets_dict
 
-    @validator('candles_config', pre=True)
+    @field_validator('candles_config', mode="before")
+    @classmethod
     def parse_candles_config(cls, v) -> List[CandlesConfig]:
         if isinstance(v, str):
             return cls.parse_candles_config_str(v)
@@ -177,6 +166,7 @@ class StrategyV2Base(ScriptStrategyBase):
     _last_config_update_ts: float = 0
     closed_executors_buffer: int = 100
     max_executors_close_attempts: int = 10
+    config_update_interval: int = 10
 
     @classmethod
     def init_markets(cls, config: StrategyV2ConfigBase):
@@ -231,7 +221,7 @@ class StrategyV2Base(ScriptStrategyBase):
         """
         Update the controllers configurations based on the provided configuration.
         """
-        if self._last_config_update_ts + self.config.config_update_interval < self.current_timestamp:
+        if self._last_config_update_ts + self.config_update_interval < self.current_timestamp:
             self._last_config_update_ts = self.current_timestamp
             controllers_configs = self.config.load_controller_configs()
             for controller_config in controllers_configs:

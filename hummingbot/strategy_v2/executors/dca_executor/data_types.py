@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -13,7 +13,7 @@ class DCAMode(Enum):
 
 
 class DCAExecutorConfig(ExecutorConfigBase):
-    type: str = "dca_executor"
+    type: Literal["dca_executor"] = "dca_executor"
     connector_name: str
     trading_pair: str
     side: TradeType

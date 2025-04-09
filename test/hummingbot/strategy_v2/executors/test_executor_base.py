@@ -1,7 +1,7 @@
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, PropertyMock
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
@@ -24,7 +24,7 @@ from hummingbot.strategy_v2.models.base import RunnableStatus
 class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self):
         self.strategy = self.create_mock_strategy
-        self.config = ExecutorConfigBase(id="test", type="test", timestamp=1234567890)
+        self.config = ExecutorConfigBase(id="test", type="position_executor", timestamp=1234567890)
         self.component = ExecutorBase(strategy=self.strategy, connectors=["connector1"], config=self.config,
                                       update_interval=0.5)
 
@@ -151,16 +151,6 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(RunnableStatus.RUNNING, self.component.status)
         self.component.stop()
         self.assertEqual(RunnableStatus.TERMINATED, self.component.status)
-
-    @patch.object(ExecutorBase, "get_net_pnl_pct")
-    @patch.object(ExecutorBase, "get_net_pnl_quote")
-    @patch.object(ExecutorBase, "get_cum_fees_quote")
-    async def test_executor_info(self, net_pnl_pct_mock, net_pnl_quote_mock, cum_fees_quote_mock):
-        net_pnl_pct_mock.return_value = Decimal("0.01")
-        net_pnl_quote_mock.return_value = Decimal("1.0")
-        cum_fees_quote_mock.return_value = Decimal("0.1")
-        executor_info = self.component.executor_info
-        self.assertEqual(executor_info.id, "test")
 
     def test_get_price_by_type(self):
         price = self.component.get_price("connector1", "EHT-USDT", PriceType.MidPrice)

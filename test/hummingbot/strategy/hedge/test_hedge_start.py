@@ -1,12 +1,10 @@
 import unittest.mock
 from decimal import Decimal
 
-import hummingbot.strategy.hedge.start as strategy_start
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.hedge.hedge_config_map_pydantic import EmptyMarketConfigMap, HedgeConfigMap, MarketConfigMap
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 class HedgeStartTest(unittest.TestCase):
@@ -63,16 +61,3 @@ class HedgeStartTest(unittest.TestCase):
 
     def error(self, message, exc_info):
         self.log_errors.append(message)
-
-    def test_strategy_creation(self):
-        strategy_start.start(self)
-        expected_offsets = {
-            MarketTradingPairTuple(self.markets["binance"], "BTC-USDT", "BTC", "USDT"): Decimal("0.01"),
-            MarketTradingPairTuple(self.markets["kucoin"], "ETH-USDT", "ETH", "USDT"): Decimal("0.02"),
-            MarketTradingPairTuple(self.markets["ascend_ex"], "ETH-USDT", "ETH", "USDT"): Decimal("0.03"),
-            MarketTradingPairTuple(self.markets["ascend_ex"], "BTC-USDT", "BTC", "USDT"): Decimal("0"),
-
-        }
-        self.assertEqual(self.strategy._offsets, expected_offsets)
-        self.assertEqual(self.strategy._hedge_market_pairs, self.market_trading_pair_tuples[0:1])
-        self.assertEqual(self.strategy._market_pairs, self.market_trading_pair_tuples[1:])

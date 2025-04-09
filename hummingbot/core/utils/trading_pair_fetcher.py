@@ -29,7 +29,7 @@ class TradingPairFetcher:
     def __init__(self, client_config_map: ClientConfigAdapter):
         self.ready = False
         self.trading_pairs: Dict[str, Any] = {}
-        self.fetch_pairs_from_all_exchanges = client_config_map.fetch_pairs_from_all_exchanges
+        self.fetch_pairs_from_all_exchanges = client_config_map.hb_config.fetch_pairs_from_all_exchanges
         self._fetch_task = safe_ensure_future(self.fetch_all(client_config_map))
 
     def _fetch_pairs_from_connector_setting(

@@ -1,7 +1,7 @@
 import unittest
 from decimal import Decimal
 
-from pydantic.v1 import SecretStr
+from pydantic import SecretStr
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import (

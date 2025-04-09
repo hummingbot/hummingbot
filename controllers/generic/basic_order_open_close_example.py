@@ -8,17 +8,17 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 
 class BasicOrderOpenCloseExampleConfig(ControllerConfigBase):
-    controller_name = "basic_order_open_close_example"
-    controller_type = "generic"
-    connector_name = "binance_perpetual"
-    trading_pair = "WLD-USDT"
-    side = TradeType.BUY
-    position_mode = PositionMode.HEDGE
-    leverage = 50
-    close_order_delay = 10
-    open_short_to_close_long = False
-    close_partial_position = False
-    amount_quote = Decimal("20")
+    controller_name: str = "basic_order_open_close_example"
+    controller_type: str = "generic"
+    connector_name: str = "binance_perpetual"
+    trading_pair: str = "WLD-USDT"
+    side: TradeType = TradeType.BUY
+    position_mode: PositionMode = PositionMode.HEDGE
+    leverage: int = 50
+    close_order_delay: int = 10
+    open_short_to_close_long: bool = False
+    close_partial_position: bool = False
+    amount_quote: Decimal = Decimal("20")
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.connector_name not in markets:

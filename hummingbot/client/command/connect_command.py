@@ -41,9 +41,7 @@ class ConnectCommand:
         connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
-            api_key_config = [
-                c.printable_value for c in connector_config.traverse(secure=False) if "api_key" in c.attr
-            ]
+            api_key_config = [value for key, value in Security.api_keys(connector_name).items() if "api_key" in key]
             if api_key_config:
                 api_key = api_key_config[0]
                 prompt = (

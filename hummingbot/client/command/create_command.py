@@ -90,7 +90,7 @@ class CreateCommand:
             if not config_class:
                 raise InvalidController(f"No configuration class found in the module {controller_name}.")
 
-            config_class_instance = config_class.construct()
+            config_class_instance = config_class.model_construct()
             config_class_instance.id = config_class_instance.set_id(None)
             config_map = ClientConfigAdapter(config_class_instance)
 
@@ -119,7 +119,7 @@ class CreateCommand:
                                  if
                                  inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
                                  (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
-            config_map = ClientConfigAdapter(config_class.construct())
+            config_map = ClientConfigAdapter(config_class.model_construct())
 
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
@@ -149,8 +149,8 @@ class CreateCommand:
             return await self.save_config(name, config_instance, config_dir_path)  # Recursive call
 
         config_path = config_dir_path / file_name
-        field_order = list(config_instance.__fields__.keys())
-        config_json_str = config_instance.json()
+        field_order = list(config_instance.model_fields.keys())
+        config_json_str = config_instance.model_dump_json(warnings=False)
         config_data = json.loads(config_json_str)
         ordered_config_data = OrderedDict((field, config_data.get(field)) for field in field_order)
 
@@ -203,7 +203,7 @@ class CreateCommand:
         self,  # type: HummingbotApplication
     ) -> Optional[str]:
         strategy = None
-        strategy_config = ClientConfigAdapter(BaseStrategyConfigMap.construct())
+        strategy_config = ClientConfigAdapter(BaseStrategyConfigMap.model_construct())
         await self.prompt_for_model_config(strategy_config)
         if not self.app.to_stop_config:
             strategy = strategy_config.strategy

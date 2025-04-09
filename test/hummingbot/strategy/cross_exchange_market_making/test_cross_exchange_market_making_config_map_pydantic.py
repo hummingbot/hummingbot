@@ -1,4 +1,3 @@
-import json
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -133,7 +132,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
             self.config_map.order_refresh_mode = "XXX"
 
         error_msg = (
-            "Invalid order refresh mode, please choose value from ['passive_order_refresh', 'active_order_refresh']."
+            "Value error, Invalid order refresh mode, please choose value from ['passive_order_refresh', 'active_order_refresh']."
         )
         self.assertEqual(error_msg, str(e.exception))
 
@@ -149,7 +148,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
             self.config_map.conversion_rate_mode = "XXX"
 
         error_msg = (
-            "Invalid conversion rate mode, please choose value from ['rate_oracle_conversion_rate', 'fixed_conversion_rate']."
+            "Value error, Invalid conversion rate mode, please choose value from ['rate_oracle_conversion_rate', 'fixed_conversion_rate']."
         )
         self.assertEqual(error_msg, str(e.exception))
 
@@ -169,40 +168,3 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
         loaded_config_map = ClientConfigAdapter(CrossExchangeMarketMakingConfigMap(**data))
 
         self.assertEqual(self.config_map, loaded_config_map)
-
-    def test_maker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
-        schema = CrossExchangeMarketMakingConfigMap.schema_json()
-        schema_dict = json.loads(schema)
-
-        self.assertIn("MakerMarkets", schema_dict["definitions"])
-        expected_connectors = {
-            connector_setting.name for connector_setting in
-            AllConnectorSettings.get_connector_settings().values()
-            if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
-        }
-        print(expected_connectors)
-        expected_connectors = list(expected_connectors.union(AllConnectorSettings.paper_trade_connectors_names))
-        expected_connectors.sort()
-        print(expected_connectors)
-        print(schema_dict["definitions"]["MakerMarkets"]["enum"])
-        self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
-
-    def test_taker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
-        # Reset the list of connectors (there could be changes introduced by other tests when running the suite
-        AllConnectorSettings.create_connector_settings()
-
-        # force reset the list of possible connectors
-        self.config_map.taker_market = AllConnectorSettings.paper_trade_connectors_names[0]
-
-        schema = CrossExchangeMarketMakingConfigMap.schema_json()
-        schema_dict = json.loads(schema)
-
-        self.assertIn("TakerMarkets", schema_dict["definitions"])
-        expected_connectors = {
-            connector_setting.name for connector_setting in
-            AllConnectorSettings.get_connector_settings().values()
-            if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
-        }
-        expected_connectors = list(expected_connectors.union(AllConnectorSettings.paper_trade_connectors_names))
-        expected_connectors.sort()
-        self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])

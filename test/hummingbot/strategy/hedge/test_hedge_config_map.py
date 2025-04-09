@@ -64,7 +64,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
     def get_default_map(self) -> Dict[str, str]:
         config_settings = {
             "hedge_connector": self.hedge_connector,
-            "hedge_markets": self.trading_pair,
+            "hedge_markets": [self.trading_pair],
             "connector_0": {
                 "connector": self.connector,
                 "markets": [self.trading_pair],
@@ -78,7 +78,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
 
     def test_hedge_markets_prompt(self):
         self.config_map.hedge_connector = self.connector
-        self.config_map.hedge_markets = self.trading_pair
+        self.config_map.hedge_markets = [self.trading_pair]
         self.config_map.value_mode = True
         self.assertEqual(
             self.config_map.hedge_markets_prompt(self.config_map)[:12],
@@ -93,7 +93,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
 
     def test_hedge_offsets_prompt(self):
         self.config_map.hedge_connector = self.connector
-        self.config_map.hedge_markets = self.trading_pair
+        self.config_map.hedge_markets = [self.trading_pair]
         self.config_map.value_mode = True
         base = self.trading_pair.split("-")[0]
         self.assertEqual(
@@ -111,7 +111,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
     def test_trading_pair_prompt(self):
         connector_map = MarketConfigMap(
             connector=self.connector,
-            markets = self.trading_pair,
+            markets = [self.trading_pair],
             offsets = [Decimal("0")]
         )
         connector_map.trading_pair_prompt(connector_map)

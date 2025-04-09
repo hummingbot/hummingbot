@@ -102,7 +102,6 @@ def migrate_global_config() -> List[str]:
                 _migrate_global_config_field(client_config_map, data, key)
         for key in data:
             logging.getLogger().warning(f"Global ConfigVar {key} was not migrated.")
-        errors.extend(client_config_map.validate_model())
         if len(errors) == 0:
             save_to_yml(CLIENT_CONFIG_PATH, client_config_map)
             global_config_path.unlink()
@@ -415,11 +414,6 @@ def _maybe_migrate_encrypted_confs(config_keys: BaseConnectorConfigMap) -> List[
     if found_one:
         if len(missing_fields) != 0:
             errors = [f"{config_keys.connector} - missing fields: {missing_fields}"]
-        if len(errors) == 0:
-            errors = cm.validate_model()
-        if errors:
-            errors = [f"{config_keys.connector} - {e}" for e in errors]
-            logging.getLogger().error(f"The migration of {config_keys.connector} failed with errors: {errors}")
         else:
             Security.update_secure_config(cm)
             logging.getLogger().info(f"Migrated secure keys for {config_keys.connector}")

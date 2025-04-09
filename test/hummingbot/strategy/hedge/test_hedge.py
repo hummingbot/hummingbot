@@ -108,7 +108,7 @@ class HedgeConfigMapPydanticTest(unittest.TestCase):
             'hedge_leverage': 25,
             'hedge_position_mode': 'ONEWAY',
             "hedge_connector": 'binance_perpetual',
-            "hedge_markets": 'BTC-USDT',
+            "hedge_markets": ['BTC-USDT'],
             "connector_0": 'n',
             "connector_1": 'n',
             "connector_2": 'n',

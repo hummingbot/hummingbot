@@ -1,6 +1,6 @@
 from typing import Optional, TypeVar
 
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel
 
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 

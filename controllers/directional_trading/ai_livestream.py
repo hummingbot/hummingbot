@@ -4,7 +4,6 @@ from typing import List
 import pandas_ta as ta  # noqa: F401
 from pydantic import Field
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.remote_iface.mqtt import ExternalTopicFactory
@@ -16,14 +15,10 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import Positi
 
 
 class AILivestreamControllerConfig(DirectionalTradingControllerConfigBase):
-    controller_name = "ai_livestream"
+    controller_name: str = "ai_livestream"
     candles_config: List[CandlesConfig] = []
-    long_threshold: float = Field(
-        default=0.5,
-        client_data=ClientFieldData(is_updatable=True))
-    short_threshold: float = Field(
-        default=0.5,
-        client_data=ClientFieldData(is_updatable=True))
+    long_threshold: float = Field(default=0.5, json_schema_extra={"is_updatable": True})
+    short_threshold: float = Field(default=0.5, json_schema_extra={"is_updatable": True})
     topic: str = "hbot/predictions"
 
 

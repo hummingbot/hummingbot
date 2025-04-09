@@ -1,8 +1,9 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic.v1 import BaseModel, validator
+from pydantic import BaseModel, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
 from hummingbot.core.data_type.common import PositionAction, TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -21,7 +22,7 @@ class LimitChaserConfig(BaseModel):
 
 
 class OrderExecutorConfig(ExecutorConfigBase):
-    type: str = "order_executor"
+    type: Literal["order_executor"] = "order_executor"
     trading_pair: str
     connector_name: str
     side: TradeType
@@ -33,12 +34,13 @@ class OrderExecutorConfig(ExecutorConfigBase):
     leverage: int = 1
     level_id: Optional[str] = None
 
-    @validator('execution_strategy')
-    def validate_execution_strategy(cls, v: ExecutionStrategy, values: dict) -> ExecutionStrategy:
-        if v in [ExecutionStrategy.LIMIT, ExecutionStrategy.LIMIT_MAKER]:
-            if values.get('price') is None:
+    @field_validator("execution_strategy", mode="before")
+    @classmethod
+    def validate_execution_strategy(cls, value, validation_info: ValidationInfo):
+        if value in [ExecutionStrategy.LIMIT, ExecutionStrategy.LIMIT_MAKER]:
+            if validation_info.data.get('price') is None:
                 raise ValueError("Price is required for LIMIT and LIMIT_MAKER execution strategies")
-        elif v == ExecutionStrategy.LIMIT_CHASER:
-            if values.get('chaser_config') is None:
+        elif value == ExecutionStrategy.LIMIT_CHASER:
+            if validation_info.data.get('chaser_config') is None:
                 raise ValueError("Chaser config is required for LIMIT_CHASER execution strategy")
-        return v
+        return value
