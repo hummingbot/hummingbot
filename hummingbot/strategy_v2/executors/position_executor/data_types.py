@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -46,7 +46,7 @@ class TripleBarrierConfig(BaseModel):
 
 
 class PositionExecutorConfig(ExecutorConfigBase):
-    type: str = "position_executor"
+    type: Literal["position_executor"] = "position_executor"
     trading_pair: str
     connector_name: str
     side: TradeType
