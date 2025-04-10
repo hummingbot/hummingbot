@@ -1,0 +1,45 @@
+@@ def on_tick(self):
+-    if not self.ready_to_trade:
+-        return
+-    await self.update_price_data()
+-    await self.check_entry_conditions()
+-    await self.check_exit_conditions()
++    if not self.ready_to_trade:
++        return
++    try:
++        await self.update_price_data()
++        await self.check_entry_conditions()
++        await self.check_exit_conditions()
++    except Exception as e:
++        self.logger().error(f"Error in on_tick: {str(e)}", exc_info=True)
+
+@@ async def update_price_data(self):
+-    # Logic for updating prices and funding rates
+-    ...
++    try:
++        # Original logic for updating prices and funding rates
++        ...
++    except Exception as e:
++        self.logger().error(f"Error in update_price_data: {str(e)}", exc_info=True)
+
+@@ async def create_orders_for_entry(self, executor):
+-    await executor.execute_entry_orders()
++    try:
++        await executor.execute_entry_orders()
++    except Exception as e:
++        self.logger().error(f"Failed to execute entry orders: {e}", exc_info=True)
+
+@@ async def create_orders_for_exit(self, executor):
+-    await executor.execute_exit_orders()
++    try:
++        await executor.execute_exit_orders()
++    except Exception as e:
++        self.logger().error(f"Error during exit orders: {e}", exc_info=True)
+
+@@ async def get_mid_price(self, connector, trading_pair):
+-    price = await self.connectors[connector].get_mid_price(trading_pair)
++    try:
++        price = await self.connectors[connector].get_mid_price(trading_pair)
++    except Exception as e:
++        self.logger().error(f"Failed to get mid price for {connector} - {trading_pair}: {e}", exc_info=True)
++        return None
