@@ -35,7 +35,7 @@ class OkxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws: WSAssistant = await self._get_ws_assistant()
         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
             await ws.connect(
-                ws_url=CONSTANTS.OKX_WS_URI_PRIVATE,
+                ws_url=CONSTANTS.get_okx_ws_uri_private(self._connector.okx_registration_sub_domain),
                 message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE)
 
         payload = {

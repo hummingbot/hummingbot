@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 from pydantic import Field, SecretStr
 
@@ -41,6 +41,14 @@ class OKXConfigMap(BaseConnectorConfigMap):
         json_schema_extra={
             "prompt": "Enter your OKX passphrase key",
             "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    okx_registration_sub_domain: Literal["www", "app", "my"] = Field(
+        default="www",
+        json_schema_extra={
+            "prompt": "Which OKX subdomain did you register the key at? (www/app/my) - Generally www for most users, app for US users, my for EEA users.",
             "is_connect_key": True,
             "prompt_on_new": True,
         }

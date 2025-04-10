@@ -15,11 +15,11 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     Creates a full URL for provided REST endpoint
 
     :param path_url: a public REST endpoint
-    :param domain: not required for OKX. Added only for compatibility.
+    :param domain: The full domain, required because it varies based on where account is registered.
 
     :return: the full URL to the endpoint
     """
-    return urljoin(CONSTANTS.OKX_BASE_URL, path_url)
+    return urljoin(domain, path_url)
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -30,10 +30,14 @@ def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,
         time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+        auth: Optional[AuthBase] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler))
+    time_provider = time_provider or (lambda: get_current_server_time(
+        throttler=throttler,
+        domain=domain
+    ))
     api_factory = WebAssistantsFactory(
         throttler=throttler,
         auth=auth,
@@ -59,7 +63,10 @@ async def get_current_server_time(
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response = await rest_assistant.execute_request(
-        url=public_rest_url(path_url=CONSTANTS.OKX_SERVER_TIME_PATH),
+        url=public_rest_url(
+            path_url=CONSTANTS.OKX_SERVER_TIME_PATH,
+            domain=domain
+        ),
         method=RESTMethod.GET,
         throttler_limit_id=CONSTANTS.OKX_SERVER_TIME_PATH,
     )
