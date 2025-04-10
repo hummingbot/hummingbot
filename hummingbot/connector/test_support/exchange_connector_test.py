@@ -376,6 +376,7 @@ class AbstractExchangeConnectorTests:
             cls.base_asset = "COINALPHA"
             cls.quote_asset = "HBOT"
             cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+            cls.trading_pair_2 = f"{cls.base_asset}-USDT"
 
         def setUp(self) -> None:
             super().setUp()
