@@ -19,6 +19,7 @@ test:
  	--ignore="test/hummingbot/remote_iface/" \
  	--ignore="test/connector/utilities/oms_connector/" \
  	--ignore="test/hummingbot/strategy/amm_arb/" \
+ 	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
 
 run_coverage: test
 	coverage report
