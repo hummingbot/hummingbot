@@ -134,7 +134,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def funding_fee_poll_interval(self) -> int:
-        return 127
+        return 120
 
     async def _make_network_check_request(self):
         await self._api_get(path_url=self.check_network_request_path)
@@ -559,7 +559,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if "error" in order_result:
             if "Self-crossing disallowed" in order_result["error"]["message"]:
                 self.logger().warning(f"Error submitting order: {order_result['error']['data']}")
-            raise IOError(f"Error submitting order {order_id}: {order_result['error']['data']}")
+            else:
+                raise IOError(f"Error submitting order {order_id}: {order_result['error']['data']}")
         else:
             o_data = order_result['result'].get("order")
             return (str(o_data["order_id"]), o_data["creation_timestamp"] * 1e-3)
@@ -673,7 +674,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 elif channel == user_channels[1] and results is not None:
                     for trade_msg in results:
                         await self._process_trade_message(trade_msg)
-                        await self._update_positions()
+                    await self._update_positions()
                 elif channel == user_channels[2] and results is not None:
                     await self._process_update_positions(results)
                 elif channel == user_channels[3] and results is not None:
@@ -863,53 +864,34 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                                     exc_info=True)
         return retval
 
-    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        trade_updates = []
-        try:
-            exchange_order_id = await order.get_exchange_order_id()
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
-            all_fills_response = await self._api_get(
-                path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "instrument_name": trading_pair,
-                    "order_id": exchange_order_id,
-                    "subaccount_id": self._sub_id
-                },
-                is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+    async def _update_balances(self):
+        """
+        Calls the REST API to update total and available balances.
+        """
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
 
-            for trade in all_fills_response["result"]["trades"]:
-                fee_asset = order.quote_asset
-                order_id = str(trade["order_id"])
-                if order_id == exchange_order_id:
-                    position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
-                    position_action = (PositionAction.OPEN
-                                       if (order.trade_type is TradeType.BUY and position_side == "LONG"
-                                           or order.trade_type is TradeType.SELL and position_side == "SHORT")
-                                       else PositionAction.CLOSE)
-                    fee = TradeFeeBase.new_perpetual_fee(
-                        fee_schema=self.trade_fee_schema(),
-                        position_action=position_action,
-                        percent_token=fee_asset,
-                        flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)]
-                    )
-                    trade_update = TradeUpdate(
-                        trade_id=str(trade["trade_id"]),
-                        client_order_id=order.client_order_id,
-                        exchange_order_id=exchange_order_id,
-                        trading_pair=trading_pair,
-                        fee=fee,
-                        fill_base_amount=Decimal(trade["trade_amount"]),
-                        fill_quote_amount=Decimal(trade["trade_amount"]) * Decimal(trade["trade_price"]),
-                        fill_price=Decimal(trade["trade_price"]),
-                        fill_timestamp=trade["timestamp"] * 1e-3,
-                    )
-                    trade_updates.append(trade_update)
+        account_info = await self._api_post(
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            data={"subaccount_id": self._sub_id},
+            is_auth_required=True)
+        if "error" in account_info:
+            self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
+            raise
+        else:
+            balances = account_info["result"]["collaterals"]
+            for balance_entry in balances:
+                asset_name = balance_entry["asset_name"]
+                free_balance = Decimal(balance_entry["amount"])
+                total_balance = Decimal(balance_entry["amount"])
+                self._account_available_balances[asset_name] = free_balance
+                self._account_balances[asset_name] = total_balance
+                remote_asset_names.add(asset_name)
 
-        except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
-                          "- waiting for exchange order id.")
-        return trade_updates
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         oid = await tracked_order.get_exchange_order_id()
@@ -964,34 +946,53 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 last_traded_prices[mapped_name] = Decimal(ticker["result"]["mark_price"])
         return last_traded_prices
 
-    async def _update_balances(self):
-        """
-        Calls the REST API to update total and available balances.
-        """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
+        try:
+            exchange_order_id = await order.get_exchange_order_id()
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                params={
+                    "instrument_name": trading_pair,
+                    "order_id": exchange_order_id,
+                    "subaccount_id": self._sub_id
+                },
+                is_auth_required=True,
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
 
-        account_info = await self._api_post(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            data={"subaccount_id": self._sub_id},
-            is_auth_required=True)
-        if "error" in account_info:
-            self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
-            raise
-        else:
-            balances = account_info["result"]["collaterals"]
-            for balance_entry in balances:
-                asset_name = balance_entry["asset_name"]
-                free_balance = Decimal(balance_entry["amount"])
-                total_balance = Decimal(balance_entry["amount"])
-                self._account_available_balances[asset_name] = free_balance
-                self._account_balances[asset_name] = total_balance
-                remote_asset_names.add(asset_name)
+            for trade in all_fills_response["result"]["trades"]:
+                fee_asset = order.quote_asset
+                order_id = str(trade["order_id"])
+                if order_id == exchange_order_id:
+                    position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
+                    position_action = (PositionAction.OPEN
+                                       if (order.trade_type is TradeType.BUY and position_side == "LONG"
+                                           or order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                       else PositionAction.CLOSE)
+                    fee = TradeFeeBase.new_perpetual_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        position_action=position_action,
+                        percent_token=fee_asset,
+                        flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)]
+                    )
+                    trade_update = TradeUpdate(
+                        trade_id=str(trade["trade_id"]),
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=exchange_order_id,
+                        trading_pair=trading_pair,
+                        fee=fee,
+                        fill_base_amount=Decimal(trade["trade_amount"]),
+                        fill_quote_amount=Decimal(trade["trade_amount"]) * Decimal(trade["trade_price"]),
+                        fill_price=Decimal(trade["trade_price"]),
+                        fill_timestamp=trade["timestamp"] * 1e-3,
+                    )
+                    trade_updates.append(trade_update)
 
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
+        except asyncio.TimeoutError:
+            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
+                          "- waiting for exchange order id.")
+        return trade_updates
 
     async def _update_positions(self):
         positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
