@@ -840,8 +840,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         buy_fill_quantity = sum([fill_event.amount for _, fill_event in buy_fill_records])
         sell_fill_quantity = sum([fill_event.amount for _, fill_event in sell_fill_records])
 
-        global s_decimal_zero
-
         taker_trading_pair = market_pair.taker.trading_pair
         taker_market = market_pair.taker.market
 
