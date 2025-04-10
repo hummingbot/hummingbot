@@ -3,9 +3,9 @@ import os
 from decimal import Decimal
 from typing import Dict
 
-from pydantic.v1 import Field
+from pydantic import Field
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -13,18 +13,18 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class DEXPriceConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("jupiter", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "DEX to swap on"))
-    chain: str = Field("solana", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Chain"))
-    network: str = Field("mainnet-beta", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Network"))
-    trading_pair: str = Field("SOL-USDC", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Trading pair in which the bot will place orders"))
-    is_buy: bool = Field(True, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Buying or selling the base asset? (True for buy, False for sell)"))
-    amount: Decimal = Field(Decimal("0.01"), client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Amount of base asset to buy or sell"))
+    connector: str = Field("jupiter", json_schema_extra={
+        "prompt": "DEX to swap on", "prompt_on_new": True})
+    chain: str = Field("solana", json_schema_extra={
+        "prompt": "Chain", "prompt_on_new": True})
+    network: str = Field("mainnet-beta", json_schema_extra={
+        "prompt": "Network", "prompt_on_new": True})
+    trading_pair: str = Field("SOL-USDC", json_schema_extra={
+        "prompt": "Trading pair in which the bot will place orders", "prompt_on_new": True})
+    is_buy: bool = Field(True, json_schema_extra={
+        "prompt": "Buying or selling the base asset? (True for buy, False for sell)", "prompt_on_new": True})
+    amount: Decimal = Field(Decimal("0.01"), json_schema_extra={
+        "prompt": "Amount of base asset to buy or sell", "prompt_on_new": True})
 
 
 class DEXPrice(ScriptStrategyBase):

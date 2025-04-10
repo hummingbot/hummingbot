@@ -502,8 +502,6 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         need_adjust_order = False
         anti_hysteresis_timer = self._anti_hysteresis_timers.get(market_pair, 0)
 
-        global s_decimal_zero
-
         self.take_suggested_price_sample(timestamp, market_pair)
 
         for active_order in active_orders:
