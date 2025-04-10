@@ -8,14 +8,41 @@ CLIENT_ID_PREFIX = "93027a12dac34fBC"
 MAX_ID_LEN = 32
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30 * 0.8
 
-DEFAULT_DOMAIN = ""
+# URL mapping based on where account is registered:
+# sourced from https://app.okx.com/docs-v5/en/#overview-account-mode and https://my.okx.com/docs-v5/en/#overview-account-mode
 
-# URLs
+subdomain_to_api_subdomain = {
+    "www": "www",
+    "app": "us",
+    "my": "eea"
+}
 
-OKX_BASE_URL = "https://www.okx.com/"
 
-# Doesn't include base URL as the tail is required to generate the signature
+def get_okx_base_url(sub_domain: str) -> str:
+    """Returns OKX REST base URL based on API subdomain ("www", "us", "eea")"""
+    return f"https://{subdomain_to_api_subdomain[sub_domain]}.okx.com/"
 
+
+def get_ws_url(sub_domain: str) -> str:
+    """Returns OKX WebSocket base URL based on API subdomain ("www", "us", "eea")"""
+    if sub_domain == "www":
+        return "wss://ws.okx.com:8443"
+    else:
+        return f"wss://ws{subdomain_to_api_subdomain[sub_domain]}.okx.com:8443"
+
+
+DEFAULT_DOMAIN = get_okx_base_url("www")
+
+
+def get_okx_ws_uri_public(sub_domain):
+    return f"{get_ws_url(sub_domain)}/ws/v5/public"
+
+
+def get_okx_ws_uri_private(sub_domain):
+    return f"{get_ws_url(sub_domain)}/ws/v5/private"
+
+
+# REST API endpoints
 OKX_SERVER_TIME_PATH = '/api/v5/public/time'
 OKX_INSTRUMENTS_PATH = '/api/v5/public/instruments'
 OKX_TICKER_PATH = '/api/v5/market/ticker'
@@ -30,10 +57,7 @@ OKX_BATCH_ORDER_CANCEL_PATH = '/api/v5/trade/cancel-batch-orders'
 OKX_BALANCE_PATH = '/api/v5/account/balance'
 OKX_TRADE_FILLS_PATH = "/api/v5/trade/fills"
 
-# WS
-OKX_WS_URI_PUBLIC = "wss://ws.okx.com:8443/ws/v5/public"
-OKX_WS_URI_PRIVATE = "wss://ws.okx.com:8443/ws/v5/private"
-
+# WebSocket channels
 OKX_WS_ACCOUNT_CHANNEL = "account"
 OKX_WS_ORDERS_CHANNEL = "orders"
 OKX_WS_PUBLIC_TRADES_CHANNEL = "trades"
@@ -44,6 +68,7 @@ OKX_WS_CHANNELS = {
     OKX_WS_ORDERS_CHANNEL
 }
 
+# Rate limiting
 WS_CONNECTION_LIMIT_ID = "WSConnection"
 WS_REQUEST_LIMIT_ID = "WSRequest"
 WS_SUBSCRIPTION_LIMIT_ID = "WSSubscription"
