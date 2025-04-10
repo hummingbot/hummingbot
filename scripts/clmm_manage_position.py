@@ -4,9 +4,9 @@ import time
 from decimal import Decimal
 from typing import Dict
 
-from pydantic.v1 import Field
+from pydantic import Field
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -16,28 +16,28 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class CLMMPositionManagerConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("meteora/clmm", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "CLMM Connector (e.g. meteora/clmm, raydium/clmm)"))
-    chain: str = Field("solana", client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Chain (e.g. solana)"))
-    network: str = Field("mainnet-beta", client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Network (e.g. mainnet-beta)"))
-    pool_address: str = Field("9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Pool address (e.g. TRUMP-USDC Meteora pool)"))
-    target_price: Decimal = Field(Decimal("10.0"), client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Target price to trigger position opening"))
-    trigger_above: bool = Field(False, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Trigger when price rises above target? (True for above/False for below)"))
-    position_width_pct: Decimal = Field(Decimal("10.0"), client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Position width in percentage (e.g. 5.0 for ±5% around target price)"))
-    base_token_amount: Decimal = Field(Decimal("0.1"), client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Base token amount to add to position (0 for quote only)"))
-    quote_token_amount: Decimal = Field(Decimal("1.0"), client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Quote token amount to add to position (0 for base only)"))
-    out_of_range_pct: Decimal = Field(Decimal("1.0"), client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Percentage outside range that triggers closing (e.g. 1.0 for 1%)"))
-    out_of_range_secs: int = Field(300, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Seconds price must be out of range before closing (e.g. 300 for 5 min)"))
+    connector: str = Field("meteora/clmm", json_schema_extra={
+        "prompt": "CLMM Connector (e.g. meteora/clmm, raydium/clmm)", "prompt_on_new": True})
+    chain: str = Field("solana", json_schema_extra={
+        "prompt": "Chain (e.g. solana)", "prompt_on_new": False})
+    network: str = Field("mainnet-beta", json_schema_extra={
+        "prompt": "Network (e.g. mainnet-beta)", "prompt_on_new": False})
+    pool_address: str = Field("9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2", json_schema_extra={
+        "prompt": "Pool address (e.g. TRUMP-USDC Meteora pool)", "prompt_on_new": True})
+    target_price: Decimal = Field(Decimal("10.0"), json_schema_extra={
+        "prompt": "Target price to trigger position opening", "prompt_on_new": True})
+    trigger_above: bool = Field(False, json_schema_extra={
+        "prompt": "Trigger when price rises above target? (True for above/False for below)", "prompt_on_new": True})
+    position_width_pct: Decimal = Field(Decimal("10.0"), json_schema_extra={
+        "prompt": "Position width in percentage (e.g. 5.0 for ±5% around target price)", "prompt_on_new": True})
+    base_token_amount: Decimal = Field(Decimal("0.1"), json_schema_extra={
+        "prompt": "Base token amount to add to position (0 for quote only)", "prompt_on_new": True})
+    quote_token_amount: Decimal = Field(Decimal("1.0"), json_schema_extra={
+        "prompt": "Quote token amount to add to position (0 for base only)", "prompt_on_new": True})
+    out_of_range_pct: Decimal = Field(Decimal("1.0"), json_schema_extra={
+        "prompt": "Percentage outside range that triggers closing (e.g. 1.0 for 1%)", "prompt_on_new": True})
+    out_of_range_secs: int = Field(300, json_schema_extra={
+        "prompt": "Seconds price must be out of range before closing (e.g. 300 for 5 min)", "prompt_on_new": True})
 
 
 class CLMMPositionManager(ScriptStrategyBase):
