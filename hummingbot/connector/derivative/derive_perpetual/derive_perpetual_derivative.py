@@ -134,7 +134,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def funding_fee_poll_interval(self) -> int:
-        return 600
+        return 127
 
     async def _make_network_check_request(self):
         await self._api_get(path_url=self.check_network_request_path)
@@ -559,17 +559,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if "error" in order_result:
             if "Self-crossing disallowed" in order_result["error"]["message"]:
                 self.logger().warning(f"Error submitting order: {order_result['error']['data']}")
-            if "Zero liquidity for market or IOC/FOK order" in order_result["error"]["message"]:
-                self.logger().warning(f"Error submitting order: {order_result['error']['message']}")
-                raise IOError(f"Error submitting order {order_id}: {order_result['error']['message']}")
-            else:
-                raise IOError(f"Error submitting order {order_id}: {order_result['error']['message']}")
+            raise IOError(f"Error submitting order {order_id}: {order_result['error']['data']}")
         else:
-            o_order_result = order_result['result']
-            o_data = o_order_result.get("order")
-            o_id = str(o_data["order_id"])
-            timestamp = o_data["creation_timestamp"] * 1e-3
-            return (o_id, timestamp)
+            o_data = order_result['result'].get("order")
+            return (str(o_data["order_id"]), o_data["creation_timestamp"] * 1e-3)
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
@@ -1005,8 +998,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                                          data={"subaccount_id": self._sub_id},
                                          is_auth_required=True,
                                          limit_id=CONSTANTS.POSITION_INFORMATION_URL)
-        if "error" in positions:
-            self.logger().error(f"Error fetching positions: {positions['error']['message']}")
         if "result" in positions:
             data: List[dict] = positions["result"]["positions"]
             if len(data) == 0:
