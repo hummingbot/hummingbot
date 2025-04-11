@@ -743,8 +743,8 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             )
             set_position_mode_code = set_position_mode.get("code")
             set_position_mode_data = set_position_mode.get("data")
-            if set_position_mode_data is not None and set_position_mode["code"] == CONSTANTS.CODE_OK:
-                success = set_position_mode_data["position_mode"] == position_mode
+            if set_position_mode_data is not None and set_position_mode_code == CONSTANTS.CODE_OK:
+                success = set_position_mode_data.get("position_mode") == position_mode
                 self._position_mode_set = True
             else:
                 success = False
