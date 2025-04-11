@@ -289,17 +289,6 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
             "prompt_on_new": True
         }
     )
-    debug_price_shim: bool = Field(default=False, description="Usd the debug price shim to mock gateway price.")
-    gateway_transaction_cancel_interval: int = Field(
-        default= 600,
-        description="Gateway transaction cancellation timeout.",
-        ge=1,
-        json_schema_extra={
-            "prompt": "After what time should gateway transactions be cancelled if they are not included in a block? "
-                      "(this only affects decentralized exchanges) (Enter time in seconds)",
-            "prompt_on_new": True
-        }
-    )
     taker_market: str = Field(
         default=...,
         description="The name of the taker exchange connector.",

@@ -129,25 +129,7 @@ class GatewayInFlightOrder(InFlightOrder):
 
     @property
     def is_done(self) -> bool:
-        if self.is_approval_request:
-            return not self.is_pending_approval
         return super().is_done
-
-    @property
-    def is_pending_approval(self) -> bool:
-        return self.current_state in {OrderState.PENDING_APPROVAL}
-
-    @property
-    def is_approval_request(self) -> bool:
-        """
-        A property attribute that returns `True` if this `GatewayInFlightOrder` is in fact a token approval request.
-
-        :return: True if this `GatewayInFlightOrder` is in fact a token approval request, otherwise it returns False
-        :rtype: bool
-        """
-        return "approve" in self.client_order_id or (
-            self.current_state in {OrderState.PENDING_APPROVAL, OrderState.APPROVED}
-        )
 
     def update_creation_transaction_hash(self, creation_transaction_hash: str):
         self.creation_transaction_hash = creation_transaction_hash
