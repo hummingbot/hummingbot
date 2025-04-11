@@ -918,7 +918,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
-        exchange_order_id = await order.get_exchange_order_id()
+        exchange_order_id = str(order.exchange_order_id)
         if exchange_order_id is not None:
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             all_fills_response = await self._api_get(
