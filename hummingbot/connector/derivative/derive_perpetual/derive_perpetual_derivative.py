@@ -674,7 +674,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 elif channel == user_channels[1] and results is not None:
                     for trade_msg in results:
                         await self._process_trade_message(trade_msg)
-                    await self._update_positions()
                 elif channel == user_channels[2] and results is not None:
                     await self._process_update_positions(results)
                 elif channel == user_channels[3] and results is not None:
@@ -764,6 +763,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 fee=fee,
             )
             self._order_tracker.process_trade_update(trade_update)
+            await self._update_positions()
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -918,50 +918,42 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
-        try:
-            exchange_order_id = await order.get_exchange_order_id()
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
-            all_fills_response = await self._api_get(
-                path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "instrument_name": trading_pair,
-                    "order_id": exchange_order_id,
-                    "subaccount_id": self._sub_id
-                },
-                is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+        exchange_order_id = await order.get_exchange_order_id()
+        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+        all_fills_response = await self._api_get(
+            path_url=CONSTANTS.MY_TRADES_PATH_URL,
+            params={
+                "instrument_name": trading_pair,
+                "order_id": exchange_order_id,
+                "subaccount_id": self._sub_id
+            },
+            is_auth_required=True,
+            limit_id=CONSTANTS.MY_TRADES_PATH_URL)
 
-            for trade in all_fills_response["result"]["trades"]:
-                fee_asset = order.quote_asset
-                order_id = str(trade["order_id"])
-                if order_id == exchange_order_id:
-                    position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
-                    position_action = (PositionAction.OPEN
-                                       if (order.trade_type is TradeType.BUY and position_side == "LONG"
-                                           or order.trade_type is TradeType.SELL and position_side == "SHORT")
-                                       else PositionAction.CLOSE)
-                    fee = TradeFeeBase.new_perpetual_fee(
-                        fee_schema=self.trade_fee_schema(),
-                        position_action=position_action,
-                        percent_token=fee_asset,
-                        flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)]
-                    )
-                    trade_update = TradeUpdate(
-                        trade_id=str(trade["trade_id"]),
-                        client_order_id=order.client_order_id,
-                        exchange_order_id=exchange_order_id,
-                        trading_pair=trading_pair,
-                        fee=fee,
-                        fill_base_amount=Decimal(trade["trade_amount"]),
-                        fill_quote_amount=Decimal(trade["trade_amount"]) * Decimal(trade["trade_price"]),
-                        fill_price=Decimal(trade["trade_price"]),
-                        fill_timestamp=trade["timestamp"] * 1e-3,
-                    )
-                    trade_updates.append(trade_update)
-
-        except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
-                          "- waiting for exchange order id.")
+        for trade in all_fills_response["result"]["trades"]:
+            fee_asset = order.quote_asset
+            if str(trade["order_id"]) == exchange_order_id:
+                position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
+                position_action = (PositionAction.OPEN
+                                   if (order.trade_type is TradeType.BUY and position_side == "LONG"
+                                       or order.trade_type is TradeType.SELL and position_side == "SHORT") else PositionAction.CLOSE)
+                fee = TradeFeeBase.new_perpetual_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    position_action=position_action,
+                    percent_token=fee_asset,
+                    flat_fees=[TokenAmount(amount=Decimal(trade["trade_fee"]), token=fee_asset)])
+                trade_update = TradeUpdate(
+                    trade_id=str(trade["trade_id"]),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    trading_pair=trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(trade["trade_amount"]),
+                    fill_quote_amount=Decimal(trade["trade_amount"]) * Decimal(trade["trade_price"]),
+                    fill_price=Decimal(trade["trade_price"]),
+                    fill_timestamp=trade["timestamp"] * 1e-3,
+                )
+                trade_updates.append(trade_update)
         return trade_updates
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
