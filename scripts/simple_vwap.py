@@ -4,9 +4,9 @@ import os
 from decimal import Decimal
 from typing import Dict
 
-from pydantic.v1 import Field
+from pydantic import Field
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_candidate import OrderCandidate
@@ -19,21 +19,28 @@ class VWAPConfig(BaseClientModel):
     Configuration parameters for the VWAP strategy.
     """
 
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector_name: str = Field("binance_paper_trade", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Exchange where the bot will place orders"))
-    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Trading pair where the bot will place orders"))
-    is_buy: bool = Field(True, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Buying or selling the base asset? (True for buy, False for sell)"))
-    total_volume_quote: Decimal = Field(1000, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Total amount to buy/sell (in quote asset)"))
-    price_spread: float = Field(0.001, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Spread used to calculate the order price"))
-    volume_perc: float = Field(0.001, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Maximum percentage of the order book volume to buy/sell"))
-    order_delay_time: int = Field(10, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Delay time between orders (in seconds)"))
+    script_file_name: str = os.path.basename(__file__)
+    connector_name: str = Field("binance_paper_trade", json_schema_extra={
+        "prompt": lambda mi: "Exchange where the bot will place orders",
+        "prompt_on_new": True})
+    trading_pair: str = Field("ETH-USDT", json_schema_extra={
+        "prompt": lambda mi: "Trading pair where the bot will place orders",
+        "prompt_on_new": True})
+    is_buy: bool = Field(True, json_schema_extra={
+        "prompt": lambda mi: "Buying or selling the base asset? (True for buy, False for sell)",
+        "prompt_on_new": True})
+    total_volume_quote: Decimal = Field(1000, json_schema_extra={
+        "prompt": lambda mi: "Total volume to buy/sell (in quote asset)",
+        "prompt_on_new": True})
+    price_spread: float = Field(0.001, json_schema_extra={
+        "prompt": lambda mi: "Maximum price spread to use when placing orders (0.001 = 0.1%)",
+        "prompt_on_new": True})
+    volume_perc: float = Field(0.001, json_schema_extra={
+        "prompt": lambda mi: "Percentage of the order book volume to buy/sell (0.001 = 0.1%)",
+        "prompt_on_new": True})
+    order_delay_time: int = Field(10, json_schema_extra={
+        "prompt": lambda mi: "Delay time between orders (in seconds)",
+        "prompt_on_new": True})
 
 
 class VWAPExample(ScriptStrategyBase):
