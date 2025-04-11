@@ -35,11 +35,16 @@ class OkxExchange(ExchangePyBase):
                  okx_secret_key: str,
                  okx_passphrase: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
-
+                 trading_required: bool = True,
+                 okx_registration_sub_domain: str = "www"):
+        """
+        :param okx_registration_sub_domain: The subdomain to use - options are "www" (default), "app" (US users), or "my" (EEA users)
+                              See: https://github.com/ccxt/ccxt/issues/24601
+        """
         self.okx_api_key = okx_api_key
         self.okx_secret_key = okx_secret_key
         self.okx_passphrase = okx_passphrase
+        self.okx_registration_sub_domain = okx_registration_sub_domain or "www"
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         super().__init__(client_config_map)
@@ -62,7 +67,7 @@ class OkxExchange(ExchangePyBase):
 
     @property
     def domain(self):
-        return ""
+        return CONSTANTS.get_okx_base_url(self.okx_registration_sub_domain)
 
     @property
     def client_order_id_max_length(self):
@@ -116,13 +121,15 @@ class OkxExchange(ExchangePyBase):
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
         # dummy implementation
+        # _place_cancel already takes care of all expected exceptions.
         return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            auth=self._auth)
+            auth=self._auth,
+            domain=self.domain)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return OkxAPIOrderBookDataSource(
@@ -240,12 +247,14 @@ class OkxExchange(ExchangePyBase):
     async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
         params = {"instType": "SPOT"}
 
+        if trading_pairs and len(trading_pairs) == 1:
+            return {trading_pairs[0]: await self._get_last_traded_price(trading_pairs[0])}
         resp_json = await self._api_get(
             path_url=CONSTANTS.OKX_TICKERS_PATH,
             params=params,
         )
-
-        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"]}
+        # some markets have no last traded price, so filter them out
+        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"] if ticker["last"]}
         return last_traded_prices
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
