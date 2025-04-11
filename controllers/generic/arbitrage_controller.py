@@ -25,9 +25,7 @@ class ArbitrageControllerConfig(ControllerConfigBase):
     quote_conversion_asset: str = "USDT"
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
-        for connector_pair in [self.exchange_pair_1, self.exchange_pair_2]:
-            markets.add_or_update(connector_pair.connector_name, connector_pair.trading_pair)
-        return markets
+        return [markets.add_or_update(cp.connector_name, cp.trading_pair) for cp in [self.exchange_pair_1, self.exchange_pair_2]][-1]
 
 
 class ArbitrageController(ControllerBase):
