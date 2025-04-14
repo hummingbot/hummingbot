@@ -93,33 +93,23 @@ def check_transaction_exceptions(
         gas_limit: int,
         gas_cost: Decimal,
         gas_asset: str,
-        swaps_count: int,
         allowances: Optional[Dict[str, Decimal]] = None,
-        chain: Chain = Chain.ETHEREUM
+        chain: Chain = Chain.SOLANA
 ) -> List[str]:
     """
     Check trade data for Ethereum decentralized exchanges
     """
     exception_list = []
-    swaps_message: str = f"Total swaps: {swaps_count}"
     gas_asset_balance: Decimal = balances.get(gas_asset, S_DECIMAL_0)
     allowances = allowances or {}
 
     # check for sufficient gas
     if gas_asset_balance < gas_cost:
         exception_list.append(f"Insufficient {gas_asset} balance to cover gas:"
-                              f" Balance: {gas_asset_balance}. Est. gas cost: {gas_cost}. {swaps_message}")
+                              f" Balance: {gas_asset_balance} vs estimated gas cost: {gas_cost}.")
 
     asset_out: str = quote_asset if side is TradeType.BUY else base_asset
     asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)
-
-    # check for gas limit set to low
-    if chain == Chain.ETHEREUM:
-        gas_limit_threshold: int = 21000
-    else:
-        raise ValueError(f"Unsupported chain: {chain}")
-    if gas_limit < gas_limit_threshold:
-        exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
 
     # check for insufficient token allowance
     if chain == Chain.ETHEREUM and asset_out in allowances and allowances[asset_out] < amount:
