@@ -9,10 +9,10 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 class TestXRPLAuth(IsolatedAsyncioTestCase):
     def setUp(self):
         # Test cases for different key formats
-        self.ed25519_seed = "asdasd"  # noqa: mock
-        self.secp256k1_seed = "sasdsad"  # noqa: mock
-        self.ed25519_private_key = "sadad"  # noqa: mock
-        self.secp256k1_private_key = "asdasd"  # noqa: mock
+        self.ed25519_seed = "sEdTvpec3RNNWwphd1WKZqt5Vs6GEFu"  # noqa: mock
+        self.secp256k1_seed = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb"  # noqa: mock
+        self.ed25519_private_key = "ED705389D8FB3E6CAA22F6D87533F9C47E86ECE224C2307BFEEFB56D96A71441FA"  # noqa: mock
+        self.secp256k1_private_key = "001ACAAEDECE405B2A958212629E16F2EB46B153EEE94CDD350FDEFF52795525B7"  # noqa: mock
 
     def test_empty_secret_key(self):
         auth = XRPLAuth("")
