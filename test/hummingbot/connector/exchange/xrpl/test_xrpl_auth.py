@@ -12,6 +12,7 @@ class TestXRPLAuth(IsolatedAsyncioTestCase):
         self.ed25519_seed = "sEdTvpec3RNNWwphd1WKZqt5Vs6GEFu"  # noqa: mock
         self.secp256k1_seed = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb"  # noqa: mock
         self.ed25519_private_key = "ED705389D8FB3E6CAA22F6D87533F9C47E86ECE224C2307BFEEFB56D96A71441FA"  # noqa: mock
+        self.secp256k1_private_key = "001ACAAEDECE405B2A958212629E16F2EB46B153EEE94CDD350FDEFF52795525B7"  # noqa: mock
 
     def test_empty_secret_key(self):
         auth = XRPLAuth("")
@@ -33,6 +34,11 @@ class TestXRPLAuth(IsolatedAsyncioTestCase):
     def test_ed25519_private_key(self):
         auth = XRPLAuth(self.ed25519_private_key)
         expected_account = "rBWGigPacsJK2uBaGcJSZ3FJKxiRNipKcm"  # noqa: mock
+        self.assertEqual(auth.get_account(), expected_account)
+
+    def test_secp256k1_private_key(self):
+        auth = XRPLAuth(self.secp256k1_private_key)
+        expected_account = "rht63aedhW7g1cqbtDgMSLmGthyf4vZYrp"  # noqa: mock
         self.assertEqual(auth.get_account(), expected_account)
 
     def test_invalid_key_format(self):

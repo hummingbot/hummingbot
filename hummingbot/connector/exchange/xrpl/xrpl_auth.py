@@ -1,4 +1,4 @@
-# XRPL Import
+import ecdsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from xrpl.constants import CryptoAlgorithm
 from xrpl.wallet import Wallet
@@ -14,15 +14,29 @@ class XRPLAuth(AuthBase):
                 self._wallet = Wallet.create()
             else:
                 # Check if it's a raw private key (hex format)
-                if xrpl_secret_key.startswith(("ED", "00")):
-                    # Raw private key
+                if xrpl_secret_key.startswith("ED"):
+                    # Raw private key for Ed25519
                     private_key = xrpl_secret_key
                     # Convert private key to bytes
-                    private_key_bytes = bytes.fromhex(private_key[2:])  # Remove ED/00 prefix
+                    private_key_bytes = bytes.fromhex(private_key[2:])  # Remove ED prefix
                     # Derive public key using Ed25519
                     private_key_obj = Ed25519PrivateKey.from_private_bytes(private_key_bytes)
                     public_key_bytes = private_key_obj.public_key().public_bytes_raw()
                     public_key = "ED" + public_key_bytes.hex()
+                    # Create wallet with derived keys
+                    self._wallet = Wallet(public_key=public_key, private_key=private_key)
+                elif xrpl_secret_key.startswith("00"):
+                    # Raw private key for SECP256K1
+                    private_key = xrpl_secret_key
+                    # Convert private key to bytes
+                    private_key_bytes = bytes.fromhex(private_key[2:])  # Remove 00 prefix
+                    # Create private key object and derive public key using SECP256K1
+                    private_key_obj = ecdsa.SigningKey.from_string(private_key_bytes, curve=ecdsa.SECP256k1)
+                    verifying_key = private_key_obj.get_verifying_key()
+                    if verifying_key is None:
+                        raise ValueError("Failed to derive public key from SECP256K1 private key")
+                    public_key_bytes = verifying_key.to_string()
+                    public_key = "00" + public_key_bytes.hex().upper()
                     # Create wallet with derived keys
                     self._wallet = Wallet(public_key=public_key, private_key=private_key)
                 elif xrpl_secret_key.startswith("s"):
