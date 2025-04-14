@@ -9,6 +9,7 @@ import aiohttp
 from aiohttp import ContentTypeError
 
 from hummingbot.client.config.security import Security
+from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 
@@ -290,7 +291,6 @@ class GatewayHttpClient:
             network: str,
             address: str,
             token_symbols: List[str],
-            connector: str = None,
             fail_silently: bool = False,
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
@@ -300,8 +300,6 @@ class GatewayHttpClient:
                 "address": address,
                 "tokenSymbols": token_symbols,
             }
-            if connector is not None:
-                request_params["connector"] = connector
             return await self.api_request(
                 method="post",
                 path_url=f"{chain}/balances",
@@ -335,7 +333,6 @@ class GatewayHttpClient:
 
     async def approve_token(
             self,
-            chain: str,
             network: str,
             address: str,
             token: str,
@@ -383,18 +380,12 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             transaction_hash: str,
-            connector: Optional[str] = None,
-            address: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         request = {
             "network": network,
             "txHash": transaction_hash
         }
-        # if connector:
-        #     request["connector"] = connector
-        # if address:
-        #     request["address"] = address
         return await self.api_request("post", f"{chain}/poll", request, fail_silently=fail_silently)
 
     async def wallet_sign(
@@ -437,6 +428,227 @@ class GatewayHttpClient:
             "nonce": nonce
         })
 
+    async def quote_swap(
+            self,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            amount: Decimal,
+            side: TradeType,
+            slippage_pct: Optional[Decimal] = None,
+            pool_address: Optional[str] = None,
+            fail_silently: bool = False,
+    ) -> Dict[str, Any]:
+        if side not in [TradeType.BUY, TradeType.SELL]:
+            raise ValueError("Only BUY and SELL prices are supported.")
+
+        connector_type = get_connector_type(connector)
+
+        request_payload = {
+            "network": network,
+            "baseToken": base_asset,
+            "quoteToken": quote_asset,
+            "amount": float(amount),
+            "side": side.name
+        }
+        if slippage_pct is not None:
+            request_payload["slippagePct"] = float(slippage_pct)
+        if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+
+        return await self.api_request(
+            "get",
+            f"{connector}/quote-swap",
+            request_payload,
+            fail_silently=fail_silently
+        )
+
+    async def execute_swap(
+        self,
+        network: str,
+        connector: str,
+        address: str,
+        base_asset: str,
+        quote_asset: str,
+        side: TradeType,
+        amount: Decimal,
+        slippage_pct: Optional[Decimal] = None,
+        pool_address: Optional[str] = None,
+        # limit_price: Optional[Decimal] = None,
+        nonce: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        if side not in [TradeType.BUY, TradeType.SELL]:
+            raise ValueError("Only BUY and SELL prices are supported.")
+
+        connector_type = get_connector_type(connector)
+
+        request_payload: Dict[str, Any] = {
+            "network": network,
+            "walletAddress": address,
+            "baseToken": base_asset,
+            "quoteToken": quote_asset,
+            "amount": float(amount),
+            "side": side.name,
+        }
+        if slippage_pct is not None:
+            request_payload["slippagePct"] = float(slippage_pct)
+        # if limit_price is not None:
+        #     request_payload["limitPrice"] = float(limit_price)
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+        return await self.api_request(
+            "post",
+            f"{connector}/execute-swap",
+            request_payload
+        )
+
+    async def estimate_gas(
+            self,
+            chain: str,
+            network: str,
+            gas_limit: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", f"{chain}/estimate-gas", {
+            "chain": chain,
+            "network": network,
+            "gasLimit": gas_limit
+        })
+
+    async def clmm_pool_info(
+            self,
+            connector: str,
+            network: str,
+            pool_address: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Gets information about a concentrated liquidity pool
+        :param connector: The connector/protocol (e.g., "meteora")
+        :param network: The network to use (e.g., "mainnet")
+        :param pool_address: The address of the pool
+        :param fail_silently: Whether to fail silently on error
+        :return: Pool information including price, liquidity, and bin data
+        """
+        query_params = {
+            "network": network,
+            "poolAddress": pool_address,
+        }
+        return await self.api_request(
+            "get",
+            f"{connector}/pool-info",
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_position_info(
+            self,
+            connector: str,
+            network: str,
+            position_address: str,
+            wallet_address: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Gets information about a concentrated liquidity position
+        :param connector: The connector/protocol (e.g., "meteora")
+        :param network: The network to use (e.g., "mainnet")
+        :param position_address: The address of the position
+        :param wallet_address: The wallet address that owns the position
+        :param fail_silently: Whether to fail silently on error
+        :return: Position information including amounts and price range
+        """
+        query_params = {
+            "network": network,
+            "positionAddress": position_address,
+            "walletAddress": wallet_address,
+        }
+        return await self.api_request(
+            "get",
+            f"{connector}/position-info",
+            params=query_params,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_open_position(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            pool_address: str,
+            lower_price: float,
+            upper_price: float,
+            base_token_amount: Optional[float] = None,
+            quote_token_amount: Optional[float] = None,
+            slippage_pct: Optional[float] = None,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Opens a new concentrated liquidity position
+        :param connector: The connector/protocol (e.g., "meteora")
+        :param network: The network to use (e.g., "mainnet")
+        :param wallet_address: The wallet address creating the position
+        :param pool_address: The address of the pool
+        :param lower_price: The lower price bound of the position
+        :param upper_price: The upper price bound of the position
+        :param base_token_amount: The amount of base token to add (optional)
+        :param quote_token_amount: The amount of quote token to add (optional)
+        :param slippage_pct: Allowed slippage percentage (optional)
+        :param fail_silently: Whether to fail silently on error
+        :return: Details of the opened position
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "poolAddress": pool_address,
+            "lowerPrice": lower_price,
+            "upperPrice": upper_price,
+        }
+        if base_token_amount is not None:
+            request_payload["baseTokenAmount"] = base_token_amount
+        if quote_token_amount is not None:
+            request_payload["quoteTokenAmount"] = quote_token_amount
+        if slippage_pct is not None:
+            request_payload["slippagePct"] = slippage_pct
+
+        return await self.api_request(
+            "post",
+            f"{connector}/open-position",
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
+    async def clmm_close_position(
+            self,
+            connector: str,
+            network: str,
+            wallet_address: str,
+            position_address: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Closes an existing concentrated liquidity position
+        :param connector: The connector/protocol (e.g., "meteora")
+        :param network: The network to use (e.g., "mainnet")
+        :param wallet_address: The wallet address that owns the position
+        :param position_address: The address of the position to close
+        :param fail_silently: Whether to fail silently on error
+        :return: Details of the closed position including refunded amounts
+        """
+        request_payload = {
+            "network": network,
+            "walletAddress": wallet_address,
+            "positionAddress": position_address,
+        }
+        return await self.api_request(
+            "post",
+            f"{connector}/close-position",
+            request_payload,
+            fail_silently=fail_silently,
+        )
+
     async def get_price(
             self,
             chain: str,
@@ -447,78 +659,36 @@ class GatewayHttpClient:
             amount: Decimal,
             side: TradeType,
             fail_silently: bool = False,
-            pool_id: Optional[str] = None
+            pool_address: Optional[str] = None
     ) -> Dict[str, Any]:
-        if side not in [TradeType.BUY, TradeType.SELL]:
-            raise ValueError("Only BUY and SELL prices are supported.")
-
-        request_payload = {
-            "chain": chain,
-            "network": network,
-            "connector": connector,
-            "base": base_asset,
-            "quote": quote_asset,
-            "amount": f"{amount:.18f}",
-            "side": side.name,
-            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
-        }
-
-        if pool_id not in ["", None]:
-            request_payload["poolId"] = pool_id
-
-        return await self.api_request(
-            "post",
-            f"{connector}/price",
-            request_payload,
-            fail_silently=fail_silently,
-        )
-
-    async def amm_trade(
-        self,
-        chain: str,
-        network: str,
-        connector: str,
-        address: str,
-        base_asset: str,
-        quote_asset: str,
-        side: TradeType,
-        amount: Decimal,
-        price: Decimal,
-        nonce: Optional[int] = None,
-        max_fee_per_gas: Optional[int] = None,
-        max_priority_fee_per_gas: Optional[int] = None,
-        pool_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        request_payload: Dict[str, Any] = {
-            "chain": chain,
-            "network": network,
-            "connector": connector,
-            "address": address,
-            "base": base_asset,
-            "quote": quote_asset,
-            "side": side.name,
-            "amount": f"{amount:.18f}",
-            # "limitPrice": f"{price:.20f}",
-            # "allowedSlippage": "0/1",  # hummingbot applies slippage itself
-        }
-        if pool_id not in ["", None]:
-            request_payload["poolId"] = pool_id
-        if nonce is not None:
-            request_payload["nonce"] = int(nonce)
-        if max_fee_per_gas is not None:
-            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
-        if max_priority_fee_per_gas is not None:
-            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
-        return await self.api_request("post", f"{connector}/trade", request_payload)
-
-    async def amm_estimate_gas(
-            self,
-            chain: str,
-            network: str,
-            connector: str,
-    ) -> Dict[str, Any]:
-        return await self.api_request("post", f"{connector}/estimateGas", {
-            "chain": chain,
-            "network": network,
-            "connector": connector,
-        })
+        """
+        Fetches price for a given trading pair using quote_swap
+        :param chain: Not used since connectors are wedded to specific chain architectures in Gateway 2.5+
+        :param network: The network where the trading occurs (e.g., "mainnet", "testnet")
+        :param connector: The connector/protocol to use (e.g., "uniswap", "jupiter")
+        :param base_asset: The base token symbol
+        :param quote_asset: The quote token symbol
+        :param amount: The amount of token to swap
+        :param side: Trade side (BUY/SELL)
+        :param fail_silently: If True, no exception will be raised on error
+        :param pool_address: Optional pool identifier for specific pools
+        :return: Dictionary containing price information
+        """
+        try:
+            response = await self.quote_swap(
+                network=network,
+                connector=connector,
+                base_asset=base_asset,
+                quote_asset=quote_asset,
+                amount=amount,
+                side=side,
+                pool_address=pool_address
+            )
+            return response
+        except Exception as e:
+            if not fail_silently:
+                raise
+            return {
+                "price": None,
+                "error": str(e)
+            }
