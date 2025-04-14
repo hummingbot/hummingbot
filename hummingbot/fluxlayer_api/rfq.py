@@ -1,4 +1,3 @@
-import requests
 import time
 from datetime import datetime
 import sys
@@ -28,8 +27,6 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 #         return None
     
 async def get_order_book_hummingbot(symbol='BTCUSDT', limit=100):
-    # bbb = get_order_book()
-    # print("bbbb", bbb)
     app = HummingbotApplication.main_application()
     client_config_map = app.client_config_map
     binance_exchange_obj = BinanceExchange(
@@ -44,9 +41,7 @@ async def get_order_book_hummingbot(symbol='BTCUSDT', limit=100):
         'bids': snapshot_msg.content["bids"],
         'asks': snapshot_msg.content["asks"],
     }
-    # print("aaaa", json_data)
     return json_data
-
 
 def calculate_price_impact(asks, budget_usdt=10000):
     """计算指定预算对价格的影响"""
@@ -84,12 +79,12 @@ def calculate_price_impact(asks, budget_usdt=10000):
         'price_impact': (last_price - float(asks[0][0])) / float(asks[0][0]) * 100
     }
 
-async def rfq_demo():
+async def rfq_demo(symbol='BTCUSDT', amount=100):
     while True:
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # 获取订单簿数据
-        order_book = await get_order_book_hummingbot()
+        order_book = await get_order_book_hummingbot(symbol)
         # return
         if not order_book:
             time.sleep(1)
@@ -99,7 +94,7 @@ async def rfq_demo():
         spot_price = float(order_book['asks'][0][0])  # 最佳卖价作为当前价格
 
         # 计算价格影响
-        analysis = calculate_price_impact(order_book['asks'], money_depth)
+        analysis = calculate_price_impact(order_book['asks'], amount)
 
         total_btc = analysis['total_btc']
         final_price = analysis['final_price']
@@ -111,13 +106,23 @@ async def rfq_demo():
             fluxlayer_price = average_price * 1.004
         
         # 输出结果
-        print(f"\n[{current_time}] BTC/USDT 实时价格: ${spot_price:.2f}")
-        print(f"用 $10,000 买入后：")
-        print(f"⋙ 可买入数量: {total_btc:.6f} BTC")
-        print(f"⋙ 触及最高价格: ${final_price:.2f}")
-        print(f"⋙ 成交均价: ${average_price:.2f}")
-        print(f"⋙ 价格影响: {price_impact:.4f}%")
-        print(f"⋙ fluxlayer 提供的价格: ${fluxlayer_price:.2f}")
-        break
+        # print(f"\n[{current_time}] BTC/USDT 实时价格: ${spot_price:.2f}")
+        # print(f"用 $10,000 买入后：")
+        # print(f"⋙ 可买入数量: {total_btc:.6f} BTC")
+        # print(f"⋙ 触及最高价格: ${final_price:.2f}")
+        # print(f"⋙ 成交均价: ${average_price:.2f}")
+        # print(f"⋙ 价格影响: {price_impact:.4f}%")
+        # print(f"⋙ fluxlayer 提供的价格: ${fluxlayer_price:.2f}")
+        return {
+            "price": spot_price,
+            "taramount": total_btc
+        }
 
-# asyncio.run(rfq_demo())
+# async def main():
+#     # 直接 await 调用
+#     res = await rfq_demo()
+#     print(res)
+
+# # 运行入口
+# asyncio.run(main())
+

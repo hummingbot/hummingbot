@@ -54,7 +54,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "limit": "1000"
         }
         if True:
-            rest_assistant = await self._api_factory.get_rest_assistant()
             response = requests.get(web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain), params=params)
             response.raise_for_status()
             return response.json()
