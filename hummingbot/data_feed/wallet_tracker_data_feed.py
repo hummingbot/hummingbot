@@ -14,7 +14,13 @@ from hummingbot.logger import HummingbotLogger
 
 class WalletTrackerDataFeed(NetworkBase):
     dex_logger: Optional[HummingbotLogger] = None
-    gateway_client = GatewayHttpClient.get_instance()
+    _gateway_client = None
+
+    @property
+    def gateway_client(self):
+        if self._gateway_client is None:
+            self._gateway_client = GatewayHttpClient.get_instance()
+        return self._gateway_client
 
     def __init__(
         self,
