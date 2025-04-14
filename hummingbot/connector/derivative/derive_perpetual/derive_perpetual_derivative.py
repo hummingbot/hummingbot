@@ -917,7 +917,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             return _order_update
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        trade_updates = []
         exchange_order_id = str(order.exchange_order_id)
         if exchange_order_id is not None:
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
@@ -954,8 +953,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                         fill_price=Decimal(trade["trade_price"]),
                         fill_timestamp=trade["timestamp"] * 1e-3,
                     )
-                    trade_updates.append(trade_update)
-            return trade_updates
+                    self._order_tracker.process_trade_update(trade_update)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         await self.trading_pair_symbol_map()
