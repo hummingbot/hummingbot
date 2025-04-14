@@ -425,7 +425,7 @@ class XrplExchange(ExchangePyBase):
                 new_state=new_state,
                 client_order_id=order_id,
             )
-            self._order_tracker.process_order_update(order_update=order_update)
+            self._order_tracker.process_order_update(order_update)
             raise Exception(f"Order {o_id} ({order_id}) creation failed: {e}")
 
         return o_id, transact_time, resp
@@ -813,8 +813,16 @@ class XrplExchange(ExchangePyBase):
                             tx_taker_pays_value = Decimal(tx_taker_pays.get("value", "0"))
 
                             # Check if values differ by more than the tolerance
-                            gets_diff = abs((taker_gets_value - tx_taker_gets_value) / tx_taker_gets_value if tx_taker_gets_value else 0)
-                            pays_diff = abs((taker_pays_value - tx_taker_pays_value) / tx_taker_pays_value if tx_taker_pays_value else 0)
+                            gets_diff = abs(
+                                (taker_gets_value - tx_taker_gets_value) / tx_taker_gets_value
+                                if tx_taker_gets_value
+                                else 0
+                            )
+                            pays_diff = abs(
+                                (taker_pays_value - tx_taker_pays_value) / tx_taker_pays_value
+                                if tx_taker_pays_value
+                                else 0
+                            )
 
                             if gets_diff > tolerance or pays_diff > tolerance:
                                 new_order_state = OrderState.PARTIALLY_FILLED
@@ -1052,6 +1060,10 @@ class XrplExchange(ExchangePyBase):
                     changes = offer_change.get("offer_changes", [])
 
                     for change in changes:
+                        status = change.get("status")
+                        if status not in ["filled", "partially-filled"]:
+                            continue
+
                         if int(change.get("sequence")) == int(sequence):
                             self.logger().debug(f"Processing offer change with sequence {sequence}")
                             taker_gets = change.get("taker_gets")
@@ -1087,10 +1099,10 @@ class XrplExchange(ExchangePyBase):
                             )
 
                             # Check if values exist before comparing
-                            taker_gets_value = taker_gets.get("value")
-                            taker_pays_value = taker_pays.get("value")
-                            tx_taker_gets_value = tx_taker_gets.get("value")
-                            tx_taker_pays_value = tx_taker_pays.get("value")
+                            taker_gets_value = taker_gets.get("value", "0")
+                            taker_pays_value = taker_pays.get("value", "0")
+                            tx_taker_gets_value = tx_taker_gets.get("value", "0")
+                            tx_taker_pays_value = tx_taker_pays.get("value", "0")
 
                             self.logger().debug(
                                 f"Comparing values - taker_gets: {taker_gets_value}, tx_taker_gets: {tx_taker_gets_value}, "
@@ -1102,108 +1114,120 @@ class XrplExchange(ExchangePyBase):
                                 and tx_taker_gets_value is not None
                                 and taker_pays_value is not None
                                 and tx_taker_pays_value is not None
-                                and (taker_gets_value != tx_taker_gets_value or taker_pays_value != tx_taker_pays_value)
                             ):
+                                # Convert values to Decimal for precise comparison
+                                taker_gets_decimal = Decimal(taker_gets_value)
+                                tx_taker_gets_decimal = Decimal(tx_taker_gets_value)
+                                taker_pays_decimal = Decimal(taker_pays_value)
+                                tx_taker_pays_decimal = Decimal(tx_taker_pays_value)
 
-                                diff_taker_gets_value = abs(Decimal(taker_gets_value) - Decimal(tx_taker_gets_value))
-                                diff_taker_pays_value = abs(Decimal(taker_pays_value) - Decimal(tx_taker_pays_value))
-                                self.logger().debug(
-                                    f"Calculated diffs - gets: {diff_taker_gets_value}, pays: {diff_taker_pays_value}"
-                                )
+                                # Calculate relative differences
+                                gets_diff = abs((taker_gets_decimal - tx_taker_gets_decimal) / tx_taker_gets_decimal if tx_taker_gets_decimal != 0 else 0)
+                                pays_diff = abs((taker_pays_decimal - tx_taker_pays_decimal) / tx_taker_pays_decimal if tx_taker_pays_decimal != 0 else 0)
 
-                                diff_taker_gets = {
-                                    "currency": taker_gets.get("currency"),
-                                    "value": str(diff_taker_gets_value),
-                                }
+                                # Use a small tolerance (0.0001 or 0.01%) to account for rounding errors
+                                tolerance = Decimal("0.0001")
 
-                                diff_taker_pays = {
-                                    "currency": taker_pays.get("currency"),
-                                    "value": str(diff_taker_pays_value),
-                                }
-
-                                self.logger().debug(
-                                    f"Looking for base currency: {base_currency.currency}, quote currency: {quote_currency.currency}"
-                                )
-                                base_change = get_token_from_changes(
-                                    token_changes=[diff_taker_gets, diff_taker_pays], token=base_currency.currency
-                                )
-                                quote_change = get_token_from_changes(
-                                    token_changes=[diff_taker_gets, diff_taker_pays], token=quote_currency.currency
-                                )
-                                self.logger().debug(f"Found base_change: {base_change}, quote_change: {quote_change}")
-
-                                # Validate base_change and quote_change
-                                if base_change is None or quote_change is None:
+                                if gets_diff > tolerance or pays_diff > tolerance:
+                                    diff_taker_gets_value = abs(taker_gets_decimal - tx_taker_gets_decimal)
+                                    diff_taker_pays_value = abs(taker_pays_decimal - tx_taker_pays_decimal)
                                     self.logger().debug(
-                                        f"Missing base_change or quote_change for order {order.client_order_id}"
+                                        f"Calculated diffs - gets: {diff_taker_gets_value}, pays: {diff_taker_pays_value}"
                                     )
-                                    continue
 
-                                if order.trade_type is TradeType.BUY:
-                                    fee_token = fee_rules.get("quote_token")
-                                    fee_rate = fee_rules.get("quote_transfer_rate")
-                                else:
-                                    fee_token = fee_rules.get("base_token")
-                                    fee_rate = fee_rules.get("base_transfer_rate")
-                                self.logger().debug(f"Fee details - token: {fee_token}, rate: {fee_rate}")
+                                    diff_taker_gets = {
+                                        "currency": taker_gets.get("currency"),
+                                        "value": str(diff_taker_gets_value),
+                                    }
 
-                                # Validate fee_token and fee_rate
-                                if fee_token is None or fee_rate is None:
+                                    diff_taker_pays = {
+                                        "currency": taker_pays.get("currency"),
+                                        "value": str(diff_taker_pays_value),
+                                    }
+
                                     self.logger().debug(
-                                        f"Missing fee_token or fee_rate for order {order.client_order_id}"
+                                        f"Looking for base currency: {base_currency.currency}, quote currency: {quote_currency.currency}"
                                     )
-                                    continue
+                                    base_change = get_token_from_changes(
+                                        token_changes=[diff_taker_gets, diff_taker_pays], token=base_currency.currency
+                                    )
+                                    quote_change = get_token_from_changes(
+                                        token_changes=[diff_taker_gets, diff_taker_pays], token=quote_currency.currency
+                                    )
+                                    self.logger().debug(f"Found base_change: {base_change}, quote_change: {quote_change}")
 
-                                fee = TradeFeeBase.new_spot_fee(
-                                    fee_schema=self.trade_fee_schema(),
-                                    trade_type=order.trade_type,
-                                    percent_token=fee_token.upper(),
-                                    percent=Decimal(fee_rate),
-                                )
+                                    # Validate base_change and quote_change
+                                    if base_change is None or quote_change is None:
+                                        self.logger().debug(
+                                            f"Missing base_change or quote_change for order {order.client_order_id}"
+                                        )
+                                        continue
 
-                                # Validate transaction hash and date
-                                tx_hash = tx.get("hash")
-                                tx_date = tx.get("date")
-                                if tx_hash is None or tx_date is None:
-                                    self.logger().debug(f"Missing tx_hash or tx_date for order {order.client_order_id}")
-                                    continue
-                                self.logger().debug(f"Transaction details - hash: {tx_hash}, date: {tx_date}")
+                                    if order.trade_type is TradeType.BUY:
+                                        fee_token = fee_rules.get("quote_token")
+                                        fee_rate = fee_rules.get("quote_transfer_rate")
+                                    else:
+                                        fee_token = fee_rules.get("base_token")
+                                        fee_rate = fee_rules.get("base_transfer_rate")
+                                    self.logger().debug(f"Fee details - token: {fee_token}, rate: {fee_rate}")
 
-                                # Validate base and quote values
-                                base_value = base_change.get("value")
-                                quote_value = quote_change.get("value")
-                                if base_value is None or quote_value is None:
+                                    # Validate fee_token and fee_rate
+                                    if fee_token is None or fee_rate is None:
+                                        self.logger().debug(
+                                            f"Missing fee_token or fee_rate for order {order.client_order_id}"
+                                        )
+                                        continue
+
+                                    fee = TradeFeeBase.new_spot_fee(
+                                        fee_schema=self.trade_fee_schema(),
+                                        trade_type=order.trade_type,
+                                        percent_token=fee_token.upper(),
+                                        percent=Decimal(fee_rate),
+                                    )
+
+                                    # Validate transaction hash and date
+                                    tx_hash = tx.get("hash")
+                                    tx_date = tx.get("date")
+                                    if tx_hash is None or tx_date is None:
+                                        self.logger().debug(f"Missing tx_hash or tx_date for order {order.client_order_id}")
+                                        continue
+                                    self.logger().debug(f"Transaction details - hash: {tx_hash}, date: {tx_date}")
+
+                                    # Validate base and quote values
+                                    base_value = base_change.get("value")
+                                    quote_value = quote_change.get("value")
+                                    if base_value is None or quote_value is None:
+                                        self.logger().debug(
+                                            f"Missing base_value or quote_value for order {order.client_order_id}"
+                                        )
+                                        continue
+                                    self.logger().debug(f"Trade values - base: {base_value}, quote: {quote_value}")
+
+                                    # Ensure base amount is not zero to avoid division by zero
+                                    base_decimal = abs(Decimal(base_value))
+                                    if base_decimal == Decimal("0"):
+                                        self.logger().debug(f"Base amount is zero for order {order.client_order_id}")
+                                        continue
+
+                                    fill_price = abs(Decimal(quote_value)) / base_decimal
+                                    self.logger().debug(f"Calculated fill price: {fill_price}")
+
+                                    trade_update = TradeUpdate(
+                                        trade_id=tx_hash,
+                                        client_order_id=order.client_order_id,
+                                        exchange_order_id=order.exchange_order_id,
+                                        trading_pair=order.trading_pair,
+                                        fee=fee,
+                                        fill_base_amount=abs(Decimal(base_value)),
+                                        fill_quote_amount=abs(Decimal(quote_value)),
+                                        fill_price=fill_price,
+                                        fill_timestamp=ripple_time_to_posix(tx_date),
+                                    )
                                     self.logger().debug(
-                                        f"Missing base_value or quote_value for order {order.client_order_id}"
+                                        f"Created trade update for order {order.client_order_id}: {trade_update}"
                                     )
-                                    continue
-                                self.logger().debug(f"Trade values - base: {base_value}, quote: {quote_value}")
 
-                                # Ensure base amount is not zero to avoid division by zero
-                                base_decimal = abs(Decimal(base_value))
-                                if base_decimal == Decimal("0"):
-                                    self.logger().debug(f"Base amount is zero for order {order.client_order_id}")
-                                    continue
-
-                                fill_price = abs(Decimal(quote_value)) / base_decimal
-                                self.logger().debug(f"Calculated fill price: {fill_price}")
-
-                                trade_update = TradeUpdate(
-                                    trade_id=tx_hash,
-                                    client_order_id=order.client_order_id,
-                                    exchange_order_id=order.exchange_order_id,
-                                    trading_pair=order.trading_pair,
-                                    fee=fee,
-                                    fill_base_amount=abs(Decimal(base_value)),
-                                    fill_quote_amount=abs(Decimal(quote_value)),
-                                    fill_price=fill_price,
-                                    fill_timestamp=ripple_time_to_posix(tx_date),
-                                )
-                                self.logger().debug(
-                                    f"Created trade update for order {order.client_order_id}: {trade_update}"
-                                )
-
-                                return trade_update
+                                    return trade_update
         else:
             # Find if offer changes are related to this order
             for offer_change in offer_changes:
@@ -1313,10 +1337,11 @@ class XrplExchange(ExchangePyBase):
         sequence, ledger_index = tracked_order.exchange_order_id.split("-")
         found_tx = None
         found_meta = None
+        history_transactions = await self._fetch_account_transactions(int(ledger_index))
 
         # Find the creation_transaction
         if creation_tx_resp is None:
-            transactions = await self._fetch_account_transactions(int(ledger_index))
+            transactions = history_transactions
         else:
             transactions = [creation_tx_resp]
 
@@ -1336,7 +1361,7 @@ class XrplExchange(ExchangePyBase):
                 else:
                     tx = transaction
 
-            if tx.get("Sequence", 0) == int(sequence) and tx.get("ledger_index", 0) == int(ledger_index):
+            if tx is not None and tx.get("Sequence", 0) == int(sequence):
                 found_meta = meta
                 found_tx = tx
                 break
@@ -1346,6 +1371,8 @@ class XrplExchange(ExchangePyBase):
             if current_state is OrderState.PENDING_CREATE or current_state is OrderState.PENDING_CANCEL:
                 if time.time() - tracked_order.last_update_timestamp > CONSTANTS.PENDING_ORDER_STATUS_CHECK_TIMEOUT:
                     new_order_state = OrderState.FAILED
+                    self.logger().info(f"History transactions: {history_transactions}")
+                    self.logger().info(f"Creation tx resp: {creation_tx_resp}")
                     self.logger().error(
                         f"Order status not found for order {tracked_order.client_order_id} ({sequence}), tx history: {transactions}"
                     )
@@ -1371,7 +1398,7 @@ class XrplExchange(ExchangePyBase):
             if tx_status != "tesSUCCESS":
                 new_order_state = OrderState.FAILED
                 self.logger().error(
-                    f"Order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}) failed: {tx_status}, data: {transaction}"
+                    f"Order {tracked_order.client_order_id} ({tracked_order.exchange_order_id}) failed: {tx_status}, meta: {found_meta}, tx: {found_tx}"
                 )
             else:
                 new_order_state = OrderState.FILLED
