@@ -3,7 +3,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "main"
 
-HBOT_ORDER_ID_PREFIX = "BINGX_"
+HBOT_ORDER_ID_PREFIX = "BING_X_"
 MAX_ORDER_ID_LEN = 40
 
 SIDE_BUY = "BUY"
@@ -112,7 +112,7 @@ RATE_LIMITS = {
 }
 
 
-EXCHANGE_NAME = "bingx"
+EXCHANGE_NAME = "bing_x"
 HBOT_BROKER_ID = "hummingbot"
 HBOT_ORDER_ID = "t-HBOT"
 
@@ -125,4 +125,4 @@ TRADE_EVENT_TYPE = "trade"
 DIFF_EVENT_TYPE = "depth"
 
 BINGX_USER_STREAM_PATH_URL = "/user/auth/userDataStream"
-SOURCE_KEY = '7VFN4OVG'
+SOURCE_KEY = 'Hummingbot'
