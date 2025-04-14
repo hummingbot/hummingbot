@@ -1,4 +1,4 @@
-from pydantic.v1 import Field
+from pydantic import Field
 
 from hummingbot.client.config.config_data_types import BaseClientModel
 

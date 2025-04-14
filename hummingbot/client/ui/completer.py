@@ -43,7 +43,10 @@ class HummingbotCompleter(Completer):
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
         self._exchange_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_amm_connector_names()), ignore_case=True)
+        self._exchange_ethereum_completer = WordCompleter(sorted(AllConnectorSettings.get_gateway_ethereum_connector_names()), ignore_case=True)
         self._exchange_clob_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
+        self._exchange_clob_amm_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(
+            AllConnectorSettings.get_gateway_amm_connector_names())), ignore_case=True)
         self._trading_timeframe_completer = WordCompleter(["infinite", "from_date_to_date", "daily_between_times"], ignore_case=True)
         self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
@@ -51,14 +54,16 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "list", "approve-tokens"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["list", "balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "allowance", "approve-tokens"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_connector_tokens_completer = self._exchange_amm_completer
         self._gateway_balance_completer = self._exchange_amm_completer
-        self._gateway_approve_tokens_completer = self._exchange_amm_completer
+        self._gateway_allowance_completer = self._exchange_ethereum_completer
+        self._gateway_approve_tokens_completer = self._exchange_ethereum_completer
         self._gateway_config_completer = WordCompleter(hummingbot_application.gateway_config_keys, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
+        self._script_conf_completer = WordCompleter(["--conf"], ignore_case=True)
         self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONF_DIR_PATH), "yml"))
         self._strategy_v2_create_config_completer = self.get_strategies_v2_with_config()
         self._controller_completer = self.get_available_controllers()
@@ -188,9 +193,12 @@ class HummingbotCompleter(Completer):
         return text_before_cursor.startswith("connect ")
 
     def _complete_exchange_amm_connectors(self, document: Document) -> bool:
-        return "(Exchange/AMM/CLOB)" in self.prompt_text
+        return "(Exchange/AMM)" in self.prompt_text
 
     def _complete_exchange_clob_connectors(self, document: Document) -> bool:
+        return "(Exchange/CLOB)" in self.prompt_text
+
+    def _complete_exchange_clob_amm_connectors(self, document: Document) -> bool:
         return "(Exchange/AMM/CLOB)" in self.prompt_text
 
     def _complete_spot_exchanges(self, document: Document) -> bool:
@@ -224,6 +232,10 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway balance ")
 
+    def _complete_gateway_allowance_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway allowance ")
+
     def _complete_gateway_approve_tokens_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway approve-tokens ")
@@ -237,6 +249,10 @@ class HummingbotCompleter(Completer):
         return text_before_cursor.startswith("gateway config ")
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor and ".py" not in text_before_cursor
+
+    def _complete_conf_param_script_strategy_config(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor
 
@@ -296,12 +312,12 @@ class HummingbotCompleter(Completer):
         :param document:
         :param complete_event:
         """
-        if self._complete_pmm_script_files(document):
-            for c in self._py_file_completer.get_completions(document, complete_event):
+        if self._complete_script_strategy_files(document):
+            for c in self._script_strategy_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_script_strategy_files(document):
-            for c in self._script_strategy_completer.get_completions(document, complete_event):
+        elif self._complete_conf_param_script_strategy_config(document):
+            for c in self._script_conf_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_script_strategy_config(document):
@@ -334,6 +350,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_wallet_addresses(document):
             for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_exchange_clob_amm_connectors(document):
+            for c in self._exchange_clob_amm_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchange_amm_connectors(document):
@@ -393,6 +413,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_balance_arguments(document):
             for c in self._gateway_balance_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_allowance_arguments(document):
+            for c in self._gateway_allowance_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_approve_tokens_arguments(document):
