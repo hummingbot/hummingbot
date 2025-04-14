@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from aioresponses import aioresponses
 
 from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed, coin_gecko_constants as CONSTANTS
+from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import PUBLIC
 
 
 class CoinGeckoDataFeedTest(unittest.TestCase):
@@ -102,7 +103,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
 
     @aioresponses()
     def test_get_supported_vs_tokens(self, mock_api: aioresponses):
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        url = f"{PUBLIC.base_url}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
         data = ["btc", "eth"]
         mock_api.get(url=url, body=json.dumps(data))
 
@@ -116,7 +117,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         page_no = 0
         category = "coin"
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?category={category}&order=market_cap_desc&page={page_no}"
             f"&per_page=250&sparkline=false&vs_currency={vs_currency}"
         )
@@ -135,7 +136,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         token_ids = ["ETH", "BTC"]
         token_ids_str = ",".join(map(str.lower, token_ids))
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?ids={token_ids_str}&vs_currency={vs_currency}"
         )
         data = self.get_coin_markets_data_mock(btc_price=1, eth_price=2)
@@ -162,7 +163,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         sleep_mock.return_value = wait_on_sleep_event()
 
         prices_requested_event = asyncio.Event()
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+        url = f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
         regex_url = re.compile(f"^{url}")
         data = self.get_coin_markets_data_mock(btc_price=1, eth_price=2)
         first_page = data[:1]
@@ -223,7 +224,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
     def test_fetch_data_logs_exceptions(self, mock_api, sleep_mock: MagicMock):
         sleep_mock.side_effect = [asyncio.CancelledError]
 
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+        url = f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
         regex_url = re.compile(f"^{url}")
         mock_api.get(url=regex_url, exception=RuntimeError("Some error"))
 

@@ -8,7 +8,7 @@ from aioresponses import aioresponses
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.data_feed.coin_gecko_data_feed import coin_gecko_constants as CONSTANTS
-from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLOFF_AFTER_BAN
+from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLOFF_AFTER_BAN, PUBLIC
 
 
 class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
@@ -91,7 +91,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @staticmethod
     def get_prices_by_page_url(page_no, vs_currency):
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?order=market_cap_desc&page={page_no}"
             f"&per_page=250&sparkline=false&vs_currency={vs_currency}"
         )
@@ -100,7 +100,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
     @staticmethod
     def get_prices_by_page_with_category_url(category, page_no, vs_currency):
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?category={category}&order=market_cap_desc&page={page_no}"
             f"&per_page=250&sparkline=false&vs_currency={vs_currency}"
         )
@@ -108,7 +108,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
     def setup_responses(self, mock_api: aioresponses, expected_rate: Decimal):
         # setup supported tokens response
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        url = f"{PUBLIC.base_url}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
         data = [self.global_token.lower(), self.extra_token.lower()]
         mock_api.get(url=url, body=json.dumps(data))
 
@@ -133,7 +133,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
         # setup extra token price response
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?ids={self.extra_token.lower()}&vs_currency={self.global_token.lower()}"
         )
         data = self.get_extra_token_data_mock(price=20.0)
@@ -141,7 +141,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
     def setup_responses_with_exception(self, mock_api: aioresponses, expected_rate: Decimal, exception=Exception):
         # setup supported tokens response
-        url = f"{CONSTANTS.BASE_URL}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
+        url = f"{PUBLIC.base_url}{CONSTANTS.SUPPORTED_VS_TOKENS_REST_ENDPOINT}"
         data = [self.global_token.lower(), self.extra_token.lower()]
         mock_api.get(url=url, body=json.dumps(data))
 
@@ -177,7 +177,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
         # setup extra token price response
         url = (
-            f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
+            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
             f"?ids={self.extra_token.lower()}&vs_currency={self.global_token.lower()}"
         )
         data = self.get_extra_token_data_mock(price=20.0)
