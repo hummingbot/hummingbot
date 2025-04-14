@@ -116,10 +116,6 @@ class HyperliquidExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
-    @property
-    def funding_fee_poll_interval(self) -> int:
-        return 120
-
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"type": CONSTANTS.META_INFO})
 
