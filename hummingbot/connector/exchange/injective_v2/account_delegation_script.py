@@ -26,7 +26,7 @@ SECONDS_PER_DAY = 60 * 60 * 24
 
 async def main() -> None:
     # initialize grpc client
-    client = AsyncClient(NETWORK, insecure=False)
+    client = AsyncClient(NETWORK)
     composer = await client.composer()
     await client.sync_timeout_height()
 
@@ -34,7 +34,7 @@ async def main() -> None:
     granter_private_key = PrivateKey.from_hex(GRANTER_ACCOUNT_PRIVATE_KEY)
     granter_public_key = granter_private_key.to_public_key()
     granter_address = granter_public_key.to_address()
-    account = await client.get_account(granter_address.to_acc_bech32())  # noqa: F841
+    account = await client.fetch_account(granter_address.to_acc_bech32())  # noqa: F841
     granter_subaccount_id = granter_address.get_subaccount_id(index=GRANTER_SUBACCOUNT_INDEX)
 
     msg_spot_market = composer.MsgGrantTyped(
@@ -77,14 +77,10 @@ async def main() -> None:
     sim_tx_raw_bytes = tx.get_tx_data(sim_sig, granter_public_key)
 
     # simulate tx
-    (sim_res, success) = await client.simulate_tx(sim_tx_raw_bytes)
-    if not success:
-        print(sim_res)
-        return
-
+    simulation = await client.simulate(sim_tx_raw_bytes)
     # build tx
     gas_price = 500000000
-    gas_limit = sim_res.gas_info.gas_used + 20000
+    gas_limit = int(simulation["gasInfo"]["gasUsed"]) + 20000
     gas_fee = "{:.18f}".format((gas_price * gas_limit) / pow(10, 18)).rstrip("0")
     fee = [composer.coin(
         amount=gas_price * gas_limit,
@@ -96,7 +92,7 @@ async def main() -> None:
     sig = granter_private_key.sign(sign_doc.SerializeToString())
     tx_raw_bytes = tx.get_tx_data(sig, granter_public_key)
 
-    res = await client.send_tx_sync_mode(tx_raw_bytes)
+    res = await client.broadcast_tx_sync_mode(tx_raw_bytes)
     print(res)
     print("gas wanted: {}".format(gas_limit))
     print("gas fee: {} INJ".format(gas_fee))
