@@ -233,7 +233,7 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         invalid_key = "xINVALIDKEY"
         with self.assertRaises(ValueError) as context:
             XRPLConfigMap.validate_xrpl_secret_key(invalid_key)
-        self.assertIn("Invalid XRPL wallet secret key", str(context.exception))
+        self.assertIn("Invalid XRPL secret key format.", str(context.exception))
 
     def test_validate_wss_node_url_valid(self):
         valid_url = "wss://s1.ripple.com/"
