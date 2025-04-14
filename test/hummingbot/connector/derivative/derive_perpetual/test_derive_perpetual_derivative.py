@@ -2505,6 +2505,81 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
     @aioresponses()
+    async def test_update_order_fills_from_trades_successful(self, req_mock):
+        self.exchange._set_current_timestamp(1640780000)
+        self._simulate_trading_rules_initialized()
+        self.exchange._last_poll_timestamp = 0
+
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        trades = {
+            "result": {
+                'subaccount_id': 37799,
+                'trades': [
+                    {
+                        'subaccount_id': 37799,
+                        'order_id': "8886774",
+                        'instrument_name': f"{self.base_asset}-PERP",
+                        'direction': 'sell', 'label': "8886774",
+                        'quote_id': None,
+                        'trade_id': "698759",
+                        'timestamp': 1681222254710,
+                        'mark_price': '10000',
+                        'index_price': '10000',
+                        'trade_price': '10000', 'trade_amount': "0.5",
+                        'liquidity_role': 'maker',
+                        'realized_pnl': '0',
+                        'realized_pnl_excl_fees': '0',
+                        'is_transfer': False,
+                        'tx_status': 'settled',
+                        'trade_fee': "0",
+                        'tx_hash': '0xad4e10abb398a83955a80d6c072d0064eeecb96cceea1501411b02415b522d30'  # noqa: mock
+                    }
+                ]
+            }
+        }
+
+        url = web_utils.private_rest_url(
+            CONSTANTS.MY_TRADES_PATH_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        req_mock.get(regex_url, body=json.dumps(trades))
+        await self.exchange._all_trade_updates_for_order(order)
+
+        in_flight_orders = self.exchange._order_tracker.active_orders
+
+        self.assertTrue("OID1" in in_flight_orders)
+
+        self.assertEqual("OID1", in_flight_orders["OID1"].client_order_id)
+        self.assertEqual(f"{self.base_asset}-{self.quote_asset}", in_flight_orders["OID1"].trading_pair)
+        self.assertEqual(OrderType.LIMIT, in_flight_orders["OID1"].order_type)
+        self.assertEqual(TradeType.SELL, in_flight_orders["OID1"].trade_type)
+        self.assertEqual(10000, in_flight_orders["OID1"].price)
+        self.assertEqual(1, in_flight_orders["OID1"].amount)
+        self.assertEqual("8886774", in_flight_orders["OID1"].exchange_order_id)
+        self.assertEqual(OrderState.PENDING_CREATE, in_flight_orders["OID1"].current_state)
+        self.assertEqual(1, in_flight_orders["OID1"].leverage)
+        self.assertEqual(PositionAction.OPEN, in_flight_orders["OID1"].position)
+
+        self.assertEqual(0.5, in_flight_orders["OID1"].executed_amount_base)
+        self.assertEqual(5000, in_flight_orders["OID1"].executed_amount_quote)
+
+        self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
+
+    @aioresponses()
     def test_update_trade_history_triggers_filled_event(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
