@@ -215,12 +215,6 @@ class HyperliquidExchange(ExchangePyBase):
             self._update_balances(),
         )
 
-    async def _update_order_status(self):
-        await self._update_orders()
-
-    async def _update_lost_orders_status(self):
-        await self._update_lost_orders()
-
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
