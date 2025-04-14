@@ -209,11 +209,8 @@ class HyperliquidExchange(ExchangePyBase):
         )
 
     async def _status_polling_loop_fetch_updates(self):
-        await safe_gather(
-            self._update_trade_history(),
-            self._update_order_status(),
-            self._update_balances(),
-        )
+        await self._update_order_fills_from_trades()
+        await super()._status_polling_loop_fetch_updates()
 
     def _get_fee(self,
                  base_currency: str,
@@ -381,28 +378,6 @@ class HyperliquidExchange(ExchangePyBase):
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
         o_id = str(o_data["oid"])
         return (o_id, self.current_timestamp)
-
-    async def _update_trade_history(self):
-        orders = list(self._order_tracker.all_fillable_orders.values())
-        all_fillable_orders = self._order_tracker.all_fillable_orders_by_exchange_order_id
-        all_fills_response = []
-        if len(orders) > 0:
-            try:
-                all_fills_response = await self._api_post(
-                    path_url = CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                    data = {
-                        "type": CONSTANTS.TRADES_TYPE,
-                        "user": self.hyperliquid_api_key,
-                    })
-            except asyncio.CancelledError:
-                raise
-            except Exception as request_error:
-                self.logger().warning(
-                    f"Failed to fetch trade updates. Error: {request_error}",
-                    exc_info = request_error,
-                )
-            for trade_fill in all_fills_response:
-                self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
 
     def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
         exchange_order_id = str(order_fill.get("oid"))
