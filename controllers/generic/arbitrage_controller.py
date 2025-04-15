@@ -25,15 +25,18 @@ class ArbitrageControllerConfig(ControllerConfigBase):
 
     def update_markets(self, markets: Dict[str, Set[str]]) -> Dict[str, Set[str]]:
         if self.exchange_pair_1.connector_name == self.exchange_pair_2.connector_name:
-            markets.update({
-                self.exchange_pair_1.connector_name: {self.exchange_pair_1.trading_pair,
-                                                      self.exchange_pair_2.trading_pair}
-            })
+            if self.exchange_pair_1.connector_name in markets:
+                markets[self.exchange_pair_1.connector_name].update({self.exchange_pair_1.trading_pair,
+                                                                     self.exchange_pair_2.trading_pair})
+            else:
+                markets[self.exchange_pair_1.connector_name] = {self.exchange_pair_1.trading_pair,
+                                                                self.exchange_pair_2.trading_pair}
         else:
-            markets.update({
-                self.exchange_pair_1.connector_name: {self.exchange_pair_1.trading_pair},
-                self.exchange_pair_2.connector_name: {self.exchange_pair_2.trading_pair}
-            })
+            for connector_pair in [self.exchange_pair_1, self.exchange_pair_2]:
+                if connector_pair.connector_name in markets:
+                    markets[connector_pair.connector_name].add(connector_pair.trading_pair)
+                else:
+                    markets[connector_pair.connector_name] = {connector_pair.trading_pair}
         return markets
 
 
