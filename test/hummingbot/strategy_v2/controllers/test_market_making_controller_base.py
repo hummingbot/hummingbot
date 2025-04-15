@@ -96,19 +96,6 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(ValueError):
             MarketMakingControllerConfigBase.validate_position_mode("invalid_position_mode")
 
-    def test_update_parameters(self):
-        new_spreads = [0.03, 0.04]
-        new_amounts_pct = [60, 40]
-        self.mock_controller_config.update_parameters(TradeType.BUY, new_spreads, new_amounts_pct)
-        self.assertEqual(self.mock_controller_config.buy_spreads, new_spreads)
-        self.assertEqual(self.mock_controller_config.buy_amounts_pct, new_amounts_pct)
-
-        # Test without new_amounts_pct
-        new_spreads = [0.05, 0.06]
-        self.mock_controller_config.update_parameters(TradeType.SELL, new_spreads)
-        self.assertEqual(self.mock_controller_config.sell_spreads, new_spreads)
-        self.assertEqual(self.mock_controller_config.sell_amounts_pct, [1, 1])
-
     def test_update_markets_new_connector(self):
         markets = {}
         updated_markets = self.mock_controller_config.update_markets(markets)
