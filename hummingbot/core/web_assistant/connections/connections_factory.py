@@ -1,9 +1,11 @@
-from typing import Optional
+from typing import TypeVar
 
 import aiohttp
 
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
+
+ConnectionsFactoryT = TypeVar("ConnectionsFactoryT", bound="ConnectionsFactory")
 
 
 class ConnectionsFactory:
@@ -17,23 +19,57 @@ class ConnectionsFactory:
     a separate third-party library. In that case, a factory can be created that returns `RESTConnection`s using
     `aiohttp` and `WSConnection`s using `signalr_aio`.
     """
+    _instance: ConnectionsFactoryT | None = None
+    _ws_independent_session: aiohttp.ClientSession | None = None
+    _shared_client: aiohttp.ClientSession | None = None
 
-    def __init__(self):
-        # _ws_independent_session is intended to be used only in unit tests
-        self._ws_independent_session: Optional[aiohttp.ClientSession] = None
-
-        self._shared_client: Optional[aiohttp.ClientSession] = None
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     async def get_rest_connection(self) -> RESTConnection:
-        shared_client = await self._get_shared_client()
-        connection = RESTConnection(aiohttp_client_session=shared_client)
-        return connection
+        """
+        Get a REST connection using a shared aiohttp.ClientSession.
+        """
+        client = await self._get_shared_client()
+        return RESTConnection(aiohttp_client_session=client)
 
     async def get_ws_connection(self) -> WSConnection:
-        shared_client = self._ws_independent_session or await self._get_shared_client()
-        connection = WSConnection(aiohttp_client_session=shared_client)
-        return connection
+        """
+        Get a WebSocket connection using either the independent session (if set)
+        or the shared client.
+        """
+        client = self._ws_independent_session or await self._get_shared_client()
+        return WSConnection(aiohttp_client_session=client)
 
     async def _get_shared_client(self) -> aiohttp.ClientSession:
-        self._shared_client = self._shared_client or aiohttp.ClientSession()
+        """
+        Lazily create a shared aiohttp.ClientSession if not already available.
+        """
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
         return self._shared_client
+
+    async def close(self) -> None:
+        """
+        Close any open aiohttp.ClientSession instances.
+        """
+        if self._shared_client is not None:
+            await self._shared_client.close()
+            self._shared_client = None
+        if self._ws_independent_session is not None:
+            await self._ws_independent_session.close()
+            self._ws_independent_session = None
+
+    async def __aenter__(self) -> ConnectionsFactoryT:
+        """
+        Enter the async context manager.
+        """
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Exit the async context manager by closing client sessions.
+        """
+        await self.close()

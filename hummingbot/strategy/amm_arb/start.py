@@ -1,11 +1,6 @@
 from decimal import Decimal
-from typing import cast
 
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.connector.gateway.amm.gateway_ethereum_amm import GatewayEthereumAMM
-from hummingbot.connector.gateway.amm.gateway_solana_amm import GatewaySolanaAMM
-from hummingbot.connector.gateway.common_types import Chain
-from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
@@ -18,14 +13,11 @@ def start(self):
     market_1 = amm_arb_config_map.get("market_1").value
     connector_2 = amm_arb_config_map.get("connector_2").value.lower()
     market_2 = amm_arb_config_map.get("market_2").value
-    pool_id = "_" + amm_arb_config_map.get("pool_id").value
     order_amount = amm_arb_config_map.get("order_amount").value
     min_profitability = amm_arb_config_map.get("min_profitability").value / Decimal("100")
     market_1_slippage_buffer = amm_arb_config_map.get("market_1_slippage_buffer").value / Decimal("100")
     market_2_slippage_buffer = amm_arb_config_map.get("market_2_slippage_buffer").value / Decimal("100")
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
-    debug_price_shim = amm_arb_config_map.get("debug_price_shim").value
-    gateway_transaction_cancel_interval = amm_arb_config_map.get("gateway_transaction_cancel_interval").value
     rate_oracle_enabled = amm_arb_config_map.get("rate_oracle_enabled").value
     quote_conversion_rate = amm_arb_config_map.get("quote_conversion_rate").value
     gas_token = amm_arb_config_map.get("gas_token").value
@@ -40,35 +32,12 @@ def start(self):
     is_connector_2_gateway = connector_2 in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
 
     market_info_1 = MarketTradingPairTuple(
-        self.markets[connector_1], market_1 if not is_connector_1_gateway else market_1 + pool_id, base_1, quote_1
+        self.markets[connector_1], market_1 if not is_connector_1_gateway else market_1, base_1, quote_1
     )
     market_info_2 = MarketTradingPairTuple(
-        self.markets[connector_2], market_2 if not is_connector_2_gateway else market_2 + pool_id, base_2, quote_2
+        self.markets[connector_2], market_2 if not is_connector_2_gateway else market_2, base_2, quote_2
     )
     self.market_trading_pair_tuples = [market_info_1, market_info_2]
-
-    if debug_price_shim:
-        amm_market_info: MarketTradingPairTuple = market_info_1
-        other_market_info: MarketTradingPairTuple = market_info_2
-        other_market_name: str = connector_2
-        if AmmArbStrategy.is_gateway_market(other_market_info):
-            amm_market_info = market_info_2
-            other_market_info = market_info_1
-            other_market_name = connector_1
-        if Chain.ETHEREUM.chain == amm_market_info.market.chain:
-            amm_connector: GatewayEthereumAMM = cast(GatewayEthereumAMM, amm_market_info.market)
-        elif Chain.SOLANA.chain == amm_market_info.market.chain:
-            amm_connector: GatewaySolanaAMM = cast(GatewaySolanaAMM, amm_market_info.market)
-        else:
-            raise ValueError(f"Unsupported chain: {amm_market_info.market.chain}")
-        GatewayPriceShim.get_instance().patch_prices(
-            other_market_name,
-            other_market_info.trading_pair,
-            amm_connector.connector_name,
-            amm_connector.chain,
-            amm_connector.network,
-            amm_market_info.trading_pair
-        )
 
     if rate_oracle_enabled:
         rate_source = RateOracle.get_instance()
@@ -91,6 +60,5 @@ def start(self):
                               market_1_slippage_buffer=market_1_slippage_buffer,
                               market_2_slippage_buffer=market_2_slippage_buffer,
                               concurrent_orders_submission=concurrent_orders_submission,
-                              gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
                               rate_source=rate_source,
                               )

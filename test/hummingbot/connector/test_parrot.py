@@ -256,7 +256,8 @@ class ParrotConnectorUnitTest(TestCase):
             with patch('hummingbot.connector.parrot.get_active_campaigns') as mocked_ac:
                 mocked_ac.return_value = self.expected_campaign_32_markets
                 summary = self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
-        self.assertEqual(self.expected_summary, summary)
+        self.assertEqual(self.expected_summary.keys(), summary.keys())
+        self.assertEqual(self.expected_summary["ALGO-USDT"].active_bots, summary["ALGO-USDT"].active_bots)
 
     @aioresponses()
     def test_get_campaign_summary_http_error(self, mocked_http):

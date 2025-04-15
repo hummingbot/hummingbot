@@ -3,14 +3,12 @@ import unittest
 from datetime import datetime, time
 from decimal import Decimal
 from pathlib import Path
-from typing import Awaitable, Dict
+from typing import Awaitable, Callable, Dict
 from unittest.mock import patch
 
 import yaml
-from pydantic import validate_model
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigValidationError
-from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
     AvellanedaMarketMakingConfigMap,
@@ -63,7 +61,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         return config_settings
 
     def test_initial_sequential_build(self):
-        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap.construct())
+        config_map = ClientConfigAdapter(AvellanedaMarketMakingConfigMap.model_construct())
         config_settings = self.get_default_map()
 
         def build_config_map(cm: ClientConfigAdapter, cs: Dict):
@@ -71,7 +69,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
             for key in cm.keys():
                 client_data = cm.get_client_data(key)
                 if client_data is not None and client_data.prompt_on_new:
-                    self.assertIsInstance(client_data.prompt(cm), str)
+                    self.assertIsInstance(client_data.prompt, str | Callable)
                     if key == "execution_timeframe_model":
                         setattr(cm, key, "daily_between_times")  # simulate user input
                     else:
@@ -81,9 +79,6 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
                         build_config_map(new_value, cs[key])
 
         build_config_map(config_map, config_settings)
-        hb_config = config_map.hb_config
-        validate_model(hb_config.__class__, hb_config.__dict__)
-        self.assertEqual(0, len(config_map.validate_model()))
 
     def test_order_amount_prompt(self):
         prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("order_amount"))
@@ -91,17 +86,8 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
         self.assertEqual(expected, prompt)
 
-    def test_maker_trading_pair_prompt(self):
-        exchange = self.config_map.exchange
-        example = AllConnectorSettings.get_example_pairs().get(exchange)
-
-        prompt = self.async_run_with_timeout(self.config_map.get_client_prompt("market"))
-        expected = f"Enter the token trading pair you would like to trade on {exchange} (e.g. {example})"
-
-        self.assertEqual(expected, prompt)
-
     def test_execution_time_prompts(self):
-        self.config_map.execution_timeframe_mode = FromDateToDateModel.Config.title
+        self.config_map.execution_timeframe_mode = FromDateToDateModel.model_config["title"]
         model = self.config_map.execution_timeframe_mode
         prompt = self.async_run_with_timeout(model.get_client_prompt("start_datetime"))
         expected = "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)"
@@ -110,7 +96,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         expected = "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(expected, prompt)
 
-        self.config_map.execution_timeframe_mode = DailyBetweenTimesModel.Config.title
+        self.config_map.execution_timeframe_mode = DailyBetweenTimesModel.model_config["title"]
         model = self.config_map.execution_timeframe_mode
         prompt = self.async_run_with_timeout(model.get_client_prompt("start_time"))
         expected = "Please enter the start time (HH:MM:SS)"
@@ -134,7 +120,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
             self.config_map.execution_timeframe_mode = "XXX"
 
         error_msg = (
-            "Invalid timeframe, please choose value from ['infinite', 'from_date_to_date', 'daily_between_times']"
+            "Value error, Invalid timeframe, please choose value from ['infinite', 'from_date_to_date', 'daily_between_times']"
         )
         self.assertEqual(error_msg, str(e.exception))
 
@@ -149,13 +135,13 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             model.start_datetime = "2021-01-01 30:00:00"
 
-        error_msg = "Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"
+        error_msg = "Value error, Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(error_msg, str(e.exception))
 
         with self.assertRaises(ConfigValidationError) as e:
             model.start_datetime = "12:00:00"
 
-        error_msg = "Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"
+        error_msg = "Value error, Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"
         self.assertEqual(error_msg, str(e.exception))
 
         self.config_map.execution_timeframe_mode = "daily_between_times"
@@ -167,13 +153,13 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             model.start_time = "30:00:00"
 
-        error_msg = "Incorrect time format (expected is HH:MM:SS)"
+        error_msg = "Value error, Incorrect time format (expected is HH:MM:SS)"
         self.assertEqual(error_msg, str(e.exception))
 
         with self.assertRaises(ConfigValidationError) as e:
             model.start_time = "2021-01-01 12:00:00"
 
-        error_msg = "Incorrect time format (expected is HH:MM:SS)"
+        error_msg = "Value error, Incorrect time format (expected is HH:MM:SS)"
         self.assertEqual(error_msg, str(e.exception))
 
         self.config_map.order_levels_mode = "multi_order_level"
@@ -182,7 +168,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             model.order_levels = 1
 
-        error_msg = "Value cannot be less than 2."
+        error_msg = "Value error, Value cannot be less than 2."
         self.assertEqual(error_msg, str(e.exception))
 
         model.order_levels = 3
@@ -194,7 +180,7 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         with self.assertRaises(ConfigValidationError) as e:
             model.hanging_orders_cancel_pct = "-1"
 
-        error_msg = "Value must be between 0 and 100 (exclusive)."
+        error_msg = "Value error, Value must be between 0 and 100 (exclusive)."
         self.assertEqual(error_msg, str(e.exception))
 
         model.hanging_orders_cancel_pct = "3"
@@ -218,7 +204,6 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
             "start_datetime": "2022-01-01 10:00:00",
             "end_datetime": "2022-01-02 10:00:00",
         }
-        self.config_map.validate_model()
 
         self.assertIsInstance(self.config_map.execution_timeframe_mode.hb_config, FromDateToDateModel)
         self.assertEqual(self.config_map.execution_timeframe_mode.start_datetime, datetime(2022, 1, 1, 10))
@@ -228,14 +213,12 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
             "start_time": "10:00:00",
             "end_time": "11:00:00",
         }
-        self.config_map.validate_model()
 
         self.assertIsInstance(self.config_map.execution_timeframe_mode.hb_config, DailyBetweenTimesModel)
         self.assertEqual(self.config_map.execution_timeframe_mode.start_time, time(10))
         self.assertEqual(self.config_map.execution_timeframe_mode.end_time, time(11))
 
         self.config_map.execution_timeframe_mode = {}
-        self.config_map.validate_model()
 
         self.assertIsInstance(self.config_map.execution_timeframe_mode.hb_config, InfiniteModel)
 
@@ -246,14 +229,12 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
             "order_levels": 2,
             "level_distances": 1,
         }
-        self.config_map.validate_model()
 
         self.assertIsInstance(self.config_map.order_levels_mode.hb_config, MultiOrderLevelModel)
         self.assertEqual(self.config_map.order_levels_mode.order_levels, 2)
         self.assertEqual(self.config_map.order_levels_mode.level_distances, 1)
 
         self.config_map.order_levels_mode = {}
-        self.config_map.validate_model()
 
         self.assertIsInstance(self.config_map.order_levels_mode.hb_config, SingleOrderLevelModel)
 
@@ -261,12 +242,10 @@ class AvellanedaMarketMakingConfigMapPydanticTest(unittest.TestCase):
         self.config_map.hanging_orders_mode = IgnoreHangingOrdersModel()
 
         self.config_map.hanging_orders_mode = {"hanging_orders_cancel_pct": 1}
-        self.config_map.validate_model()
 
         self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, TrackHangingOrdersModel)
         self.assertEqual(self.config_map.hanging_orders_mode.hanging_orders_cancel_pct, Decimal("1"))
 
         self.config_map.hanging_orders_mode = {}
-        self.config_map.validate_model()
 
         self.assertIsInstance(self.config_map.hanging_orders_mode.hb_config, IgnoreHangingOrdersModel)

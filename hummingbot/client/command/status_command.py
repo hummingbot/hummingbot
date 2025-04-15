@@ -14,7 +14,7 @@ from hummingbot.client.config.config_helpers import (
     missing_required_configs_legacy,
 )
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import ethereum_wallet_required, required_exchanges
+from hummingbot.client.settings import required_exchanges
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -98,10 +98,6 @@ class StatusCommand:
                 connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
-            if ethereum_wallet_required():
-                err_msg = UserBalances.validate_ethereum_wallet()
-                if err_msg is not None:
-                    invalid_conns["ethereum"] = err_msg
         return invalid_conns
 
     def missing_configurations_legacy(
@@ -114,13 +110,6 @@ class StatusCommand:
                 get_strategy_config_map(self.strategy_name)
             )
         return missing_configs
-
-    def validate_configs(
-        self,  # type: HummingbotApplication
-    ) -> List[str]:
-        config_map = self.strategy_config_map
-        validation_errors = config_map.validate_model() if isinstance(config_map, ClientConfigAdapter) else []
-        return validation_errors
 
     def status(self,  # type: HummingbotApplication
                live: bool = False):
@@ -165,12 +154,6 @@ class StatusCommand:
                 self.notify(f"    {config.key}")
         elif notify_success:
             self.notify('  - Strategy check: All required parameters confirmed.')
-        validation_errors = self.validate_configs()
-        if len(validation_errors) != 0:
-            self.notify("  - Strategy check: Validation of the config maps failed. The following errors were flagged.")
-            for error in validation_errors:
-                self.notify(f"    {error}")
-            return False
 
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
@@ -185,7 +168,7 @@ class StatusCommand:
         elif notify_success:
             self.notify('  - Exchange check: All connections confirmed.')
 
-        if invalid_conns or missing_configs or len(validation_errors) != 0:
+        if invalid_conns or missing_configs:
             return False
 
         loading_markets: List[ConnectorBase] = []

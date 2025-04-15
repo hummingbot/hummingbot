@@ -1,9 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic import Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -24,31 +24,29 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BybitConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bybit", const=True, client_data=None)
+    connector: str = "bybit"
     bybit_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Bybit API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     bybit_api_secret: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit API secret",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Bybit API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
-
-    class Config:
-        title = "bybit"
+    model_config = ConfigDict(title="bybit")
 
 
-KEYS = BybitConfigMap.construct()
+KEYS = BybitConfigMap.model_construct()
 
 OTHER_DOMAINS = ["bybit_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bybit_testnet": "bybit_testnet"}
@@ -57,28 +55,26 @@ OTHER_DOMAINS_DEFAULT_FEES = {"bybit_testnet": DEFAULT_FEES}
 
 
 class BybitTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bybit_testnet", const=True, client_data=None)
+    connector: str = "bybit_testnet"
     bybit_testnet_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit Testnet API Key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Bybit Testnet API Key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     bybit_testnet_api_secret: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Bybit Testnet API secret",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Bybit Testnet API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
-
-    class Config:
-        title = "bybit_testnet"
+    model_config = ConfigDict(title="bybit_testnet")
 
 
-OTHER_DOMAINS_KEYS = {"bybit_testnet": BybitTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"bybit_testnet": BybitTestnetConfigMap.model_construct()}

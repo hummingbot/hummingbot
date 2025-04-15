@@ -3,9 +3,8 @@ from decimal import Decimal
 from typing import Dict, List, Set
 
 import pandas as pd
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -20,61 +19,39 @@ class XEMMMultipleLevelsConfig(ControllerConfigBase):
     candles_config: List[CandlesConfig] = []
     maker_connector: str = Field(
         default="mexc",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the maker connector: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the maker connector: ", "prompt_on_new": True})
     maker_trading_pair: str = Field(
         default="PEPE-USDT",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the maker trading pair: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the maker trading pair: ", "prompt_on_new": True})
     taker_connector: str = Field(
         default="binance",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the taker connector: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the taker connector: ", "prompt_on_new": True})
     taker_trading_pair: str = Field(
         default="PEPE-USDT",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the taker trading pair: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the taker trading pair: ", "prompt_on_new": True})
     buy_levels_targets_amount: List[List[Decimal]] = Field(
         default="0.003,10-0.006,20-0.009,30",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the buy levels targets with the following structure: (target_profitability1,amount1-target_profitability2,amount2): ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={
+            "prompt": "Enter the buy levels targets with the following structure: (target_profitability1,amount1-target_profitability2,amount2): ",
+            "prompt_on_new": True})
     sell_levels_targets_amount: List[List[Decimal]] = Field(
         default="0.003,10-0.006,20-0.009,30",
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the sell levels targets with the following structure: (target_profitability1,amount1-target_profitability2,amount2): ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={
+            "prompt": "Enter the sell levels targets with the following structure: (target_profitability1,amount1-target_profitability2,amount2): ",
+            "prompt_on_new": True})
     min_profitability: Decimal = Field(
         default=0.003,
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the minimum profitability: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the minimum profitability: ", "prompt_on_new": True})
     max_profitability: Decimal = Field(
         default=0.01,
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the maximum profitability: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the maximum profitability: ", "prompt_on_new": True})
     max_executors_imbalance: int = Field(
         default=1,
-        client_data=ClientFieldData(
-            prompt=lambda e: "Enter the maximum executors imbalance: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={"prompt": "Enter the maximum executors imbalance: ", "prompt_on_new": True})
 
-    @validator("buy_levels_targets_amount", "sell_levels_targets_amount", pre=True, always=True)
-    def validate_levels_targets_amount(cls, v, values):
+    @field_validator("buy_levels_targets_amount", "sell_levels_targets_amount", mode="before")
+    @classmethod
+    def validate_levels_targets_amount(cls, v):
         if isinstance(v, str):
             v = [list(map(Decimal, x.split(","))) for x in v.split("-")]
         return v

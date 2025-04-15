@@ -1,9 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic import Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -26,31 +26,29 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class DexalotConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="dexalot", const=True, client_data=None)
+    connector: str = "dexalot"
     dexalot_api_secret: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Dexalot private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Dexalot private key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     dexalot_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Dexalot wallet address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Dexalot wallet address",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
-
-    class Config:
-        title = "dexalot"
+    model_config = ConfigDict(title="dexalot")
 
 
-KEYS = DexalotConfigMap.construct()
+KEYS = DexalotConfigMap.model_construct()
 
 OTHER_DOMAINS = ["dexalot_testnet"]
 OTHER_DOMAINS_PARAMETER = {"dexalot_testnet": "dexalot_testnet"}
@@ -59,28 +57,26 @@ OTHER_DOMAINS_DEFAULT_FEES = {"dexalot_testnet": [0, 0.025]}
 
 
 class DexalotTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="dexalot_testnet", const=True, client_data=None)
+    connector: str = "dexalot_testnet"
     dexalot_testnet_api_secret: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Dexalot private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Dexalot private key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     dexalot_testnet_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Dexalot wallet address",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Dexalot wallet address",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
-
-    class Config:
-        title = "dexalot_testnet"
+    model_config = ConfigDict(title="dexalot_testnet")
 
 
-OTHER_DOMAINS_KEYS = {"dexalot_testnet": DexalotTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"dexalot_testnet": DexalotTestnetConfigMap.model_construct()}

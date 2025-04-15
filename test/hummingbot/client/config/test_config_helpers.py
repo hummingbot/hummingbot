@@ -11,7 +11,7 @@ from pydantic import Field, SecretStr
 from hummingbot.client.config import config_helpers
 from hummingbot.client.config.client_config_map import ClientConfigMap, CommandShortcutModel
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     ReadOnlyClientConfigAdapter,
@@ -126,8 +126,8 @@ strategy: pure_market_making
     @patch("hummingbot.client.config.config_helpers.AllConnectorSettings.get_connector_config_keys")
     def test_load_connector_config_map_from_file_with_secrets(self, get_connector_config_keys_mock: MagicMock):
         class DummyConnectorModel(BaseConnectorConfigMap):
-            connector = "some-connector"
-            secret_attr: Optional[SecretStr] = Field(default=None, client_data=ClientFieldData(is_secure=True))
+            connector: str = "binance"
+            secret_attr: Optional[SecretStr] = Field(default=None, json_schema_extra={"is_secure": True, "is_connect_key": True})
 
         password = "some-pass"
         Security.secrets_manager = ETHKeyFileSecretManger(password)

@@ -1,9 +1,9 @@
 from decimal import Decimal
 from typing import Any, Dict
 
-from pydantic import Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Kucoin Futures fees: https://www.kucoin.com/vip/level
@@ -31,37 +31,35 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class KucoinPerpetualConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="kucoin_perpetual", client_data=None)
+    connector: str = "kucoin_perpetual"
     kucoin_perpetual_api_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Kucoin Perpetual API key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Kucoin Perpetual API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     kucoin_perpetual_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Kucoin Perpetual secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Kucoin Perpetual API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     kucoin_perpetual_passphrase: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your KuCoin Perpetual passphrase",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        )
+        json_schema_extra={
+            "prompt": "Enter your Kucoin Perpetual passphrase",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
-
-    class Config:
-        title = "kucoin_perpetual"
+    model_config = ConfigDict(title="kucoin_perpetual")
 
 
-KEYS = KucoinPerpetualConfigMap.construct()
+KEYS = KucoinPerpetualConfigMap.model_construct()

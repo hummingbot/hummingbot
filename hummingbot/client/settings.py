@@ -29,7 +29,6 @@ KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".yml"
 ENCYPTED_CONF_POSTFIX = ".json"
 DEFAULT_LOG_FILE_PATH = root_path() / "logs"
-DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
 TEMPLATE_PATH = root_path() / "hummingbot" / "templates"
 CONF_DIR_PATH = root_path() / "conf"
 CLIENT_CONFIG_PATH = CONF_DIR_PATH / "conf_client.yml"
@@ -61,9 +60,7 @@ class ConnectorType(Enum):
     The types of exchanges that hummingbot client can communicate with.
     """
 
-    AMM = "AMM"
-    SWAP = "SWAP"
-    CLMM = "CLMM"
+    GATEWAY_DEX = "GATEWAY_DEX"
     CLOB_SPOT = "CLOB_SPOT"
     CLOB_PERP = "CLOB_PERP"
     Connector = "connector"
@@ -119,17 +116,15 @@ class GatewayConnectionSetting:
         connector_name: str,
         chain: str,
         network: str,
-        trading_type: str,
+        trading_types: str,
         wallet_address: str,
-        additional_prompt_values: Dict[str, str],
     ):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
             "chain": chain,
             "network": network,
-            "trading_type": trading_type,
+            "trading_types": trading_types,
             "wallet_address": wallet_address,
-            "additional_prompt_values": additional_prompt_values,
         }
         updated: bool = False
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
@@ -192,7 +187,10 @@ class ConnectorSetting(NamedTuple):
         if self.uses_gateway_generic_connector():
             # Gateway DEX connectors may be on different types of chains (ethereum, solana, etc)
             connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
-            return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain'].lower()}_{self._get_module_package()}"
+            if connector_spec is None:
+                # Handle the case where connector_spec is None
+                raise ValueError(f"Cannot find connector specification for {self.name}. Please check your gateway connection settings.")
+            return "gateway.gateway_swap"
         return f"{self.base_name()}_{self._get_module_package()}"
 
     def module_path(self) -> str:
@@ -208,10 +206,10 @@ class ConnectorSetting(NamedTuple):
             file_name = module_name.split('.')[-1]
             splited_name = file_name.split('_')
             for i in range(len(splited_name)):
-                if splited_name[i] in ['amm']:
-                    splited_name[i] = splited_name[i].upper()
-                else:
-                    splited_name[i] = splited_name[i].capitalize()
+                # if splited_name[i] in ['amm']:
+                #     splited_name[i] = splited_name[i].upper()
+                # else:
+                splited_name[i] = splited_name[i].capitalize()
             return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
@@ -406,7 +404,7 @@ class AllConnectorSettings:
             market_name: str = GatewayConnectionSetting.get_market_name_from_connector_spec(connection_spec)
             cls.all_connector_settings[market_name] = ConnectorSetting(
                 name=market_name,
-                type=ConnectorType[connection_spec["trading_type"]],
+                type=ConnectorType.GATEWAY_DEX,
                 centralised=False,
                 example_pair="WETH-USDC",
                 use_ethereum_wallet=False,
@@ -456,7 +454,7 @@ class AllConnectorSettings:
         current_settings = cls.get_connector_settings()[connector]
         current_keys = current_settings.config_keys
         new_keys = (
-            current_keys if current_keys is None else current_keys.__class__.construct()
+            current_keys if current_keys is None else current_keys.__class__.model_construct()
         )
         cls.update_connector_config_keys(new_keys)
 
@@ -490,7 +488,17 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.AMM}
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.GATEWAY_DEX}
+
+    @classmethod
+    def get_gateway_ethereum_connector_names(cls) -> Set[str]:
+        connector_names = set()
+        for cs in cls.get_connector_settings().values():
+            if cs.type == ConnectorType.GATEWAY_DEX:
+                connector_spec = GatewayConnectionSetting.get_connector_spec_from_market_name(cs.name)
+                if connector_spec is not None and connector_spec["chain"] == "ethereum":
+                    connector_names.add(cs.name)
+        return connector_names
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
@@ -517,32 +525,6 @@ class AllConnectorSettings:
                 taker_percent_fee_decimal=taker_percent_fee_decimal,
             )
         return trade_fee_schema
-
-
-def ethereum_wallet_required() -> bool:
-    """
-    Check if an Ethereum wallet is required for any of the exchanges the user's config uses.
-    """
-    return any(e in AllConnectorSettings.get_eth_wallet_connector_names() for e in required_exchanges)
-
-
-def ethereum_gas_station_required() -> bool:
-    """
-    Check if the user's config needs to look up gas costs from an Ethereum gas station.
-    """
-    return any(name for name, con_set in AllConnectorSettings.get_connector_settings().items() if name in required_exchanges
-               and con_set.use_eth_gas_lookup)
-
-
-def ethereum_required_trading_pairs() -> List[str]:
-    """
-    Check if the trading pairs require an ethereum wallet (ERC-20 tokens).
-    """
-    ret_val = []
-    for conn, t_pair in requried_connector_trading_pairs.items():
-        if AllConnectorSettings.get_connector_settings()[conn].use_ethereum_wallet:
-            ret_val += t_pair
-    return ret_val
 
 
 def gateway_connector_trading_pairs(connector: str) -> List[str]:
