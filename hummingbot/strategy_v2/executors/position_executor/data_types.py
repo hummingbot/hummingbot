@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -23,6 +23,7 @@ class TripleBarrierConfig(BaseModel):
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def new_instance_with_adjusted_volatility(self, volatility_factor: float) -> TripleBarrierConfig:
         new_trailing_stop = None
@@ -45,7 +46,7 @@ class TripleBarrierConfig(BaseModel):
 
 
 class PositionExecutorConfig(ExecutorConfigBase):
-    type: str = "position_executor"
+    type: Literal["position_executor"] = "position_executor"
     trading_pair: str
     connector_name: str
     side: TradeType
@@ -55,3 +56,4 @@ class PositionExecutorConfig(ExecutorConfigBase):
     leverage: int = 1
     activation_bounds: Optional[List[Decimal]] = None
     level_id: Optional[str] = None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
