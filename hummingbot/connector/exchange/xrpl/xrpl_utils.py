@@ -350,51 +350,6 @@ class XRPLConfigMap(BaseConnectorConfigMap):
     )
     model_config = ConfigDict(title="xrpl")
 
-    @field_validator("xrpl_secret_key", mode="before")
-    @classmethod
-    def validate_xrpl_secret_key(cls, v: str):
-        # Check for empty string (will create new wallet)
-        if len(v) == 0:
-            return v
-
-        # Check for seed format (starts with 's')
-        if v.startswith("s"):
-            pattern = r"^s[A-HJ-NP-Za-km-z1-9]*$"
-            error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
-            ret = validate_with_regex(v, pattern, error_message)
-            if ret is not None:
-                raise ValueError(ret)
-            return v
-
-        # Check for ED25519 private key format (starts with 'ED')
-        if v.startswith("ED"):
-            try:
-                # Validate hex format and length
-                if not all(c in "0123456789ABCDEF" for c in v[2:]) or len(v[2:]) != 64:
-                    raise ValueError(
-                        "Invalid ED25519 private key format. Should be 64 hex characters after 'ED' prefix."
-                    )
-                return v
-            except Exception as e:
-                raise ValueError(f"Invalid ED25519 private key: {e}")
-
-        # Check for SECP256K1 private key format (starts with '00')
-        if v.startswith("00"):
-            try:
-                # Validate hex format and length
-                if not all(c in "0123456789ABCDEF" for c in v[2:]) or len(v[2:]) != 64:
-                    raise ValueError(
-                        "Invalid SECP256K1 private key format. Should be 64 hex characters after '00' prefix."
-                    )
-                return v
-            except Exception as e:
-                raise ValueError(f"Invalid SECP256K1 private key: {e}")
-
-        # If none of the above formats match
-        raise ValueError(
-            "Invalid XRPL secret key format. Must be either a seed (starting with 's'), or a raw private key (starting with 'ED' or '00')"
-        )
-
     @field_validator("wss_node_url", mode="before")
     @classmethod
     def validate_wss_node_url(cls, v: str):
