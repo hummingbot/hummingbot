@@ -90,6 +90,10 @@ btc_markets_secret_key = os.getenv("BTC_MARKETS_SECRET_KEY")
 gate_io_api_key = os.getenv("GATE_IO_API_KEY")
 gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
 
+# Mexc Tests
+mexc_api_key = os.getenv("MEXC_API_KEY")
+mexc_api_secret = os.getenv("MEXC_API_SECRET")
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")
