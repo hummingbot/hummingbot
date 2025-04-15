@@ -256,7 +256,6 @@ class InjectiveVaultsDataSourceTests(TestCase):
             vault_contract_address=self._vault_address,
             vault_subaccount_index=1,
             network=Network.testnet(node="sentry"),
-            use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
             fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
