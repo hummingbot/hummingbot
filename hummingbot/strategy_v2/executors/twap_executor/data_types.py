@@ -1,8 +1,8 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import validator
+from pydantic import field_validator
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -14,7 +14,7 @@ class TWAPMode(Enum):
 
 
 class TWAPExecutorConfig(ExecutorConfigBase):
-    type: str = "twap_executor"
+    type: Literal["twap_executor"] = "twap_executor"
     connector_name: str
     trading_pair: str
     side: TradeType
@@ -28,7 +28,8 @@ class TWAPExecutorConfig(ExecutorConfigBase):
     limit_order_buffer: Optional[Decimal] = None
     order_resubmission_time: Optional[int] = None
 
-    @validator('limit_order_buffer', pre=True, always=True)
+    @field_validator('limit_order_buffer', mode="before")
+    @classmethod
     def validate_limit_order_buffer(cls, v, values):
         if v is None and values["mode"] == TWAPMode.MAKER:
             raise ValueError("limit_order_buffer is required for MAKER mode")

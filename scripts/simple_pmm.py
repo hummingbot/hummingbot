@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from pydantic import Field
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
@@ -14,21 +14,14 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class SimplePMMConfig(BaseClientModel):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    exchange: str = Field("binance_paper_trade", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Exchange where the bot will trade"))
-    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Trading pair in which the bot will place orders"))
-    order_amount: Decimal = Field(0.01, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Order amount (denominated in base asset)"))
-    bid_spread: Decimal = Field(0.001, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Bid order spread (in percent)"))
-    ask_spread: Decimal = Field(0.001, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Ask order spread (in percent)"))
-    order_refresh_time: int = Field(15, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Order refresh time (in seconds)"))
-    price_type: str = Field("mid", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Price type to use (mid or last)"))
+    script_file_name: str = os.path.basename(__file__)
+    exchange: str = Field("binance_paper_trade")
+    trading_pair: str = Field("ETH-USDT")
+    order_amount: Decimal = Field(0.01)
+    bid_spread: Decimal = Field(0.001)
+    ask_spread: Decimal = Field(0.001)
+    order_refresh_time: int = Field(15)
+    price_type: str = Field("mid")
 
 
 class SimplePMM(ScriptStrategyBase):

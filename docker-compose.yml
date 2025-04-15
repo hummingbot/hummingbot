@@ -1,11 +1,10 @@
-version: "3.9"
 services:
   hummingbot:
     container_name: hummingbot
     image: hummingbot/hummingbot:latest
-#    build: Uncomment this and comment image if you want to build it locally
-#      context: .
-#      dockerfile: Dockerfile
+    build:  # Uncomment this and comment image if you want to build it locally
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors
@@ -25,10 +24,10 @@ services:
     tty: true
     stdin_open: true
     network_mode: host
-    #  environment:
-    #    - CONFIG_PASSWORD=a
-    #    - CONFIG_FILE_NAME=simple_pmm_example.py
-    #    - SCRIPT_CONFIG=conf_simple_pmm_example.yaml
+#    environment:
+#      - CONFIG_PASSWORD=a
+#      - CONFIG_FILE_NAME=v2_with_controllers.py
+#      - SCRIPT_CONFIG=conf_v2_with_controllers.yml
 
   # gateway:
   #  restart: always

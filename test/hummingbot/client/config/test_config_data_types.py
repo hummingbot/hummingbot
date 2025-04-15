@@ -1,11 +1,9 @@
-import json
 import unittest
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Union
 
 from pydantic import Field, SecretStr
-from pydantic.fields import FieldInfo
 
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
@@ -38,7 +36,6 @@ class DummyModel(BaseClientModel):
     some_attr: SomeEnum = Field(
         default=SomeEnum.ONE,
         description="Some description",
-        client_data=ClientFieldData(),
     )
     nested_model: NestedModel = Field(
         default=NestedModel(),
@@ -60,22 +57,17 @@ class BaseClientModelTest(unittest.TestCase):
         class DummyModel(BaseClientModel):
             some_attr: str = Field(
                 default=...,
-                client_data=ClientFieldData(
-                    prompt=lambda mi: "Some prompt?",
-                    prompt_on_new=True,
-                ),
+                json_schema_extra={"prompt": lambda c: "Some prompt?", "prompt_on_new": True},
             )
 
-        schema = DummyModel.schema_json()
-        j = json.loads(schema)
+        schema = DummyModel.model_json_schema()
         expected = {
-            "prompt": None,
+            "prompt": "Some prompt?",
             "prompt_on_new": True,
-            "is_secure": False,
-            "is_connect_key": False,
-            "is_updatable": False,
+            "title": "Some Attr",
+            "type": "string",
         }
-        self.assertEqual(expected, j["properties"]["some_attr"]["client_data"])
+        self.assertEqual(expected, schema["properties"]["some_attr"])
 
     def test_traverse(self):
         class DoubleNestedModel(BaseClientModel):
@@ -96,7 +88,7 @@ class BaseClientModelTest(unittest.TestCase):
                 title = "nested_mode_two"
 
         class DummyModel(BaseClientModel):
-            some_attr: int = Field(default=1, client_data=ClientFieldData())
+            some_attr: int = Field(default=1)
             nested_model: Union[NestedModelTwo, NestedModelOne] = Field(default=NestedModelOne())
             another_attr: Decimal = Field(default=Decimal("1.0"))
 
@@ -147,8 +139,6 @@ class BaseClientModelTest(unittest.TestCase):
             self.assertEqual(expected.attr, actual.attr)
             self.assertEqual(expected.value, actual.value)
             self.assertEqual(expected.printable_value, actual.printable_value)
-            self.assertEqual(expected.client_field_data, actual.client_field_data)
-            self.assertIsInstance(actual.field_info, FieldInfo)
 
     def test_generate_yml_output_dict_with_comments(self):
         instance = self._nested_config_adapter()

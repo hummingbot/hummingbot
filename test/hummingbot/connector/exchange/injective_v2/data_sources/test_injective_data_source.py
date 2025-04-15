@@ -163,7 +163,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         base_native_token = Token(
             name="Tether",
             symbol="USDT",
-            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
+            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             address="0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
@@ -208,7 +208,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         quote_native_token = Token(
             name="Tether",
             symbol="USDT",
-            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
+            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             address="0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
@@ -256,7 +256,6 @@ class InjectiveVaultsDataSourceTests(TestCase):
             vault_contract_address=self._vault_address,
             vault_subaccount_index=1,
             network=Network.testnet(node="sentry"),
-            use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
             fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
@@ -329,7 +328,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         quote_token_meta = market.quote_token.decimals
         message_data = json.loads(messages[0].msg.decode())
 
-        message_price = (order.price * Decimal(f"1e{quote_token_meta-base_token_decimals}")).normalize()
+        message_price = (order.price * Decimal(f"1e{quote_token_meta - base_token_decimals}")).normalize()
         message_quantity = (order.amount * Decimal(f"1e{base_token_decimals}")).normalize()
 
         expected_data = {
@@ -386,7 +385,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             market_id=market.id,
             subaccount_id="1",
             cid="client order id",
-            order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
+            order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock
             order_direction="buy",
             order_type="limit",
         )
@@ -422,7 +421,8 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                     {
                                         "market_id": market.id,
                                         "subaccount_id": "1",
-                                        "order_hash": "0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
+                                        "order_hash": "0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock
+                                        # noqa: mock"
                                         "cid": "client order id",
                                         "order_mask": 74,
                                     }

@@ -5,7 +5,7 @@ from typing import Dict
 import pandas as pd
 from pydantic import Field
 
-from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
@@ -14,25 +14,25 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class SimpleXEMMConfig(BaseClientModel):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    maker_exchange: str = Field("kucoin_paper_trade", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Maker exchange where the bot will place maker orders"))
-    maker_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Maker pair where the bot will place maker orders"))
-    taker_exchange: str = Field("binance_paper_trade", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Taker exchange where the bot will hedge filled orders"))
-    taker_pair: str = Field("ETH-USDT", client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Taker pair where the bot will hedge filled orders"))
-    order_amount: Decimal = Field(0.1, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Order amount (denominated in base asset)"))
-    spread_bps: Decimal = Field(10, client_data=ClientFieldData(
-        prompt_on_new=True, prompt=lambda mi: "Spread between maker and taker orders (in basis points)"))
-    min_spread_bps: Decimal = Field(0, client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Minimum spread (in basis points)"))
-    slippage_buffer_spread_bps: Decimal = Field(100, client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Slippage buffer (in basis points)"))
-    max_order_age: int = Field(120, client_data=ClientFieldData(
-        prompt_on_new=False, prompt=lambda mi: "Max order age (in seconds)"))
+    script_file_name: str = os.path.basename(__file__)
+    maker_exchange: str = Field("kucoin_paper_trade", json_schema_extra={
+        "prompt": "Maker exchange where the bot will place maker orders", "prompt_on_new": True})
+    maker_pair: str = Field("ETH-USDT", json_schema_extra={
+        "prompt": "Maker pair where the bot will place maker orders", "prompt_on_new": True})
+    taker_exchange: str = Field("binance_paper_trade", json_schema_extra={
+        "prompt": "Taker exchange where the bot will hedge filled orders", "prompt_on_new": True})
+    taker_pair: str = Field("ETH-USDT", json_schema_extra={
+        "prompt": "Taker pair where the bot will hedge filled orders", "prompt_on_new": True})
+    order_amount: Decimal = Field(0.1, json_schema_extra={
+        "prompt": "Order amount (denominated in base asset)", "prompt_on_new": True})
+    spread_bps: Decimal = Field(10, json_schema_extra={
+        "prompt": "Spread between maker and taker orders (in basis points)", "prompt_on_new": True})
+    min_spread_bps: Decimal = Field(0, json_schema_extra={
+        "prompt": "Minimum spread (in basis points)", "prompt_on_new": True})
+    slippage_buffer_spread_bps: Decimal = Field(100, json_schema_extra={
+        "prompt": "Slippage buffer (in basis points)", "prompt_on_new": True})
+    max_order_age: int = Field(120, json_schema_extra={
+        "prompt": "Max order age (in seconds)", "prompt_on_new": True})
 
 
 class SimpleXEMM(ScriptStrategyBase):

@@ -2,9 +2,8 @@ import os
 from decimal import Decimal
 from typing import Dict, List
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
@@ -15,59 +14,54 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 
 class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     controllers_config: List[str] = []
     order_amount_quote: Decimal = Field(
         default=30, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the amount of quote asset to be used per order (e.g. 30): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": lambda mi: "Enter the amount of quote asset to be used per order (e.g. 30): ",
+            "prompt_on_new": True}
+    )
     executor_refresh_time: int = Field(
         default=20, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the time in seconds to refresh the executor (e.g. 20): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": lambda mi: "Enter the time in seconds to refresh the executor (e.g. 20): ",
+            "prompt_on_new": True}
+    )
     spread: Decimal = Field(
         default=Decimal("0.003"), gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the spread (e.g. 0.003): ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": lambda mi: "Enter the spread (e.g. 0.003): ", "prompt_on_new": True}
+    )
     leverage: int = Field(
         default=20, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the leverage (e.g. 20): ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": lambda mi: "Enter the leverage (e.g. 20): ", "prompt_on_new": True},
+    )
     position_mode: PositionMode = Field(
         default="HEDGE",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
-            prompt_on_new=True
-        )
+        json_schema_extra={"prompt": lambda mi: "Enter the position mode (HEDGE/ONEWAY): ", "prompt_on_new": True},
     )
     # Triple Barrier Configuration
     stop_loss: Decimal = Field(
         default=Decimal("0.03"), gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): "}
+    )
     take_profit: Decimal = Field(
         default=Decimal("0.01"), gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): "}
+    )
     time_limit: int = Field(
         default=60 * 45, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": lambda mi: "Enter the time limit (in seconds): ", "prompt_on_new": True},
+    )
     take_profit_order_type: OrderType = Field(
         default="LIMIT",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": lambda mi: "Enter the order type for take profit (LIMIT/MARKET): ",
+                           "prompt_on_new": True}
+    )
 
-    @validator('take_profit_order_type', pre=True, allow_reuse=True)
+    @field_validator('take_profit_order_type', mode="before")
+    @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
             return v
@@ -93,7 +87,7 @@ class PMMWithPositionExecutorConfig(StrategyV2ConfigBase):
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
 
-    @validator('position_mode', pre=True, allow_reuse=True)
+    @field_validator('position_mode', mode="before")
     def validate_position_mode(cls, v: str) -> PositionMode:
         if v.upper() in PositionMode.__members__:
             return PositionMode[v.upper()]

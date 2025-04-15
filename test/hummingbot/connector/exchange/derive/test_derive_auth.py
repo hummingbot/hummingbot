@@ -1,9 +1,8 @@
-
-import asyncio
 import json
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
+import eth_utils
 from web3 import Web3
 
 from hummingbot.connector.exchange.derive.derive_auth import DeriveAuth
@@ -13,16 +12,15 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 class DeriveAuthTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.api_key = "testApiKey"
+        self.api_key = "0x1234567890abcdef1234567890abcdef12345678"  # noqa: mock
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         self.sub_id = "45686"  # noqa: mock
+        self.domain = "derive_testnet"  # noqa: mock
         self.auth = DeriveAuth(api_key=self.api_key,
                                api_secret=self.api_secret,
                                sub_id=self.sub_id,
-                               trading_required=True)
-
-    def async_run_with_timeout(self, coroutine: asyncio.coroutine, timeout: int = 1):
-        return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+                               trading_required=True,
+                               domain=self.domain)
 
     def test_initialization(self):
         self.assertEqual(self.auth._api_key, self.api_key)
@@ -37,7 +35,7 @@ class DeriveAuthTests(TestCase):
         mock_signature = "0x123signature"
 
         mock_account = MagicMock()
-        mock_account.sign_message.return_value.signature.hex.return_value = mock_signature
+        mock_account.sign_message.return_value.signature.to_0x_hex.return_value = mock_signature
         self.auth._w3.eth.account = mock_account
 
         headers = self.auth.header_for_authentication()
@@ -48,33 +46,36 @@ class DeriveAuthTests(TestCase):
         self.assertEqual(headers["X-LyraSignature"], mock_signature)
 
     @patch("hummingbot.core.web_assistant.connections.data_types.WSRequest.send_with_connection")
-    def test_ws_authenticate(self, mock_send):
+    async def test_ws_authenticate(self, mock_send):
         mock_send.return_value = None
         request = MagicMock(spec=WSRequest)
         request.endpoint = None
         request.payload = {}
-        authenticated_request = self.async_run_with_timeout(self.auth.ws_authenticate(request))
+        authenticated_request = await (self.auth.ws_authenticate(request))
 
         self.assertEqual(authenticated_request.endpoint, request.endpoint)
         self.assertEqual(authenticated_request.payload, request.payload)
 
     @patch("hummingbot.connector.exchange.derive.derive_auth.DeriveAuth.header_for_authentication")
-    def test_rest_authenticate(self, mock_header_for_auth):
+    async def test_rest_authenticate(self, mock_header_for_auth):
         mock_header_for_auth.return_value = {"header": "value"}
 
         request = RESTRequest(
             method=RESTMethod.POST, url="/test", data=json.dumps({"key": "value"}), headers={}
         )
-        authenticated_request = self.async_run_with_timeout(self.auth.rest_authenticate(request))
+        authenticated_request = await (self.auth.rest_authenticate(request))
 
         self.assertIn("header", authenticated_request.headers)
         self.assertEqual(authenticated_request.headers["header"], "value")
         self.assertEqual(authenticated_request.data, json.dumps({"key": "value"}))
 
     def test_add_auth_to_params_post(self):
+        address = "0x1234567890abcdef1234567890abcdef12345678"
+        self.assertTrue(eth_utils.is_hex_address(address))
         params = {
             "type": "order",
-            "asset_address": "0xabc",
+            # This needs to be 0x40-long
+            "asset_address": address,
             "sub_id": 1,
             "limit_price": "100",
             "amount": "10",
@@ -98,7 +99,7 @@ class DeriveAuthTests(TestCase):
         mock_signature = "0x123signature"
 
         mock_account = MagicMock()
-        mock_account.sign_message.return_value.signature.hex.return_value = mock_signature
+        mock_account.sign_message.return_value.signature.to_0x_hex.return_value = mock_signature
         self.auth._w3.eth.account = mock_account
 
         payload = self.auth.get_ws_auth_payload()
