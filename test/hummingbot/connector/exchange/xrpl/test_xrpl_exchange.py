@@ -1,4 +1,5 @@
 import asyncio
+import math
 import time
 from decimal import Decimal
 from unittest.async_case import IsolatedAsyncioTestCase
@@ -2916,3 +2917,173 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
             await self.connector.tx_submit(some_tx, mock_client)
 
         self.assertTrue("something" in str(context.exception))
+
+    async def test_get_last_traded_price_from_order_book(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 1.0)
+
+    async def test_get_last_traded_price_from_best_bid_ask(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = float("nan")
+        self.connector.order_books[self.trading_pair].get_price.side_effect = [Decimal("1.0"), Decimal("2.0")]
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 1.5)
+
+    async def test_get_best_price_from_order_book(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].get_price.return_value = Decimal("1.0")
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("nan"), 0))
+
+        # Action
+        result = await self.connector._get_best_price(self.trading_pair, True)
+
+        # Assert
+        self.assertEqual(result, 1.0)
+
+    async def test_get_price_from_amm_pool_invalid_url(self):
+        # Setup
+        self.connector._wss_second_node_url = "invalid_url"
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(math.isnan(price))
+        self.assertEqual(timestamp, 0)
+
+    async def test_get_price_from_amm_pool_request_error(self):
+        # Setup
+        self.connector.request_with_retry = AsyncMock(side_effect=Exception("Test error"))
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(math.isnan(price))
+        self.assertEqual(timestamp, 0)
+
+    async def test_request_with_retry_success(self):
+        # Setup
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value="success")
+        mock_client._websocket = MagicMock()
+        mock_client.open = AsyncMock()
+        mock_client.close = AsyncMock()
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        result = await self.connector.request_with_retry(mock_client, Request(method=RequestMethod.ACCOUNT_INFO))
+
+        # Assert
+        self.assertEqual(result, "success")
+
+    async def test_request_with_retry_timeout(self):
+        # Setup
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(side_effect=TimeoutError("Test timeout"))
+        mock_client._websocket = MagicMock()
+        mock_client.open = AsyncMock()
+        mock_client.close = AsyncMock()
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action & Assert
+        with self.assertRaises(TimeoutError):
+            await self.connector.request_with_retry(mock_client, Request(method=RequestMethod.ACCOUNT_INFO))
+
+    async def test_request_with_retry_general_error(self):
+        # Setup
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(side_effect=Exception("Test error"))
+        mock_client._websocket = MagicMock()
+        mock_client.open = AsyncMock()
+        mock_client.close = AsyncMock()
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action & Assert
+        with self.assertRaises(Exception):
+            await self.connector.request_with_retry(mock_client, Request(method=RequestMethod.ACCOUNT_INFO))
+
+    def test_get_token_symbol_from_all_markets_found(self):
+        # Setup
+        code = "SOLO"
+        issuer = "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"  # noqa: mock
+
+        # Action
+        result = self.connector.get_token_symbol_from_all_markets(code, issuer)
+
+        # Assert
+        self.assertEqual(result, "SOLO")
+
+    def test_get_token_symbol_from_all_markets_not_found(self):
+        # Setup
+        code = "INVALID"
+        issuer = "invalid_issuer"
+
+        # Action
+        result = self.connector.get_token_symbol_from_all_markets(code, issuer)
+
+        # Assert
+        self.assertIsNone(result)
+
+    async def test_client_health_check_refresh(self):
+        # Setup
+        self.connector._last_clients_refresh_time = 0
+        self.connector._xrpl_query_client = AsyncMock()
+        self.connector._xrpl_query_client.close = AsyncMock()
+        self.connector._xrpl_query_client.open = AsyncMock()
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        await self.connector._client_health_check()
+
+        # Assert
+        self.assertTrue(self.connector._xrpl_query_client.close.called)
+        self.assertTrue(self.connector._xrpl_query_client.open.called)
+        self.assertGreater(self.connector._last_clients_refresh_time, 0)
+
+    async def test_client_health_check_no_refresh_needed(self):
+        # Setup
+        self.connector._last_clients_refresh_time = time.time()
+        self.connector._xrpl_query_client = AsyncMock()
+        self.connector._xrpl_query_client.close = AsyncMock()
+        self.connector._xrpl_query_client.open = AsyncMock()
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        await self.connector._client_health_check()
+
+        # Assert
+        self.assertFalse(self.connector._xrpl_query_client.close.called)
+        self.assertTrue(self.connector._xrpl_query_client.open.called)
