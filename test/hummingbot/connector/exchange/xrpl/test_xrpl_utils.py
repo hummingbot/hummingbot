@@ -229,11 +229,47 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         valid_key = "sEdTvpec3RNNWwphd1WKZqt5Vs6GEFu"  # noqa: mock
         self.assertEqual(XRPLConfigMap.validate_xrpl_secret_key(valid_key), valid_key)
 
+    def test_validate_xrpl_secret_key_empty(self):
+        empty_key = ""
+        self.assertEqual(XRPLConfigMap.validate_xrpl_secret_key(empty_key), empty_key)
+
+    def test_validate_xrpl_secret_key_ed25519_valid(self):
+        valid_ed25519_key = "ED0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"  # noqa: mock
+        self.assertEqual(XRPLConfigMap.validate_xrpl_secret_key(valid_ed25519_key), valid_ed25519_key)
+
+    def test_validate_xrpl_secret_key_ed25519_invalid_length(self):
+        invalid_ed25519_key = "ED0123456789ABCDEF"  # noqa: mock
+        with self.assertRaises(ValueError) as context:
+            XRPLConfigMap.validate_xrpl_secret_key(invalid_ed25519_key)
+        self.assertIn("Invalid ED25519 private key format", str(context.exception))
+
+    def test_validate_xrpl_secret_key_ed25519_invalid_chars(self):
+        invalid_ed25519_key = "ED0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEG"  # noqa: mock
+        with self.assertRaises(ValueError) as context:
+            XRPLConfigMap.validate_xrpl_secret_key(invalid_ed25519_key)
+        self.assertIn("Invalid ED25519 private key", str(context.exception))
+
+    def test_validate_xrpl_secret_key_secp256k1_valid(self):
+        valid_secp256k1_key = "000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"  # noqa: mock
+        self.assertEqual(XRPLConfigMap.validate_xrpl_secret_key(valid_secp256k1_key), valid_secp256k1_key)
+
+    def test_validate_xrpl_secret_key_secp256k1_invalid_length(self):
+        invalid_secp256k1_key = "000123456789ABCDEF"  # noqa: mock
+        with self.assertRaises(ValueError) as context:
+            XRPLConfigMap.validate_xrpl_secret_key(invalid_secp256k1_key)
+        self.assertIn("Invalid SECP256K1 private key format", str(context.exception))
+
+    def test_validate_xrpl_secret_key_secp256k1_invalid_chars(self):
+        invalid_secp256k1_key = "000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEG"  # noqa: mock
+        with self.assertRaises(ValueError) as context:
+            XRPLConfigMap.validate_xrpl_secret_key(invalid_secp256k1_key)
+        self.assertIn("Invalid SECP256K1 private key", str(context.exception))
+
     def test_validate_xrpl_secret_key_invalid(self):
         invalid_key = "xINVALIDKEY"
         with self.assertRaises(ValueError) as context:
             XRPLConfigMap.validate_xrpl_secret_key(invalid_key)
-        self.assertIn("Invalid XRPL secret key format.", str(context.exception))
+        self.assertIn("Invalid XRPL secret key format", str(context.exception))
 
     def test_validate_wss_node_url_valid(self):
         valid_url = "wss://s1.ripple.com/"
