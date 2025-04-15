@@ -6,7 +6,7 @@ from unittest.async_case import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from xrpl.asyncio.clients import XRPLRequestFailureException
-from xrpl.models import OfferCancel, Request, Response, Transaction
+from xrpl.models import XRP, OfferCancel, Request, Response, Transaction
 from xrpl.models.requests.request import RequestMethod
 from xrpl.models.response import ResponseStatus, ResponseType
 from xrpl.models.transactions.types import TransactionType
@@ -18,6 +18,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import X
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
+from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
@@ -3087,3 +3088,101 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         # Assert
         self.assertFalse(self.connector._xrpl_query_client.close.called)
         self.assertTrue(self.connector._xrpl_query_client.open.called)
+
+    async def test_place_order_invalid_base_currency(self):
+        # Simulate get_currencies_from_trading_pair returning an invalid base currency
+        class DummyCurrency:
+            currency = "DUMMY"
+            issuer = "ISSUER"
+        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(DummyCurrency(), XRP())):
+            with self.assertRaises(ValueError):
+                await self.connector._place_order(
+                    order_id="test",
+                    trading_pair="SOLO-XRP",
+                    amount=Decimal("1.0"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("1.0"),
+                )
+
+    async def test_place_order_invalid_quote_currency(self):
+        # Simulate get_currencies_from_trading_pair returning an invalid quote currency
+        class DummyCurrency:
+            currency = "DUMMY"
+            issuer = "ISSUER"
+        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(XRP(), DummyCurrency())):
+            with self.assertRaises(ValueError):
+                await self.connector._place_order(
+                    order_id="test",
+                    trading_pair="SOLO-XRP",
+                    amount=Decimal("1.0"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("1.0"),
+                )
+
+
+class XRPLExchangeAdditionalCoverageTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = XrplExchange(
+            client_config_map=client_config_map,
+            xrpl_secret_key="",
+            wss_node_url="wss://sample.com",
+            wss_second_node_url="wss://sample.com",
+            wss_third_node_url="wss://sample.com",
+            trading_pairs=["SOLO-XRP"],
+            trading_required=False,
+        )
+        # Add a dummy trading rule for SOLO-XRP to avoid KeyError
+        self.connector._trading_rules["SOLO-XRP"] = TradingRule(
+            trading_pair="SOLO-XRP",
+            min_order_size=Decimal("1e-6"),
+            min_price_increment=Decimal("1e-6"),
+            min_quote_amount_increment=Decimal("1e-6"),
+            min_base_amount_increment=Decimal("1e-15"),
+            min_notional_size=Decimal("1e-6"),
+        )
+
+    async def test_place_order_invalid_base_currency(self):
+        # Simulate get_currencies_from_trading_pair returning an invalid base currency
+        class DummyCurrency:
+            currency = "DUMMY"
+            issuer = "ISSUER"
+        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(DummyCurrency(), XRP())):
+            with self.assertRaises(ValueError):
+                await self.connector._place_order(
+                    order_id="test",
+                    trading_pair="SOLO-XRP",
+                    amount=Decimal("1.0"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("1.0"),
+                )
+
+    async def test_place_order_invalid_quote_currency(self):
+        # Simulate get_currencies_from_trading_pair returning an invalid quote currency
+        class DummyCurrency:
+            currency = "DUMMY"
+            issuer = "ISSUER"
+        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(XRP(), DummyCurrency())):
+            with self.assertRaises(ValueError):
+                await self.connector._place_order(
+                    order_id="test",
+                    trading_pair="SOLO-XRP",
+                    amount=Decimal("1.0"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("1.0"),
+                )
+
+    def test_initialize_trading_pair_symbols_from_exchange_info(self):
+        # Should not raise
+        self.connector._initialize_trading_pair_symbols_from_exchange_info({"SOLO-XRP": MagicMock(spec=XRPLMarket)})
+
+    async def test_make_trading_rules_request_trading_pairs_none(self):
+        self.connector._trading_pairs = None
+        # Patch _client_health_check to avoid real network call
+        with patch.object(self.connector, "_client_health_check", new=AsyncMock()):
+            with self.assertRaises(ValueError):
+                await self.connector._make_trading_rules_request()
