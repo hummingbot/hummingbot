@@ -305,7 +305,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     wss_node_url: str = Field(
@@ -315,7 +315,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     wss_second_node_url: str = Field(
@@ -325,7 +325,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     wss_third_node_url: str = Field(
@@ -335,7 +335,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     custom_markets: Dict[str, XRPLMarket] = Field(
@@ -349,16 +349,6 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         },
     )
     model_config = ConfigDict(title="xrpl")
-
-    @field_validator("xrpl_secret_key", mode="before")
-    @classmethod
-    def validate_xrpl_secret_key(cls, v: str):
-        pattern = r"^s[A-HJ-NP-Za-km-z1-9]*$"
-        error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
-        ret = validate_with_regex(v, pattern, error_message)
-        if ret is not None:
-            raise ValueError(ret)
-        return v
 
     @field_validator("wss_node_url", mode="before")
     @classmethod
