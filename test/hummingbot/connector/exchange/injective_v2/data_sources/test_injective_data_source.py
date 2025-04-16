@@ -381,13 +381,11 @@ class InjectiveVaultsDataSourceTests(TestCase):
 
         orders_data = []
         composer = asyncio.get_event_loop().run_until_complete(self.data_source.composer())
-        order_data = composer.OrderData(
+        order_data = composer.order_data_without_mask(
             market_id=market.id,
             subaccount_id="1",
-            cid="client order id",
             order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock
-            order_direction="buy",
-            order_type="limit",
+            cid="client order id",
         )
         orders_data.append(order_data)
 
@@ -424,7 +422,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                         "order_hash": "0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock
                                         # noqa: mock"
                                         "cid": "client order id",
-                                        "order_mask": 74,
+                                        "order_mask": 1,
                                     }
                                 ],
                                 "derivative_orders_to_cancel": [],

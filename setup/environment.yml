@@ -29,7 +29,6 @@ dependencies:
   - cryptography>=41.0.2
   - eth-account >=0.13.0
   - injective-py
-  # - gql-with-aiohttp>=3.4.1
   - msgpack-python
   - numpy>=1.25.0,<2
   - objgraph
@@ -58,3 +57,7 @@ dependencies:
   - web3
   - xrpl-py>=4.1.0
   - yaml>=0.2.5
+  - zlib>=1.2.13
+  - pip
+  - pip:
+    - injective-py==1.10.*
