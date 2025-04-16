@@ -18,7 +18,6 @@ from hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source import X
 from hummingbot.connector.exchange.xrpl.xrpl_api_user_stream_data_source import XRPLAPIUserStreamDataSource
 from hummingbot.connector.exchange.xrpl.xrpl_auth import XRPLAuth
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
-from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
@@ -27,7 +26,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 
 
-class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
+class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -3094,6 +3093,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         class DummyCurrency:
             currency = "DUMMY"
             issuer = "ISSUER"
+
         with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(DummyCurrency(), XRP())):
             with self.assertRaises(ValueError):
                 await self.connector._place_order(
@@ -3110,6 +3110,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
         class DummyCurrency:
             currency = "DUMMY"
             issuer = "ISSUER"
+
         with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(XRP(), DummyCurrency())):
             with self.assertRaises(ValueError):
                 await self.connector._place_order(
@@ -3121,68 +3122,276 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioTestCase):
                     price=Decimal("1.0"),
                 )
 
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
+    @patch("hummingbot.connector.exchange_py_base.ExchangePyBase._sleep")
+    async def test_order_status_determination(
+        self, sleep_mock, fetch_account_transactions_mock, network_check_mock, get_account_mock
+    ):
+        """Test the order state determination logic in _request_order_status method"""
+        # Setup common mocks to prevent await errors
+        sleep_mock.return_value = None
+        get_account_mock.return_value = "rAccount"
+        network_check_mock.return_value = None
 
-class XRPLExchangeAdditionalCoverageTests(IsolatedAsyncioTestCase):
-    def setUp(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.connector = XrplExchange(
-            client_config_map=client_config_map,
-            xrpl_secret_key="",
-            wss_node_url="wss://sample.com",
-            wss_second_node_url="wss://sample.com",
-            wss_third_node_url="wss://sample.com",
-            trading_pairs=["SOLO-XRP"],
-            trading_required=False,
-        )
-        # Add a dummy trading rule for SOLO-XRP to avoid KeyError
-        self.connector._trading_rules["SOLO-XRP"] = TradingRule(
+        # Create tracked order
+        order = InFlightOrder(
+            client_order_id="test_order",
+            exchange_order_id="12345-67890",  # sequence-ledger_index
             trading_pair="SOLO-XRP",
-            min_order_size=Decimal("1e-6"),
-            min_price_increment=Decimal("1e-6"),
-            min_quote_amount_increment=Decimal("1e-6"),
-            min_base_amount_increment=Decimal("1e-15"),
-            min_notional_size=Decimal("1e-6"),
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
         )
 
-    async def test_place_order_invalid_base_currency(self):
-        # Simulate get_currencies_from_trading_pair returning an invalid base currency
-        class DummyCurrency:
-            currency = "DUMMY"
-            issuer = "ISSUER"
-        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(DummyCurrency(), XRP())):
-            with self.assertRaises(ValueError):
-                await self.connector._place_order(
-                    order_id="test",
-                    trading_pair="SOLO-XRP",
-                    amount=Decimal("1.0"),
-                    trade_type=TradeType.BUY,
-                    order_type=OrderType.LIMIT,
-                    price=Decimal("1.0"),
-                )
+        # Case 1: Order found with status 'filled'
+        tx_filled = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash1",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
 
-    async def test_place_order_invalid_quote_currency(self):
-        # Simulate get_currencies_from_trading_pair returning an invalid quote currency
-        class DummyCurrency:
-            currency = "DUMMY"
-            issuer = "ISSUER"
-        with patch.object(self.connector, "get_currencies_from_trading_pair", return_value=(XRP(), DummyCurrency())):
-            with self.assertRaises(ValueError):
-                await self.connector._place_order(
-                    order_id="test",
-                    trading_pair="SOLO-XRP",
-                    amount=Decimal("1.0"),
-                    trade_type=TradeType.BUY,
-                    order_type=OrderType.LIMIT,
-                    price=Decimal("1.0"),
-                )
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "filled"}]}
+                ]
+                mock_balance_changes.return_value = []
 
-    def test_initialize_trading_pair_symbols_from_exchange_info(self):
-        # Should not raise
-        self.connector._initialize_trading_pair_symbols_from_exchange_info({"SOLO-XRP": MagicMock(spec=XRPLMarket)})
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_filled]
 
-    async def test_make_trading_rules_request_trading_pairs_none(self):
-        self.connector._trading_pairs = None
-        # Patch _client_health_check to avoid real network call
-        with patch.object(self.connector, "_client_health_check", new=AsyncMock()):
-            with self.assertRaises(ValueError):
-                await self.connector._make_trading_rules_request()
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.FILLED, order_update.new_state)
+
+        # Case 2: Order found with status 'partially-filled'
+        tx_partial = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash2",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {
+                        "maker_account": "rAccount",
+                        "offer_changes": [{"sequence": "12345", "status": "partially-filled"}],
+                    }
+                ]
+                mock_balance_changes.return_value = []
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_partial]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.PARTIALLY_FILLED, order_update.new_state)
+
+        # Case 3: Order found with status 'cancelled'
+        tx_cancelled = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash3",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "cancelled"}]}
+                ]
+                mock_balance_changes.return_value = []
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_cancelled]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.CANCELED, order_update.new_state)
+
+        # Case 4: Order found with status 'created'
+        tx_created = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash4",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = [
+                    {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "created"}]}
+                ]
+                mock_balance_changes.return_value = []
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_created]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.OPEN, order_update.new_state)
+
+        # Case 5: No offer created but balance changes (order filled immediately)
+        tx_no_offer = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash5",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = []  # No offer changes
+                mock_balance_changes.return_value = [
+                    {"account": "rAccount", "balances": [{"some_balance": "data"}]}  # Just need non-empty balances
+                ]
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_no_offer]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.FILLED, order_update.new_state)
+
+        # Case 6: No offer created and no balance changes (order failed)
+        tx_failed = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash6",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes"
+        ) as mock_order_book_changes:
+            with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as mock_balance_changes:
+                # Configure mocks
+                mock_order_book_changes.return_value = []  # No offer changes
+                mock_balance_changes.return_value = []  # No balance changes
+
+                # Prepare transaction data
+                fetch_account_transactions_mock.return_value = [tx_failed]
+
+                # Call the method and verify result
+                order_update = await self.connector._request_order_status(order)
+                self.assertEqual(OrderState.FAILED, order_update.new_state)
+
+        # Case 7: Market order success
+        market_order = InFlightOrder(
+            client_order_id="test_market_order",
+            exchange_order_id="12345-67890",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        tx_market = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash7",
+            },
+            "meta": {
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        # For market orders, we don't need to patch get_order_book_changes or get_balance_changes
+        fetch_account_transactions_mock.return_value = [tx_market]
+        order_update = await self.connector._request_order_status(market_order)
+        self.assertEqual(OrderState.FILLED, order_update.new_state)
+
+        # Case 8: Market order failed
+        tx_market_failed = {
+            "tx": {
+                "Sequence": 12345,
+                "hash": "hash8",
+            },
+            "meta": {
+                "TransactionResult": "tecFAILED",
+            },
+        }
+
+        fetch_account_transactions_mock.return_value = [tx_market_failed]
+        order_update = await self.connector._request_order_status(market_order)
+        self.assertEqual(OrderState.FAILED, order_update.new_state)
+
+        # Case 10: Order not found but still within timeout period (should remain PENDING_CREATE)
+        with patch("time.time") as mock_time:
+            mock_time.return_value = 1640100000.0  # Some time in the future
+
+            fresh_pending_order = InFlightOrder(
+                client_order_id="test_fresh_pending_order",
+                exchange_order_id="12345-67890",
+                trading_pair="SOLO-XRP",
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("100"),
+                price=Decimal("1.0"),
+                initial_state=OrderState.PENDING_CREATE,
+                creation_timestamp=1640000000.0,
+            )
+
+            # Set the last update timestamp to be within the timeout period
+            fresh_pending_order.last_update_timestamp = mock_time.return_value - 5  # Only 5 seconds ago
+
+            fetch_account_transactions_mock.return_value = []
+            order_update = await self.connector._request_order_status(fresh_pending_order)
+            self.assertEqual(OrderState.PENDING_CREATE, order_update.new_state)
+
+        # Case 11: Exchange order ID is None
+        no_exchange_id_order = InFlightOrder(
+            client_order_id="test_no_id_order",
+            exchange_order_id=None,
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640000000.0,
+        )
+
+        order_update = await self.connector._request_order_status(no_exchange_id_order)
+        self.assertEqual(no_exchange_id_order.current_state, order_update.new_state)
