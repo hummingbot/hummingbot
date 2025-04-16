@@ -450,9 +450,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 + slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+            price = self.quantize_order_price(trading_pair, mid_price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
@@ -489,9 +487,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
-            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
-            market_price = mid_price * Decimal(1 - slippage)
-            price = self.quantize_order_price(trading_pair, market_price)
+            price = self.quantize_order_price(trading_pair, mid_price)
 
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
