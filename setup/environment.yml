@@ -56,5 +56,5 @@ dependencies:
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
   - web3
-  - xrpl-py==4.1.0
+  - xrpl-py>=4.1.0
   - yaml>=0.2.5
