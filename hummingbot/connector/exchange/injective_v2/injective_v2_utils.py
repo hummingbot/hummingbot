@@ -84,7 +84,7 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
             gas_price: Optional[int] = None,
             gas_limit_adjustment_multiplier: Optional[Decimal] = None,
     ) -> TransactionFeeCalculator:
-        return MessageBasedTransactionFeeCalculator(
+        return MessageBasedTransactionFeeCalculator.new_using_gas_heuristics(
             client=client,
             composer=composer,
             gas_price=gas_price,
