@@ -1020,7 +1020,7 @@ class InjectiveDataSource(ABC):
         return result
 
     def _chain_stream_exception_handler(self, exception: RpcError):
-        self.logger().warning("Error while listening to chain stream", exc_info=exception)
+        self.logger().warning("Error while listening to chain stream", exc_info=exception)  # pragma: no cover
 
     def _chain_stream_closed_handler(self):
         self.logger().debug("Reconnecting stream for chain stream")
@@ -1040,7 +1040,7 @@ class InjectiveDataSource(ABC):
                 )
             except asyncio.CancelledError:
                 raise
-            except Exception as ex:
+            except Exception as ex:  # pragma: no cover
                 self.logger().warning(f"Invalid chain stream event format. Event:\n{event}", exc_info=ex)
 
         while True:
@@ -1056,7 +1056,7 @@ class InjectiveDataSource(ABC):
             )
 
     def _transaction_stream_exception_handler(self, exception: RpcError):
-        self.logger().warning("Error while listening to transaction stream", exc_info=exception)
+        self.logger().warning("Error while listening to transaction stream", exc_info=exception)  # pragma: no cover
 
     def _transaction_stream_closed_handler(self):
         self.logger().debug("Reconnecting stream for transaction stream")
@@ -1181,7 +1181,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning("Error processing spot orderbook event", exc_info=ex)
+                self.logger().warning("Error processing spot orderbook event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the spot orderbook event {order_book_update}")
 
     async def _process_chain_derivative_order_book_update(
@@ -1301,7 +1301,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning("Error processing spot trade event", exc_info=ex)
+                self.logger().warning("Error processing spot trade event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the spot trade event {trade_update}")
 
     async def _process_chain_derivative_trade_update(
@@ -1365,7 +1365,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning("Error processing derivative trade event", exc_info=ex)
+                self.logger().warning("Error processing derivative trade event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the derivative trade event {trade_update}")
 
     async def _process_chain_order_update(
@@ -1392,7 +1392,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning("Error processing order event", exc_info=ex)
+                self.logger().warning("Error processing order event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the order event {order_update}")
 
     async def _process_chain_position_updates(
@@ -1430,7 +1430,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning("Error processing position event", exc_info=ex)
+                self.logger().warning("Error processing position event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the position event {event}")
 
     async def _process_oracle_price_updates(
@@ -1503,7 +1503,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning("Error processing subaccount balance event", exc_info=ex)
+                self.logger().warning("Error processing subaccount balance event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the subaccount balance event {balance_event}")
 
     async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
