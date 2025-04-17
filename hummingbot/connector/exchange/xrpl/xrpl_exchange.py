@@ -945,10 +945,11 @@ class XrplExchange(ExchangePyBase):
         if tx.get("TransactionType") not in ["OfferCreate", "Payment"]:
             return None
 
-        if tx["hash"] is None:
+        if tx.get("hash") is None:
             self.logger().error("Hash is None")
             self.logger().error(f"Data: {data}")
             self.logger().error(f"Tx: {tx}")
+            return None
 
         offer_changes = get_order_book_changes(meta)
         balance_changes = get_balance_changes(meta)
