@@ -8,10 +8,9 @@ from typing import Any, Dict, Final, List, Optional, cast
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
-from xrpl.asyncio.clients.client import get_network_id_and_build_version
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
 from xrpl.asyncio.transaction.main import _LEDGER_OFFSET, _calculate_fee_per_transaction_type, _tx_needs_networkID
-from xrpl.models import Request, Response, Transaction, TransactionMetadata, Tx
+from xrpl.models import Request, Response, ServerInfo, Transaction, TransactionMetadata, Tx
 from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
 from xrpl.models.utils import require_kwargs_on_init
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
@@ -172,6 +171,31 @@ class Ledger(Request, LookupByLedgerRequest):
     owner_funds: bool = False
     binary: bool = False
     queue: bool = False
+
+
+async def get_network_id_and_build_version(client: Client) -> None:
+    """
+    Get the network id and build version of the connected server.
+
+    Args:
+        client: The network client to use to send the request.
+
+    Raises:
+        XRPLRequestFailureException: if the rippled API call fails.
+    """
+    # the required values are already present, no need for further processing
+    if client.network_id and client.build_version:
+        return
+
+    response = await client._request_impl(ServerInfo())
+    if response.is_successful():
+        if "network_id" in response.result["info"]:
+            client.network_id = response.result["info"]["network_id"]
+        if not client.build_version and "build_version" in response.result["info"]:
+            client.build_version = response.result["info"]["build_version"]
+        return
+
+    raise XRPLRequestFailureException(response.result)
 
 
 async def autofill(
