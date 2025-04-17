@@ -1052,7 +1052,6 @@ class XrplExchange(ExchangePyBase):
                         fill_timestamp=ripple_time_to_posix(tx_date),
                     )
 
-                    # trade_fills.append(trade_update)
                     return trade_update
             else:
                 # This is a limit order, check if the limit order did cross any offers in the order book
