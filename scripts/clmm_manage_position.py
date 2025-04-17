@@ -126,7 +126,7 @@ class CLMMPositionManager(ScriptStrategyBase):
         """Fetch pool information to get tokens and current price"""
         try:
             self.logger().info(f"Fetching information for pool {self.config.pool_address}...")
-            pool_info = await GatewayHttpClient.get_instance().clmm_pool_info(
+            pool_info = await GatewayHttpClient.get_instance().pool_info(
                 self.config.connector,
                 self.config.network,
                 self.config.pool_address
