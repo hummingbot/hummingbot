@@ -921,11 +921,8 @@ class XrplExchange(ExchangePyBase):
             data_result = data.get("result", {})
             meta = data_result.get("meta", {})
 
-            if "tx_json" in data_result:
-                tx = data_result.get("tx_json")
-                tx["hash"] = data_result.get("hash")
-            elif "transaction" in data_result:
-                tx = data_result.get("transaction")
+            tx = data_result.get("tx_json") or data_result.get("transaction")
+            if tx is not None:
                 tx["hash"] = data_result.get("hash")
             else:
                 tx = data_result
@@ -934,12 +931,7 @@ class XrplExchange(ExchangePyBase):
             tx = {}
 
             # check if transaction has key "tx" or "transaction"?
-            if "tx" in data:
-                tx = data.get("tx", None)
-            elif "transaction" in data:
-                tx = data.get("transaction", None)
-            elif "tx_json" in data:
-                tx = data.get("tx_json", None)
+            tx = data.get("tx") or data.get("transaction") or data.get("tx_json") or {}
 
             if "hash" in data:
                 tx["hash"] = data.get("hash")
@@ -1351,14 +1343,7 @@ class XrplExchange(ExchangePyBase):
                 tx = data_result
             else:
                 meta = transaction.get("meta", {})
-                if "tx" in transaction:
-                    tx = transaction.get("tx", None)
-                elif "transaction" in transaction:
-                    tx = transaction.get("transaction", None)
-                elif "tx_json" in transaction:
-                    tx = transaction.get("tx_json", None)
-                else:
-                    tx = transaction
+                tx = transaction.get("tx") or transaction.get("transaction") or transaction.get("tx_json") or transaction
 
             if tx is not None and tx.get("Sequence", 0) == int(sequence):
                 found_meta = meta
