@@ -6,7 +6,7 @@ from unittest.async_case import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from xrpl.asyncio.clients import XRPLRequestFailureException
-from xrpl.models import XRP, OfferCancel, Request, Response, Transaction
+from xrpl.models import XRP, IssuedCurrency, OfferCancel, Request, Response, Transaction
 from xrpl.models.requests.request import RequestMethod
 from xrpl.models.response import ResponseStatus, ResponseType
 from xrpl.models.transactions.types import TransactionType
@@ -3215,6 +3215,58 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         # Assert
         self.assertTrue(math.isnan(price))
         self.assertEqual(timestamp, 0)
+
+    async def test_get_price_from_amm_pool(self):
+        # Setup
+        self.connector._wss_second_node_url = "wss://s.alt.net"
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+        self.connector.get_currencies_from_trading_pair = MagicMock(
+            return_value=(
+                IssuedCurrency(
+                    currency="534F4C4F00000000000000000000000000000000", issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"
+                ),
+                XRP(),
+            )
+        )
+        self.connector.request_with_retry = AsyncMock(
+            return_value=Response(
+                status=ResponseStatus.SUCCESS,
+                result={"amm": {"account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"}},
+                id="amm_info_1234",
+                type=ResponseType.RESPONSE,
+            )
+        )
+
+        # Set up mock to return different responses on first and second calls
+        amm_info_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "amm": {
+                    "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
+                    "amount": {"value": "1000000"},
+                    "amount2": "100000000",
+                }
+            },
+            id="amm_info_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        amm_pool_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"transaction": {"tx_json": {"date": 794038340}}},
+            id="amm_pool_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        self.connector.request_with_retry = AsyncMock(side_effect=[amm_info_response, amm_pool_response])
+
+        # Action
+        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertEqual(price, 0.0001)
+        self.assertEqual(timestamp, 946684800)
 
     async def test_request_with_retry_success(self):
         # Setup
