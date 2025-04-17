@@ -3160,6 +3160,36 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         # Assert
         self.assertEqual(result, 1.0)
 
+    async def test_get_last_traded_price_from_order_book_with_amm_pool(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("1.0"), 0))
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 1.0)
+
+    async def test_get_last_traded_price_from_order_book_with_amm_pool_timestamp_in_future(self):
+        # Setup
+        self.connector.order_books[self.trading_pair] = MagicMock()
+        self.connector.order_books[self.trading_pair].last_trade_price = Decimal("1.0")
+        self.connector.order_book_tracker.data_source.last_parsed_order_book_timestamp = {self.trading_pair: 100}
+
+        # Mock _get_price_from_amm_pool to return NaN
+        self.connector._get_price_from_amm_pool = AsyncMock(return_value=(float("2.0"), 99999999))
+
+        # Action
+        result = await self.connector._get_last_traded_price(self.trading_pair)
+
+        # Assert
+        self.assertEqual(result, 2.0)
+
     async def test_get_last_traded_price_from_best_bid_ask(self):
         # Setup
         self.connector.order_books[self.trading_pair] = MagicMock()
@@ -3266,6 +3296,58 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
 
         # Assert
         self.assertEqual(price, 0.0001)
+        self.assertEqual(timestamp, 946684800)
+
+    async def test_get_price_from_amm_pool_xrp_base(self):
+        # Setup
+        self.connector._wss_second_node_url = "wss://s.alt.net"
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+        self.connector.get_currencies_from_trading_pair = MagicMock(
+            return_value=(
+                XRP(),
+                IssuedCurrency(
+                    currency="534F4C4F00000000000000000000000000000000", issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"
+                ),
+            )
+        )
+        self.connector.request_with_retry = AsyncMock(
+            return_value=Response(
+                status=ResponseStatus.SUCCESS,
+                result={"amm": {"account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK"}},
+                id="amm_info_1234",
+                type=ResponseType.RESPONSE,
+            )
+        )
+
+        # Set up mock to return different responses on first and second calls
+        amm_info_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={
+                "amm": {
+                    "account": "r2XdzWFVoHGfGVmXugtKhxMu3bqhsYiWK",
+                    "amount2": {"value": "1000000"},
+                    "amount": "100000000",
+                }
+            },
+            id="amm_info_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        amm_pool_response = Response(
+            status=ResponseStatus.SUCCESS,
+            result={"transaction": {"tx_json": {"date": 794038340}}},
+            id="amm_pool_1234",
+            type=ResponseType.RESPONSE,
+        )
+
+        self.connector.request_with_retry = AsyncMock(side_effect=[amm_info_response, amm_pool_response])
+
+        # Action
+        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertEqual(price, 10000.0)
         self.assertEqual(timestamp, 946684800)
 
     async def test_request_with_retry_success(self):
