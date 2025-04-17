@@ -3,6 +3,7 @@ from datetime import datetime
 import sys
 import os
 import asyncio
+import requests
 current_file_path = os.path.abspath(__file__)
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
@@ -10,43 +11,44 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path
 # 将项目根目录添加到 Python 路径
 sys.path.append(project_root)
 
-from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
-from hummingbot.client.hummingbot_application import HummingbotApplication
+# from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+# from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.fluxlayer_api.get_chain_gas import get_gas_prices, get_btc_fee
 
-# binance_price_url = "https://api.binance.com/api/v3/depth"
-# money_depth = 10000
+binance_price_url = "https://api.binance.com/api/v3/depth"
+money_depth = 10000
 
-# def get_order_book(symbol='BTCUSDT', limit=100):
-#     """获取币安深度数据"""
-#     try:
-#         response = requests.get(binance_price_url, params={'symbol': symbol, 'limit': limit})
-#         response.raise_for_status()
-#         return response.json()
-#     except Exception as e:
-#         print(f"Error getting depth data: {e}")
-#         return None
+def get_order_book(symbol='BTCUSDT', limit=100):
+    """获取币安深度数据"""
+    try:
+        response = requests.get(binance_price_url, params={'symbol': symbol, 'limit': limit})
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Error getting depth data: {e}")
+        return None
     
-async def get_order_book_hummingbot(symbol='BTCUSDT', limit=100):
-    app = HummingbotApplication.main_application()
-    client_config_map = app.client_config_map
-    binance_exchange_obj = BinanceExchange(
-        client_config_map=client_config_map,
-        binance_api_key="",
-        binance_api_secret="",
-    )
-    order_book_data_source = binance_exchange_obj._create_order_book_data_source()
-    snapshot_msg = await order_book_data_source._order_book_snapshot(symbol)
-    json_data = {
-        'lastUpdateId': snapshot_msg.timestamp,
-        'bids': snapshot_msg.content["bids"],
-        'asks': snapshot_msg.content["asks"],
-    }
-    return json_data
+# async def get_order_book_hummingbot(symbol='BTCUSDT', limit=100):
+#     app = HummingbotApplication.main_application()
+#     client_config_map = app.client_config_map
+#     binance_exchange_obj = BinanceExchange(
+#         client_config_map=client_config_map,
+#         binance_api_key="",
+#         binance_api_secret="",
+#     )
+#     order_book_data_source = binance_exchange_obj._create_order_book_data_source()
+#     snapshot_msg = await order_book_data_source._order_book_snapshot(symbol)
+#     json_data = {
+#         'lastUpdateId': snapshot_msg.timestamp,
+#         'bids': snapshot_msg.content["bids"],
+#         'asks': snapshot_msg.content["asks"],
+#     }
+#     return json_data
 
 def calculate_price_impact(asks, budget_usdt=10000):
     """计算指定预算对价格的影响"""
     remaining_budget = budget_usdt
-    total_btc = 0
+    total_amount = 0
     last_price = None
     executed_orders = []
 
@@ -61,62 +63,106 @@ def calculate_price_impact(asks, budget_usdt=10000):
         if order_value <= remaining_budget:
             # 全量吃单
             remaining_budget -= order_value
-            total_btc += qty
+            total_amount += qty
             executed_orders.append((price, qty))
             last_price = price
         else:
             # 部分吃单
             executable_qty = remaining_budget / price
-            total_btc += executable_qty
+            total_amount += executable_qty
             executed_orders.append((price, executable_qty))
             remaining_budget = 0
             last_price = price
 
     return {
         'final_price': last_price,
-        'total_btc': total_btc,
-        'average_price': budget_usdt / total_btc if total_btc > 0 else None,
+        'total_amount': total_amount,
+        'average_price': budget_usdt / total_amount if total_amount > 0 else None,
         'price_impact': (last_price - float(asks[0][0])) / float(asks[0][0]) * 100
     }
 
-async def rfq_demo(symbol='BTCUSDT', amount=100):
-    while True:
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def parse_chain_token(chain_token: str):
+    """解析链和代币信息"""
+    try:
+        chain, token = chain_token.split('_')
+        return chain, token
+    except:
+        raise ValueError(f"Invalid chain_token format: {chain_token}")
+
+def get_token_price(token: str):
+    """获取代币的USDT价格"""
+    symbol = f"{token}USDT"
+    try:
+        response = requests.get(binance_price_url, params={'symbol': symbol, 'limit': 1000})
+        response.raise_for_status()
+        return response.json()
+
+    except Exception as e:
+        print(f"Error getting price for {token}: {e}")
+        return None
+
+def calculate_gas_fee(chain: str):
+    """计算链上的gas费用"""
+    if chain.upper() == "BTC":
+        btc_fee = get_btc_fee()
+        return btc_fee["regular"] * 0.00000001  # 转换为BTC
+    else:
+        gas_prices = get_gas_prices(chain)
+        return gas_prices["base_fee"] * 21000 / 1e9  # 
+
+def rfq_demo(src_chain: str, src_token: str, src_amount: float, tar_chain: str, tar_token: str):
+    """计算跨链交易后的数量"""
+    # try:
+        # 解析src链和target链信息
+    src_chain_name, src_chain_token = parse_chain_token(src_chain)
+    tar_chain_name, tar_chain_token = parse_chain_token(tar_chain)
+    
+    # 获取代币价格
+    src_price_orderbook = get_token_price(src_chain_token)
+    src_price = float(src_price_orderbook['asks'][0][0])
+    tar_price_orderbook = get_token_price(tar_chain_token)
+    tar_recent_price = float(tar_price_orderbook['asks'][0][0])
+    if not src_price or not tar_recent_price:
+        return {"error": "Failed to get token prices"}
+    
+    # 计算src代币的USDT价值
+    src_value_usdt = src_amount * src_price
+    
+    # 计算gas费用
+    tar_gas_fee = calculate_gas_fee(tar_chain_name)
+    
+    # 将gas费用转换为USDT
+    tar_gas_fee_usdt = tar_gas_fee * tar_recent_price if tar_chain_name.upper() != "BTC" else tar_gas_fee * tar_recent_price
+    
+    # 计算扣除gas费用后的USDT价值
+    net_value_usdt = src_value_usdt - tar_gas_fee_usdt
+
+    # 计算价格影响
+    analysis = calculate_price_impact(tar_price_orderbook['asks'], net_value_usdt)
+
+    average_price = analysis['average_price']
+    price_impact = analysis['price_impact']
+    if price_impact * 10000 > 10:
+        fluxlayer_price = average_price * 1.01
+    else:
+        fluxlayer_price = average_price * 1.004
+    
+    # 计算target代币数量
+    tar_amount = net_value_usdt / fluxlayer_price
+    
+    return {
+        "src_chain": src_chain,
+        "src_token": src_token,
+        "src_amount": src_amount,
+        "src_price": src_price,
+        "tar_chain": tar_chain,
+        "tar_token": tar_token,
+        "tar_amount": tar_amount,
+        "tar_price": fluxlayer_price,
+    }
         
-        # 获取订单簿数据
-        order_book = await get_order_book_hummingbot(symbol)
-        # return
-        if not order_book:
-            time.sleep(1)
-            continue
-
-        # 获取实时价格
-        spot_price = float(order_book['asks'][0][0])  # 最佳卖价作为当前价格
-
-        # 计算价格影响
-        analysis = calculate_price_impact(order_book['asks'], amount)
-
-        total_btc = analysis['total_btc']
-        final_price = analysis['final_price']
-        average_price = analysis['average_price']
-        price_impact = analysis['price_impact']
-        if price_impact * 10000 > 10:
-            fluxlayer_price = average_price * 1.01
-        else:
-            fluxlayer_price = average_price * 1.004
-        
-        # 输出结果
-        # print(f"\n[{current_time}] BTC/USDT 实时价格: ${spot_price:.2f}")
-        # print(f"用 $10,000 买入后：")
-        # print(f"⋙ 可买入数量: {total_btc:.6f} BTC")
-        # print(f"⋙ 触及最高价格: ${final_price:.2f}")
-        # print(f"⋙ 成交均价: ${average_price:.2f}")
-        # print(f"⋙ 价格影响: {price_impact:.4f}%")
-        # print(f"⋙ fluxlayer 提供的价格: ${fluxlayer_price:.2f}")
-        return {
-            "price": spot_price,
-            "taramount": total_btc
-        }
+    # except Exception as e:
+    #     return {"error": str(e)}
 
 # async def main():
 #     # 直接 await 调用
