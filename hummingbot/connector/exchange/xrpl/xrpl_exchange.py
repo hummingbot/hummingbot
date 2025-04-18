@@ -1892,12 +1892,6 @@ class XrplExchange(ExchangePyBase):
                 rawTransferRate = quote_info.result.get("account_data", {}).get("TransferRate", zeroTransferRate)
                 quoteTransferRate = float(rawTransferRate / zeroTransferRate) - 1
 
-            if baseTickSize is None or quoteTickSize is None:
-                raise ValueError(f"Tick size not found for trading pair {trading_pair}")
-
-            if baseTransferRate is None or quoteTransferRate is None:
-                raise ValueError(f"Transfer rate not found for trading pair {trading_pair}")
-
             smallestTickSize = min(baseTickSize, quoteTickSize)
             minimumOrderSize = float(10) ** -smallestTickSize
 
