@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import time
@@ -25,7 +24,7 @@ class LpPositionManagerConfig(BaseClientModel):
     trigger_above: bool = Field(True)
     position_width_pct: Decimal = Field(10.0)
     base_token_amount: Decimal = Field(0.1)
-    quote_token_amount: Decimal = Field(15.0)
+    quote_token_amount: Decimal = Field(1.0)
     out_of_range_pct: Decimal = Field(1.0)
     out_of_range_secs: int = Field(300)
 
@@ -65,8 +64,11 @@ class LpPositionManager(ScriptStrategyBase):
     def on_tick(self):
         # Check price and position status on each tick
         if not self.position_opened:
+            # If no position is open, fetch pool info and check price conditions
+            safe_ensure_future(self.fetch_pool_info())
             safe_ensure_future(self.check_price_and_open_position())
         else:
+            # If position is open, monitor it
             safe_ensure_future(self.update_position_info())
             safe_ensure_future(self.monitor_position())
 
@@ -160,10 +162,6 @@ class LpPositionManager(ScriptStrategyBase):
 
             # The position details will be updated via order update events
             self.position_opened = True
-
-            # Force update position info after a delay to get position address
-            await asyncio.sleep(5)
-            await self.update_position_info()
 
         except Exception as e:
             self.logger().error(f"Error opening position: {str(e)}")
@@ -274,42 +272,79 @@ class LpPositionManager(ScriptStrategyBase):
 
             self.logger().info(f"Position closing order submitted with ID: {order_id}")
 
-            # Reset position state
+            # Reset all position state
             self.position_opened = False
             self.position_info = None
+            self.pool_info = None
             self.out_of_range_start_time = None
+
+            # Log that we're ready to seek a new position
+            self.logger().info("Position closed. Ready to seek new position when price conditions are met.")
 
         except Exception as e:
             self.logger().error(f"Error closing position: {str(e)}")
+
+    def _get_price_range_visualization(self, current_price: Decimal, lower_price: Decimal, upper_price: Decimal, width: int = 20) -> str:
+        """Generate ASCII visualization of price range"""
+        if not self.pool_info:
+            return ""
+
+        # Calculate the price range for visualization
+        price_range = float(upper_price) - float(lower_price)
+        if price_range == 0:
+            return ""
+
+        # Calculate the position of current price in the range
+        position = (float(current_price) - float(lower_price)) / price_range
+        position = max(0, min(1, position))  # Clamp between 0 and 1
+
+        # Generate the visualization
+        bar = [' '] * width
+        bar[int(position * (width - 1))] = '|'  # Current price marker
+        bar[0] = '['  # Lower bound
+        bar[-1] = ']'  # Upper bound
+
+        return f"{lower_price:.2f} {''.join(bar)} {upper_price:.2f}"
 
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""
         lines = []
 
         if self.position_opened and self.position_info:
-            lines.append(f"Position is open on {self.exchange}")
-            lines.append(f"Position address: {self.position_info.address} ({self.config.trading_pair})")
+            lines.append(f"Position: {self.position_info.address} ({self.config.trading_pair}) on {self.exchange}")
 
+            # Common position info for both CLMM and AMM
+            base_amount = Decimal(str(self.position_info.baseTokenAmount))
+            quote_amount = Decimal(str(self.position_info.quoteTokenAmount))
+            total_quote_value = base_amount * Decimal(str(self.pool_info.price)) + quote_amount
+
+            lines.append(f"Tokens: {base_amount:.6f} {self.base_token} / {quote_amount:.6f} {self.quote_token}")
+            lines.append(f"Total Value: {total_quote_value:.2f} {self.quote_token}")
+
+            # Get price range visualization
             if isinstance(self.position_info, CLMMPositionInfo):
-                # Display CLMM position info
-                lines.append(f"Position price range: {self.position_info.lowerPrice:.6f} to {self.position_info.upperPrice:.6f}")
-                lines.append(f"Tokens: {self.position_info.baseTokenAmount} {self.base_token} / {self.position_info.quoteTokenAmount} {self.quote_token}")
-                if self.position_info.baseFeeAmount > 0 or self.position_info.quoteFeeAmount > 0:
-                    lines.append(f"Fee earnings: {self.position_info.baseFeeAmount} {self.base_token} / {self.position_info.quoteFeeAmount} {self.quote_token}")
-            elif isinstance(self.position_info, AMMPositionInfo):
-                # Display AMM position info
-                target_price = float(self.config.target_price)
-                width_pct = float(self.config.position_width_pct) / 100.0
-                lower_bound = target_price * (1 - width_pct)
-                upper_bound = target_price * (1 + width_pct)
+                lower_price = Decimal(str(self.position_info.lowerPrice))
+                upper_price = Decimal(str(self.position_info.upperPrice))
+            else:  # AMMPositionInfo
+                target_price = Decimal(str(self.config.target_price))
+                width_pct = Decimal(str(self.config.position_width_pct)) / Decimal("100")
+                lower_price = target_price * (1 - width_pct)
+                upper_price = target_price * (1 + width_pct)
 
-                lines.append(f"LP Token Amount: {self.position_info.lpTokenAmount}")
-                lines.append(f"Tokens: {self.position_info.baseTokenAmount} {self.base_token} / {self.position_info.quoteTokenAmount} {self.quote_token}")
-                lines.append(f"Target Price: {target_price}")
-                lines.append(f"Acceptable Price Range: {lower_bound:.6f} to {upper_bound:.6f}")
-
+            lines.append(f"Target Price: {self.config.target_price}")
+            lines.append(f"Upper Price: {upper_price}")
+            lines.append(f"Lower Price: {lower_price}")
             if self.pool_info:
-                lines.append(f"Current price: {self.pool_info.price}")
+                current_price = Decimal(str(self.pool_info.price))
+                price_visualization = self._get_price_range_visualization(current_price, lower_price, upper_price)
+                if price_visualization:
+                    lines.append(price_visualization)
+                lines.append(f"Current Price: {current_price}")
+
+            # Position-specific info
+            if isinstance(self.position_info, CLMMPositionInfo):
+                if self.position_info.baseFeeAmount > 0 or self.position_info.quoteFeeAmount > 0:
+                    lines.append(f"Fees: {self.position_info.baseFeeAmount} {self.base_token} / {self.position_info.quoteFeeAmount} {self.quote_token}")
 
             if self.out_of_range_start_time:
                 elapsed = time.time() - self.out_of_range_start_time
@@ -317,8 +352,8 @@ class LpPositionManager(ScriptStrategyBase):
         else:
             lines.append(f"Monitoring {self.base_token}-{self.quote_token} pool on {self.exchange}")
             if self.pool_info:
-                lines.append(f"Current price: {self.pool_info.price}")
-            lines.append(f"Target price: {self.config.target_price}")
+                lines.append(f"Current Price: {self.pool_info.price}")
+            lines.append(f"Target Price: {self.config.target_price}")
             condition = "rises above" if self.config.trigger_above else "falls below"
             lines.append(f"Will open position when price {condition} target")
 
