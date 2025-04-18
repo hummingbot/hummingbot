@@ -47,8 +47,6 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 async with self._xrpl_client as client:
                     if client._websocket is None:
-                        self.logger().error("Websocket connection is None, attempting to reconnect...")
-                        await asyncio.sleep(0.1)
                         continue
 
                     client._websocket.max_size = 2**23
