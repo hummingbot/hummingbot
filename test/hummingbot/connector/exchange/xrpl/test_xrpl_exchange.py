@@ -978,6 +978,7 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
                         "PreviousTxnLgrSeq": 89078756,
                         "Sequence": 84439998,
                         "TakerGets": "499998",
+                        "taker_gets_funded": "299998",
                         "TakerPays": {
                             "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
                             "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
@@ -1041,6 +1042,11 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
                             "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
                             "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
                             "value": "2.30649459472761",
+                        },
+                        "taker_gets_funded": {
+                            "currency": "534F4C4F00000000000000000000000000000000",  # noqa: mock
+                            "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
+                            "value": "1.30649459472761",
                         },
                         "TakerPays": "499999",
                         "index": "D8F57C7C230FA5DE98E8FEB6B75783693BDECAD1266A80538692C90138E7BADE",  # noqa: mock
@@ -1880,9 +1886,9 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(self.connector._account_balances["USD"], Decimal("0.011094399237562"))
         self.assertEqual(self.connector._account_balances["SOLO"], Decimal("35.95165691730148"))
 
-        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("53.630868"))
+        self.assertEqual(self.connector._account_available_balances["XRP"], Decimal("53.830868"))
         self.assertEqual(self.connector._account_available_balances["USD"], Decimal("0.011094399237562"))
-        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("31.337975848655761"))
+        self.assertEqual(self.connector._account_available_balances["SOLO"], Decimal("32.337975848655761"))
 
     async def test_make_trading_rules_request(self):
         def side_effect_function(arg: Request):
