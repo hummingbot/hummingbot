@@ -1145,6 +1145,16 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
 
         return resp
 
+    def _client_response_account_info_issuer_error(self):
+        resp = Response(
+            status=ResponseStatus.ERROR,
+            result={},
+            id="account_info_73967",
+            type=ResponseType.RESPONSE,
+        )
+
+        return resp
+
     async def test_get_new_order_book_successful(self):
         await self.connector._orderbook_ds.get_new_order_book(self.trading_pair)
         order_book: OrderBook = self.connector.get_order_book(self.trading_pair)
@@ -1906,6 +1916,21 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
             result["SOLO-USD"]["base_currency"].currency, "534F4C4F00000000000000000000000000000000"  # noqa: mock
         )
         self.assertEqual(result["SOLO-USD"]["quote_currency"].currency, "USD")
+
+    async def test_make_trading_rules_request_error(self):
+        def side_effect_function(arg: Request):
+            if arg.method == RequestMethod.ACCOUNT_INFO:
+                return self._client_response_account_info_issuer_error()
+            else:
+                raise ValueError("Invalid method")
+
+        self.connector._xrpl_query_client.request.side_effect = side_effect_function
+
+        try:
+            await self.connector._make_trading_rules_request()
+        except Exception as e:
+            # Check if "not found in ledger:" in error message
+            self.assertIn("not found in ledger:", str(e))
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange.wait_for_final_transaction_outcome")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
