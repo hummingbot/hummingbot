@@ -1,7 +1,6 @@
-from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, NamedTuple, Set, TypeVar
+from typing import Any, Callable, Generic, NamedTuple, Set, TypeVar, override
 
 from pydantic_core import core_schema
 
@@ -73,7 +72,7 @@ _KT = TypeVar('_KT')
 _VT = TypeVar('_TV')
 
 
-class GroupedSetDict(Dict[_KT, Set[_VT]]):
+class GroupedSetDict(dict[_KT, Set[_VT]]):
     def add_or_update(self, key: _KT, *args: _VT) -> None:
         if key in self:
             self[key].update(args)
@@ -99,7 +98,8 @@ class GroupedSetDict(Dict[_KT, Set[_VT]]):
 MarketDict = GroupedSetDict[str, Set[str]]
 
 
-class LambdaDict(defaultdict[_KT, _VT], Generic[_KT, _VT]):
+# TODO? : Allow pulling the hash for _KT via a lambda so that things like type can be a key?
+class LazyDict(dict[_KT, _VT], Generic[_KT, _VT]):
     def __init__(self, default_value_factory: Callable[[_KT], _VT] = None):
         super().__init__()
         self.default_value_factory = default_value_factory
@@ -109,6 +109,12 @@ class LambdaDict(defaultdict[_KT, _VT], Generic[_KT, _VT]):
             raise KeyError(f"Key {key} not found in {self} and no default value factory is set")
         self[key] = self.default_value_factory(key)
         return self[key]
+
+    @override
+    def get(self, key: _KT) -> _VT:
+        if key in self:
+            return self[key]
+        return self.__missing__(key)
 
     def get_or_add(self, key: _KT, value_factory: Callable[[], _VT]) -> _VT:
         if key not in self:

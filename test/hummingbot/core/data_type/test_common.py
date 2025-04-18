@@ -1,7 +1,7 @@
 from typing import Set
 from unittest import TestCase
 
-from hummingbot.core.data_type.common import GroupedSetDict, LambdaDict
+from hummingbot.core.data_type.common import GroupedSetDict, LazyDict
 
 
 class GroupedSetDictTests(TestCase):
@@ -37,7 +37,7 @@ class GroupedSetDictTests(TestCase):
 
 class LambdaDictTests(TestCase):
     def setUp(self):
-        self.dict = LambdaDict[str, int]()
+        self.dict = LazyDict[str, int]()
 
     def test_get_or_add_new_key(self):
         call_count = 0
@@ -74,19 +74,23 @@ class LambdaDictTests(TestCase):
             nonlocal call_count
             call_count += 1
             return len(key)
-        self.dict = LambdaDict[str, int](default_value_factory=factory)
+        self.dict = LazyDict[str, int](default_value_factory=factory)
         self.assertEqual(self.dict["key1"], 4)
         self.assertEqual(call_count, 1)
         # Verify factory is not called again for existing key
         self.assertEqual(self.dict["key1"], 4)
+        self.assertEqual(self.dict.get("key1"), 4)
         self.assertEqual(call_count, 1)
         # Verify factory is called again for new key
         self.assertEqual(self.dict["longer_key"], 10)
+        self.assertEqual(self.dict.get("longer_key"), 10)
         self.assertEqual(call_count, 2)
 
     def test_missing_key_no_factory(self):
         with self.assertRaises(KeyError):
             _ = self.dict["nonexistent"]
+        with self.assertRaises(KeyError):
+            _ = self.dict.get("nonexistent")
 
 
 if __name__ == '__main__':
