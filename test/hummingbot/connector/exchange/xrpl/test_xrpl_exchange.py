@@ -3616,6 +3616,44 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
 
         self.assertEqual(trade_fills, [])
 
+        transaction_without_tx = sample_transactions.copy()
+        transaction_without_tx.pop("tx")
+
+        fetch_account_transactions_mock.return_value = [transaction_without_tx]
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+
+        self.assertEqual(trade_fills, [])
+
+        fetch_account_transactions_mock.return_value = [sample_transactions]
+        self.connector._trading_pair_fee_rules = {}
+        self.connector._update_trading_rules = AsyncMock()
+
+        in_flight_order = InFlightOrder(
+            client_order_id="hbot-1234-sell-1-SOLO-XRP",  # noqa: mock
+            exchange_order_id="84446614-95513443",
+            trading_pair="SOLO-XRP",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            creation_timestamp=1718906078.0,
+        )
+
+        try:
+            trade_fills = await self.connector._all_trade_updates_for_order(in_flight_order)
+        except Exception as e:
+            self.assertEqual(str(e), "Fee rules not found for order hbot-1234-sell-1-SOLO-XRP")
+
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._make_network_check_request")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
