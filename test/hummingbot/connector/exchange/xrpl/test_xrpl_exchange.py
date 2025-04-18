@@ -4034,6 +4034,41 @@ class XRPLExchangeUnitTests(IsolatedAsyncioTestCase):
         self.assertTrue(math.isnan(price))
         self.assertEqual(timestamp, 0)
 
+    async def test_get_price_from_amm_pool_null_response(self):
+        # Setup
+        self.connector.request_with_retry = AsyncMock(
+            side_effect=Response(
+                status=ResponseStatus.SUCCESS,
+                result={},
+            )
+        )
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(math.isnan(price))
+        self.assertEqual(timestamp, 0)
+
+        # Setup
+        self.connector.request_with_retry = AsyncMock(
+            side_effect=Response(
+                status=ResponseStatus.SUCCESS,
+                result={"amm": {}},
+            )
+        )
+        self.connector._sleep = AsyncMock()
+        self.data_source._sleep = AsyncMock()
+
+        # Action
+        price, timestamp = await self.connector._get_price_from_amm_pool(self.trading_pair)
+
+        # Assert
+        self.assertTrue(math.isnan(price))
+        self.assertEqual(timestamp, 0)
+
     async def test_get_price_from_amm_pool(self):
         # Setup
         self.connector._wss_second_node_url = "wss://s.alt.net"

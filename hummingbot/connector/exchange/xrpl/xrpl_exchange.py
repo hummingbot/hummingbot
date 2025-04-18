@@ -980,8 +980,8 @@ class XrplExchange(ExchangePyBase):
 
                 for balance_change in balance_changes:
                     changes = balance_change.get("balances", [])
-                    base_change = get_token_from_changes(changes, token=base_currency.currency)
-                    quote_change = get_token_from_changes(changes, token=quote_currency.currency)
+                    base_change = get_token_from_changes(changes, token=base_currency.currency) or {}
+                    quote_change = get_token_from_changes(changes, token=quote_currency.currency) or {}
 
                     if order.trade_type is TradeType.BUY:
                         fee_token = fee_rules.get("quote_token")
@@ -1000,30 +1000,13 @@ class XrplExchange(ExchangePyBase):
                         percent=Decimal(fee_rate),
                     )
 
-                    # Validate required transaction data
-                    tx_hash = tx.get("hash")
-                    if tx_hash is None:
-                        raise ValueError(f"Transaction hash is missing for order {order.client_order_id}")
+                    tx_hash = tx.get("hash", None)
+                    base_value = base_change.get("value", None)
+                    quote_value = quote_change.get("value", None)
+                    tx_date = tx.get("date", None)
 
-                    # Validate base and quote change data
-                    if base_change is None or not isinstance(base_change, dict):
-                        raise ValueError(f"Invalid base change data for order {order.client_order_id}")
-
-                    base_value = base_change.get("value")
-                    if base_value is None:
-                        raise ValueError(f"Base value is missing for order {order.client_order_id}")
-
-                    if quote_change is None or not isinstance(quote_change, dict):
-                        raise ValueError(f"Invalid quote change data for order {order.client_order_id}")
-
-                    quote_value = quote_change.get("value")
-                    if quote_value is None:
-                        raise ValueError(f"Quote value is missing for order {order.client_order_id}")
-
-                    # Validate transaction date
-                    tx_date = tx.get("date")
-                    if tx_date is None:
-                        raise ValueError(f"Transaction date is missing for order {order.client_order_id}")
+                    if tx_hash is None or base_value is None or quote_value is None or tx_date is None:
+                        raise ValueError(f"Missing required transaction data for order {order.client_order_id}, changes: {changes}, tx: {tx}, base_change: {base_change}, quote_change: {quote_change}")
 
                     # Calculate fill price with validation
                     base_decimal = abs(Decimal(base_value))
@@ -1111,8 +1094,16 @@ class XrplExchange(ExchangePyBase):
                                 tx_taker_pays_decimal = Decimal(tx_taker_pays_value)
 
                                 # Calculate relative differences
-                                gets_diff = abs((taker_gets_decimal - tx_taker_gets_decimal) / tx_taker_gets_decimal if tx_taker_gets_decimal != 0 else 0)
-                                pays_diff = abs((taker_pays_decimal - tx_taker_pays_decimal) / tx_taker_pays_decimal if tx_taker_pays_decimal != 0 else 0)
+                                gets_diff = abs(
+                                    (taker_gets_decimal - tx_taker_gets_decimal) / tx_taker_gets_decimal
+                                    if tx_taker_gets_decimal != 0
+                                    else 0
+                                )
+                                pays_diff = abs(
+                                    (taker_pays_decimal - tx_taker_pays_decimal) / tx_taker_pays_decimal
+                                    if tx_taker_pays_decimal != 0
+                                    else 0
+                                )
 
                                 # Use a small tolerance (0.0001 or 0.01%) to account for rounding errors
                                 tolerance = Decimal("0.0001")
@@ -1143,7 +1134,9 @@ class XrplExchange(ExchangePyBase):
                                     quote_change = get_token_from_changes(
                                         token_changes=[diff_taker_gets, diff_taker_pays], token=quote_currency.currency
                                     )
-                                    self.logger().debug(f"Found base_change: {base_change}, quote_change: {quote_change}")
+                                    self.logger().debug(
+                                        f"Found base_change: {base_change}, quote_change: {quote_change}"
+                                    )
 
                                     # Validate base_change and quote_change
                                     if base_change is None or quote_change is None:
@@ -1178,7 +1171,9 @@ class XrplExchange(ExchangePyBase):
                                     tx_hash = tx.get("hash")
                                     tx_date = tx.get("date")
                                     if tx_hash is None or tx_date is None:
-                                        self.logger().debug(f"Missing tx_hash or tx_date for order {order.client_order_id}")
+                                        self.logger().debug(
+                                            f"Missing tx_hash or tx_date for order {order.client_order_id}"
+                                        )
                                         continue
                                     self.logger().debug(f"Transaction details - hash: {tx_hash}, date: {tx_date}")
 
@@ -1341,7 +1336,9 @@ class XrplExchange(ExchangePyBase):
                 tx = data_result
             else:
                 meta = transaction.get("meta", {})
-                tx = transaction.get("tx") or transaction.get("transaction") or transaction.get("tx_json") or transaction
+                tx = (
+                    transaction.get("tx") or transaction.get("transaction") or transaction.get("tx_json") or transaction
+                )
 
             if tx is not None and tx.get("Sequence", 0) == int(sequence):
                 found_meta = meta
@@ -1676,7 +1673,6 @@ class XrplExchange(ExchangePyBase):
         if amm_pool_info is None:
             return price, tx_timestamp
 
-        # Get latest transaction time for the AMM pool
         try:
             tx_resp: Response = await self.request_with_retry(
                 self._xrpl_query_client,
@@ -1694,15 +1690,12 @@ class XrplExchange(ExchangePyBase):
         except Exception as e:
             self.logger().error(f"Error fetching AMM pool transaction info for {trading_pair}: {e}")
 
-        # Extract amount and amount2 from the AMM pool info
         amount = amm_pool_info.get("amount")  # type: ignore
         amount2 = amm_pool_info.get("amount2")  # type: ignore
 
         # Check if we have valid amounts
         if amount is None or amount2 is None:
             return price, tx_timestamp
-
-        # Convert base amount (amount) if it's XRP
         if isinstance(base_token, XRP):
             base_amount = drops_to_xrp(amount)
         else:
