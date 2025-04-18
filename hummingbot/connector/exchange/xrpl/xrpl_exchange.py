@@ -104,6 +104,8 @@ class XrplExchange(ExchangePyBase):
 
         super().__init__(client_config_map)
 
+        self._order_tracker.TRADE_FILLS_WAIT_TIMEOUT = 10
+
     @staticmethod
     def xrpl_order_type(order_type: OrderType) -> int:
         return CONSTANTS.XRPL_ORDER_TYPE[order_type]
