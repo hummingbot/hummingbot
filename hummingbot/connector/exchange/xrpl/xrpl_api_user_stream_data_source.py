@@ -61,10 +61,6 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                     # Wait for the connection to close naturally
                     await client._websocket.wait_closed()
-
-                    if listener is not None:
-                        listener.cancel()
-                        await listener
             except asyncio.CancelledError:
                 self.logger().info("User stream listener task has been cancelled. Exiting...")
                 raise
