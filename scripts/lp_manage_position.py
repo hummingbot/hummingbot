@@ -17,15 +17,15 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class LpPositionManagerConfig(BaseClientModel):
     script_file_name: str = os.path.basename(__file__)
-    connector: str = Field("meteora/clmm")
+    connector: str = Field("raydium/clmm")
     chain: str = Field("solana")
     network: str = Field("mainnet-beta")
     trading_pair: str = Field("SOL-USDC")
-    target_price: Decimal = Field(10.0)
+    target_price: Decimal = Field(130.0)
     trigger_above: bool = Field(True)
     position_width_pct: Decimal = Field(10.0)
     base_token_amount: Decimal = Field(0.1)
-    quote_token_amount: Decimal = Field(1.0)
+    quote_token_amount: Decimal = Field(15.0)
     out_of_range_pct: Decimal = Field(1.0)
     out_of_range_secs: int = Field(300)
 
@@ -51,12 +51,8 @@ class LpPositionManager(ScriptStrategyBase):
 
         # State tracking
         self.position_opened = False
-        self.position_opening = False
-        self.position_closing = False
         self.pool_info: Union[AMMPoolInfo, CLMMPoolInfo] = None
         self.position_info: Union[CLMMPositionInfo, AMMPositionInfo, None] = None
-        self.last_price = None
-        self.position_address = None
         self.out_of_range_start_time = None
 
         # Log startup information
@@ -68,9 +64,9 @@ class LpPositionManager(ScriptStrategyBase):
 
     def on_tick(self):
         # Check price and position status on each tick
-        if not self.position_opened and not self.position_opening:
+        if not self.position_opened:
             safe_ensure_future(self.check_price_and_open_position())
-        elif self.position_opened and not self.position_closing:
+        else:
             safe_ensure_future(self.update_position_info())
             safe_ensure_future(self.monitor_position())
 
@@ -81,8 +77,6 @@ class LpPositionManager(ScriptStrategyBase):
             self.pool_info = await self.connectors[self.exchange].get_pool_info(
                 trading_pair=self.config.trading_pair
             )
-            if self.pool_info:
-                self.last_price = Decimal(str(self.pool_info.price))
             return self.pool_info
         except Exception as e:
             self.logger().error(f"Error fetching pool info: {str(e)}")
@@ -90,13 +84,13 @@ class LpPositionManager(ScriptStrategyBase):
 
     async def update_position_info(self):
         """Fetch the latest position information if we have an open position"""
-        if not self.position_opened or not self.position_address:
+        if not self.position_opened or not self.position_info:
             return
 
         try:
             self.position_info = await self.connectors[self.exchange].get_position_info(
                 trading_pair=self.config.trading_pair,
-                position_address=self.position_address
+                position_address=self.position_info.address
             )
             self.logger().debug(f"Updated position info: {self.position_info}")
         except Exception as e:
@@ -104,48 +98,43 @@ class LpPositionManager(ScriptStrategyBase):
 
     async def check_price_and_open_position(self):
         """Check current price and open position if target is reached"""
-        if self.position_opening or self.position_opened:
+        if self.position_opened:
             return
-
-        self.position_opening = True
 
         try:
             # Fetch current pool info to get the latest price
             await self.fetch_pool_info()
 
-            if not self.last_price:
+            if not self.pool_info:
                 self.logger().warning("Unable to get current price")
-                self.position_opening = False
                 return
+
+            current_price = Decimal(str(self.pool_info.price))
 
             # Check if price condition is met
             condition_met = False
-            if self.config.trigger_above and self.last_price > self.config.target_price:
+            if self.config.trigger_above and current_price > self.config.target_price:
                 condition_met = True
-                self.logger().info(f"Price rose above target: {self.last_price} > {self.config.target_price}")
-            elif not self.config.trigger_above and self.last_price < self.config.target_price:
+                self.logger().info(f"Price rose above target: {current_price} > {self.config.target_price}")
+            elif not self.config.trigger_above and current_price < self.config.target_price:
                 condition_met = True
-                self.logger().info(f"Price fell below target: {self.last_price} < {self.config.target_price}")
+                self.logger().info(f"Price fell below target: {current_price} < {self.config.target_price}")
 
             if condition_met:
                 self.logger().info("Price condition met! Opening position...")
-                self.position_opening = False  # Reset flag so open_position can set it
                 await self.open_position()
             else:
-                self.logger().info(f"Current price: {self.last_price}, Target: {self.config.target_price}, "
+                self.logger().info(f"Current price: {current_price}, Target: {self.config.target_price}, "
                                    f"Condition not met yet.")
-                self.position_opening = False
 
         except Exception as e:
             self.logger().error(f"Error in check_price_and_open_position: {str(e)}")
-            self.position_opening = False
 
     async def open_position(self):
         """Open a liquidity position around the target price"""
-
         try:
             # Calculate position price range based on CURRENT pool price
-            current_price = float(self.last_price)
+            current_price = float(self.pool_info.price)
             width_pct = float(self.config.position_width_pct) / 100.0
 
             # Log different messages based on connector type
@@ -178,22 +167,20 @@ class LpPositionManager(ScriptStrategyBase):
 
         except Exception as e:
             self.logger().error(f"Error opening position: {str(e)}")
-        finally:
-            # Only clear position_opening flag if position is not opened
-            if not self.position_opened:
-                self.position_opening = False
 
     async def monitor_position(self):
         """Monitor the position and price to determine if position should be closed"""
-        if not self.position_address or self.position_closing:
+        if not self.position_info:
             return
 
         try:
             # Fetch current pool info to get the latest price
             await self.fetch_pool_info()
 
-            if not self.last_price or not self.position_info:
+            if not self.pool_info or not self.position_info:
                 return
+
+            current_price = Decimal(str(self.pool_info.price))
 
             # Handle different types of position info based on connector type
             if isinstance(self.position_info, CLMMPositionInfo):
@@ -208,14 +195,14 @@ class LpPositionManager(ScriptStrategyBase):
                 lower_bound_with_buffer = lower_price * (1 - float(self.config.out_of_range_pct) / 100.0)
                 upper_bound_with_buffer = upper_price * (1 + float(self.config.out_of_range_pct) / 100.0)
 
-                if float(self.last_price) < lower_bound_with_buffer:
+                if float(current_price) < lower_bound_with_buffer:
                     out_of_range = True
-                    out_of_range_amount = (lower_bound_with_buffer - float(self.last_price)) / float(lower_price) * 100
-                    self.logger().info(f"Price {self.last_price} is below position lower bound with buffer {lower_bound_with_buffer} by {out_of_range_amount:.2f}%")
-                elif float(self.last_price) > upper_bound_with_buffer:
+                    out_of_range_amount = (lower_bound_with_buffer - float(current_price)) / float(lower_price) * 100
+                    self.logger().info(f"Price {current_price} is below position lower bound with buffer {lower_bound_with_buffer} by {out_of_range_amount:.2f}%")
+                elif float(current_price) > upper_bound_with_buffer:
                     out_of_range = True
-                    out_of_range_amount = (float(self.last_price) - upper_bound_with_buffer) / float(upper_price) * 100
-                    self.logger().info(f"Price {self.last_price} is above position upper bound with buffer {upper_bound_with_buffer} by {out_of_range_amount:.2f}%")
+                    out_of_range_amount = (float(current_price) - upper_bound_with_buffer) / float(upper_price) * 100
+                    self.logger().info(f"Price {current_price} is above position upper bound with buffer {upper_bound_with_buffer} by {out_of_range_amount:.2f}%")
 
             elif isinstance(self.position_info, AMMPositionInfo):
                 # For AMM positions, use target_price and position_width_pct to determine acceptable range
@@ -231,16 +218,15 @@ class LpPositionManager(ScriptStrategyBase):
                 lower_bound_with_buffer = lower_bound * (1 - out_of_range_buffer / 100.0)
                 upper_bound_with_buffer = upper_bound * (1 + out_of_range_buffer / 100.0)
 
-                current_price = float(self.last_price)
                 out_of_range = False
 
-                if current_price < lower_bound_with_buffer:
+                if float(current_price) < lower_bound_with_buffer:
                     out_of_range = True
-                    out_of_range_amount = (lower_bound_with_buffer - current_price) / lower_bound * 100
+                    out_of_range_amount = (lower_bound_with_buffer - float(current_price)) / lower_bound * 100
                     self.logger().info(f"Price {current_price} is below lower bound with buffer {lower_bound_with_buffer} by {out_of_range_amount:.2f}%")
-                elif current_price > upper_bound_with_buffer:
+                elif float(current_price) > upper_bound_with_buffer:
                     out_of_range = True
-                    out_of_range_amount = (current_price - upper_bound_with_buffer) / upper_bound * 100
+                    out_of_range_amount = (float(current_price) - upper_bound_with_buffer) / upper_bound * 100
                     self.logger().info(f"Price {current_price} is above upper bound with buffer {upper_bound_with_buffer} by {out_of_range_amount:.2f}%")
             else:
                 self.logger().warning("Unknown position info type")
@@ -268,79 +254,70 @@ class LpPositionManager(ScriptStrategyBase):
                     self.out_of_range_start_time = None
 
                 # Add log statement when price is in range
-                self.logger().info(f"Price {self.last_price} is within range: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f}")
+                self.logger().info(f"Price {current_price} is within range: {lower_bound_with_buffer:.6f} to {upper_bound_with_buffer:.6f}")
 
         except Exception as e:
             self.logger().error(f"Error monitoring position: {str(e)}")
 
     async def close_position(self):
         """Close the liquidity position"""
-        if not self.position_address or self.position_closing:
+        if not self.position_info:
             return
-
-        self.position_closing = True
 
         try:
             # Use the connector's close_position method
-            self.logger().info(f"Closing position {self.position_address}...")
+            self.logger().info(f"Closing position {self.position_info.address}...")
             order_id = self.connectors[self.exchange].close_position(
                 trading_pair=self.config.trading_pair,
-                position_address=self.position_address
+                position_address=self.position_info.address
             )
 
             self.logger().info(f"Position closing order submitted with ID: {order_id}")
 
             # Reset position state
             self.position_opened = False
-            self.position_address = None
             self.position_info = None
             self.out_of_range_start_time = None
 
         except Exception as e:
             self.logger().error(f"Error closing position: {str(e)}")
-        finally:
-            self.position_closing = False
 
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""
-
         lines = []
 
-        if self.position_opened:
+        if self.position_opened and self.position_info:
             lines.append(f"Position is open on {self.exchange}")
-            lines.append(f"Position address: {self.position_address} ({self.config.trading_pair})")
+            lines.append(f"Position address: {self.position_info.address} ({self.config.trading_pair})")
 
-            if self.position_info:
-                if isinstance(self.position_info, CLMMPositionInfo):
-                    # Display CLMM position info
-                    lines.append(f"Position price range: {self.position_info.lowerPrice:.6f} to {self.position_info.upperPrice:.6f}")
-                    lines.append(f"Tokens: {self.position_info.baseTokenAmount} {self.base_token} / {self.position_info.quoteTokenAmount} {self.quote_token}")
-                    if self.position_info.baseFeeAmount > 0 or self.position_info.quoteFeeAmount > 0:
-                        lines.append(f"Fee earnings: {self.position_info.baseFeeAmount} {self.base_token} / {self.position_info.quoteFeeAmount} {self.quote_token}")
-                elif isinstance(self.position_info, AMMPositionInfo):
-                    # Display AMM position info
-                    target_price = float(self.config.target_price)
-                    width_pct = float(self.config.position_width_pct) / 100.0
-                    lower_bound = target_price * (1 - width_pct)
-                    upper_bound = target_price * (1 + width_pct)
+            if isinstance(self.position_info, CLMMPositionInfo):
+                # Display CLMM position info
+                lines.append(f"Position price range: {self.position_info.lowerPrice:.6f} to {self.position_info.upperPrice:.6f}")
+                lines.append(f"Tokens: {self.position_info.baseTokenAmount} {self.base_token} / {self.position_info.quoteTokenAmount} {self.quote_token}")
+                if self.position_info.baseFeeAmount > 0 or self.position_info.quoteFeeAmount > 0:
+                    lines.append(f"Fee earnings: {self.position_info.baseFeeAmount} {self.base_token} / {self.position_info.quoteFeeAmount} {self.quote_token}")
+            elif isinstance(self.position_info, AMMPositionInfo):
+                # Display AMM position info
+                target_price = float(self.config.target_price)
+                width_pct = float(self.config.position_width_pct) / 100.0
+                lower_bound = target_price * (1 - width_pct)
+                upper_bound = target_price * (1 + width_pct)
 
-                    lines.append(f"LP Token Amount: {self.position_info.lpTokenAmount}")
-                    lines.append(f"Tokens: {self.position_info.baseTokenAmount} {self.base_token} / {self.position_info.quoteTokenAmount} {self.quote_token}")
-                    lines.append(f"Target Price: {target_price}")
-                    lines.append(f"Acceptable Price Range: {lower_bound:.6f} to {upper_bound:.6f}")
+                lines.append(f"LP Token Amount: {self.position_info.lpTokenAmount}")
+                lines.append(f"Tokens: {self.position_info.baseTokenAmount} {self.base_token} / {self.position_info.quoteTokenAmount} {self.quote_token}")
+                lines.append(f"Target Price: {target_price}")
+                lines.append(f"Acceptable Price Range: {lower_bound:.6f} to {upper_bound:.6f}")
 
-            lines.append(f"Current price: {self.last_price}")
+            if self.pool_info:
+                lines.append(f"Current price: {self.pool_info.price}")
 
             if self.out_of_range_start_time:
                 elapsed = time.time() - self.out_of_range_start_time
                 lines.append(f"Price out of range for {elapsed:.0f}/{self.config.out_of_range_secs} seconds")
-        elif self.position_opening:
-            lines.append(f"Opening position on {self.exchange}...")
-        elif self.position_closing:
-            lines.append(f"Closing position on {self.exchange}...")
         else:
             lines.append(f"Monitoring {self.base_token}-{self.quote_token} pool on {self.exchange}")
-            lines.append(f"Current price: {self.last_price}")
+            if self.pool_info:
+                lines.append(f"Current price: {self.pool_info.price}")
             lines.append(f"Target price: {self.config.target_price}")
             condition = "rises above" if self.config.trigger_above else "falls below"
             lines.append(f"Will open position when price {condition} target")
