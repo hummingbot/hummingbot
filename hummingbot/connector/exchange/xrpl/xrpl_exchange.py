@@ -876,13 +876,11 @@ class XrplExchange(ExchangePyBase):
         trade_fills = []
 
         for transaction in transactions:
-            tx = transaction.get("tx", None)
+            tx = transaction.get("tx") or transaction.get("transaction") or transaction.get("tx_json")
 
             if tx is None:
-                tx = transaction.get("transaction", None)
-
-            if tx is None:
-                tx = transaction.get("tx_json", None)
+                self.logger().debug(f"Transaction not found for order {order.client_order_id}, data: {transaction}")
+                continue
 
             tx_type = tx.get("TransactionType", None)
 
@@ -930,9 +928,6 @@ class XrplExchange(ExchangePyBase):
                 tx = data_result
         else:
             meta = data.get("meta", {})
-            tx = {}
-
-            # check if transaction has key "tx" or "transaction"?
             tx = data.get("tx") or data.get("transaction") or data.get("tx_json") or {}
 
             if "hash" in data:
