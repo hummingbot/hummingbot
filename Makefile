@@ -14,8 +14,6 @@ test:
 	coverage run -m pytest \
  	--ignore="test/mock" \
  	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual/" \
- 	--ignore="test/hummingbot/connector/derivative/injective_v2_perpetual/" \
- 	--ignore="test/hummingbot/connector/exchange/injective_v2/" \
  	--ignore="test/hummingbot/remote_iface/" \
  	--ignore="test/connector/utilities/oms_connector/" \
  	--ignore="test/hummingbot/strategy/amm_arb/" \

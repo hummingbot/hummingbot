@@ -81,22 +81,19 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
         self._initialize_timeout_height_sync_task.start()
         super().setUp()
-        self._original_async_loop = asyncio.get_event_loop()
-        self.async_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.async_loop)
         self._logs_event: Optional[asyncio.Event] = None
         self.exchange._data_source.logger().setLevel(1)
         self.exchange._data_source.logger().addHandler(self)
 
         self.exchange._orders_processing_delta_time = 0.1
-        self.async_tasks.append(self.async_loop.create_task(self.exchange._process_queued_orders()))
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        self.async_tasks.append(asyncio.create_task(self.exchange._process_queued_orders()))
 
     def tearDown(self) -> None:
         super().tearDown()
         self._initialize_timeout_height_sync_task.stop()
-        self.async_loop.stop()
-        self.async_loop.close()
-        asyncio.set_event_loop(self._original_async_loop)
         self._logs_event = None
 
     def handle(self, record):
@@ -542,6 +539,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             trading_pairs=[self.trading_pair],
         )
 
+        exchange._data_source._is_trading_account_initialized = True
+        exchange._data_source._is_timeout_height_initialized = True
+        exchange._data_source._client.timeout_height = 0
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
         exchange._data_source._spot_market_and_trading_pair_map = bidict()
         exchange._data_source._derivative_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
@@ -776,7 +776,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "derivativeOrders": [
                 {
                     "status": "Booked",
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
@@ -816,7 +816,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "derivativeOrders": [
                 {
                     "status": "Cancelled",
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
@@ -856,7 +856,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "derivativeOrders": [
                 {
                     "status": "Matched",
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
@@ -905,7 +905,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                     },
                     "payout": "207636617326923969135747808",
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals + 18}")),
-                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "orderHash": order.exchange_order_id,
                     "feeRecipientAddress": self.vault_contract_address,
                     "cid": order.client_order_id,
                     "tradeId": self.expected_fill_trade_id,
@@ -918,7 +918,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         }
 
     @aioresponses()
-    def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
+    async def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
         self.exchange._data_source._spot_market_and_trading_pair_map = None
         self.exchange._data_source._derivative_market_and_trading_pair_map = None
@@ -926,17 +926,17 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         queue_mock.get.side_effect = Exception("Test error")
         self.exchange._data_source._query_executor._spot_markets_responses = queue_mock
 
-        result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs(), timeout=10)
+        result: List[str] = await asyncio.wait_for(self.exchange.all_trading_pairs(), timeout=10)
 
         self.assertEqual(0, len(result))
 
-    def test_batch_order_create(self):
+    async def test_batch_order_create(self):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
         # Configure all symbols response to initialize the trading rules
         self.configure_all_symbols_response(mock_api=None)
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
+        await asyncio.wait_for(self.exchange._update_trading_rules(), timeout=1)
 
         buy_order_to_create = LimitOrder(
             client_order_id="",
@@ -996,7 +996,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             creation_transaction_hash=response["txhash"]
         )
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
         request_sent_event.clear()
 
         expected_order_hashes = [
@@ -1030,7 +1030,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(2, len(orders))
         self.assertEqual(2, len(self.exchange.in_flight_orders))
@@ -1048,11 +1048,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
 
     @aioresponses()
-    def test_create_buy_limit_order_successfully(self, mock_api):
+    async def test_create_buy_limit_order_successfully(self, mock_api):
         """Open long position"""
         # Configure all symbols response to initialize the trading rules
         self.configure_all_symbols_response(mock_api=None)
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
+        await asyncio.wait_for(self.exchange._update_trading_rules(), timeout=1)
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -1072,7 +1072,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
         request_sent_event.clear()
         order = self.exchange.in_flight_orders[order_id]
 
@@ -1102,7 +1102,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1112,7 +1112,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
-    def test_create_sell_limit_order_successfully(self, mock_api):
+    async def test_create_sell_limit_order_successfully(self, mock_api):
         self.configure_all_symbols_response(mock_api=None)
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
@@ -1132,7 +1132,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_id = self.place_sell_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
         request_sent_event.clear()
         order = self.exchange.in_flight_orders[order_id]
 
@@ -1164,7 +1164,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1174,7 +1174,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
-    def test_create_order_fails_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1193,7 +1193,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+
+        for i in range(3):
+            if order_id in self.exchange.in_flight_orders:
+                await asyncio.sleep(0.5)
 
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
@@ -1213,7 +1217,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
 
     @aioresponses()
-    def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
+    async def test_create_order_fails_when_trading_rule_error_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
@@ -1236,7 +1240,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
 
         order_id = self.place_buy_order()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+
+        for i in range(3):
+            if order_id in self.exchange.in_flight_orders:
+                await asyncio.sleep(0.5)
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -1264,7 +1272,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
 
     @aioresponses()
-    def test_create_order_to_close_short_position(self, mock_api):
+    async def test_create_order_to_close_short_position(self, mock_api):
         self.configure_all_symbols_response(mock_api=None)
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
@@ -1286,7 +1294,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         leverage = 4
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
         request_sent_event.clear()
         order = self.exchange.in_flight_orders[order_id]
 
@@ -1316,15 +1324,21 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
         order = self.exchange.in_flight_orders[order_id]
 
+        for i in range(3):
+            if order.current_state == OrderState.PENDING_CREATE:
+                await asyncio.sleep(0.5)
+
+        self.assertEqual(response["txhash"], order.creation_transaction_hash)
+
     @aioresponses()
-    def test_create_order_to_close_long_position(self, mock_api):
+    async def test_create_order_to_close_long_position(self, mock_api):
         self.configure_all_symbols_response(mock_api=None)
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
@@ -1346,7 +1360,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         leverage = 5
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
         request_sent_event.clear()
         order = self.exchange.in_flight_orders[order_id]
 
@@ -1376,14 +1390,14 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
-    def test_batch_order_cancel(self):
+    async def test_batch_order_cancel(self):
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
@@ -1424,7 +1438,10 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         self.exchange.batch_order_cancel(orders_to_cancel=orders_to_cancel)
 
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+        for i in range(3):
+            if buy_order_to_cancel.current_state in [OrderState.PENDING_CREATE, OrderState.CREATED, OrderState.OPEN]:
+                await asyncio.sleep(0.5)
 
         self.assertIn(buy_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
         self.assertIn(sell_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
@@ -1434,13 +1451,13 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(response["txhash"], sell_order_to_cancel.cancel_tx_hash)
 
     @aioresponses()
-    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+    async def test_cancel_order_not_found_in_the_exchange(self, mock_api):
         # This tests does not apply for Injective. The batch orders update message used for cancelations will not
         # detect if the orders exists or not. That will happen when the transaction is executed.
         pass
 
     @aioresponses()
-    def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
+    async def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
         # This tests does not apply for Injective. The batch orders update message used for cancelations will not
         # detect if the orders exists or not. That will happen when the transaction is executed.
         pass
@@ -1454,7 +1471,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(self.quote_asset, linear_buy_collateral_token)
         self.assertEqual(self.quote_asset, linear_sell_collateral_token)
 
-    def test_user_stream_balance_update(self):
+    async def test_user_stream_balance_update(self):
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000)
 
@@ -1470,11 +1487,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[],
                     derivative_markets=[market],
@@ -1488,7 +1505,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
 
-    def test_user_stream_update_for_new_order(self):
+    async def test_user_stream_update_for_new_order(self):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1516,16 +1533,17 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[],
                     derivative_markets=[market],
                     subaccount_ids=[self.vault_contract_subaccount_id]
-                )
+                ),
+                timeout=1
             )
         except asyncio.CancelledError:
             pass
@@ -1544,7 +1562,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         self.assertTrue(self.is_logged("INFO", tracked_order.build_order_created_message()))
 
-    def test_user_stream_update_for_canceled_order(self):
+    async def test_user_stream_update_for_canceled_order(self):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1572,16 +1590,17 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[],
                     derivative_markets=[market],
                     subaccount_ids=[self.vault_contract_subaccount_id]
-                )
+                ),
+                timeout=1
             )
         except asyncio.CancelledError:
             pass
@@ -1599,7 +1618,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
 
     @aioresponses()
-    def test_user_stream_update_for_order_full_fill(self, mock_api):
+    async def test_user_stream_update_for_order_full_fill(self, mock_api):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1635,8 +1654,8 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id), timeout=1
         )
         tasks = [
             asyncio.get_event_loop().create_task(
@@ -1648,11 +1667,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             ),
         ]
         try:
-            self.async_run_with_timeout(safe_gather(*tasks))
+            await asyncio.wait_for(safe_gather(*tasks), timeout=1)
         except asyncio.CancelledError:
             pass
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+        await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1694,7 +1713,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         pass
 
     @aioresponses()
-    def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
+    async def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
@@ -1720,7 +1739,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         self.assertTrue(order.is_open)
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        await asyncio.wait_for(self.exchange._update_order_status(), timeout=1)
+
+        for i in range(3):
+            if order.current_state == OrderState.PENDING_CREATE:
+                await asyncio.sleep(0.5)
 
         self.assertTrue(order.is_open)
         self.assertEqual(OrderState.PARTIALLY_FILLED, order.current_state)
@@ -1736,7 +1759,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             self.assertEqual(self.expected_partial_fill_amount, fill_event.amount)
             self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
 
-    def test_lost_order_removed_after_cancel_status_user_event_received(self):
+    async def test_lost_order_removed_after_cancel_status_user_event_received(self):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1752,8 +1775,10 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+            await asyncio.wait_for(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id),
+                timeout=1,
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1770,16 +1795,17 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[],
                     derivative_markets=[market],
                     subaccount_ids=[self.vault_contract_subaccount_id]
-                )
+                ),
+                timeout=1
             )
         except asyncio.CancelledError:
             pass
@@ -1791,7 +1817,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertTrue(order.is_failure)
 
     @aioresponses()
-    def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
+    async def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
         self.configure_all_symbols_response(mock_api=None)
 
         self.exchange._set_current_timestamp(1640780000)
@@ -1807,8 +1833,10 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+            await asyncio.wait_for(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id),
+                timeout=1,
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1833,8 +1861,8 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id), timeout=1
         )
         tasks = [
             asyncio.get_event_loop().create_task(
@@ -1846,11 +1874,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             ),
         ]
         try:
-            self.async_run_with_timeout(safe_gather(*tasks))
+            await asyncio.wait_for(safe_gather(*tasks), timeout=1)
         except asyncio.CancelledError:
             pass
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+        await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1870,7 +1898,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertTrue(order.is_failure)
 
     @aioresponses()
-    def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
+    async def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         request_sent_event = asyncio.Event()
 
@@ -1887,8 +1915,10 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            self.async_run_with_timeout(
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+            await asyncio.wait_for(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id),
+                timeout=1,
+            )
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
@@ -1908,11 +1938,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             order.completely_filled_event.set()
             request_sent_event.set()
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        await asyncio.wait_for(self.exchange._update_order_status(), timeout=1)
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
-        self.async_run_with_timeout(order.wait_until_completely_filled())
+        await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
         self.assertTrue(order.is_done)
         self.assertTrue(order.is_failure)
 
@@ -1945,12 +1975,16 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.async_run_with_timeout(self.exchange._update_lost_orders_status())
+        await asyncio.wait_for(self.exchange._update_lost_orders_status(), timeout=1)
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertTrue(order.is_done)
         self.assertTrue(order.is_failure)
+
+        for i in range(3):
+            if order.client_order_id in self.exchange._order_tracker.all_fillable_orders:
+                await asyncio.sleep(0.1)
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
@@ -1963,7 +1997,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
 
     @aioresponses()
-    def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
+    async def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
 
         invalid_pair, response = self.all_symbols_including_invalid_pair_mock_response
@@ -1972,55 +2006,56 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
         self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait(response)
 
-        all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
+        all_trading_pairs = await asyncio.wait_for(self.exchange.all_trading_pairs(), timeout=1)
 
         self.assertNotIn(invalid_pair, all_trading_pairs)
 
     @aioresponses()
-    def test_check_network_success(self, mock_api):
+    async def test_check_network_success(self, mock_api):
         response = self.network_status_request_successful_mock_response
         self.exchange._data_source._query_executor._ping_responses.put_nowait(response)
 
-        network_status = self.async_run_with_timeout(coroutine=self.exchange.check_network(), timeout=10)
+        network_status = await asyncio.wait_for(self.exchange.check_network(), timeout=10)
 
         self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
     @aioresponses()
-    def test_check_network_failure(self, mock_api):
+    async def test_check_network_failure(self, mock_api):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = RpcError("Test Error")
         self.exchange._data_source._query_executor._ping_responses = mock_queue
 
-        ret = self.async_run_with_timeout(coroutine=self.exchange.check_network())
+        ret = await asyncio.wait_for(self.exchange.check_network(), timeout=1)
 
         self.assertEqual(ret, NetworkStatus.NOT_CONNECTED)
 
     @aioresponses()
-    def test_check_network_raises_cancel_exception(self, mock_api):
+    async def test_check_network_raises_cancel_exception(self, mock_api):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.exchange._data_source._query_executor._ping_responses = mock_queue
 
-        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.exchange.check_network())
+        with self.assertRaises(asyncio.CancelledError):
+            await (self.exchange.check_network())
 
     @aioresponses()
-    def test_get_last_trade_prices(self, mock_api):
+    async def test_get_last_trade_prices(self, mock_api):
         self.configure_all_symbols_response(mock_api=mock_api)
         response = self.latest_prices_request_mock_response
         self.exchange._data_source._query_executor._derivative_trades_responses.put_nowait(response)
 
-        latest_prices: Dict[str, float] = self.async_run_with_timeout(
-            self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
+        latest_prices: Dict[str, float] = await asyncio.wait_for(
+            self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair]), timeout=1
         )
 
         self.assertEqual(1, len(latest_prices))
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 
-    def test_get_fee(self):
+    async def test_get_fee(self):
         self.exchange._data_source._spot_market_and_trading_pair_map = None
         self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
-        self.async_run_with_timeout(self.exchange._update_trading_fees())
+        await asyncio.wait_for(self.exchange._update_trading_fees(), timeout=1)
 
         market = list(self.all_derivative_markets_mock_response.values())[0]
         maker_fee_rate = market.maker_fee_rate
@@ -2130,7 +2165,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         pass
 
     @aioresponses()
-    def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
+    async def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
 
@@ -2170,7 +2205,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.exchange._data_source.query_executor._funding_rates_responses = mock_queue
 
         self.exchange._funding_fee_poll_notifier.set()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         request_sent_event.clear()
 
@@ -2208,7 +2243,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.exchange._data_source.query_executor._funding_rates_responses = mock_queue
 
         self.exchange._funding_fee_poll_notifier.set()
-        self.async_run_with_timeout(request_sent_event.wait())
+        await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
         self.assertEqual(1, len(self.funding_payment_logger.event_log))
         funding_event: FundingPaymentCompletedEvent = self.funding_payment_logger.event_log[0]
@@ -2218,7 +2253,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(self.target_funding_payment_payment_amount, funding_event.amount)
         self.assertEqual(self.target_funding_payment_funding_rate, funding_event.funding_rate)
 
-    def test_listen_for_funding_info_update_initializes_funding_info(self):
+    async def test_listen_for_funding_info_update_initializes_funding_info(self):
         self.exchange._data_source._spot_market_and_trading_pair_map = None
         self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
@@ -2329,7 +2364,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         ] = mock_queue
 
         try:
-            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
+            await asyncio.wait_for(self.exchange._listen_for_funding_info(), timeout=1)
         except asyncio.CancelledError:
             pass
 
@@ -2343,7 +2378,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         )
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
 
-    def test_listen_for_funding_info_update_updates_funding_info(self):
+    async def test_listen_for_funding_info_update_updates_funding_info(self):
         self.exchange._data_source._spot_market_and_trading_pair_map = None
         self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
@@ -2454,14 +2489,14 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         ] = mock_queue
 
         try:
-            self.async_run_with_timeout(
-                self.exchange._listen_for_funding_info())
+            await asyncio.wait_for(
+                self.exchange._listen_for_funding_info(), timeout=1)
         except asyncio.CancelledError:
             pass
 
         self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
 
-    def test_existing_account_position_detected_on_positions_update(self):
+    async def test_existing_account_position_detected_on_positions_update(self):
         self._simulate_trading_rules_initialized()
         self.configure_all_symbols_response(mock_api=None)
 
@@ -2489,7 +2524,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         }
         self.exchange._data_source._query_executor._derivative_positions_responses.put_nowait(positions)
 
-        self.async_run_with_timeout(self.exchange._update_positions())
+        await asyncio.wait_for(self.exchange._update_positions(), timeout=1)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
@@ -2505,7 +2540,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         expected_unrealized_pnl = (mark_price - entry_price) * Decimal(position_data["quantity"])
         self.assertEqual(expected_unrealized_pnl, pos.unrealized_pnl)
 
-    def test_user_stream_position_update(self):
+    async def test_user_stream_position_update(self):
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000)
 
@@ -2549,16 +2584,17 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             )
         )
 
-        market = self.async_run_with_timeout(
-            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        market = await asyncio.wait_for(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id), timeout=1
         )
         try:
-            self.async_run_with_timeout(
+            await asyncio.wait_for(
                 self.exchange._data_source._listen_to_chain_updates(
                     spot_markets=[],
                     derivative_markets=[market],
                     subaccount_ids=[self.vault_contract_subaccount_id]
                 ),
+                timeout=1
             )
         except asyncio.CancelledError:
             pass
@@ -2578,7 +2614,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertEqual(expected_unrealized_pnl, pos.unrealized_pnl)
 
     @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source.InjectiveDataSource._time")
-    def test_order_in_failed_transaction_marked_as_failed_during_order_creation_check(self, time_mock):
+    async def test_order_in_failed_transaction_marked_as_failed_during_order_creation_check(self, time_mock):
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000.0)
         time_mock.return_value = 1640780000.0
@@ -2633,7 +2669,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
 
-        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+        await asyncio.wait_for(self.exchange._check_orders_creation_transactions(), timeout=1)
+
+        for i in range(3):
+            if order.current_state == OrderState.PENDING_CREATE:
+                await asyncio.sleep(0.5)
 
         self.assertEqual(0, len(self.buy_order_created_logger.event_log))
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]

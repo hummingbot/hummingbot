@@ -24,5 +24,5 @@ class InjectiveConfigMapTests(TestCase):
 
         self.assertEqual(
             f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.",
-            str(ex_context.exception.args[0][0].exc)
+            str(ex_context.exception.errors()[0]["ctx"]["error"].args[0])
         )

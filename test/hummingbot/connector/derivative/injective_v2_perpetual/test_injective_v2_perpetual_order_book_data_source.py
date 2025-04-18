@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import re
 from decimal import Decimal
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
@@ -240,7 +239,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
-                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
+                    "orderHash": order_hash,
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -261,7 +260,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
+                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
             )
         )
 
@@ -302,7 +301,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
-                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
+                    "orderHash": order_hash,
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -405,7 +404,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
+                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
             )
         )
 
@@ -659,7 +658,7 @@ class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT \(.*")
+                "WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT")
             )
         )
 
