@@ -151,8 +151,8 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": trading_pair,
             "update_id": int(data['publish_id']),
-            "bids": ([i[0], i[1]] for i in data['bids']),
-            "asks": ([i[0], i[1]] for i in data['asks']),
+            "bids": [[i[0], i[1]] for i in data.get('bids', [])],
+            "asks": [[i[0], i[1]] for i in data.get('asks', [])],
         }, timestamp=timestamp)
         message_queue.put_nowait(trade_message)
 
