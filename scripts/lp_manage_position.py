@@ -47,6 +47,7 @@ class LpPositionManager(ScriptStrategyBase):
         self.config = config
         self.exchange = f"{config.connector}_{config.chain}_{config.network}"
         self.connector_type = get_connector_type(config.connector)
+        self.base_token, self.quote_token = self.config.trading_pair.split("-")
 
         # State tracking
         self.position_opened = False
@@ -57,9 +58,6 @@ class LpPositionManager(ScriptStrategyBase):
         self.last_price = None
         self.position_address = None
         self.out_of_range_start_time = None
-        # Keep track of token symbols
-        self.base_token = None
-        self.quote_token = None
 
         # Log startup information
         condition = "rises above" if self.config.trigger_above else "falls below"
@@ -85,9 +83,6 @@ class LpPositionManager(ScriptStrategyBase):
             )
             if self.pool_info:
                 self.last_price = Decimal(str(self.pool_info.price))
-                # Store token symbols from pool info
-                self.base_token = self.pool_info.baseToken.symbol
-                self.quote_token = self.pool_info.quoteToken.symbol
             return self.pool_info
         except Exception as e:
             self.logger().error(f"Error fetching pool info: {str(e)}")
@@ -308,11 +303,6 @@ class LpPositionManager(ScriptStrategyBase):
 
     def format_status(self) -> str:
         """Format status message for display in Hummingbot"""
-        if not self.gateway_ready:
-            return "Gateway server is not available. Please start Gateway and restart the strategy."
-
-        if not self.wallet_address:
-            return "No wallet connected. Please connect a wallet using 'gateway connect'."
 
         lines = []
 

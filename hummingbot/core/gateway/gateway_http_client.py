@@ -559,16 +559,25 @@ class GatewayHttpClient:
             self,
             connector: str,
             network: str,
-            pool_address: str,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM or CLMM pool
+        Either pool_address or both base_token and quote_token must be provided
         """
         query_params = {
             "network": network,
-            "poolAddress": pool_address,
         }
+        if pool_address is not None:
+            query_params["poolAddress"] = pool_address
+        if base_token is not None:
+            query_params["baseToken"] = base_token
+        if quote_token is not None:
+            query_params["quoteToken"] = quote_token
+
         return await self.api_request(
             "get",
             f"{connector}/pool-info",
@@ -603,18 +612,27 @@ class GatewayHttpClient:
             self,
             connector: str,
             network: str,
-            pool_address: str,
             wallet_address: str,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Gets information about a AMM liquidity position
+        Either pool_address or both base_token and quote_token must be provided
         """
         query_params = {
             "network": network,
-            "poolAddress": pool_address,
             "walletAddress": wallet_address,
         }
+        if pool_address is not None:
+            query_params["poolAddress"] = pool_address
+        if base_token is not None:
+            query_params["baseToken"] = base_token
+        if quote_token is not None:
+            query_params["quoteToken"] = quote_token
+
         return await self.api_request(
             "get",
             f"{connector}/position-info",
@@ -633,15 +651,17 @@ class GatewayHttpClient:
             quote_token_amount: Optional[float] = None,
             slippage_pct: Optional[float] = None,
             pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Opens a new concentrated liquidity position
+        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
-            "poolAddress": pool_address,
             "lowerPrice": lower_price,
             "upperPrice": upper_price,
         }
@@ -653,6 +673,10 @@ class GatewayHttpClient:
             request_payload["slippagePct"] = slippage_pct
         if pool_address is not None:
             request_payload["poolAddress"] = pool_address
+        if base_token is not None:
+            request_payload["baseToken"] = base_token
+        if quote_token is not None:
+            request_payload["quoteToken"] = quote_token
 
         return await self.api_request(
             "post",
@@ -693,15 +717,17 @@ class GatewayHttpClient:
             quote_token_amount: float,
             slippage_pct: Optional[float] = None,
             pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Add liquidity to an AMM liquidity position
+        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
-            "poolAddress": pool_address,
             "baseTokenAmount": base_token_amount,
             "quoteTokenAmount": quote_token_amount,
         }
@@ -709,6 +735,10 @@ class GatewayHttpClient:
             request_payload["slippagePct"] = slippage_pct
         if pool_address is not None:
             request_payload["poolAddress"] = pool_address
+        if base_token is not None:
+            request_payload["baseToken"] = base_token
+        if quote_token is not None:
+            request_payload["quoteToken"] = quote_token
 
         return await self.api_request(
             "post",
@@ -722,19 +752,28 @@ class GatewayHttpClient:
             connector: str,
             network: str,
             wallet_address: str,
-            pool_address: str,
             percentage: float,
+            pool_address: Optional[str] = None,
+            base_token: Optional[str] = None,
+            quote_token: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Closes an existing AMM liquidity position
+        Either pool_address or both base_token and quote_token must be provided
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
-            "poolAddress": pool_address,
             "percentageToRemove": percentage,
         }
+        if pool_address is not None:
+            request_payload["poolAddress"] = pool_address
+        if base_token is not None:
+            request_payload["baseToken"] = base_token
+        if quote_token is not None:
+            request_payload["quoteToken"] = quote_token
+
         return await self.api_request(
             "post",
             f"{connector}/remove-liquidity",
