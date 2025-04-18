@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair, PositionSummary
@@ -70,6 +70,8 @@ class StatArb(ControllerBase):
     def __init__(self, config: StatArbConfig, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
+        self.theoretical_dominant_quote = self.config.total_amount_quote * (1 / (1 + self.config.pos_hedge_ratio))
+        self.theoretical_hedge_quote = self.config.total_amount_quote * (self.config.pos_hedge_ratio / (1 + self.config.pos_hedge_ratio))
 
         # Initialize processed data dictionary
         self.processed_data = {
@@ -149,7 +151,7 @@ class StatArb(ControllerBase):
 
     def get_executors_to_keep_position(self) -> List[ExecutorAction]:
         stop_actions: List[ExecutorAction] = []
-        for executor in self.processed_data["active_executors_dominant_filled"] + self.processed_data["active_executors_hedge_filled"]:
+        for executor in self.processed_data["executors_dominant_filled"] + self.processed_data["executors_hedge_filled"]:
             if self.market_data_provider.time() - executor.timestamp >= self.config.quoter_cooldown:
                 # Create a new executor to keep the position
                 stop_actions.append(StopExecutorAction(controller_id=self.config.id, executor_id=executor.id, keep_position=True))
@@ -157,7 +159,7 @@ class StatArb(ControllerBase):
 
     def get_executors_to_refresh(self) -> List[ExecutorAction]:
         refresh_actions: List[ExecutorAction] = []
-        for executor in self.processed_data["active_executors_dominant_placed"] + self.processed_data["active_executors_hedge_placed"]:
+        for executor in self.processed_data["executors_dominant_placed"] + self.processed_data["executors_hedge_placed"]:
             if self.market_data_provider.time() - executor.timestamp >= self.config.quoter_refresh:
                 # Create a new executor to refresh the position
                 refresh_actions.append(StopExecutorAction(controller_id=self.config.id, executor_id=executor.id, keep_position=False))
@@ -174,8 +176,8 @@ class StatArb(ControllerBase):
         # Analyze dominant active orders, max deviation and imbalance to create a new executor
         if self.processed_data["dominant_gap"] > Decimal("0") and \
            self.processed_data["filter_connector_pair"] != self.config.connector_pair_dominant and \
-           self.processed_data["num_active_orders_dominant"] < self.config.max_orders_placed_per_side and \
-           self.processed_data["num_active_orders_dominant_filled"] < self.config.max_orders_filled_per_side:
+           self.processed_data["num_dominant_placed"] < self.config.max_orders_placed_per_side and \
+           self.processed_data["num_dominant_filled"] < self.config.max_orders_filled_per_side:
             # Create Position Executor for dominant asset
             if trade_type_dominant == TradeType.BUY:
                 price = self.processed_data["min_price_dominant"] * (1 - self.config.quoter_spread)
@@ -196,8 +198,8 @@ class StatArb(ControllerBase):
         # Analyze hedge active orders, max deviation and imbalance to create a new executor
         if self.processed_data["hedge_gap"] > Decimal("0") and \
            self.processed_data["filter_connector_pair"] != self.config.connector_pair_hedge and \
-           self.processed_data["num_active_orders_hedge"] < self.config.max_orders_placed_per_side and \
-           self.processed_data["num_active_orders_hedge_filled"] < self.config.max_orders_filled_per_side:
+           self.processed_data["num_hedge_placed"] < self.config.max_orders_placed_per_side and \
+           self.processed_data["num_hedge_filled"] < self.config.max_orders_filled_per_side:
             # Create Position Executor for hedge asset
             if trade_type_hedge == TradeType.BUY:
                 price = self.processed_data["min_price_hedge"] * (1 - self.config.quoter_spread)
@@ -240,6 +242,94 @@ class StatArb(ControllerBase):
         Update processed data with the latest market information and statistical calculations
         needed for the statistical arbitrage strategy.
         """
+        # Stat arb analysis
+        spread, z_score = self.get_spread_and_z_score()
+
+        # Generate trading signal based on z-score
+        signal = 0
+        entry_threshold = float(self.config.entry_threshold)
+        if z_score > entry_threshold:
+            # Spread is too high, expect it to revert: short dominant, long hedge
+            signal = 1
+        elif z_score < -entry_threshold:
+            # Spread is too low, expect it to revert: long dominant, short hedge
+            signal = -1
+
+        # Current prices
+        dominant_price, hedge_price = self.get_pairs_prices()
+
+        # Get current positions stats by signal
+        dom_connector = self.config.connector_pair_dominant.connector_name
+        dom_trading_pair = self.config.connector_pair_dominant.trading_pair
+        positions_dominant = next((position for position in self.positions_held if position.connector_name == dom_connector and position.trading_pair == dom_trading_pair), None)
+        hedge_connector = self.config.connector_pair_hedge.connector_name
+        hedge_trading_pair = self.config.connector_pair_hedge.trading_pair
+        positions_hedge = next((position for position in self.positions_held if position.connector_name == hedge_connector and position.trading_pair == hedge_trading_pair), None)
+        # Get position stats
+        position_dominant_quote = positions_dominant.amount_quote if positions_dominant else Decimal("0")
+        position_hedge_quote = positions_hedge.amount_quote if positions_hedge else Decimal("0")
+        imbalance = position_dominant_quote - position_hedge_quote
+        position_dominant_pnl_quote = positions_dominant.global_pnl_quote if positions_dominant else Decimal("0")
+        position_hedge_pnl_quote = positions_hedge.global_pnl_quote if positions_hedge else Decimal("0")
+        pair_pnl_pct = (position_dominant_pnl_quote + position_hedge_pnl_quote) / (position_dominant_quote + position_hedge_quote) if (position_dominant_quote + position_hedge_quote) != 0 else Decimal("0")
+        # Get active executors
+        executors_dominant_placed, executors_dominant_filled = self.get_executors_dominant()
+        executors_hedge_placed, executors_hedge_filled = self.get_executors_hedge()
+        min_price_dominant = Decimal(str(min([executor.config.entry_price for executor in executors_dominant_placed]))) if executors_dominant_placed else None
+        max_price_dominant = Decimal(str(max([executor.config.entry_price for executor in executors_dominant_placed]))) if executors_dominant_placed else None
+        min_price_hedge = Decimal(str(min([executor.config.entry_price for executor in executors_hedge_placed]))) if executors_hedge_placed else None
+        max_price_hedge = Decimal(str(max([executor.config.entry_price for executor in executors_hedge_placed]))) if executors_hedge_placed else None
+
+        active_amount_dominant = Decimal(str(sum([executor.filled_amount_quote for executor in executors_dominant_filled])))
+        active_amount_hedge = Decimal(str(sum([executor.filled_amount_quote for executor in executors_hedge_filled])))
+
+        # Compute imbalance based on the hedge ratio
+        dominant_gap = self.theoretical_dominant_quote - position_dominant_quote - active_amount_dominant
+        hedge_gap = self.theoretical_hedge_quote - position_hedge_quote - active_amount_hedge
+        hedge_gap_scaled = hedge_gap * self.config.pos_hedge_ratio
+        imbalance_scaled = dominant_gap - hedge_gap_scaled
+        imbalance_scaled_pct = imbalance_scaled / position_dominant_quote if position_dominant_quote != Decimal("0") else Decimal("0")
+        filter_connector_pair = None
+        if imbalance_scaled_pct > self.config.max_position_deviation:
+            # Avoid placing orders in the dominant market
+            filter_connector_pair = self.config.connector_pair_dominant
+        elif imbalance_scaled_pct < -self.config.max_position_deviation:
+            # Avoid placing orders in the hedge market
+            filter_connector_pair = self.config.connector_pair_hedge
+
+        # Update processed data
+        self.processed_data = {
+            "dominant_price": Decimal(str(dominant_price)),
+            "hedge_price": Decimal(str(hedge_price)),
+            "spread": Decimal(str(spread)),
+            "z_score": Decimal(str(z_score)),
+            "dominant_gap": Decimal(str(dominant_gap)),
+            "hedge_gap": Decimal(str(hedge_gap)),
+            "position_dominant_quote": position_dominant_quote,
+            "position_hedge_quote": position_hedge_quote,
+            "active_amount_dominant": active_amount_dominant,
+            "active_amount_hedge": active_amount_hedge,
+            "signal": signal,
+            # Store full dataframes for reference
+            "imbalance": Decimal(str(imbalance)),
+            "imbalance_scaled_pct": Decimal(str(imbalance_scaled_pct)),
+            "filter_connector_pair": filter_connector_pair,
+            "min_price_dominant": min_price_dominant if min_price_dominant is not None else Decimal(str(dominant_price)),
+            "max_price_dominant": max_price_dominant if max_price_dominant is not None else Decimal(str(dominant_price)),
+            "min_price_hedge": min_price_hedge if min_price_hedge is not None else Decimal(str(hedge_price)),
+            "max_price_hedge": max_price_hedge if max_price_hedge is not None else Decimal(str(hedge_price)),
+            "num_dominant_placed": len(executors_dominant_placed),
+            "num_hedge_placed": len(executors_hedge_placed),
+            "num_dominant_filled": len(executors_dominant_filled),
+            "num_hedge_filled": len(executors_hedge_filled),
+            "executors_dominant_filled": executors_dominant_filled,
+            "executors_hedge_filled": executors_hedge_filled,
+            "executors_dominant_placed": executors_dominant_placed,
+            "executors_hedge_placed": executors_hedge_placed,
+            "pair_pnl_pct": pair_pnl_pct,
+        }
+
+    def get_spread_and_z_score(self):
         # Fetch candle data for both assets
         dominant_df = self.market_data_provider.get_candles_df(
             connector_name=self.config.connector_pair_dominant.connector_name,
@@ -266,7 +356,8 @@ class StatArb(ControllerBase):
         # Ensure we have enough data and both series have the same length
         min_length = min(len(dominant_prices), len(hedge_prices))
         if min_length < self.config.lookback_period:
-            self.logger().warning(f"Not enough data points for analysis. Required: {self.config.lookback_period}, Available: {min_length}")
+            self.logger().warning(
+                f"Not enough data points for analysis. Required: {self.config.lookback_period}, Available: {min_length}")
             return
 
         # Use the most recent data points
@@ -284,7 +375,8 @@ class StatArb(ControllerBase):
         dominant_cum_returns = np.cumprod(dominant_pct_change + 1)
         hedge_cum_returns = np.cumprod(hedge_pct_change + 1)
         # Make sure both series have the same starting point (normalize to start at 1)
-        dominant_cum_returns = dominant_cum_returns / dominant_cum_returns[0] if len(dominant_cum_returns) > 0 else np.array([1.0])
+        dominant_cum_returns = dominant_cum_returns / dominant_cum_returns[0] if len(
+            dominant_cum_returns) > 0 else np.array([1.0])
         hedge_cum_returns = hedge_cum_returns / hedge_cum_returns[0] if len(hedge_cum_returns) > 0 else np.array([1.0])
         # Perform linear regression on normalized price series to find hedge ratio
         # Reshape for sklearn
@@ -300,134 +392,41 @@ class StatArb(ControllerBase):
         if std_spread == 0:
             self.logger().warning("Standard deviation of spread is zero, cannot calculate z-score")
             return
-        # Current values
-        current_dominant_price = dominant_prices[-1]
-        current_hedge_price = hedge_prices[-1]
         current_spread = spread[-1]
         current_z_score = (current_spread - mean_spread) / std_spread
-        # Get current positions
-        # For dominant asset
-        dom_connector = self.config.connector_pair_dominant.connector_name
-        dom_trading_pair = self.config.connector_pair_dominant.trading_pair
-        positions_dominant = next((position for position in self.positions_held if position.connector_name == dom_connector and position.trading_pair == dom_trading_pair), None)
-        hedge_connector = self.config.connector_pair_hedge.connector_name
-        hedge_trading_pair = self.config.connector_pair_hedge.trading_pair
-        positions_hedge = next((position for position in self.positions_held if position.connector_name == hedge_connector and position.trading_pair == hedge_trading_pair), None)
-        # Get position stats
-        position_dominant_quote = positions_dominant.amount_quote if positions_dominant else Decimal("0")
-        position_hedge_quote = positions_hedge.amount_quote if positions_hedge else Decimal("0")
-        imbalance = position_dominant_quote - position_hedge_quote
-        position_dominant_pnl_quote = positions_dominant.global_pnl_quote if positions_dominant else Decimal("0")
-        position_hedge_pnl_quote = positions_hedge.global_pnl_quote if positions_hedge else Decimal("0")
-        pair_pnl_pct = (position_dominant_pnl_quote + position_hedge_pnl_quote) / (position_dominant_quote + position_hedge_quote) if (position_dominant_quote + position_hedge_quote) != 0 else Decimal("0")
-        # Get active executors
+        return current_spread, current_z_score
+
+    def get_pairs_prices(self):
+        current_dominant_price = self.market_data_provider.get_price_by_type(
+            connector_name=self.config.connector_pair_dominant.connector_name,
+            trading_pair=self.config.connector_pair_dominant.trading_pair, price_type=PriceType.MidPrice)
+
+        current_hedge_price = self.market_data_provider.get_price_by_type(
+            connector_name=self.config.connector_pair_hedge.connector_name,
+            trading_pair=self.config.connector_pair_hedge.trading_pair, price_type=PriceType.MidPrice)
+        return current_dominant_price, current_hedge_price
+
+    def get_executors_dominant(self):
         active_executors_dominant_placed = self.filter_executors(
             self.executors_info,
-            filter_func=lambda e: e.connector_name == dom_connector and e.trading_pair == dom_trading_pair and e.is_active and not e.is_trading
-        )
-        active_executors_hedge_placed = self.filter_executors(
-            self.executors_info,
-            filter_func=lambda e: e.connector_name == hedge_connector and e.trading_pair == hedge_trading_pair and e.is_active and not e.is_trading
+            filter_func=lambda e: e.connector_name == self.config.connector_pair_dominant.connector_name and e.trading_pair == self.config.connector_pair_dominant.trading_pair and e.is_active and not e.is_trading
         )
         active_executors_dominant_filled = self.filter_executors(
             self.executors_info,
-            filter_func=lambda e: e.connector_name == dom_connector and e.trading_pair == dom_trading_pair and e.is_active and e.is_trading
+            filter_func=lambda e: e.connector_name == self.config.connector_pair_dominant.connector_name and e.trading_pair == self.config.connector_pair_dominant.trading_pair and e.is_active and e.is_trading
+        )
+        return active_executors_dominant_placed, active_executors_dominant_filled
+
+    def get_executors_hedge(self):
+        active_executors_hedge_placed = self.filter_executors(
+            self.executors_info,
+            filter_func=lambda e: e.connector_name == self.config.connector_pair_hedge.connector_name and e.trading_pair == self.config.connector_pair_hedge.trading_pair and e.is_active and not e.is_trading
         )
         active_executors_hedge_filled = self.filter_executors(
             self.executors_info,
-            filter_func=lambda e: e.connector_name == hedge_connector and e.trading_pair == hedge_trading_pair and e.is_active and e.is_trading
+            filter_func=lambda e: e.connector_name == self.config.connector_pair_hedge.connector_name and e.trading_pair == self.config.connector_pair_hedge.trading_pair and e.is_active and e.is_trading
         )
-        min_price_dominant = Decimal(str(min([executor.config.entry_price for executor in active_executors_dominant_placed]))) if active_executors_dominant_placed else None
-        max_price_dominant = Decimal(str(max([executor.config.entry_price for executor in active_executors_dominant_placed]))) if active_executors_dominant_placed else None
-        min_price_hedge = Decimal(str(min([executor.config.entry_price for executor in active_executors_hedge_placed]))) if active_executors_hedge_placed else None
-        max_price_hedge = Decimal(str(max([executor.config.entry_price for executor in active_executors_hedge_placed]))) if active_executors_hedge_placed else None
-
-        active_amount_dominant = Decimal(str(sum([executor.filled_amount_quote for executor in active_executors_dominant_filled])))
-        active_amount_hedge = Decimal(str(sum([executor.filled_amount_quote for executor in active_executors_hedge_filled])))
-
-        num_active_orders_dominant = len(active_executors_dominant_placed)
-        num_active_orders_hedge = len(active_executors_hedge_placed)
-        num_active_orders_dominant_filled = len(active_executors_dominant_filled)
-        num_active_orders_hedge_filled = len(active_executors_hedge_filled)
-        # Funding Rate
-        funding_info_dominant = self.market_data_provider.get_funding_info(
-            connector_name=self.config.connector_pair_dominant.connector_name,
-            trading_pair=self.config.connector_pair_dominant.trading_pair
-        )
-        funding_info_hedge = self.market_data_provider.get_funding_info(
-            connector_name=self.config.connector_pair_hedge.connector_name,
-            trading_pair=self.config.connector_pair_hedge.trading_pair
-        )
-        # Generate trading signal based on z-score
-        signal = 0
-        entry_threshold = float(self.config.entry_threshold)
-        if current_z_score > entry_threshold:
-            # Spread is too high, expect it to revert: short dominant, long hedge
-            signal = 1
-        elif current_z_score < -entry_threshold:
-            # Spread is too low, expect it to revert: long dominant, short hedge
-            signal = -1
-
-        # Theoretical based on hedge ratio and total amount quote
-        pos_hedge_ratio = self.config.pos_hedge_ratio
-        theoretical_dominant_quote = self.config.total_amount_quote * (1 / (1 + pos_hedge_ratio))
-        theoretical_hedge_quote = self.config.total_amount_quote * (pos_hedge_ratio / (1 + pos_hedge_ratio))
-
-        # Compute imbalance based on the hedge ratio
-        dominant_gap = theoretical_dominant_quote - position_dominant_quote - active_amount_dominant
-        hedge_gap = theoretical_hedge_quote - position_hedge_quote - active_amount_hedge
-        hedge_gap_scaled = hedge_gap * pos_hedge_ratio
-        imbalance_scaled = dominant_gap - hedge_gap_scaled
-        imbalance_scaled_pct = imbalance_scaled / position_dominant_quote if position_dominant_quote != Decimal("0") else Decimal("0")
-
-        filter_connector_pair = None
-        if imbalance_scaled_pct > self.config.max_position_deviation:
-            # Avoid placing orders in the dominant market
-            filter_connector_pair = self.config.connector_pair_dominant
-        elif imbalance_scaled_pct < -self.config.max_position_deviation:
-            # Avoid placing orders in the hedge market
-            filter_connector_pair = self.config.connector_pair_hedge
-
-        # Update processed data
-        self.processed_data = {
-            "dominant_price": Decimal(str(current_dominant_price)),
-            "hedge_price": Decimal(str(current_hedge_price)),
-            "spread": Decimal(str(current_spread)),
-            "z_score": Decimal(str(current_z_score)),
-            "hedge_ratio": Decimal(str(hedge_ratio)),
-            "dominant_gap": Decimal(str(dominant_gap)),
-            "hedge_gap": Decimal(str(hedge_gap)),
-            "position_dominant_quote": position_dominant_quote,
-            "position_hedge_quote": position_hedge_quote,
-            "active_amount_dominant": active_amount_dominant,
-            "active_amount_hedge": active_amount_hedge,
-            "theoretical_dominant_quote": theoretical_dominant_quote,
-            "theoretical_hedge_quote": theoretical_hedge_quote,
-            "signal": signal,
-            # Store full dataframes for reference
-            "dominant_df": dominant_df,
-            "hedge_df": hedge_df,
-            "imbalance": Decimal(str(imbalance)),
-            "imbalance_scaled_pct": Decimal(str(imbalance_scaled_pct)),
-            "filter_connector_pair": filter_connector_pair,
-            "min_price_dominant": min_price_dominant if min_price_dominant is not None else Decimal(str(current_dominant_price)),
-            "max_price_dominant": max_price_dominant if max_price_dominant is not None else Decimal(str(current_dominant_price)),
-            "min_price_hedge": min_price_hedge if min_price_hedge is not None else Decimal(str(current_hedge_price)),
-            "max_price_hedge": max_price_hedge if max_price_hedge is not None else Decimal(str(current_hedge_price)),
-            "num_active_orders_dominant": num_active_orders_dominant,
-            "num_active_orders_hedge": num_active_orders_hedge,
-            "num_active_orders_dominant_filled": num_active_orders_dominant_filled,
-            "num_active_orders_hedge_filled": num_active_orders_hedge_filled,
-            "active_executors_dominant_filled": active_executors_dominant_filled,
-            "active_executors_hedge_filled": active_executors_hedge_filled,
-            "active_executors_dominant_placed": active_executors_dominant_placed,
-            "active_executors_hedge_placed": active_executors_hedge_placed,
-            "active_open_orders_dominant": len(active_executors_dominant_placed),
-            "active_open_orders_hedge": len(active_executors_hedge_placed),
-            "funding_info_dominant": funding_info_dominant,
-            "funding_info_hedge": funding_info_hedge,
-            "pair_pnl_pct": pair_pnl_pct,
-        }
+        return active_executors_hedge_placed, active_executors_hedge_filled
 
     def to_format_status(self) -> List[str]:
         """
@@ -439,8 +438,7 @@ Dominant Pair: {self.config.connector_pair_dominant} | Hedge Pair: {self.config.
 Timeframe: {self.config.interval} | Lookback Period: {self.config.lookback_period} | Entry Threshold: {self.config.entry_threshold}
 Theoretical Dominant: {self.processed_data['theoretical_dominant_quote']} | Theoretical Hedge: {self.processed_data['theoretical_hedge_quote']}
 Position Dominant: {self.processed_data['position_dominant_quote']} | Position Hedge: {self.processed_data['position_hedge_quote']} | Imbalance: {self.processed_data['imbalance']} | Imbalance Scaled: {self.processed_data['imbalance_scaled_pct']} %
-Funding Dominant: {self.processed_data['funding_info_dominant'].rate} | Funding Hedge: {self.processed_data['funding_info_hedge'].rate}
-Active Orders Dominant: {self.processed_data['num_active_orders_dominant']} | Active Orders Hedge: {self.processed_data['num_active_orders_hedge']} | Active Orders Dominant Filled: {self.processed_data['num_active_orders_dominant_filled']} | Active Orders Hedge Filled: {self.processed_data['num_active_orders_hedge_filled']}
+Active Orders Dominant: {self.processed_data['num_dominant_placed']} | Active Orders Hedge: {self.processed_data['num_hedge_placed']} | Active Orders Dominant Filled: {self.processed_data['num_dominant_filled']} | Active Orders Hedge Filled: {self.processed_data['num_hedge_filled']}
 
 Signal: {self.processed_data['signal']} | Z-Score: {self.processed_data['z_score']} | Spread: {self.processed_data['spread']} | Position Hedge Ratio: {self.config.pos_hedge_ratio}
 Pair PnL PCT: {self.processed_data['pair_pnl_pct']}
