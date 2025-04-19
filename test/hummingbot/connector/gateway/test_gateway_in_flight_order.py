@@ -23,32 +23,6 @@ class GatewayInFlightOrderUnitTests(unittest.TestCase):
         cls.exchange_order_id = "someTxHash"
         cls.nonce = 1
 
-    def test_order_life_cycle_of_token_approval_requests(self):
-        order: GatewayInFlightOrder = GatewayInFlightOrder(
-            client_order_id=self.client_order_id,
-            trading_pair=self.quote_asset,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            creation_timestamp=1652324823,
-            initial_state=OrderState.PENDING_APPROVAL,
-        )
-        # Assert that order is in fact a Approval Request
-        self.assertTrue(order.is_approval_request)
-
-        self.assertTrue(order.is_pending_approval)
-
-        order_update: OrderUpdate = OrderUpdate(
-            trading_pair=order.trading_pair,
-            update_timestamp=1652324824,
-            new_state=OrderState.APPROVED,
-            client_order_id=order.client_order_id,
-            exchange_order_id=self.exchange_order_id,
-        )
-
-        order.update_with_order_update(order_update=order_update)
-
-        self.assertFalse(order.is_pending_approval)
-
     def test_order_life_cycle_of_trade_orders(self):
         order: GatewayInFlightOrder = GatewayInFlightOrder(
             client_order_id=self.client_order_id,

@@ -18,6 +18,20 @@ class Connector(Enum):
         self.connector = connector
 
 
+class ConnectorType(Enum):
+    SWAP = "SWAP"
+    CLMM = "CLMM"
+    AMM = "AMM"
+
+
+def get_connector_type(connector_name: str) -> ConnectorType:
+    if "/clmm" in connector_name:
+        return ConnectorType.CLMM
+    elif "/amm" in connector_name:
+        return ConnectorType.AMM
+    return ConnectorType.SWAP
+
+
 @dataclass
 class PlaceOrderResult:
     update_timestamp: float
