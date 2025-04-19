@@ -49,6 +49,6 @@ class NotifierBase:
 
     async def _send_message(self, message: str):
         """
-        A
+        Send a message to the notifier.
         """
         raise NotImplementedError
