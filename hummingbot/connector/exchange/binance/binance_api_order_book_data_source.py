@@ -1,7 +1,6 @@
 import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
-import requests
 
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
@@ -50,13 +49,10 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
-            "symbol": trading_pair,
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "limit": "1000"
         }
-        if True:
-            response = requests.get(web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain), params=params)
-            response.raise_for_status()
-            return response.json()
+        rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain),
             params=params,

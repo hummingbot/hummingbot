@@ -18,12 +18,13 @@ class GetRFQRequest(BaseModel):
     src_amount: float = Field(..., description="交易数量")
     tar_chain: str = Field(..., description="目标链, cobo wallet 格式")
     tar_token: str = Field(..., description="目标token, cobo wallet 格式")
+    exchange_name: str = Field(..., description="交易所名")
 
 server = FastAPI()
 
 @server.post("/rfq_request")
 async def get_rfq_request(req: GetRFQRequest):
-    data = rfq_demo(req.src_chain, req.src_token, req.src_amount, req.tar_chain, req.tar_token)
+    data = await rfq_demo(req.src_chain, req.src_token, req.src_amount, req.tar_chain, req.tar_token, req.exchange_name)
     return data
 
 if __name__ == "__main__":
