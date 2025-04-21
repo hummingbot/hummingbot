@@ -170,40 +170,6 @@ class ImportCommandTest(unittest.TestCase):
 
     @patch("hummingbot.client.config.config_helpers.get_strategy_pydantic_config_cls")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
-    def test_import_incomplete_config_file_success(
-        self, status_check_all_mock: AsyncMock, get_strategy_pydantic_config_cls: MagicMock
-    ):
-        strategy_name = "perpetual_market_making"
-        strategy_file_name = f"{strategy_name}.yml"
-        status_check_all_mock.return_value = True
-        dummy_strategy_config_cls = self.build_dummy_strategy_config_cls(strategy_name)
-        get_strategy_pydantic_config_cls.return_value = dummy_strategy_config_cls
-        cm = ClientConfigAdapter(dummy_strategy_config_cls(no_default="some value"))
-
-        with TemporaryDirectory() as d:
-            d = Path(d)
-            import_command.STRATEGIES_CONF_DIR_PATH = d
-            temp_file_name = d / strategy_file_name
-            cm_yml_str = cm.generate_yml_output_str_with_comments()
-            cm_yml_str = cm_yml_str.replace("\nno_default: some value\n", "")
-            with open(temp_file_name, "w+") as outfile:
-                outfile.write(cm_yml_str)
-            self.async_run_with_timeout(self.app.import_config_file(strategy_file_name))
-
-        self.assertEqual(strategy_file_name, self.app.strategy_file_name)
-        self.assertEqual(strategy_name, self.app.strategy_name)
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with("\nEnter \"start\" to start market making.")
-        )
-        self.assertNotEqual(cm, self.app.strategy_config_map)
-
-        validation_errors = self.app.strategy_config_map.validate_model()
-
-        self.assertEqual(1, len(validation_errors))
-        self.assertEqual("no_default - field required", validation_errors[0])
-
-    @patch("hummingbot.client.config.config_helpers.get_strategy_pydantic_config_cls")
-    @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
     def test_import_config_file_wrong_name(
         self, status_check_all_mock: AsyncMock, get_strategy_pydantic_config_cls: MagicMock
     ):

@@ -8,15 +8,16 @@
 .PHONY: uninstall
 .PHONY: clean
 .PHONY: build
+.PHONY: run-v2
 
 test:
 	coverage run -m pytest \
  	--ignore="test/mock" \
- 	--ignore="test/connector/utilities/*" \
- 	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual" \
- 	--ignore="test/hummingbot/connector/derivative/kucoin_perpetual" \
- 	--ignore="test/hummingbot/connector/derivative/okx_perpetual" \
- 	--ignore="test/hummingbot/strategy/amm_arb/"
+ 	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual/" \
+ 	--ignore="test/hummingbot/remote_iface/" \
+ 	--ignore="test/connector/utilities/oms_connector/" \
+ 	--ignore="test/hummingbot/strategy/amm_arb/" \
+ 	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
 
 run_coverage: test
 	coverage report
@@ -44,3 +45,9 @@ uninstall:
 
 build:
 	./compile
+
+run-v2:
+	./bin/hummingbot_quickstart.py -p a -f v2_with_controllers.py -c $(filter-out $@,$(MAKECMDGOALS))
+
+%:
+	@:

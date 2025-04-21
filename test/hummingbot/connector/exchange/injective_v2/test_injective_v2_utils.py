@@ -33,7 +33,6 @@ class InjectiveConfigMapTests(TestCase):
 
         self.assertEqual(expected_network.string(), network.string())
         self.assertEqual(expected_network.lcd_endpoint, network.lcd_endpoint)
-        self.assertTrue(network_config.use_secure_connection())
 
     def test_testnet_network_config_creation(self):
         network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
@@ -43,7 +42,6 @@ class InjectiveConfigMapTests(TestCase):
 
         self.assertEqual(expected_network.string(), network.string())
         self.assertEqual(expected_network.lcd_endpoint, network.lcd_endpoint)
-        self.assertTrue(network_config.use_secure_connection())
 
     def test_custom_network_config_creation(self):
         network_config = InjectiveCustomNetworkMode(
@@ -54,8 +52,7 @@ class InjectiveConfigMapTests(TestCase):
             grpc_explorer_endpoint="devnet.injective.dev:9911",
             chain_stream_endpoint="devnet.injective.dev:9999",
             chain_id="injective-777",
-            env="devnet",
-            secure_connection=False,
+            env="devnet"
         )
 
         network = network_config.network()
@@ -80,7 +77,6 @@ class InjectiveConfigMapTests(TestCase):
         self.assertEqual(expected_network.chain_id, network.chain_id)
         self.assertEqual(expected_network.fee_denom, network.fee_denom)
         self.assertEqual(expected_network.env, network.env)
-        self.assertFalse(network_config.use_secure_connection())
 
     def test_injective_delegate_account_config_creation(self):
         _, grantee_private_key = PrivateKey.generate()
@@ -95,7 +91,6 @@ class InjectiveConfigMapTests(TestCase):
 
         data_source = config.create_data_source(
             network=Network.testnet(node="sentry"),
-            use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
             fee_calculator_mode=InjectiveSimulatedTransactionFeeCalculatorMode(),
         )
@@ -114,7 +109,6 @@ class InjectiveConfigMapTests(TestCase):
 
         data_source = config.create_data_source(
             network=Network.testnet(node="sentry"),
-            use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
             fee_calculator_mode=InjectiveSimulatedTransactionFeeCalculatorMode(),
         )
@@ -146,10 +140,10 @@ class InjectiveConfigMapTests(TestCase):
     def test_fee_calculator_validator(self):
         config = InjectiveConfigMap()
 
-        config.fee_calculator = InjectiveSimulatedTransactionFeeCalculatorMode.Config.title
+        config.fee_calculator = InjectiveSimulatedTransactionFeeCalculatorMode.model_config["title"]
         self.assertEqual(InjectiveSimulatedTransactionFeeCalculatorMode(), config.fee_calculator)
 
-        config.fee_calculator = InjectiveMessageBasedTransactionFeeCalculatorMode.Config.title
+        config.fee_calculator = InjectiveMessageBasedTransactionFeeCalculatorMode.model_config["title"]
         self.assertEqual(InjectiveMessageBasedTransactionFeeCalculatorMode(), config.fee_calculator)
 
         with self.assertRaises(ValueError) as ex_context:
@@ -157,5 +151,5 @@ class InjectiveConfigMapTests(TestCase):
 
         self.assertEqual(
             f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.",
-            str(ex_context.exception.args[0][0].exc)
+            str(ex_context.exception.errors()[0]["ctx"]["error"].args[0])
         )

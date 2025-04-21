@@ -2,9 +2,9 @@ from decimal import Decimal
 from typing import List
 
 import pandas_ta as ta  # noqa: F401
-from pydantic import Field, validator
+from pydantic import Field, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
@@ -14,69 +14,60 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import Positi
 
 
 class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):
-    controller_name = "pmm_dynamic"
+    controller_name: str = "pmm_dynamic"
     candles_config: List[CandlesConfig] = []
     buy_spreads: List[float] = Field(
         default="1,2,4",
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'):"))
+        json_schema_extra={
+            "prompt": "Enter a comma-separated list of buy spreads measured in units of volatility(e.g., '1, 2'): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     sell_spreads: List[float] = Field(
         default="1,2,4",
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
+        json_schema_extra={
+            "prompt": "Enter a comma-separated list of sell spreads measured in units of volatility(e.g., '1, 2'): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     candles_connector: str = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ", )
-    )
+        json_schema_extra={
+            "prompt": "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ",
+            "prompt_on_new": True})
     candles_trading_pair: str = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ", )
-    )
+        json_schema_extra={
+            "prompt": "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ",
+            "prompt_on_new": True})
     interval: str = Field(
         default="3m",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
-            prompt_on_new=False))
-
+        json_schema_extra={
+            "prompt": "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
+            "prompt_on_new": True})
     macd_fast: int = Field(
-        default=12,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the MACD fast length: ",
-            prompt_on_new=True))
+        default=21,
+        json_schema_extra={"prompt": "Enter the MACD fast period: ", "prompt_on_new": True})
     macd_slow: int = Field(
-        default=26,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the MACD slow length: ",
-            prompt_on_new=True))
+        default=42,
+        json_schema_extra={"prompt": "Enter the MACD slow period: ", "prompt_on_new": True})
     macd_signal: int = Field(
         default=9,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the MACD signal length: ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": "Enter the MACD signal period: ", "prompt_on_new": True})
     natr_length: int = Field(
         default=14,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the NATR length: ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": "Enter the NATR length: ", "prompt_on_new": True})
 
-    @validator("candles_connector", pre=True, always=True)
-    def set_candles_connector(cls, v, values):
+    @field_validator("candles_connector", mode="before")
+    @classmethod
+    def set_candles_connector(cls, v, validation_info: ValidationInfo):
         if v is None or v == "":
-            return values.get("connector_name")
+            return validation_info.data.get("connector_name")
         return v
 
-    @validator("candles_trading_pair", pre=True, always=True)
-    def set_candles_trading_pair(cls, v, values):
+    @field_validator("candles_trading_pair", mode="before")
+    @classmethod
+    def set_candles_trading_pair(cls, v, validation_info: ValidationInfo):
         if v is None or v == "":
-            return values.get("trading_pair")
+            return validation_info.data.get("trading_pair")
         return v
 
 

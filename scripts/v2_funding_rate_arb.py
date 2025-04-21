@@ -3,9 +3,8 @@ from decimal import Decimal
 from typing import Dict, List, Set
 
 import pandas as pd
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
@@ -18,66 +17,58 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 
 class FundingRateArbitrageConfig(StrategyV2ConfigBase):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+    script_file_name: str = os.path.basename(__file__)
     candles_config: List[CandlesConfig] = []
     controllers_config: List[str] = []
     markets: Dict[str, Set[str]] = {}
     leverage: int = Field(
         default=20, gt=0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the leverage (e.g. 20): ",
-            prompt_on_new=True))
-
+        json_schema_extra={"prompt": lambda mi: "Enter the leverage (e.g. 20): ", "prompt_on_new": True},
+    )
     min_funding_rate_profitability: Decimal = Field(
         default=0.001,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the min funding rate profitability to enter in a position: ",
-            prompt_on_new=True
-        )
+        json_schema_extra={
+            "prompt": lambda mi: "Enter the min funding rate profitability to enter in a position (e.g. 0.001): ",
+            "prompt_on_new": True}
     )
     connectors: Set[str] = Field(
         default="hyperliquid_perpetual,binance_perpetual",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the connectors separated by commas:",
-        )
+        json_schema_extra={
+            "prompt": lambda mi: "Enter the connectors separated by commas (e.g. hyperliquid_perpetual,binance_perpetual): ",
+            "prompt_on_new": True}
     )
     tokens: Set[str] = Field(
         default="WIF,FET",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the tokens separated by commas:",
-        )
+        json_schema_extra={"prompt": lambda mi: "Enter the tokens separated by commas (e.g. WIF,FET): ", "prompt_on_new": True},
     )
     position_size_quote: Decimal = Field(
         default=100,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the position size for each token and exchange (e.g. order amount 100 will open 100 long on hyperliquid and 100 short on binance):",
-        )
+        json_schema_extra={
+            "prompt": lambda mi: "Enter the position size in quote asset (e.g. order amount 100 will open 100 long on hyperliquid and 100 short on binance): ",
+            "prompt_on_new": True
+        }
     )
     profitability_to_take_profit: Decimal = Field(
         default=0.01,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the profitability to take profit (including PNL of positions and fundings received): ",
-        )
+        json_schema_extra={
+            "prompt": lambda mi: "Enter the profitability to take profit (including PNL of positions and fundings received): ",
+            "prompt_on_new": True}
     )
     funding_rate_diff_stop_loss: Decimal = Field(
         default=-0.001,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the funding rate difference to stop the position: ",
-            prompt_on_new=True
-        )
+        json_schema_extra={
+            "prompt": lambda mi: "Enter the funding rate difference to stop the position (e.g. -0.001): ",
+            "prompt_on_new": True}
     )
     trade_profitability_condition_to_enter: bool = Field(
         default=False,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Create the position if the trade profitability is positive only: ",
-            prompt_on_new=True
-        ))
+        json_schema_extra={
+            "prompt": lambda mi: "Do you want to check the trade profitability condition to enter? (True/False): ",
+            "prompt_on_new": True}
+    )
 
-    @validator("connectors", "tokens", pre=True, allow_reuse=True, always=True)
+    @field_validator("connectors", "tokens", mode="before")
+    @classmethod
     def validate_sets(cls, v):
         if isinstance(v, str):
             return set(v.split(","))

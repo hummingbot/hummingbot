@@ -3,9 +3,9 @@ from decimal import Decimal
 from typing import List, Optional, Tuple
 
 import pandas_ta as ta  # noqa: F401
-from pydantic import Field, validator
+from pydantic import Field, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
@@ -21,75 +21,63 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
     candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ",)
-    )
+        json_schema_extra={
+            "prompt": "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ",
+            "prompt_on_new": True})
     candles_trading_pair: str = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ",)
-    )
+        json_schema_extra={
+            "prompt": "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ",
+            "prompt_on_new": True})
     interval: str = Field(
-        default="30m",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
-            prompt_on_new=True))
+        default="3m",
+        json_schema_extra={
+            "prompt": "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
+            "prompt_on_new": True})
     bb_length: int = Field(
         default=100,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the Bollinger Bands length: ",
-            prompt_on_new=True))
-    bb_std: float = Field(
-        default=2.0,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the Bollinger Bands standard deviation: ",
-            prompt_on_new=False))
-    bb_long_threshold: float = Field(
-        default=0.0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the Bollinger Bands long threshold: ",
-            prompt_on_new=True))
-    bb_short_threshold: float = Field(
-        default=1.0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the Bollinger Bands short threshold: ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": "Enter the Bollinger Bands length: ", "prompt_on_new": True})
+    bb_std: float = Field(default=2.0)
+    bb_long_threshold: float = Field(default=0.0)
+    bb_short_threshold: float = Field(default=1.0)
+    trailing_stop: Optional[TrailingStop] = Field(
+        default="0.015,0.005",
+        json_schema_extra={
+            "prompt": "Enter the trailing stop parameters (activation_price, trailing_delta) as a comma-separated list: ",
+            "prompt_on_new": True,
+        }
+    )
     dca_spreads: List[Decimal] = Field(
         default="0.001,0.018,0.15,0.25",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the spreads for each DCA level (comma-separated) if dynamic_spread=True this value "
-                              "will multiply the Bollinger Bands width, e.g. if the Bollinger Bands width is 0.1 (10%)"
-                              "and the spread is 0.2, the distance of the order to the current price will be 0.02 (2%) ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the spreads for each DCA level (comma-separated) if dynamic_spread=True this value "
+                      "will multiply the Bollinger Bands width, e.g. if the Bollinger Bands width is 0.1 (10%)"
+                      "and the spread is 0.2, the distance of the order to the current price will be 0.02 (2%) ",
+            "prompt_on_new": True},
+    )
     dca_amounts_pct: List[Decimal] = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the amounts for each DCA level (as a percentage of the total balance, "
-                              "comma-separated). Don't worry about the final sum, it will be normalized. ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the amounts for each DCA level (as a percentage of the total balance, "
+                      "comma-separated). Don't worry about the final sum, it will be normalized. ",
+            "prompt_on_new": True},
+    )
     dynamic_order_spread: bool = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Do you want to make the spread dynamic? (Yes/No) ",
-            prompt_on_new=True))
+        json_schema_extra={"prompt": "Do you want to make the spread dynamic? (Yes/No) ", "prompt_on_new": True})
     dynamic_target: bool = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Do you want to make the target dynamic? (Yes/No) ",
-            prompt_on_new=True))
-
+        json_schema_extra={"prompt": "Do you want to make the target dynamic? (Yes/No) ", "prompt_on_new": True})
     activation_bounds: Optional[List[Decimal]] = Field(
         default=None,
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the activation bounds for the orders "
-                              "(e.g., 0.01 activates the next order when the price is closer than 1%): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the activation bounds for the orders (e.g., 0.01 activates the next order when the price is closer than 1%): ",
+            "prompt_on_new": True,
+        }
+    )
 
-    @validator("activation_bounds", pre=True, always=True)
+    @field_validator("activation_bounds", mode="before")
+    @classmethod
     def parse_activation_bounds(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -99,15 +87,17 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             return [Decimal(val) for val in v]
         return v
 
-    @validator('dca_spreads', pre=True, always=True)
+    @field_validator('dca_spreads', mode="before")
+    @classmethod
     def validate_spreads(cls, v):
         if isinstance(v, str):
             return [Decimal(val) for val in v.split(",")]
         return v
 
-    @validator('dca_amounts_pct', pre=True, always=True)
-    def validate_amounts(cls, v, values):
-        spreads = values.get("dca_spreads")
+    @field_validator('dca_amounts_pct', mode="before")
+    @classmethod
+    def validate_amounts(cls, v, validation_info: ValidationInfo):
+        spreads = validation_info.data.get("dca_spreads")
         if isinstance(v, str):
             if v == "":
                 return [Decimal('1.0') / len(spreads) for _ in spreads]
@@ -117,6 +107,20 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             return amounts
         if v is None:
             return [Decimal('1.0') / len(spreads) for _ in spreads]
+        return v
+
+    @field_validator("candles_connector", mode="before")
+    @classmethod
+    def set_candles_connector(cls, v, validation_info: ValidationInfo):
+        if v is None or v == "":
+            return validation_info.data.get("connector_name")
+        return v
+
+    @field_validator("candles_trading_pair", mode="before")
+    @classmethod
+    def set_candles_trading_pair(cls, v, validation_info: ValidationInfo):
+        if v is None or v == "":
+            return validation_info.data.get("trading_pair")
         return v
 
     def get_spreads_and_amounts_in_quote(self, trade_type: TradeType, total_amount_quote: Decimal) -> Tuple[List[Decimal], List[Decimal]]:
@@ -132,18 +136,6 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
                 normalized_amounts_pct = [amt_pct / sum(amounts_pct) for amt_pct in amounts_pct]
 
         return self.dca_spreads, [amt_pct * total_amount_quote for amt_pct in normalized_amounts_pct]
-
-    @validator("candles_connector", pre=True, always=True)
-    def set_candles_connector(cls, v, values):
-        if v is None or v == "":
-            return values.get("connector_name")
-        return v
-
-    @validator("candles_trading_pair", pre=True, always=True)
-    def set_candles_trading_pair(cls, v, values):
-        if v is None or v == "":
-            return values.get("trading_pair")
-        return v
 
 
 class DManV3Controller(DirectionalTradingControllerBase):
@@ -201,8 +193,12 @@ class DManV3Controller(DirectionalTradingControllerBase):
             prices = [price * (1 + spread * spread_multiplier) for spread in spread]
         if self.config.dynamic_target:
             stop_loss = self.config.stop_loss * spread_multiplier
-            trailing_stop = TrailingStop(activation_price=self.config.trailing_stop.activation_price * spread_multiplier,
-                                         trailing_delta=self.config.trailing_stop.trailing_delta * spread_multiplier)
+            if self.config.trailing_stop:
+                trailing_stop = TrailingStop(
+                    activation_price=self.config.trailing_stop.activation_price * spread_multiplier,
+                    trailing_delta=self.config.trailing_stop.trailing_delta * spread_multiplier)
+            else:
+                trailing_stop = None
         else:
             stop_loss = self.config.stop_loss
             trailing_stop = self.config.trailing_stop

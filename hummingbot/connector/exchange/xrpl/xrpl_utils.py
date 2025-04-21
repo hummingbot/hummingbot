@@ -5,16 +5,12 @@ from decimal import Decimal
 from random import randrange
 from typing import Any, Dict, Final, List, Optional, cast
 
-from pydantic import BaseModel, Field, SecretStr, validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from xrpl.asyncio.account import get_next_valid_seq_number
 from xrpl.asyncio.clients import Client, XRPLRequestFailureException
+from xrpl.asyncio.clients.client import get_network_id_and_build_version
 from xrpl.asyncio.transaction import XRPLReliableSubmissionException
-from xrpl.asyncio.transaction.main import (
-    _LEDGER_OFFSET,
-    _calculate_fee_per_transaction_type,
-    _get_network_id_and_build_version,
-    _tx_needs_networkID,
-)
+from xrpl.asyncio.transaction.main import _LEDGER_OFFSET, _calculate_fee_per_transaction_type, _tx_needs_networkID
 from xrpl.models import Request, Response, Transaction, TransactionMetadata, Tx
 from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
 from xrpl.models.utils import require_kwargs_on_init
@@ -29,7 +25,7 @@ from xrpl.utils.txn_parser.utils.order_book_parser import (
 from xrpl.utils.txn_parser.utils.types import AccountOfferChange, AccountOfferChanges, OfferChange
 from yaml.representer import SafeRepresenter
 
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_validators import validate_with_regex
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -140,7 +136,7 @@ class XRPLMarket(BaseModel):
     trading_pair_symbol: Optional[str] = None
 
     def __repr__(self):
-        return str(self.dict())
+        return str(self.model_dump())
 
     def get_token_symbol(self, code: str, issuer: str) -> Optional[str]:
         if self.trading_pair_symbol is None:
@@ -198,7 +194,7 @@ async def autofill(
     try:
         transaction_json = transaction.to_dict()
         if not client.network_id:
-            await _get_network_id_and_build_version(client)
+            await get_network_id_and_build_version(client)
         if "network_id" not in transaction_json and _tx_needs_networkID(client):
             transaction_json["network_id"] = client.network_id
         if "sequence" not in transaction_json:
@@ -301,45 +297,45 @@ async def _wait_for_final_transaction_outcome(
 
 
 class XRPLConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="xrpl", const=True, client_data=None)
+    connector: str = "xrpl"
     xrpl_secret_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your XRPL wallet secret key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your XRPL wallet secret key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
 
-    wss_node_url = Field(
+    wss_node_url: str = Field(
         default="wss://xrplcluster.com/",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your XRPL Websocket Node URL",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your XRPL Websocket Node URL",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
 
-    wss_second_node_url = Field(
+    wss_second_node_url: str = Field(
         default="wss://s1.ripple.com/",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your second XRPL Websocket Node URL",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your second XRPL Websocket Node URL",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
 
-    wss_third_node_url = Field(
+    wss_third_node_url: str = Field(
         default="wss://s2.ripple.com/",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your third XRPL Websocket Node URL",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your third XRPL Websocket Node URL",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
     )
 
     custom_markets: Dict[str, XRPLMarket] = Field(
@@ -351,24 +347,11 @@ class XRPLConfigMap(BaseConnectorConfigMap):
                 quote_issuer="",
             )
         },
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter custom markets: ", is_connect_key=True, prompt_on_new=False
-        ),
     )
+    model_config = ConfigDict(title="xrpl")
 
-    class Config:
-        title = "xrpl"
-
-    @validator("xrpl_secret_key", pre=True)
-    def validate_xrpl_secret_key(cls, v: str):
-        pattern = r"^s[A-HJ-NP-Za-km-z1-9]*$"
-        error_message = "Invalid XRPL wallet secret key. Secret key should be a base 58 string and start with 's'."
-        ret = validate_with_regex(v, pattern, error_message)
-        if ret is not None:
-            raise ValueError(ret)
-        return v
-
-    @validator("wss_node_url", pre=True)
+    @field_validator("wss_node_url", mode="before")
+    @classmethod
     def validate_wss_node_url(cls, v: str):
         pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
@@ -377,7 +360,8 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("wss_second_node_url", pre=True)
+    @field_validator("wss_second_node_url", mode="before")
+    @classmethod
     def validate_wss_second_node_url(cls, v: str):
         pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
@@ -386,7 +370,8 @@ class XRPLConfigMap(BaseConnectorConfigMap):
             raise ValueError(ret)
         return v
 
-    @validator("wss_third_node_url", pre=True)
+    @field_validator("wss_third_node_url", mode="before")
+    @classmethod
     def validate_wss_third_node_url(cls, v: str):
         pattern = r"^(wss://)[\w.-]+(:\d+)?(/[\w.-]*)*$"
         error_message = "Invalid node url. Node url should be in websocket format."
@@ -396,4 +381,4 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         return v
 
 
-KEYS = XRPLConfigMap.construct()
+KEYS = XRPLConfigMap.model_construct()
