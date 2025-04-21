@@ -53,12 +53,17 @@ fi
 
 source "${CONDA_BIN}/activate" hummingbot
 
+# Additional dependencies for Mac OS
+if [ "$(uname)" == "Darwin" ]; then
+    conda install -n hummingbot -y appnope
+fi
+
 # Add the project directory to module search paths.
 conda develop .
 
 # For some reason, this needs to be installed outside of the environment file,
 # or it'll give you the graphviz install error.
-pip install objgraph
+python -m pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
 
 pre-commit install
 

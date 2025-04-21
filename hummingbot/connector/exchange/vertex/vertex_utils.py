@@ -3,10 +3,10 @@ from decimal import Decimal
 from random import randint
 from typing import Any, Dict, Optional
 
-from pydantic import Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr
 
 import hummingbot.connector.exchange.vertex.vertex_constants as CONSTANTS
-from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
@@ -145,76 +145,52 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class VertexConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="vertex", const=True, client_data=None)
+    connector: str = "vertex"
     vertex_arbitrum_private_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum private key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     vertex_arbitrum_address: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum wallet address",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum wallet address",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
-    # NOTE: Vertex allows for spot leverage
-    # vertex_spot_leverage: bool = Field(
-    #     default=False,
-    #     client_data=ClientFieldData(
-    #         prompt=lambda cm: "Enable spot leverage? This auto-borrows assets against your margin to trade with larger size. Set to True to enable borrowing (default: False).",
-    #         is_secure=False,
-    #         is_connect_key=False,
-    #         prompt_on_new=True,
-    #     ),
-    # )
-
-    class Config:
-        title = "vertex"
+    model_config = ConfigDict(title="vertex")
 
 
-KEYS = VertexConfigMap.construct()
+KEYS = VertexConfigMap.model_construct()
 
 
 class VertexTestnetConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="vertex_testnet", client_data=None)
+    connector: str = "vertex_testnet"
     vertex_testnet_arbitrum_private_key: SecretStr = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum TESTNET private key",
-            is_secure=True,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum TESTNET private key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
     vertex_testnet_arbitrum_address: str = Field(
         default=...,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum TESTNET wallet address",
-            is_secure=False,
-            is_connect_key=True,
-            prompt_on_new=True,
-        ),
+        json_schema_extra={
+            "prompt": "Enter your Arbitrum TESTNET wallet address",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
     )
-
-    # vertex_testnet_spot_leverage: bool = Field(
-    #     default=False,
-    #     client_data=ClientFieldData(
-    #         prompt=lambda cm: "Enable spot leverage? This auto-borrows assets against your margin to trade with larger size. Set to True to enable borrowing (default: False).",
-    #         is_secure=False,
-    #         is_connect_key=False,
-    #         prompt_on_new=True,
-    #     ),
-    # )
-
-    class Config:
-        title = "vertex_testnet"
+    model_config = ConfigDict(title="vertex_testnet")
 
 
 OTHER_DOMAINS = ["vertex_testnet"]
@@ -222,4 +198,4 @@ OTHER_DOMAINS_PARAMETER = {"vertex_testnet": "vertex_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"vertex_testnet": "WBTC-USDC"}
 OTHER_DOMAINS_DEFAULT_FEES = {"vertex_testnet": DEFAULT_FEES}
 
-OTHER_DOMAINS_KEYS = {"vertex_testnet": VertexTestnetConfigMap.construct()}
+OTHER_DOMAINS_KEYS = {"vertex_testnet": VertexTestnetConfigMap.model_construct()}

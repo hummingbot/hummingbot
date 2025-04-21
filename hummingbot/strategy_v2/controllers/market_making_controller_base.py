@@ -1,9 +1,9 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
-from hummingbot.client.config.config_data_types import ClientFieldData
 from hummingbot.core.data_type.common import OrderType, PositionMode, PriceType, TradeType
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
@@ -20,93 +20,96 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     controller_type: str = "market_making"
     connector_name: str = Field(
         default="binance_perpetual",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the name of the exchange to trade on (e.g., binance_perpetual):"))
+        json_schema_extra={
+            "prompt": "Enter the connector name (e.g., binance_perpetual): ",
+            "prompt_on_new": True}
+    )
     trading_pair: str = Field(
         default="WLD-USDT",
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the trading pair to trade on (e.g., WLD-USDT):"))
+        json_schema_extra={
+            "prompt": "Enter the trading pair to trade on (e.g., WLD-USDT): ",
+            "prompt_on_new": True}
+    )
     buy_spreads: List[float] = Field(
         default="0.01,0.02",
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'):"))
+        json_schema_extra={
+            "prompt": "Enter a comma-separated list of buy spreads (e.g., '0.01, 0.02'): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     sell_spreads: List[float] = Field(
         default="0.01,0.02",
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'):"))
+        json_schema_extra={
+            "prompt": "Enter a comma-separated list of sell spreads (e.g., '0.01, 0.02'): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     buy_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=False,
-            prompt=lambda mi: "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
+        json_schema_extra={
+            "prompt": "Enter a comma-separated list of buy amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally: ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     sell_amounts_pct: Union[List[Decimal], None] = Field(
         default=None,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=False,
-            prompt=lambda mi: "Enter a comma-separated list of sell amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally:"))
+        json_schema_extra={
+            "prompt": "Enter a comma-separated list of sell amounts as percentages (e.g., '50, 50'), or leave blank to distribute equally: ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     executor_refresh_time: int = Field(
         default=60 * 5,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=True,
-            prompt=lambda mi: "Enter the refresh time in seconds for executors (e.g., 300 for 5 minutes):"))
+        json_schema_extra={
+            "prompt": "Enter the refresh time in seconds for executors (e.g., 300 for 5 minutes): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     cooldown_time: int = Field(
         default=15,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt_on_new=False,
-            prompt=lambda mi: "Specify the cooldown time in seconds between after replacing an executor that traded (e.g., 15):"))
+        json_schema_extra={
+            "prompt": "Enter the cooldown time in seconds between replacing an executor that traded (e.g., 15): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     leverage: int = Field(
         default=20,
-        client_data=ClientFieldData(
-            prompt_on_new=True,
-            prompt=lambda mi: "Set the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading:"))
+        json_schema_extra={
+            "prompt": "Enter the leverage to use for trading (e.g., 20 for 20x leverage). Set it to 1 for spot trading: ",
+            "prompt_on_new": True}
+    )
     position_mode: PositionMode = Field(
         default="HEDGE",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the position mode (HEDGE/ONEWAY): ",
-            prompt_on_new=False
-        )
+        json_schema_extra={"prompt": "Enter the position mode (HEDGE/ONEWAY): "}
     )
     # Triple Barrier Configuration
     stop_loss: Optional[Decimal] = Field(
         default=Decimal("0.03"), gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     take_profit: Optional[Decimal] = Field(
         default=Decimal("0.02"), gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the take profit (as a decimal, e.g., 0.01 for 1%): ",
-            prompt_on_new=True))
+        json_schema_extra={
+            "prompt": "Enter the take profit (as a decimal, e.g., 0.02 for 2%): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     time_limit: Optional[int] = Field(
-        default=None, gt=0,
-        client_data=ClientFieldData(
-            is_updatable=True,
-            prompt=lambda mi: "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
-            prompt_on_new=True))
-    take_profit_order_type: Optional[OrderType] = Field(
-        default="LIMIT",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the order type for taking profit (LIMIT/MARKET): ",
-            prompt_on_new=True))
+        default=60 * 45, gt=0,
+        json_schema_extra={
+            "prompt": "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
+    take_profit_order_type: OrderType = Field(
+        default=OrderType.LIMIT,
+        json_schema_extra={
+            "prompt": "Enter the order type for take profit (LIMIT/MARKET): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     trailing_stop: Optional[TrailingStop] = Field(
-        default="0.015,0.003",
-        client_data=ClientFieldData(
-            prompt=lambda mi: "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
-            prompt_on_new=True))
+        default=None,
+        json_schema_extra={
+            "prompt": "Enter the trailing stop as activation_price,trailing_delta (e.g., 0.015,0.003): ",
+            "prompt_on_new": True, "is_updatable": True},
+    )
 
-    @validator("trailing_stop", pre=True, always=True)
+    @field_validator("trailing_stop", mode="before")
+    @classmethod
     def parse_trailing_stop(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -115,7 +118,8 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return TrailingStop(activation_price=Decimal(activation_price), trailing_delta=Decimal(trailing_delta))
         return v
 
-    @validator("time_limit", "stop_loss", "take_profit", pre=True, always=True)
+    @field_validator("time_limit", "stop_loss", "take_profit", mode="before")
+    @classmethod
     def validate_target(cls, v):
         if isinstance(v, str):
             if v == "":
@@ -123,21 +127,57 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             return Decimal(v)
         return v
 
-    @validator('take_profit_order_type', pre=True, allow_reuse=True, always=True)
+    @field_validator('take_profit_order_type', mode="before")
+    @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if isinstance(v, OrderType):
             return v
         elif v is None:
             return OrderType.MARKET
         elif isinstance(v, str):
-            if v.upper() in OrderType.__members__:
-                return OrderType[v.upper()]
+            cleaned_str = v.replace("OrderType.", "").upper()
+            if cleaned_str in OrderType.__members__:
+                return OrderType[cleaned_str]
         elif isinstance(v, int):
             try:
                 return OrderType(v)
             except ValueError:
                 pass
         raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
+
+    @field_validator('position_mode', mode="before")
+    @classmethod
+    def validate_position_mode(cls, v: str) -> PositionMode:
+        if isinstance(v, str):
+            if v.upper() in PositionMode.__members__:
+                return PositionMode[v.upper()]
+            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
+        return v
+
+    @field_validator('buy_spreads', 'sell_spreads', mode="before")
+    @classmethod
+    def parse_spreads(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            if v == "":
+                return []
+            return [float(x.strip()) for x in v.split(',')]
+        return v
+
+    @field_validator('buy_amounts_pct', 'sell_amounts_pct', mode="before")
+    @classmethod
+    def parse_and_validate_amounts(cls, v, validation_info: ValidationInfo):
+        field_name = validation_info.field_name
+        if v is None or v == "":
+            spread_field = field_name.replace('amounts_pct', 'spreads')
+            return [1 for _ in validation_info.data[spread_field]]
+        if isinstance(v, str):
+            return [float(x.strip()) for x in v.split(',')]
+        elif isinstance(v, list) and len(v) != len(validation_info.data[field_name.replace('amounts_pct', 'spreads')]):
+            raise ValueError(
+                f"The number of {field_name} must match the number of {field_name.replace('amounts_pct', 'spreads')}.")
+        return v
 
     @property
     def triple_barrier_config(self) -> TripleBarrierConfig:
@@ -151,46 +191,6 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
             stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
         )
-
-    @validator('buy_spreads', 'sell_spreads', pre=True, always=True)
-    def parse_spreads(cls, v):
-        if v is None:
-            return []
-        if isinstance(v, str):
-            if v == "":
-                return []
-            return [float(x.strip()) for x in v.split(',')]
-        return v
-
-    @validator('buy_amounts_pct', 'sell_amounts_pct', pre=True, always=True)
-    def parse_and_validate_amounts(cls, v, values, field):
-        if v is None or v == "":
-            spread_field = field.name.replace('amounts_pct', 'spreads')
-            return [1 for _ in values[spread_field]]
-        if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(values[field.name.replace('amounts_pct', 'spreads')]):
-            raise ValueError(
-                f"The number of {field.name} must match the number of {field.name.replace('amounts_pct', 'spreads')}.")
-        return v
-
-    @validator('position_mode', pre=True, allow_reuse=True)
-    def validate_position_mode(cls, v) -> PositionMode:
-        if isinstance(v, str):
-            if v.upper() in PositionMode.__members__:
-                return PositionMode[v.upper()]
-            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
-        return v
-
-    def update_parameters(self, trade_type: TradeType, new_spreads: Union[List[float], str], new_amounts_pct: Optional[Union[List[int], str]] = None):
-        spreads_field = 'buy_spreads' if trade_type == TradeType.BUY else 'sell_spreads'
-        amounts_pct_field = 'buy_amounts_pct' if trade_type == TradeType.BUY else 'sell_amounts_pct'
-
-        setattr(self, spreads_field, self.parse_spreads(new_spreads))
-        if new_amounts_pct is not None:
-            setattr(self, amounts_pct_field, self.parse_and_validate_amounts(new_amounts_pct, self.__dict__, self.__fields__[amounts_pct_field]))
-        else:
-            setattr(self, amounts_pct_field, [1 for _ in getattr(self, spreads_field)])
 
     def get_spreads_and_amounts_in_quote(self, trade_type: TradeType) -> Tuple[List[float], List[float]]:
         buy_amounts_pct = getattr(self, 'buy_amounts_pct')

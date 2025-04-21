@@ -32,13 +32,10 @@ TESTNET_WSS_URL = "wss://api-demo.lyra.finance/ws"
 
 # Public API endpoints or DerivePerpetualClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/public/get_ticker"
-TICKER_BOOK_PATH_URL = "/public/get_ticker"
-PRICES_PATH_URL = "/public/get_ticker"
 EXCHANGE_INFO_PATH_URL = "/public/get_all_currencies"
 EXCHANGE_CURRENCIES_PATH_URL = "/public/get_all_instruments"
 PING_PATH_URL = "/public/get_time"
 SNAPSHOT_PATH_URL = "/public/get_ticker"
-SERVER_TIME_PATH_URL = "/public/get_time"
 
 # Private API endpoints or DerivePerpetualClient function
 ACCOUNTS_PATH_URL = "/private/get_subaccount"
@@ -57,9 +54,6 @@ WS_ORDERS_CHANNEL = "{subaccount_id}.orders"
 WS_ACCOUNT_CHANNEL = "private/get_subaccount"
 WS_TRADES_CHANNEL = "{subaccount_id}.trades"
 
-ALL_ORDERS_PATH_URL = "/private/get_orders"
-OPEN_ORDERS_PATH_URL = "/private/get_open_orders"
-
 WS_HEARTBEAT_TIME_INTERVAL = 10
 
 WS_CONNECTIONS_RATE_LIMIT = "WS_CONNECTIONS"
@@ -74,8 +68,10 @@ TIME_IN_FORCE_IOC = "ioc"  # Immediate or cancel
 TIME_IN_FORCE_FOK = "fok"  # Fill or kill
 
 # Rate Limit Type
-GENERAL = "general"
-ORDERS_IP = "orders_ip_seconds"
+ORDERS_IP = "market_maker_non_matching"
+
+TRADER_ACCOUNTS_TYPE = "trader"
+MARKET_MAKER_ACCOUNTS_TYPE = "market_maker"
 
 # Rate Limit time intervals
 ONE_SECOND = 1
@@ -85,6 +81,26 @@ TRADER_NON_MATCHING = 5
 
 MARKET_MAKER_MATCHING = 5
 MARKET_MAKER_NON_MATCHING = 500
+
+# Rate Limit
+
+ENDPOINTS = {
+    "limits": {
+        "matching": [CANCEL_ORDER_URL, CREATE_ORDER_URL],
+        "non_matching": [
+            ACCOUNTS_PATH_URL,
+            EXCHANGE_CURRENCIES_PATH_URL,
+            EXCHANGE_INFO_PATH_URL,
+            GET_LAST_FUNDING_RATE_PATH_URL,
+            MY_TRADES_PATH_URL,
+            ORDER_STATUS_PAATH_URL,
+            PING_PATH_URL,
+            POSITION_INFORMATION_URL,
+            SNAPSHOT_PATH_URL,
+            TICKER_PRICE_CHANGE_PATH_URL
+        ],
+    },
+}
 
 
 # Order States
@@ -106,74 +122,63 @@ USEREVENT_ENDPOINT_NAME = "trades"
 
 RATE_LIMITS = [
     # Pools - will be updated in exchange info initialization
-    RateLimit(limit_id=GENERAL, limit=TRADER_NON_MATCHING, time_interval=SECOND),
+    RateLimit(limit_id=TRADER_ACCOUNTS_TYPE, limit=TRADER_NON_MATCHING, time_interval=SECOND),
+    RateLimit(limit_id=MARKET_MAKER_ACCOUNTS_TYPE, limit=MARKET_MAKER_NON_MATCHING, time_interval=SECOND),
     RateLimit(limit_id=ORDERS_IP, limit=TRADER_MATCHING, time_interval=SECOND),
     # Weighted Limits
     RateLimit(
         limit_id=WSS_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
     ),
     RateLimit(
         limit_id=TICKER_PRICE_CHANGE_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
-    ),
-    RateLimit(
-        limit_id=TICKER_BOOK_PATH_URL,
-        limit=TRADER_NON_MATCHING,
-        time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
     ),
     RateLimit(
         limit_id=POSITION_INFORMATION_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
     ),
     RateLimit(
         limit_id=GET_LAST_FUNDING_RATE_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
     ),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=MINUTE,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
     ),
     RateLimit(
         limit_id=EXCHANGE_CURRENCIES_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)],
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=SNAPSHOT_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)],
-    ),
-    RateLimit(
-        limit_id=SERVER_TIME_PATH_URL,
-        limit=TRADER_NON_MATCHING,
-        time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=PING_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
     ),
     RateLimit(
         limit_id=ACCOUNTS_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=MINUTE,
-        linked_limits=[LinkedLimitWeightPair(ORDERS_IP)],
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=CREATE_ORDER_URL,
@@ -189,27 +194,15 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=ORDER_STATUS_PAATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)],
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=MY_TRADES_PATH_URL,
-        limit=TRADER_NON_MATCHING,
+        limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)],
-    ),
-    RateLimit(
-        limit_id=ALL_ORDERS_PATH_URL,
-        limit=TRADER_NON_MATCHING,
-        time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)],
-    ),
-    RateLimit(
-        limit_id=OPEN_ORDERS_PATH_URL,
-        limit=TRADER_NON_MATCHING,
-        time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(GENERAL)],
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=WS_CONNECTIONS_RATE_LIMIT,

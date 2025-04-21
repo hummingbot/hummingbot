@@ -63,8 +63,16 @@ class InjectiveGranteeDataSourceTests(TestCase):
             fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
+        self.data_source._is_trading_account_initialized = True
+        self.data_source._is_timeout_height_initialized = True
+        self.data_source._client.timeout_height = 0
         self.query_executor = ProgrammableQueryExecutor()
         self.data_source._query_executor = self.query_executor
+
+        self.data_source._composer = Composer(
+            network=self.data_source.network_name,
+            spot_markets=self._spot_markets_response(),
+        )
 
         self.log_records = []
         self._logs_event: Optional[asyncio.Event] = None
@@ -150,6 +158,112 @@ class InjectiveGranteeDataSourceTests(TestCase):
         self.assertEqual(market_info.quote_token.name, usdt_token.name)
         self.assertEqual(market_info.quote_token.decimals, usdt_token.decimals)
 
+    def test_create_orders_fails_if_tx_broadcast_fails(self):
+        spot_markets_response = self._spot_markets_response()
+        self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        tokens = dict()
+        for market in spot_markets_response.values():
+            tokens[market.base_token.denom] = market.base_token
+            tokens[market.quote_token.denom] = market.quote_token
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in tokens.values()}
+        )
+
+        tx_failure_response = {
+            "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+            "rawLog": "[]",
+            "code": 20,
+        }
+        self.query_executor._send_transaction_responses.put_nowait(tx_failure_response)
+
+        order = GatewayInFlightOrder(
+            client_order_id="someOrderIDCreate",
+            trading_pair="INJ-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=123123123,
+            amount=Decimal("10"),
+            price=Decimal("100"),
+        )
+
+        results = self.async_run_with_timeout(self.data_source.create_orders(spot_orders=[order]))
+
+        self.assertEqual(1, len(results))
+        self.assertEqual(order.client_order_id, results[0].client_order_id)
+        self.assertIsInstance(results[0].exception, ValueError)
+        expected_error_message = (
+            f"Error sending the order creation transaction. Code: {tx_failure_response['code']}. "
+            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}")
+        self.assertEqual(expected_error_message, str(results[0].exception))
+
+    def test_cancel_orders_fails_if_tx_broadcast_fails(self):
+        spot_markets_response = self._spot_markets_response()
+        self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        tokens = dict()
+        for market in spot_markets_response.values():
+            tokens[market.base_token.denom] = market.base_token
+            tokens[market.quote_token.denom] = market.quote_token
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in tokens.values()}
+        )
+
+        tx_failure_response = {
+            "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+            "rawLog": "[]",
+            "code": 20,
+        }
+        self.query_executor._send_transaction_responses.put_nowait(tx_failure_response)
+
+        order = GatewayInFlightOrder(
+            client_order_id="someOrderIDCreate",
+            trading_pair="INJ-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=123123123,
+            amount=Decimal("10"),
+            price=Decimal("100"),
+        )
+
+        results = self.async_run_with_timeout(self.data_source.cancel_orders(spot_orders=[order]))
+
+        self.assertEqual(1, len(results))
+        self.assertEqual(order.client_order_id, results[0].client_order_id)
+        self.assertIsInstance(results[0].exception, ValueError)
+        expected_error_message = (
+            f"Error sending the order cancel transaction. Code: {tx_failure_response['code']}. "
+            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}")
+        self.assertEqual(expected_error_message, str(results[0].exception))
+
+    def test_cancel_all_subaccount_orders_fails_if_tx_broadcast_fails(self):
+        spot_markets_response = self._spot_markets_response()
+        self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        tokens = dict()
+        for market in spot_markets_response.values():
+            tokens[market.base_token.denom] = market.base_token
+            tokens[market.quote_token.denom] = market.quote_token
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in tokens.values()}
+        )
+
+        tx_failure_response = {
+            "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+            "rawLog": "[]",
+            "code": 20,
+        }
+        self.query_executor._send_transaction_responses.put_nowait(tx_failure_response)
+
+        with self.assertRaises(ValueError) as context:
+            self.async_run_with_timeout(self.data_source.cancel_all_subaccount_orders(
+                spot_markets_ids=list(spot_markets_response.keys()),
+            ))
+        expected_error_message = (
+            f"Error sending the order cancel transaction. Code: {tx_failure_response['code']}. "
+            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}")
+        self.assertEqual(expected_error_message, context.exception.args[0])
+
     def _spot_markets_response(self):
         inj_usdt_market = self._inj_usdt_market_info()
         usdt_usdc_market = self._usdt_usdc_market_info()
@@ -163,7 +277,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         base_native_token = Token(
             name="Tether",
             symbol="USDT",
-            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
+            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             address="0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
@@ -208,7 +322,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         quote_native_token = Token(
             name="Tether",
             symbol="USDT",
-            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
+            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             address="0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
             decimals=6,
             logo="https://static.alchemyapi.io/images/assets/825.png",
@@ -256,7 +370,6 @@ class InjectiveVaultsDataSourceTests(TestCase):
             vault_contract_address=self._vault_address,
             vault_subaccount_index=1,
             network=Network.testnet(node="sentry"),
-            use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
             fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
@@ -329,7 +442,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         quote_token_meta = market.quote_token.decimals
         message_data = json.loads(messages[0].msg.decode())
 
-        message_price = (order.price * Decimal(f"1e{quote_token_meta-base_token_decimals}")).normalize()
+        message_price = (order.price * Decimal(f"1e{quote_token_meta - base_token_decimals}")).normalize()
         message_quantity = (order.amount * Decimal(f"1e{base_token_decimals}")).normalize()
 
         expected_data = {
@@ -382,13 +495,11 @@ class InjectiveVaultsDataSourceTests(TestCase):
 
         orders_data = []
         composer = asyncio.get_event_loop().run_until_complete(self.data_source.composer())
-        order_data = composer.OrderData(
+        order_data = composer.order_data_without_mask(
             market_id=market.id,
             subaccount_id="1",
+            order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock
             cid="client order id",
-            order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
-            order_direction="buy",
-            order_type="limit",
         )
         orders_data.append(order_data)
 
@@ -422,9 +533,10 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                     {
                                         "market_id": market.id,
                                         "subaccount_id": "1",
-                                        "order_hash": "0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
+                                        "order_hash": "0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock
+                                        # noqa: mock"
                                         "cid": "client order id",
-                                        "order_mask": 74,
+                                        "order_mask": 1,
                                     }
                                 ],
                                 "derivative_orders_to_cancel": [],

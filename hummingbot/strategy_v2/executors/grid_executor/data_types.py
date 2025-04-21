@@ -1,8 +1,8 @@
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
@@ -11,7 +11,7 @@ from hummingbot.strategy_v2.models.executors import TrackedOrder
 
 
 class GridExecutorConfig(ExecutorConfigBase):
-    type: str = "grid_executor"
+    type: Literal["grid_executor"] = "grid_executor"
     # Boundaries
     connector_name: str
     trading_pair: str
@@ -57,9 +57,7 @@ class GridLevel(BaseModel):
     active_open_order: Optional[TrackedOrder] = None
     active_close_order: Optional[TrackedOrder] = None
     state: GridLevelStates = GridLevelStates.NOT_ACTIVE
-
-    class Config:
-        arbitrary_types_allowed = True  # Allow arbitrary types
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def update_state(self):
         if self.active_open_order is None:

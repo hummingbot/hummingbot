@@ -1,10 +1,9 @@
 import asyncio
-import base64
 import re
 from decimal import Decimal
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Awaitable, Optional, Union
-from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
@@ -30,9 +29,10 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 
 
-class InjectiveV2APIOrderBookDataSourceTests(TestCase):
+class InjectiveV2APIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -48,10 +48,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher.fetch_all")
     def setUp(self, _) -> None:
         super().setUp()
-        self._original_async_loop = asyncio.get_event_loop()
-        self.async_loop = asyncio.new_event_loop()
         self.async_tasks = []
-        asyncio.set_event_loop(self.async_loop)
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
 
@@ -109,25 +106,23 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.connector._set_trading_pair_symbol_map(bidict({self.market_id: self.trading_pair}))
 
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await ConnectionsFactory().close()
+
+    async def asyncTearDown(self) -> None:
+        await self.data_source._data_source.stop()
+
     def tearDown(self) -> None:
-        self.async_run_with_timeout(self.data_source._data_source.stop())
         self._initialize_timeout_height_patch.stop()
         self.initialize_trading_account_patch.stop()
         for task in self.async_tasks:
             task.cancel()
-        self.async_loop.stop()
-        # self.async_loop.close()
-        # Since the event loop will change we need to remove the logs event created in the old event loop
         self._logs_event = None
-        asyncio.set_event_loop(self._original_async_loop)
         super().tearDown()
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.async_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
     def create_task(self, coroutine: Awaitable) -> asyncio.Task:
-        task = self.async_loop.create_task(coroutine)
+        task = asyncio.create_task(coroutine)
         self.async_tasks.append(task)
         return task
 
@@ -156,7 +151,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             for record in self.log_records
         )
 
-    def test_get_new_order_book_successful(self):
+    async def test_get_new_order_book_successful(self):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -182,7 +177,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.query_executor._derivative_order_book_responses.put_nowait(order_book_snapshot)
 
-        order_book = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
+        order_book = await (self.data_source.get_new_order_book(self.trading_pair))
 
         expected_update_id = order_book_snapshot["sequence"]
 
@@ -198,7 +193,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.assertEqual(522147, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
-    def test_listen_for_trades_cancelled_when_listening(self):
+    async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -206,9 +201,9 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_trades(self.async_loop, msg_queue))
+            await (self.data_source.listen_for_trades(asyncio.get_running_loop(), msg_queue))
 
-    def test_listen_for_trades_logs_exception(self):
+    async def test_listen_for_trades_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -244,7 +239,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
-                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
+                    "orderHash": order_hash,
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -257,19 +252,19 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._chain_stream_events.put_nowait(trade_data)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=2)
+        await asyncio.wait_for(self.data_source.listen_for_subscriptions(), timeout=2)
 
         msg_queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_trades(self.async_loop, msg_queue))
-        self.async_run_with_timeout(msg_queue.get())
+        self.create_task(self.data_source.listen_for_trades(asyncio.get_running_loop(), msg_queue))
+        await (msg_queue.get())
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
+                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
             )
         )
 
-    def test_listen_for_trades_successful(self):
+    async def test_listen_for_trades_successful(self):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -306,7 +301,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     },
                     "payout": "207636617326923969135747808",
                     "fee": "-93340800000000000000000",
-                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
+                    "orderHash": order_hash,
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
                     "cid": "cid1",
                     "tradeId": "7959737_3_0",
@@ -319,16 +314,16 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._chain_stream_events.put_nowait(trade_data)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=2)
+        await asyncio.wait_for(self.data_source.listen_for_subscriptions(), timeout=2)
 
         msg_queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_trades(self.async_loop, msg_queue))
+        self.create_task(self.data_source.listen_for_trades(asyncio.get_running_loop(), msg_queue))
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get(), timeout=6)
+        msg: OrderBookMessage = await asyncio.wait_for(msg_queue.get(), timeout=6)
 
         expected_timestamp = int(trade_data["blockTime"]) * 1e-3
         expected_price = Decimal(trade_data["derivativeTrades"][0]["positionDelta"]["executionPrice"]) * Decimal(
-            f"1e{-quote_decimals-18}")
+            f"1e{-quote_decimals - 18}")
         expected_amount = Decimal(trade_data["derivativeTrades"][0]["positionDelta"]["executionQuantity"]) * Decimal(
             "1e-18")
         expected_trade_id = trade_data["derivativeTrades"][0]["tradeId"]
@@ -340,7 +335,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.assertEqual(self.trading_pair, msg.content["trading_pair"])
         self.assertEqual(float(TradeType.SELL.value), msg.content["trade_type"])
 
-    def test_listen_for_order_book_diffs_cancelled(self):
+    async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
@@ -348,9 +343,9 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
+            await (self.data_source.listen_for_order_book_diffs(asyncio.get_running_loop(), msg_queue))
 
-    def test_listen_for_order_book_diffs_logs_exception(self):
+    async def test_listen_for_order_book_diffs_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -400,22 +395,22 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._chain_stream_events.put_nowait(order_book_data)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=5)
+        await asyncio.wait_for(self.data_source.listen_for_subscriptions(), timeout=5)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
+        self.create_task(self.data_source.listen_for_order_book_diffs(asyncio.get_running_loop(), msg_queue))
 
-        self.async_run_with_timeout(msg_queue.get())
+        await (msg_queue.get())
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
+                "WARNING", re.compile(r"^Invalid chain stream event format\. Event:.*")
             )
         )
 
     @patch(
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
-    def test_listen_for_order_book_diffs_successful(self, _):
+    async def test_listen_for_order_book_diffs_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -468,12 +463,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.query_executor._chain_stream_events.put_nowait(order_book_data)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
+        await (self.data_source.listen_for_subscriptions())
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
+        self.create_task(self.data_source.listen_for_order_book_diffs(asyncio.get_running_loop(), msg_queue))
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get(), timeout=5)
+        msg: OrderBookMessage = await asyncio.wait_for(msg_queue.get(), timeout=5)
 
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
@@ -486,7 +481,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.assertEqual(2, len(bids))
         first_bid_price = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]) * Decimal(
-            f"1e{-quote_decimals-18}")
+            f"1e{-quote_decimals - 18}")
         first_bid_quantity = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]) * Decimal("1e-18")
         self.assertEqual(float(first_bid_price), bids[0].price)
@@ -495,14 +490,14 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.assertEqual(1, len(asks))
         first_ask_price = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]) * Decimal(
-            f"1e{-quote_decimals-18}")
+            f"1e{-quote_decimals - 18}")
         first_ask_quantity = Decimal(
             order_book_data["derivativeOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]) * Decimal("1e-18")
         self.assertEqual(float(first_ask_price), asks[0].price)
         self.assertEqual(float(first_ask_quantity), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
-    def test_listen_for_funding_info_cancelled_when_listening(self):
+    async def test_listen_for_funding_info_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
         self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
@@ -510,11 +505,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_funding_info(msg_queue))
+            await (self.data_source.listen_for_funding_info(msg_queue))
 
     @patch(
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
-    def test_listen_for_funding_info_logs_exception(self, _):
+    async def test_listen_for_funding_info_logs_exception(self, _):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -654,22 +649,22 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.query_executor._chain_stream_events.put_nowait(oracle_price_event)
         self.query_executor._chain_stream_events.put_nowait(oracle_price_event)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=5)
+        await asyncio.wait_for(self.data_source.listen_for_subscriptions(), timeout=5)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        self.async_run_with_timeout(msg_queue.get())
+        await (msg_queue.get())
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT \(.*")
+                "WARNING", re.compile(r"^Error processing oracle price update for market INJ-USDT")
             )
         )
 
     @patch(
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
-    def test_listen_for_funding_info_successful(self, _):
+    async def test_listen_for_funding_info_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -799,12 +794,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._chain_stream_events.put_nowait(oracle_price_event)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
+        await (self.data_source.listen_for_subscriptions())
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        funding_info: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+        funding_info: FundingInfoUpdate = await (msg_queue.get())
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(
@@ -816,7 +811,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(funding_rate["fundingRates"][0]["rate"]), funding_info.rate)
 
-    def test_get_funding_info(self):
+    async def test_get_funding_info(self):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -919,7 +914,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._derivative_market_responses.put_nowait(derivative_market_info)
 
-        funding_info: FundingInfo = self.async_run_with_timeout(
+        funding_info: FundingInfo = await (
             self.data_source.get_funding_info(self.trading_pair)
         )
 
