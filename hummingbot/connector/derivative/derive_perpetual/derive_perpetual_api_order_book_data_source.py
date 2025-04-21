@@ -143,6 +143,7 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         data = raw_message["params"]["data"]
         timestamp: float = raw_message["params"]["data"]["timestamp"] * 1e-3
+<<<<<<< HEAD
         trade_message: OrderBookMessage = OrderBookMessage(
             OrderBookMessageType.SNAPSHOT,
             {
@@ -153,6 +154,14 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             },
             timestamp=timestamp,
         )
+=======
+        trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": trading_pair,
+            "update_id": int(data['publish_id']),
+            "bids": [[i[0], i[1]] for i in data.get('bids', [])],
+            "asks": [[i[0], i[1]] for i in data.get('asks', [])],
+        }, timestamp=timestamp)
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
         message_queue.put_nowait(trade_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):

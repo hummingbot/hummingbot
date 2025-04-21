@@ -225,16 +225,6 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(result[0].get("offer_changes")[0].get("status"), "partially-filled")
         self.assertEqual(result[0].get("offer_changes")[0].get("maker_exchange_rate"), "4.438561637330454036765786876")
 
-    def test_validate_xrpl_secret_key_valid(self):
-        valid_key = "sEdTvpec3RNNWwphd1WKZqt5Vs6GEFu"  # noqa: mock
-        self.assertEqual(XRPLConfigMap.validate_xrpl_secret_key(valid_key), valid_key)
-
-    def test_validate_xrpl_secret_key_invalid(self):
-        invalid_key = "xINVALIDKEY"
-        with self.assertRaises(ValueError) as context:
-            XRPLConfigMap.validate_xrpl_secret_key(invalid_key)
-        self.assertIn("Invalid XRPL wallet secret key", str(context.exception))
-
     def test_validate_wss_node_url_valid(self):
         valid_url = "wss://s1.ripple.com/"
         self.assertEqual(XRPLConfigMap.validate_wss_node_url(valid_url), valid_url)

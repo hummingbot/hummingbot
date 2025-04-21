@@ -32,13 +32,10 @@ TESTNET_WSS_URL = "wss://api-demo.lyra.finance/ws"
 
 # Public API endpoints or DerivePerpetualClient function
 TICKER_PRICE_CHANGE_PATH_URL = "/public/get_ticker"
-TICKER_BOOK_PATH_URL = "/public/get_ticker"
-PRICES_PATH_URL = "/public/get_ticker"
 EXCHANGE_INFO_PATH_URL = "/public/get_all_currencies"
 EXCHANGE_CURRENCIES_PATH_URL = "/public/get_all_instruments"
 PING_PATH_URL = "/public/get_time"
 SNAPSHOT_PATH_URL = "/public/get_ticker"
-SERVER_TIME_PATH_URL = "/public/get_time"
 
 # Private API endpoints or DerivePerpetualClient function
 ACCOUNTS_PATH_URL = "/private/get_subaccount"
@@ -56,9 +53,6 @@ WS_POSITIONS_CHANNEL = "private/get_positions"
 WS_ORDERS_CHANNEL = "{subaccount_id}.orders"
 WS_ACCOUNT_CHANNEL = "private/get_subaccount"
 WS_TRADES_CHANNEL = "{subaccount_id}.trades"
-
-ALL_ORDERS_PATH_URL = "/private/get_orders"
-OPEN_ORDERS_PATH_URL = "/private/get_open_orders"
 
 WS_HEARTBEAT_TIME_INTERVAL = 10
 
@@ -95,22 +89,20 @@ ENDPOINTS = {
         "matching": [CANCEL_ORDER_URL, CREATE_ORDER_URL],
         "non_matching": [
             ACCOUNTS_PATH_URL,
-            ALL_ORDERS_PATH_URL,
-            CANCEL_ORDER_URL,
-            CREATE_ORDER_URL,
             EXCHANGE_CURRENCIES_PATH_URL,
             EXCHANGE_INFO_PATH_URL,
             GET_LAST_FUNDING_RATE_PATH_URL,
             MY_TRADES_PATH_URL,
-            OPEN_ORDERS_PATH_URL,
             ORDER_STATUS_PAATH_URL,
             PING_PATH_URL,
             POSITION_INFORMATION_URL,
-            PRICES_PATH_URL,
-            SERVER_TIME_PATH_URL,
             SNAPSHOT_PATH_URL,
+<<<<<<< HEAD
             TICKER_BOOK_PATH_URL,
             TICKER_PRICE_CHANGE_PATH_URL,
+=======
+            TICKER_PRICE_CHANGE_PATH_URL
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
         ],
     },
 }
@@ -152,12 +144,15 @@ RATE_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
+<<<<<<< HEAD
         limit_id=TICKER_BOOK_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
         linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
+=======
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
         limit_id=POSITION_INFORMATION_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
@@ -188,12 +183,15 @@ RATE_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
+<<<<<<< HEAD
         limit_id=SERVER_TIME_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
         linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
+=======
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
         limit_id=PING_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
@@ -225,18 +223,6 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=MY_TRADES_PATH_URL,
-        limit=MARKET_MAKER_NON_MATCHING,
-        time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
-    ),
-    RateLimit(
-        limit_id=ALL_ORDERS_PATH_URL,
-        limit=MARKET_MAKER_NON_MATCHING,
-        time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
-    ),
-    RateLimit(
-        limit_id=OPEN_ORDERS_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
         linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],

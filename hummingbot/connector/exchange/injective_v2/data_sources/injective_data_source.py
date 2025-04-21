@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -26,7 +25,6 @@ from hummingbot.connector.exchange.injective_v2.injective_market import (
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
@@ -438,7 +436,10 @@ class InjectiveDataSource(ABC):
             try:
                 result = await self._send_in_transaction(messages=order_creation_messages)
                 if result["code"] != 0 or result["txhash"] in [None, ""]:
-                    raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
+                    raise ValueError(
+                        f"Error sending the order creation transaction. Code: {result['code']}. "
+                        f"TXHash: {result['txhash']}. TXLog: {result['rawLog']}"
+                    )
                 else:
                     transaction_hash = result["txhash"]
                     results = self._place_order_results(
@@ -451,7 +452,12 @@ class InjectiveDataSource(ABC):
                 raise
             except Exception as ex:
                 self.logger().debug(
+<<<<<<< HEAD
                     f"Error broadcasting transaction to create orders (message: {order_creation_messages})"
+=======
+                    f"Error broadcasting transaction to create orders (message: {order_creation_messages})",
+                    exc_info=ex,
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
                 )
                 results = self._place_order_results(
                     orders_to_create=spot_orders + perpetual_orders,
@@ -496,7 +502,10 @@ class InjectiveDataSource(ABC):
                 try:
                     result = await self._send_in_transaction(messages=[delegated_message])
                     if result["code"] != 0:
-                        raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
+                        raise ValueError(
+                            f"Error sending the order cancel transaction. Code: {result['code']}. "
+                            f"TXHash: {result['txhash']}. TXLog: {result['rawLog']}"
+                        )
                     else:
                         cancel_transaction_hash = result.get("txhash", "")
                         results.extend(
@@ -513,6 +522,7 @@ class InjectiveDataSource(ABC):
                     raise
                 except Exception as ex:
                     self.logger().debug(
+<<<<<<< HEAD
                         f"Error broadcasting transaction to cancel orders (message: {delegated_message})"
                     )
                     results.extend(
@@ -525,6 +535,18 @@ class InjectiveDataSource(ABC):
                             for order in orders_with_hash
                         ]
                     )
+=======
+                        f"Error broadcasting transaction to cancel orders (message: {delegated_message})",
+                        exc_info=ex,
+                    )
+                    results.extend([
+                        CancelOrderResult(
+                            client_order_id=order.client_order_id,
+                            trading_pair=order.trading_pair,
+                            exception=ex,
+                        ) for order in orders_with_hash
+                    ])
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
 
         return results
 
@@ -543,7 +565,10 @@ class InjectiveDataSource(ABC):
 
         result = await self._send_in_transaction(messages=[delegated_message])
         if result["code"] != 0:
-            raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
+            raise ValueError(
+                f"Error sending the order cancel transaction. Code: {result['code']}. "
+                f"TXHash: {result['txhash']}. TXLog: {result['rawLog']}"
+            )
 
     async def spot_trade_updates(self, market_ids: List[str], start_time: float) -> List[TradeUpdate]:
         done = False
@@ -1044,7 +1069,7 @@ class InjectiveDataSource(ABC):
         return result
 
     def _chain_stream_exception_handler(self, exception: RpcError):
-        self.logger().warning(f"Error while listening to chain stream ({exception})")
+        self.logger().warning("Error while listening to chain stream", exc_info=exception)  # pragma: no cover
 
     def _chain_stream_closed_handler(self):
         self.logger().debug("Reconnecting stream for chain stream")
@@ -1065,8 +1090,8 @@ class InjectiveDataSource(ABC):
                 )
             except asyncio.CancelledError:
                 raise
-            except Exception as ex:
-                self.logger().warning(f"Invalid chain stream event format ({ex})\n{event}")
+            except Exception as ex:  # pragma: no cover
+                self.logger().warning(f"Invalid chain stream event format. Event:\n{event}", exc_info=ex)
 
         while True:
             # Running in a cycle to reconnect to the stream after connection errors
@@ -1081,7 +1106,7 @@ class InjectiveDataSource(ABC):
             )
 
     def _transaction_stream_exception_handler(self, exception: RpcError):
-        self.logger().warning(f"Error while listening to transaction stream ({exception})")
+        self.logger().warning("Error while listening to transaction stream", exc_info=exception)  # pragma: no cover
 
     def _transaction_stream_closed_handler(self):
         self.logger().debug("Reconnecting stream for transaction stream")
@@ -1205,7 +1230,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(f"Error processing spot orderbook event ({ex})")
+                self.logger().warning("Error processing spot orderbook event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the spot orderbook event {order_book_update}")
 
     async def _process_chain_derivative_order_book_update(
@@ -1224,7 +1249,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(f"Error processing derivative orderbook event ({ex})")
+                self.logger().warning("Error processing derivative orderbook event", exc_info=ex)
                 self.logger().debug(f"Error processing the derivative orderbook event {order_book_update}")
 
     async def _process_chain_order_book_update(
@@ -1281,7 +1306,7 @@ class InjectiveDataSource(ABC):
                     chain_quantity=Decimal(str(trade_update["quantity"]))
                 )
                 price = market_info.price_from_special_chain_format(chain_price=Decimal(str(trade_update["price"])))
-                order_hash = to_0x_hex(base64.b64decode(trade_update["orderHash"]))
+                order_hash = trade_update["orderHash"]
                 client_order_id = trade_update.get("cid", "")
                 trade_id = trade_update["tradeId"]
                 message_content = {
@@ -1323,7 +1348,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(f"Error processing spot trade event ({ex})")
+                self.logger().warning("Error processing spot trade event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the spot trade event {trade_update}")
 
     async def _process_chain_derivative_trade_update(
@@ -1340,9 +1365,14 @@ class InjectiveDataSource(ABC):
                     chain_quantity=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))
                 )
                 price = market_info.price_from_special_chain_format(
+<<<<<<< HEAD
                     chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"]))
                 )
                 order_hash = to_0x_hex(base64.b64decode(trade_update["orderHash"]))
+=======
+                    chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"])))
+                order_hash = trade_update["orderHash"]
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
                 client_order_id = trade_update.get("cid", "")
                 trade_id = trade_update["tradeId"]
 
@@ -1385,7 +1415,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(f"Error processing derivative trade event ({ex})")
+                self.logger().warning("Error processing derivative trade event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the derivative trade event {trade_update}")
 
     async def _process_chain_order_update(
@@ -1396,7 +1426,7 @@ class InjectiveDataSource(ABC):
     ):
         for order_update in order_updates:
             try:
-                exchange_order_id = to_0x_hex(base64.b64decode(order_update["orderHash"]))
+                exchange_order_id = order_update["orderHash"]
                 client_order_id = order_update.get("cid", "")
                 trading_pair = await self.trading_pair_for_market(market_id=order_update["order"]["marketId"])
 
@@ -1412,7 +1442,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(f"Error processing order event ({ex})")
+                self.logger().warning("Error processing order event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the order event {order_update}")
 
     async def _process_chain_position_updates(
@@ -1450,7 +1480,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(f"Error processing position event ({ex})")
+                self.logger().warning("Error processing position event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the position event {event}")
 
     async def _process_oracle_price_updates(
@@ -1478,7 +1508,13 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
+<<<<<<< HEAD
                 self.logger().warning(f"Error processing oracle price update for market {market.trading_pair()} ({ex})")
+=======
+                self.logger().warning(
+                    f"Error processing oracle price update for market {market.trading_pair()}", exc_info=ex,
+                )
+>>>>>>> eba07e386c6193ba7e3bc572db905fb433dc9b29
 
     async def _process_position_update(self, position_event: Dict[str, Any]):
         parsed_event = await self._parse_position_update_event(event=position_event)
@@ -1522,7 +1558,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().warning(f"Error processing subaccount balance event ({ex})")
+                self.logger().warning("Error processing subaccount balance event", exc_info=ex)  # pragma: no cover
                 self.logger().debug(f"Error processing the subaccount balance event {balance_event}")
 
     async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
