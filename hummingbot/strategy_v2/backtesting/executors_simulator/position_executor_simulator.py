@@ -24,9 +24,11 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
             trailing_sl_delta_pct = float(config.triple_barrier_config.trailing_stop.trailing_delta)
         tl = config.triple_barrier_config.time_limit if config.triple_barrier_config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
+        start_dt = pd.to_datetime(start_timestamp, unit='s')
 
         # Filter dataframe based on the conditions
-        df_filtered = df[df['timestamp'] <= tl_timestamp].copy()
+        df_filtered = df[:pd.to_datetime(tl_timestamp, unit='s')].copy()
+
         df_filtered['net_pnl_pct'] = 0.0
         df_filtered['net_pnl_quote'] = 0.0
         df_filtered['cum_fees_quote'] = 0.0
@@ -36,14 +38,14 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         if pd.isna(start_timestamp):
             return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT)
 
-        entry_price = df.loc[df['timestamp'] == start_timestamp, 'close'].values[0]
+        entry_price = df.loc[start_dt, 'close']
         side_multiplier = 1 if config.side == TradeType.BUY else -1
 
-        returns_df = df_filtered[df_filtered['timestamp'] >= start_timestamp]
+        returns_df = df_filtered[start_dt:]
         returns = returns_df['close'].pct_change().fillna(0)
         cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
-        df_filtered.loc[df_filtered['timestamp'] >= start_timestamp, 'net_pnl_pct'] = cumulative_returns
-        df_filtered.loc[df_filtered['timestamp'] >= start_timestamp, 'filled_amount_quote'] = float(config.amount) * entry_price
+        df_filtered.loc[start_dt:, 'net_pnl_pct'] = cumulative_returns
+        df_filtered.loc[start_dt:, 'filled_amount_quote'] = float(config.amount) * entry_price
         df_filtered['net_pnl_quote'] = df_filtered['net_pnl_pct'] * df_filtered['filled_amount_quote']
         df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
 
@@ -75,7 +77,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
             close_type = CloseType.TIME_LIMIT
 
         # Set the final state of the DataFrame
-        df_filtered = df_filtered[df_filtered['timestamp'] <= close_timestamp]
+        df_filtered = df_filtered[:pd.to_datetime(close_timestamp, unit='s')]
         df_filtered.loc[df_filtered.index[-1], "filled_amount_quote"] = df_filtered["filled_amount_quote"].iloc[-1] * 2
 
         # Construct and return ExecutorSimulation object
