@@ -31,7 +31,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         trailing_sl_delta_pct = config.trailing_stop.trailing_delta if config.trailing_stop else None
 
         # Filter dataframe based on the conditions
-        df_filtered = df[df['timestamp'] <= tl_timestamp].copy()
+        df_filtered = df[:pd.to_datetime(tl_timestamp, unit='s')].copy()
         df_filtered['net_pnl_pct'] = 0.0
         df_filtered['net_pnl_quote'] = 0.0
         df_filtered['cum_fees_quote'] = 0.0
@@ -48,7 +48,8 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
             entry_timestamp = df_filtered[entry_condition]['timestamp'].min()
             if pd.isna(entry_timestamp):
                 break
-            returns_df = df_filtered[df_filtered['timestamp'] >= entry_timestamp]
+            entry_dt = pd.to_datetime(entry_timestamp, unit='s')
+            returns_df = df_filtered[entry_dt:]
             returns = returns_df['close'].pct_change().fillna(0)
             cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
             take_profit_timestamp = None
@@ -121,18 +122,18 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
 
         for i, dca_stage in enumerate(potential_dca_stages):
             if dca_stage['close_type'] is None:
-                df_filtered.loc[df_filtered['timestamp'] >= dca_stage['entry_timestamp'], f'filled_amount_quote_{i}'] = dca_stage['amount']
-                df_filtered.loc[df_filtered['timestamp'] >= dca_stage['entry_timestamp'], f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
-                df_filtered.loc[df_filtered['timestamp'] >= dca_stage['entry_timestamp'], 'current_position_average_price'] = dca_stage['break_even_price']
+                df_filtered.loc[entry_dt:, f'filled_amount_quote_{i}'] = dca_stage['amount']
+                df_filtered.loc[entry_dt:, f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
+                df_filtered.loc[entry_dt:, 'current_position_average_price'] = dca_stage['break_even_price']
             else:
-                df_filtered.loc[df_filtered['timestamp'] >= dca_stage['entry_timestamp'], f'filled_amount_quote_{i}'] = dca_stage['amount']
-                df_filtered.loc[df_filtered['timestamp'] >= dca_stage['entry_timestamp'], f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
-                df_filtered.loc[df_filtered['timestamp'] >= dca_stage['entry_timestamp'], 'current_position_average_price'] = dca_stage['break_even_price']
+                df_filtered.loc[entry_dt:, f'filled_amount_quote_{i}'] = dca_stage['amount']
+                df_filtered.loc[entry_dt:, f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
+                df_filtered.loc[entry_dt:, 'current_position_average_price'] = dca_stage['break_even_price']
                 close_type = dca_stage['close_type']
                 last_timestamp = dca_stage['close_timestamp']
                 break
 
-        df_filtered = df_filtered[df_filtered['timestamp'] <= last_timestamp].copy()
+        df_filtered = df_filtered[:pd.to_datetime(last_timestamp, unit='s')].copy()
         df_filtered['filled_amount_quote'] = sum([df_filtered[f'filled_amount_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['net_pnl_quote'] = sum([df_filtered[f'net_pnl_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
